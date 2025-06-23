@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Circular background -->
+  
+  <!-- Simplified magnifying glass - positioned to fill more space but keeping original look -->
+  <g transform="translate(30, 0) scale(0.8)">
+    <!-- Magnifying glass handle -->
+    <path d="M 160,160 L 110,110" stroke="#333333" stroke-width="12" stroke-linecap="round"/>
+    <!-- Magnifying glass circle -->
+    <circle cx="70" cy="70" r="50" fill="none" stroke="#333333" stroke-width="12"/>
+  </g>
+  
+  <!-- Improved document icon with better alignment and no bottom line - positioned to fill more space -->
+  <g transform="translate(95, 70) scale(1.5)">
+    <!-- Document outline using just left, top, and right lines - no bottom line -->
+    <path d="M 0,-20 L 50,-20 L 50,40" fill="none" stroke="#333333" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="0" y1="-20" x2="0" y2="40" stroke="#333333" stroke-width="5" stroke-linecap="round"/>
+    
+    <!-- Document fold aligned with document edge -->
+    <path d="M 50,-20 L 35,-20 L 50,-5 Z" fill="#333333" stroke="#333333" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+</svg>

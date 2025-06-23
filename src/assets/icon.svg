@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- House shape -->
+  <path d="M20,80 L20,40 L50,15 L80,40 L80,80 Z" fill="#4B89DC" stroke="#2C3E50" stroke-width="2.5"/>
+  
+  <!-- Roof ridge line -->
+  <line x1="50" y1="15" x2="50" y2="30" stroke="#2C3E50" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Package/Door combined element -->
+  <rect x="32.5" y="45" width="35" height="35" fill="#FFFFFF" stroke="#2C3E50" stroke-width="2" rx="3" ry="3"/>
+  
+  <!-- Package tape/cross -->
+  <line x1="50" y1="45" x2="50" y2="80" stroke="#2C3E50" stroke-width="1.5" stroke-dasharray="2,1"/>
+  <line x1="32.5" y1="62.5" x2="67.5" y2="62.5" stroke="#2C3E50" stroke-width="1.5" stroke-dasharray="2,1"/>
+  
+  <!-- Door handle -->
+  <circle cx="60" cy="62.5" r="3" fill="#F5A623" stroke="#2C3E50" stroke-width="1"/>
+  
+  <!-- Chimney -->
+  <rect x="62" y="25" width="8" height="10" fill="#E74C3C" stroke="#2C3E50" stroke-width="1.5"/>
+  
+  <!-- Ground/foundation suggestion -->
+  <line x1="15" y1="80" x2="85" y2="80" stroke="#2C3E50" stroke-width="3" stroke-linecap="round"/>
+</svg>
