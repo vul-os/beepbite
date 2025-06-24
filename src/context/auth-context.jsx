@@ -87,7 +87,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
         if (event === 'SIGNED_IN' && onNavigate && pathname && (pathname === '/signin' || pathname === '/signup' || pathname === '/')) {
           // Small delay to ensure user state is properly set
           setTimeout(() => {
-            onNavigate('/');
+            onNavigate('/dashboard');
           }, 100);
         }
       }
@@ -113,7 +113,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/search`,
+        emailRedirectTo: `${window.location.origin}/`,
       },
     });
     if (error) throw error;
@@ -133,7 +133,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/search`,
+        redirectTo: `${window.location.origin}/`,
       }
     });
     if (error) throw error;

@@ -12,6 +12,9 @@ import LandingPage from './pages/landing';
 const getLoadingMessage = (pathname) => {
   if (pathname.includes('/signin')) return 'Loading sign in...';
   if (pathname.includes('/signup')) return 'Loading sign up...';
+  if (pathname.includes('/dashboard')) return 'Loading dashboard...';
+  if (pathname.includes('/reports')) return 'Loading reports...';
+  if (pathname.includes('/reviews')) return 'Loading reviews...';
   if (pathname === '/') return 'Loading homepage...';
   return 'Loading...';
 };
@@ -34,14 +37,20 @@ const lazyImport = (importFn) => {
   return Component;
 };
 
-// Lazy loaded components
+// Lazy loaded components - Auth pages
 const SignIn = lazyImport(() => import('./pages/auth/signin'));
 const SignUp = lazyImport(() => import('./pages/auth/signup'));
 const ForgotPassword = lazyImport(() => import('./pages/auth/forgot-password'));
 const UpdatePassword = lazyImport(() => import('./pages/auth/update-password'));
 const VerifyEmail = lazyImport(() => import('./pages/auth/verify-email'));
-const NotFound = lazyImport(() => import('./pages/not-found'));
 
+// Lazy loaded components - App pages
+const Dashboard = lazyImport(() => import('./pages/dashboard'));
+const Reports = lazyImport(() => import('./pages/reports'));
+const Reviews = lazyImport(() => import('./pages/reviews'));
+
+// Other pages
+const NotFound = lazyImport(() => import('./pages/not-found'));
 
 const Protected = ({ children }) => (
   <ProtectedRoute>{children}</ProtectedRoute>
@@ -51,6 +60,7 @@ const AppRoutes = () => {
   return (
     <CustomSuspense>
       <Routes>
+        {/* Public routes with blank layout */}
         <Route element={<BlankLayout />}>
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
@@ -59,9 +69,28 @@ const AppRoutes = () => {
           <Route path="/verify-email" element={<VerifyEmail />} />
         </Route>
 
-
+        {/* Public landing page */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<LandingPage />} />
+        </Route>
+
+        {/* Protected app routes */}
+        <Route element={<MainLayout />}>
+          <Route path="/dashboard" element={
+            <Protected>
+              <Dashboard />
+            </Protected>
+          } />
+          <Route path="/reports" element={
+            <Protected>
+              <Reports />
+            </Protected>
+          } />
+          <Route path="/reviews" element={
+            <Protected>
+              <Reviews />
+            </Protected>
+          } />
         </Route>
 
         {/* Global catch-all route */}

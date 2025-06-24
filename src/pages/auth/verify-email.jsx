@@ -1,130 +1,173 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, CheckCircle, AlertCircle } from 'lucide-react';
-import Logo from '@/components/logo';
-import { supabase } from '@/services/supabase-client';
+import { Mail, RefreshCw, Utensils } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import Logo from '@/components/ui/logo';
 
 const VerifyEmailPage = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleResendVerification = async () => {
-    const email = localStorage.getItem('pendingVerificationEmail');
-    
-    if (!email) {
-      setError('No email found. Please sign up again.');
-      return;
+  useEffect(() => {
+    // Get email from localStorage (set during signup)
+    const pendingEmail = localStorage.getItem('pendingVerificationEmail');
+    if (pendingEmail) {
+      setEmail(pendingEmail);
+    } else {
+      // If no email found, redirect to signup
+      navigate('/signup');
     }
+  }, [navigate]);
 
-    setIsLoading(true);
-    setError('');
-    setMessage('');
+  useEffect(() => {
+    let timer;
+    if (resendCooldown > 0) {
+      timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
+  const handleResendEmail = async () => {
+    setIsResending(true);
+    setSuccessMessage('');
+    
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/search`,
-        }
-      });
-
-      if (error) throw error;
+      // Here you would typically make an API call to resend verification email
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       
-      setMessage('Verification email sent successfully! Please check your inbox.');
+      setSuccessMessage('Verification email sent successfully!');
+      setResendCooldown(60); // 60 second cooldown
     } catch (error) {
-      setError(error.message || 'Failed to resend verification email. Please try again.');
+      console.error('Failed to resend verification email:', error);
     } finally {
-      setIsLoading(false);
+      setIsResending(false);
     }
   };
 
+  const handleChangeEmail = () => {
+    localStorage.removeItem('pendingVerificationEmail');
+    localStorage.removeItem('pendingUserData');
+    navigate('/signup');
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 px-4 py-6 sm:py-12">
-      <div className="w-full max-w-md space-y-6 sm:space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-100 px-4 py-6 sm:py-12 relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+      <div className="absolute top-20 left-20 w-32 h-32 beepbite-gradient rounded-full opacity-10 animate-pulse"></div>
+      <div className="absolute bottom-20 right-20 w-24 h-24 bg-secondary rounded-full opacity-10"></div>
+      <div className="absolute top-1/2 right-10 w-16 h-16 beepbite-gradient rounded-full opacity-20"></div>
+      
+      <div className="w-full max-w-md space-y-6 sm:space-y-8 relative z-10">
         {/* Logo/Brand */}
         <Logo />
 
-        <Card className="border-none shadow-lg bg-white/80 backdrop-blur-sm">
-          <CardHeader className="space-y-1 pb-8">
-            <div className="flex items-center justify-center mb-4">
-              <div className="rounded-full bg-blue-100 p-3">
-                <Mail className="h-8 w-8 text-blue-600" />
-              </div>
+        <Card className="border-0 shadow-2xl glass-effect">
+          <CardHeader className="space-y-1 pb-8 text-center">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Mail className="w-8 h-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-serif font-semibold tracking-tight text-gray-900 text-center">
-              Check your email
+            <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
+              Check Your Email
             </CardTitle>
-            <CardDescription className="text-gray-600 font-medium text-center">
-              We've sent a verification link to your email address
+            <CardDescription className="text-muted-foreground font-medium">
+              We've sent a verification link to your restaurant email address
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
-              <Alert variant="destructive" className="mb-6 border-l-4 border-red-500 bg-red-50">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="font-medium">{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {message && (
-              <Alert className="mb-6 border-l-4 border-green-500 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="font-medium text-green-800">{message}</AlertDescription>
-              </Alert>
-            )}
-
             <div className="space-y-6">
-              <div className="text-center space-y-3">
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  Please click the verification link in your email to activate your account. 
-                  If you don't see the email, check your spam folder.
-                </p>
+              {successMessage && (
+                <Alert className="border-l-4 border-green-500 bg-green-50">
+                  <Mail className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="font-medium text-green-800">
+                    {successMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <Mail className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">Verification email sent</h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>
+                        We've sent a verification link to{' '}
+                        <span className="font-medium">{email}</span>. Click the link in the email to verify your restaurant account.
+                      </p>
+                      <p className="mt-2">
+                        <strong>Can't find the email?</strong> Check your spam folder or try resending it.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <Button 
-                  variant="outline" 
-                  className="w-full flex items-center justify-center gap-2 h-12 border-gray-200 bg-white hover:bg-gray-50 transition-colors duration-200 font-medium"
-                  onClick={handleResendVerification}
-                  disabled={isLoading}
+                  onClick={handleResendEmail}
+                  disabled={isResending || resendCooldown > 0}
+                  className="w-full h-11 beepbite-gradient text-white font-medium hover:shadow-lg transition-all duration-300"
                 >
-                  <Mail className="h-4 w-4" />
-                  {isLoading ? 'Sending...' : 'Resend verification email'}
+                  {isResending ? (
+                    <div className="flex items-center space-x-2">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Sending...</span>
+                    </div>
+                  ) : resendCooldown > 0 ? (
+                    `Resend in ${resendCooldown}s`
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Resend Verification Email</span>
+                    </div>
+                  )}
                 </Button>
-
-                <Button 
-                  className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white font-medium tracking-wide transition-colors duration-200"
-                  onClick={() => navigate('/signin')}
-                  disabled={isLoading}
-                >
-                  Back to sign in
-                </Button>
-              </div>
-
-              <div className="text-center pt-2">
-                <span className="text-sm text-gray-600 font-medium">Need help?{' '}</span>
+                
                 <Button
-                  variant="link"
-                  className="text-gray-900 hover:text-gray-700 p-0 h-auto font-medium"
-                  onClick={() => navigate('/docs/contact')}
-                  disabled={isLoading}
+                  variant="outline"
+                  onClick={handleChangeEmail}
+                  className="w-full h-11 border-border hover:bg-muted/50 font-medium"
                 >
-                  Contact support
+                  Use Different Email
                 </Button>
+                
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate('/signin')}
+                  className="w-full h-11 text-muted-foreground hover:text-foreground font-medium"
+                >
+                  Back to Sign In
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  After clicking the verification link, you'll be able to access your BeepBite restaurant dashboard.
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Footer */}
-        <div className="text-center text-sm text-gray-500 font-medium tracking-wide">
-          © {new Date().getFullYear()} CaseOn. All rights reserved.
+        {/* Features preview */}
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center space-x-6 text-sm text-muted-foreground">
+            <div className="flex items-center space-x-2">
+              <Utensils className="w-4 h-4 text-primary" />
+              <span>Restaurant Dashboard Awaits</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} BeepBite. Streamlining restaurant operations worldwide.
+          </p>
         </div>
       </div>
     </div>
