@@ -74,89 +74,91 @@ const UpdatePasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-100 px-4 py-6 sm:py-12 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      <div className="absolute top-20 right-20 w-32 h-32 beepbite-gradient rounded-full opacity-10 animate-pulse"></div>
-      <div className="absolute bottom-20 left-20 w-24 h-24 bg-secondary rounded-full opacity-10"></div>
-      <div className="absolute top-1/3 left-10 w-16 h-16 beepbite-gradient rounded-full opacity-20"></div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-8 relative overflow-hidden">
+      {/* Background decorations - more subtle */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-3"></div>
+      <div className="absolute top-10 right-10 w-20 h-20 bg-primary/5 rounded-full opacity-50"></div>
+      <div className="absolute bottom-10 left-10 w-16 h-16 bg-primary/5 rounded-full opacity-50"></div>
+      <div className="absolute top-1/3 left-20 w-12 h-12 bg-primary/10 rounded-full opacity-30"></div>
       
-      <div className="w-full max-w-md space-y-6 sm:space-y-8 relative z-10">
+      <div className="w-full max-w-lg space-y-6 relative z-10">
         {/* Logo/Brand */}
-        <Logo />
+        <div className="flex justify-center mb-4">
+          <Logo />
+        </div>
 
-        <Card className="border-0 shadow-2xl glass-effect">
-          <CardHeader className="space-y-1 pb-8 text-center">
-            <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
+        <Card className="border border-gray-200 shadow-xl bg-white/95 backdrop-blur-sm">
+          <CardHeader className="space-y-2 pb-6 text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight text-gray-900">
               Update Your Password
             </CardTitle>
-            <CardDescription className="text-muted-foreground font-medium">
+            <CardDescription className="text-sm text-gray-600">
               Choose a strong new password for your restaurant account
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-6">
             {!isUpdated ? (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {errors.submit && (
-                  <Alert variant="destructive" className="border-l-4 border-red-500 bg-red-50">
+                  <Alert variant="destructive" className="border-l-4 border-red-500 bg-red-50/80">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="font-medium">{errors.submit}</AlertDescription>
+                    <AlertDescription className="text-sm">{errors.submit}</AlertDescription>
                   </Alert>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="space-y-2">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         name="password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter new password"
-                        className={`pl-10 pr-10 h-11 bg-white border-border focus:border-primary focus:ring-primary transition-all duration-200 ${errors.password ? "border-red-500" : ""}`}
+                        className={`pl-10 pr-10 h-10 bg-white border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 ${errors.password ? "border-red-400" : ""}`}
                         value={formData.password}
                         onChange={handleInputChange}
                         disabled={isLoading}
                       />
                       <button
                         type="button"
-                        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                         onClick={() => setShowPassword(!showPassword)}
                       >
-                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                     {errors.password && (
-                      <p className="text-sm text-red-500 font-medium">{errors.password}</p>
+                      <p className="text-xs text-red-500">{errors.password}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         name="confirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm new password"
-                        className={`pl-10 pr-10 h-11 bg-white border-border focus:border-primary focus:ring-primary transition-all duration-200 ${errors.confirmPassword ? "border-red-500" : ""}`}
+                        className={`pl-10 pr-10 h-10 bg-white border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 ${errors.confirmPassword ? "border-red-400" : ""}`}
                         value={formData.confirmPassword}
                         onChange={handleInputChange}
                         disabled={isLoading}
                       />
                       <button
                         type="button"
-                        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       >
-                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                     {errors.confirmPassword && (
-                      <p className="text-sm text-red-500 font-medium">{errors.confirmPassword}</p>
+                      <p className="text-xs text-red-500">{errors.confirmPassword}</p>
                     )}
                   </div>
 
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>Password requirements:</p>
+                  <div className="text-xs text-gray-500 space-y-1 py-2">
+                    <p className="font-medium">Password requirements:</p>
                     <ul className="list-disc list-inside space-y-1">
                       <li>At least 8 characters</li>
                       <li>At least 1 uppercase letter</li>
@@ -166,7 +168,7 @@ const UpdatePasswordPage = () => {
 
                   <Button 
                     type="submit" 
-                    className="w-full h-11 beepbite-gradient text-white font-medium hover:shadow-lg transition-all duration-300"
+                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -181,17 +183,17 @@ const UpdatePasswordPage = () => {
                 </form>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="rounded-lg bg-green-50 p-4 border border-green-200">
+              <div className="space-y-5">
+                <div className="rounded-lg bg-green-50/80 p-4 border border-green-200/60">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-green-800">Password updated</h3>
-                      <div className="mt-2 text-sm text-green-700">
+                      <h3 className="text-sm font-medium text-green-900">Password updated</h3>
+                      <div className="mt-2 text-sm text-green-800">
                         <p>
                           Your password has been successfully updated. You can now sign in with your new password.
                         </p>
@@ -201,7 +203,7 @@ const UpdatePasswordPage = () => {
                 </div>
                 
                 <Button
-                  className="w-full h-11 beepbite-gradient text-white font-medium hover:shadow-lg transition-all duration-300"
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
                   onClick={() => navigate('/signin')}
                 >
                   <div className="flex items-center space-x-2">
@@ -214,15 +216,15 @@ const UpdatePasswordPage = () => {
           </CardContent>
         </Card>
 
-        {/* Features preview */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center space-x-6 text-sm text-muted-foreground">
+        {/* Features preview - more compact */}
+        <div className="text-center space-y-3">
+          <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
             <div className="flex items-center space-x-2">
               <Utensils className="w-4 h-4 text-primary" />
               <span>Secure Restaurant Management</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-gray-500">
             © {new Date().getFullYear()} BeepBite. Streamlining restaurant operations worldwide.
           </p>
         </div>

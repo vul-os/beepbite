@@ -217,17 +217,17 @@ const Reviews = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Customer Reviews</h1>
-          <p className="text-gray-600">Manage and respond to customer feedback</p>
+      <div className="flex flex-col space-y-3 sm:space-y-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1 sm:space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customer Reviews</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage and respond to customer feedback</p>
         </div>
         
         <div className="flex items-center gap-3">
           <Select value={ratingFilter} onValueChange={setRatingFilter}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-full sm:w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -242,34 +242,34 @@ const Reviews = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Rating Overview */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6 lg:order-1 order-2">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-500" />
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Star className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-500" />
                 Rating Overview
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center mb-6">
-                <div className="text-4xl font-bold text-gray-900 mb-2">
+              <div className="text-center mb-4 sm:mb-6">
+                <div className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
                   {ratingStats.average}
                 </div>
                 <div className="flex justify-center mb-2">
                   {getStarDisplay(Math.round(parseFloat(ratingStats.average)))}
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-gray-600">
                   Based on {reviews.length} reviews
                 </p>
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {ratingStats.distribution.map((stat) => (
-                  <div key={stat.rating} className="flex items-center gap-3">
+                  <div key={stat.rating} className="flex items-center gap-2 sm:gap-3">
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className="text-sm font-medium">{stat.rating}</span>
+                      <span className="text-xs sm:text-sm font-medium">{stat.rating}</span>
                       <Star className="w-3 h-3 text-yellow-400 fill-current" />
                     </div>
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
@@ -278,7 +278,7 @@ const Reviews = () => {
                         style={{ width: `${stat.percentage}%` }}
                       ></div>
                     </div>
-                    <span className="text-sm text-gray-600 min-w-0">
+                    <span className="text-xs sm:text-sm text-gray-600 min-w-0">
                       {stat.count}
                     </span>
                   </div>
@@ -289,32 +289,32 @@ const Reviews = () => {
 
           {/* Quick Stats */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5" />
                 Quick Stats
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Total Reviews</span>
-                <span className="font-semibold">{reviews.length}</span>
+                <span className="text-xs sm:text-sm text-gray-600">Total Reviews</span>
+                <span className="font-semibold text-sm sm:text-base">{reviews.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Replied</span>
-                <span className="font-semibold">
+                <span className="text-xs sm:text-sm text-gray-600">Replied</span>
+                <span className="font-semibold text-sm sm:text-base">
                   {reviews.filter(r => r.has_reply).length}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Pending</span>
-                <span className="font-semibold">
+                <span className="text-xs sm:text-sm text-gray-600">Pending</span>
+                <span className="font-semibold text-sm sm:text-base">
                   {reviews.filter(r => !r.has_reply).length}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">5-Star Rate</span>
-                <span className="font-semibold text-green-600">
+                <span className="text-xs sm:text-sm text-gray-600">5-Star Rate</span>
+                <span className="font-semibold text-sm sm:text-base text-green-600">
                   {ratingStats.distribution[0].percentage}%
                 </span>
               </div>
@@ -323,29 +323,29 @@ const Reviews = () => {
         </div>
 
         {/* Reviews List */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:order-2 order-1">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search reviews by customer name, order number, or comment..."
+              placeholder="Search reviews by customer name, order number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 text-sm sm:text-base"
             />
           </div>
 
           {/* Reviews */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {filteredReviews.length === 0 ? (
-              <Card className="p-12 text-center">
+              <Card className="p-8 sm:p-12 text-center">
                 <div className="space-y-4">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                    <MessageCircle className="w-8 h-8 text-gray-400" />
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                    <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">No reviews found</h3>
-                    <p className="text-gray-500">
+                  <div className="space-y-2">
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900">No reviews found</h3>
+                    <p className="text-sm sm:text-base text-gray-500">
                       {searchTerm ? 'Try adjusting your search terms' : 'Customer reviews will appear here'}
                     </p>
                   </div>
@@ -354,32 +354,32 @@ const Reviews = () => {
             ) : (
               filteredReviews.map((review) => (
                 <Card key={review.id} className="hover:shadow-md transition-shadow duration-200">
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="space-y-3 sm:space-y-4">
                       {/* Header */}
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                            <span className="text-orange-600 font-semibold">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                            <span className="text-orange-600 font-semibold text-sm sm:text-base">
                               {review.customer_name?.charAt(0) || 'C'}
                             </span>
                           </div>
                           
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-1">
-                              <h3 className="font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 sm:gap-3 mb-1">
+                              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
                                 {review.customer_name}
                               </h3>
                               {review.verified && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Verified Order
+                                <Badge variant="secondary" className="text-xs shrink-0">
+                                  Verified
                                 </Badge>
                               )}
                             </div>
                             
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <span>Order #{review.order_number}</span>
-                              <span>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                              <span className="truncate">Order #{review.order_number}</span>
+                              <span className="shrink-0">
                                 {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
                               </span>
                             </div>
@@ -388,7 +388,7 @@ const Reviews = () => {
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" className="shrink-0">
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -410,47 +410,47 @@ const Reviews = () => {
                         <div className="flex">
                           {getStarDisplay(review.rating)}
                         </div>
-                        <Badge className={`${getRatingColor(review.rating)} border`}>
+                        <Badge className={`${getRatingColor(review.rating)} border text-xs`}>
                           {review.rating} / 5
                         </Badge>
                       </div>
 
                       {/* Comment */}
-                      <div className="text-gray-700 leading-relaxed">
+                      <div className="text-gray-700 leading-relaxed text-sm sm:text-base">
                         {review.comment}
                       </div>
 
                       {/* Reply */}
                       {review.has_reply && (
-                        <div className="bg-blue-50 border-l-4 border-blue-200 p-4 rounded-r-lg">
+                        <div className="bg-blue-50 border-l-4 border-blue-200 p-3 sm:p-4 rounded-r-lg">
                           <div className="flex items-center gap-2 mb-2">
-                            <Reply className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-medium text-blue-800">
+                            <Reply className="w-3 sm:w-4 h-3 sm:h-4 text-blue-600" />
+                            <span className="text-xs sm:text-sm font-medium text-blue-800">
                               Restaurant Response
                             </span>
                           </div>
-                          <p className="text-blue-700 text-sm">
+                          <p className="text-blue-700 text-xs sm:text-sm">
                             {review.reply}
                           </p>
                         </div>
                       )}
 
                       {/* Actions */}
-                      <div className="flex items-center gap-3 pt-2">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2">
                         {!review.has_reply && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => openReplyModal(review)}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 w-full sm:w-auto"
                           >
-                            <Reply className="w-4 h-4" />
-                            Reply
+                            <Reply className="w-3 sm:w-4 h-3 sm:h-4" />
+                            <span className="text-xs sm:text-sm">Reply</span>
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                          <ThumbsUp className="w-4 h-4" />
-                          Helpful
+                        <Button variant="ghost" size="sm" className="flex items-center gap-2 w-full sm:w-auto">
+                          <ThumbsUp className="w-3 sm:w-4 h-3 sm:h-4" />
+                          <span className="text-xs sm:text-sm">Helpful</span>
                         </Button>
                       </div>
                     </div>
@@ -464,40 +464,40 @@ const Reviews = () => {
 
       {/* Reply Modal */}
       <Dialog open={isReplyModalOpen} onOpenChange={setIsReplyModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md mx-4 sm:mx-auto">
           <DialogHeader>
-            <DialogTitle>Reply to Review</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">Reply to Review</DialogTitle>
           </DialogHeader>
           
           {selectedReview && (
             <div className="space-y-4">
               {/* Original Review */}
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-medium">{selectedReview.customer_name}</span>
+                  <span className="font-medium text-sm sm:text-base">{selectedReview.customer_name}</span>
                   <div className="flex">
                     {getStarDisplay(selectedReview.rating)}
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-gray-600">
                   "{selectedReview.comment}"
                 </p>
               </div>
 
               {/* Reply Input */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Your Response</label>
+                <label className="text-xs sm:text-sm font-medium">Your Response</label>
                 <Textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Write a thoughtful response to this review..."
                   rows={4}
-                  className="resize-none"
+                  className="resize-none text-sm"
                 />
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button
                   variant="outline"
                   onClick={() => setIsReplyModalOpen(false)}

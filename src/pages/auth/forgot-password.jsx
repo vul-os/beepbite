@@ -47,52 +47,54 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-100 px-4 py-6 sm:py-12 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      <div className="absolute top-20 left-20 w-32 h-32 beepbite-gradient rounded-full opacity-10 animate-pulse"></div>
-      <div className="absolute bottom-20 right-20 w-24 h-24 bg-secondary rounded-full opacity-10"></div>
-      <div className="absolute top-1/2 left-10 w-16 h-16 beepbite-gradient rounded-full opacity-20"></div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-8 relative overflow-hidden">
+      {/* Background decorations - more subtle */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-3"></div>
+      <div className="absolute top-10 left-10 w-20 h-20 bg-primary/5 rounded-full opacity-50"></div>
+      <div className="absolute bottom-10 right-10 w-16 h-16 bg-primary/5 rounded-full opacity-50"></div>
+      <div className="absolute top-1/2 left-20 w-12 h-12 bg-primary/10 rounded-full opacity-30"></div>
       
-      <div className="w-full max-w-md space-y-6 sm:space-y-8 relative z-10">
+      <div className="w-full max-w-lg space-y-6 relative z-10">
         {/* Logo/Brand */}
-        <Logo />
+        <div className="flex justify-center mb-4">
+          <Logo />
+        </div>
 
-        <Card className="border-0 shadow-2xl glass-effect">
-          <CardHeader className="space-y-1 pb-8">
+        <Card className="border border-gray-200 shadow-xl bg-white/95 backdrop-blur-sm">
+          <CardHeader className="space-y-2 pb-6">
             <Button 
               variant="ghost" 
-              className="w-fit -ml-2 mb-2 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              className="w-fit -ml-2 mb-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               onClick={() => navigate(-1)}
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
+            <CardTitle className="text-2xl font-bold tracking-tight text-gray-900">
               Reset Your Password
             </CardTitle>
-            <CardDescription className="text-muted-foreground font-medium">
+            <CardDescription className="text-sm text-gray-600">
               Enter your restaurant email to receive a password reset link
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-6">
             {!isSubmitted ? (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {error && (
-                  <Alert variant="destructive" className="border-l-4 border-red-500 bg-red-50">
+                  <Alert variant="destructive" className="border-l-4 border-red-500 bg-red-50/80">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="font-medium">{error}</AlertDescription>
+                    <AlertDescription className="text-sm">{error}</AlertDescription>
                   </Alert>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="space-y-2">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         type="email"
-                        placeholder="Enter your restaurant email"
-                        className={`pl-10 h-11 bg-white border-border focus:border-primary focus:ring-primary transition-all duration-200 ${error ? "border-red-500" : ""}`}
+                        placeholder="your.email@restaurant.com"
+                        className={`pl-10 h-10 bg-white border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 ${error ? "border-red-400" : ""}`}
                         value={email}
                         onChange={(e) => {
                           setEmail(e.target.value);
@@ -105,7 +107,7 @@ const ForgotPasswordPage = () => {
 
                   <Button 
                     type="submit" 
-                    className="w-full h-11 beepbite-gradient text-white font-medium hover:shadow-lg transition-all duration-300"
+                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -120,10 +122,10 @@ const ForgotPasswordPage = () => {
                 </form>
 
                 <div className="text-center pt-2">
-                  <span className="text-sm text-muted-foreground">Remember your password?{' '}</span>
+                  <span className="text-sm text-gray-600">Remember your password?{' '}</span>
                   <Button
                     variant="link"
-                    className="text-primary hover:text-primary/80 p-0 h-auto font-medium"
+                    className="text-primary hover:text-primary/80 p-0 h-auto font-medium underline"
                     onClick={() => navigate('/signin')}
                     disabled={isLoading}
                   >
@@ -132,19 +134,19 @@ const ForgotPasswordPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="rounded-lg bg-green-50 p-4 border border-green-200">
+              <div className="space-y-5">
+                <div className="rounded-lg bg-green-50/80 p-4 border border-green-200/60">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-green-800">Check your email</h3>
-                      <div className="mt-2 text-sm text-green-700">
+                      <h3 className="text-sm font-medium text-green-900">Check your email</h3>
+                      <div className="mt-2 text-sm text-green-800">
                         <p>
-                          We've sent a password reset link to <span className="font-medium">{email}</span>. 
+                          We've sent a password reset link to <span className="font-medium text-green-900">{email}</span>. 
                           The link will expire in 1 hour. Check your spam folder if you don't see it.
                         </p>
                       </div>
@@ -154,14 +156,14 @@ const ForgotPasswordPage = () => {
                 
                 <div className="space-y-3">
                   <Button 
-                    className="w-full h-11 beepbite-gradient text-white font-medium hover:shadow-lg transition-all duration-300"
+                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
                     onClick={() => setIsSubmitted(false)}
                   >
                     Try Another Email
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full h-11 border-border hover:bg-muted/50 font-medium"
+                    className="w-full h-11 border-gray-300 hover:bg-gray-50 font-medium"
                     onClick={() => navigate('/signin')}
                   >
                     Back to Sign In
@@ -172,15 +174,15 @@ const ForgotPasswordPage = () => {
           </CardContent>
         </Card>
 
-        {/* Features preview */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center space-x-6 text-sm text-muted-foreground">
+        {/* Features preview - more compact */}
+        <div className="text-center space-y-3">
+          <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
             <div className="flex items-center space-x-2">
               <Utensils className="w-4 h-4 text-primary" />
               <span>Restaurant Management</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-gray-500">
             © {new Date().getFullYear()} BeepBite. Streamlining restaurant operations worldwide.
           </p>
         </div>

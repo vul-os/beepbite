@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Settings, 
@@ -10,7 +10,9 @@ import {
   BarChart3,
   MessageSquare,
   Hash,
-  Bell
+  Bell,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -31,6 +33,7 @@ const TopBar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const handleSignOut = async () => {
     try {
@@ -76,19 +79,23 @@ const TopBar = () => {
     }
   ];
 
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200/80 shadow-sm backdrop-blur-sm">
-      <nav className="h-16 px-4">
+      <nav className="h-16 px-3 sm:px-4 lg:px-6">
         <div className="h-full flex items-center justify-between max-w-7xl mx-auto">
           {/* Left: Logo and Navigation */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 sm:gap-8">
             <Link to="/" className="flex items-center">
               <Logo variant="minimal" />
             </Link>
 
-            {/* Main Navigation - Only show for authenticated users */}
+            {/* Desktop Navigation - Only show for authenticated users */}
             {user && (
-              <nav className="hidden md:flex items-center space-x-1">
+              <nav className="hidden lg:flex items-center space-x-1">
                 {navigationItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = isActivePath(item.path);
@@ -114,44 +121,24 @@ const TopBar = () => {
           </div>
 
           {/* Right: User Menu or Sign In */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
               <>
-                {/* Mobile Navigation Menu */}
-                <div className="md:hidden">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                        <Hash className="w-4 h-4" />
-                        Menu
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuLabel>Navigation</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {navigationItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <DropdownMenuItem key={item.path} asChild>
-                            <Link 
-                              to={item.path} 
-                              className={cn(
-                                "flex items-center gap-2",
-                                isActivePath(item.path) && "bg-orange-50 text-orange-700"
-                              )}
-                            >
-                              <Icon className="w-4 h-4" />
-                              <div className="flex flex-col">
-                                <span>{item.name}</span>
-                                <span className="text-xs text-gray-500">{item.description}</span>
-                              </div>
-                            </Link>
-                          </DropdownMenuItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                {/* Mobile Menu Button */}
+                <div className="lg:hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="flex items-center gap-2 px-2 sm:px-3"
+                  >
+                    {isMobileMenuOpen ? (
+                      <X className="w-5 h-5" />
+                    ) : (
+                      <Menu className="w-5 h-5" />
+                    )}
+                    <span className="hidden sm:inline">Menu</span>
+                  </Button>
                 </div>
 
                 {/* User Avatar Dropdown */}
@@ -169,7 +156,7 @@ const TopBar = () => {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-64" align="end">
+                  <DropdownMenuContent className="w-56 sm:w-64" align="end">
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
                         <div className="flex items-center gap-2">
@@ -229,11 +216,14 @@ const TopBar = () => {
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={() => navigate('/signin')}
+                  className="text-sm"
                 >
                   Sign In
                 </Button>
                 <Button
+                  size="sm"
                   className="beepbite-gradient text-white"
                   onClick={() => navigate('/signup')}
                 >
@@ -244,6 +234,38 @@ const TopBar = () => {
           </div>
         </div>
       </nav>
+
+      {/* Mobile Navigation Menu */}
+      {user && isMobileMenuOpen && (
+        <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg">
+          <div className="px-3 py-4 space-y-2">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isActivePath(item.path);
+              
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={closeMobileMenu}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors w-full",
+                    isActive 
+                      ? "bg-orange-100 text-orange-700 border border-orange-200" 
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                  <div className="flex flex-col">
+                    <span>{item.name}</span>
+                    <span className="text-xs opacity-70">{item.description}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </header>
   );
 };
