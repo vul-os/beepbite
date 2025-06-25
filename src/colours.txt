@@ -1,0 +1,21 @@
+# BEEPBITE VIBRANT ORANGE PALETTE
+# Designed for energy, appetite appeal, and modern restaurant branding
+
+Primary Orange: #F97316       # Bright vibrant orange (Tailwind orange-500)
+Secondary Orange: #FB923C     # Softer bright orange (Tailwind orange-400)  
+Accent Orange: #FDBA74        # Light warm orange (Tailwind orange-300)
+
+Primary Text: #1A1A1A         # Rich black for excellent readability
+Secondary Text: #4A4A4A       # Medium gray for secondary content  
+Tertiary Text: #6B7280        # Light gray for subtle text
+
+Background White: #FFFFFF     # Pure white for cleanliness
+Background Light: #FAFAFA     # Soft white for sections
+Background Cream: #FFF7ED     # Very light orange cream (Tailwind orange-50)
+
+Success Green: #10B981        # For positive actions/status
+Warning Amber: #F59E0B        # For alerts (harmonizes with orange)
+Error Red: #EF4444            # For errors/urgent items
+
+Border Light: #E5E7EB         # Light borders
+Border Medium: #D1D5DB        # Medium borders for definition

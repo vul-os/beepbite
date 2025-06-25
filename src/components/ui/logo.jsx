@@ -5,37 +5,45 @@ const Logo = ({ className = "", variant = "default" }) => {
     return (
       <div className={`flex items-center ${className}`}>
         <div className="relative">
-          <div className="w-8 h-8 beepbite-gradient rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">B</span>
+          <div className="w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center border border-gray-200">
+            <img 
+              src="/icon.svg" 
+              alt="BeepBite" 
+              className="w-6 h-6"
+            />
           </div>
         </div>
-        <span className="ml-2 text-xl font-bold text-foreground">BeepBite</span>
+        <span className="ml-3 text-2xl font-bold">
+          <span className="text-gray-900">Beep</span>
+          <span className="text-orange-500">Bite</span>
+        </span>
       </div>
     );
   }
 
   return (
     <div className={`text-center ${className}`}>
-      <div className="flex justify-center items-center mb-3">
+      <div className="flex justify-center items-center mb-4">
         <div className="relative">
-          {/* Animated orange circle background */}
-          <div className="w-16 h-16 beepbite-gradient rounded-full flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
-            {/* Bell/notification icon made with text */}
-            <div className="text-white font-bold text-2xl relative">
-              🔔
-              {/* Small notification dot */}
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-            </div>
+          {/* Main logo with icon.svg */}
+          <div className="w-20 h-20 beepbite-gradient rounded-2xl flex items-center justify-center shadow-xl transform hover:scale-105 transition-transform duration-300 border-4 border-white">
+            <img 
+              src="/icon.svg" 
+              alt="BeepBite Bell Icon" 
+              className="w-12 h-12 filter brightness-0 invert"
+            />
+            {/* Small notification dot */}
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-lg"></div>
           </div>
         </div>
       </div>
       
-      <div className="space-y-1">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+      <div className="space-y-2">
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
           <span className="beepbite-gradient-text">Beep</span>
-          <span className="text-secondary">Bite</span>
+          <span className="text-gray-900">Bite</span>
         </h1>
-        <p className="text-sm sm:text-base text-muted-foreground font-medium tracking-wide uppercase">
+        <p className="text-sm sm:text-base text-gray-600 font-semibold tracking-wide uppercase">
           Restaurant Order Management
         </p>
       </div>

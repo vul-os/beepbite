@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,65 +7,81 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 0 0% 10%; /* Primary Text: Rich black for readability */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 0 0% 10%; /* Primary Text: Rich black */
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    /* Orange and black corporate theme */
-    --primary: 25 95% 53%; /* Vibrant orange */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 20 5.9% 10%; /* Dark charcoal */
-    --secondary-foreground: 0 0% 98%;
-    --muted: 20 14.3% 4.1%; /* Deep black */
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 24 100% 50%; /* Bright orange accent */
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 20 5.9% 90%; /* Light gray borders */
-    --input: 20 5.9% 90%;
-    --ring: 25 95% 53%; /* Orange focus ring */
-    --chart-1: 25 95% 53%;
-    --chart-2: 20 5.9% 10%;
-    --chart-3: 35 91% 65%;
-    --chart-4: 15 80% 45%;
-    --chart-5: 30 85% 60%;
+    --popover-foreground: 0 0% 10%; /* Primary Text: Rich black */
+    
+    /* Restaurant Owner Optimized Color Scheme */
+    --primary: 25 95% 53%; /* Primary Orange: #F97316 - bright vibrant orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 29%; /* Secondary Text: #4A4A4A - readable gray */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 98%; /* Background Light: #FAFAFA - clean sections */
+    --muted-foreground: 220 13% 46%; /* Tertiary Text: #6B7280 - subtle text */
+    --accent: 32 91% 72%; /* Accent Orange: #FDBA74 - light warm orange */
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 84% 60%; /* Error Red: #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%; /* Border Light: #E5E7EB */
+    --input: 220 13% 91%; /* Border Light for inputs */
+    --ring: 25 95% 53%; /* Primary Orange focus ring */
+    
+    /* Updated chart colors using vibrant orange palette */
+    --chart-1: 25 95% 53%; /* Primary Orange */
+    --chart-2: 24 95% 61%; /* Secondary Orange */
+    --chart-3: 32 91% 72%; /* Accent Orange */
+    --chart-4: 158 84% 39%; /* Success Green */
+    --chart-5: 43 96% 50%; /* Warning Amber */
     --radius: 0.75rem;
     
-    /* Custom BeepBite variables */
-    --beepbite-orange: 25 95% 53%;
-    --beepbite-dark: 20 5.9% 10%;
-    --beepbite-light-orange: 35 91% 65%;
-    --beepbite-gradient-start: 25 95% 53%;
-    --beepbite-gradient-end: 35 91% 65%;
+    /* Custom BeepBite variables with vibrant orange palette */
+    --beepbite-orange: 25 95% 53%; /* Primary Orange: #F97316 */
+    --beepbite-orange-soft: 24 95% 61%; /* Secondary Orange: #FB923C */
+    --beepbite-accent: 32 91% 72%; /* Accent Orange: #FDBA74 */
+    --beepbite-text-primary: 0 0% 10%; /* Primary Text: #1A1A1A */
+    --beepbite-text-secondary: 0 0% 29%; /* Secondary Text: #4A4A4A */
+    --beepbite-text-tertiary: 220 13% 46%; /* Tertiary Text: #6B7280 */
+    --beepbite-background: 0 0% 100%; /* Background White */
+    --beepbite-background-light: 0 0% 98%; /* Background Light: #FAFAFA */
+    --beepbite-background-cream: 33 100% 97%; /* Background Cream: #FFF7ED */
+    --beepbite-success: 158 84% 39%; /* Success Green: #10B981 */
+    --beepbite-warning: 43 96% 50%; /* Warning Amber: #F59E0B */
+    --beepbite-error: 0 84% 60%; /* Error Red: #EF4444 */
+    --beepbite-border-light: 220 13% 91%; /* Border Light: #E5E7EB */
+    --beepbite-border-medium: 220 13% 83%; /* Border Medium: #D1D5DB */
+    --beepbite-gradient-start: 25 95% 53%; /* Primary Orange */
+    --beepbite-gradient-end: 24 95% 61%; /* Secondary Orange */
   }
 
   .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 0 0% 95%;
-    --card: 20 14.3% 4.1%;
-    --card-foreground: 0 0% 95%;
-    --popover: 20 14.3% 4.1%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 25 95% 53%;
-    --primary-foreground: 20 14.3% 4.1%;
-    --secondary: 12 6.5% 15.1%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 12 6.5% 15.1%;
-    --muted-foreground: 24 5.4% 63.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 12 6.5% 15.1%;
-    --input: 12 6.5% 15.1%;
-    --ring: 25 95% 53%;
-    --chart-1: 25 95% 53%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 0 0% 10%; /* Primary Text as dark background */
+    --foreground: 0 0% 98%; /* Background Light as light text */
+    --card: 0 0% 10%; /* Primary Text as dark card */
+    --card-foreground: 0 0% 98%; /* Background Light as light text */
+    --popover: 0 0% 10%; /* Primary Text as dark popover */
+    --popover-foreground: 0 0% 98%; /* Background Light as light text */
+    --primary: 25 95% 53%; /* Keep bright Primary Orange in dark mode */
+    --primary-foreground: 0 0% 10%; /* Primary Text as contrast */
+    --secondary: 0 0% 29%; /* Secondary Text */
+    --secondary-foreground: 0 0% 98%; /* Background Light */
+    --muted: 0 0% 29%; /* Secondary Text as muted background */
+    --muted-foreground: 220 13% 46%; /* Tertiary Text */
+    --accent: 32 91% 72%; /* Accent Orange */
+    --accent-foreground: 0 0% 10%; /* Primary Text */
+    --destructive: 0 84% 60%; /* Error Red */
+    --destructive-foreground: 0 0% 98%; /* Background Light */
+    --border: 0 0% 29%; /* Secondary Text as border */
+    --input: 0 0% 29%; /* Secondary Text as input border */
+    --ring: 25 95% 53%; /* Primary Orange */
+    
+    /* Updated dark mode chart colors */
+    --chart-1: 25 95% 53%; /* Primary Orange */
+    --chart-2: 24 95% 61%; /* Secondary Orange */
+    --chart-3: 32 91% 72%; /* Accent Orange */
+    --chart-4: 158 84% 39%; /* Success Green */
+    --chart-5: 43 96% 50%; /* Warning Amber */
   }
 
   /* Apply border and background styles */
@@ -134,6 +152,31 @@
     background-clip: text;
   }
 
+  /* Restaurant-optimized color utility classes */
+  .beepbite-text-primary {
+    color: hsl(var(--beepbite-text-primary));
+  }
+  
+  .beepbite-text-secondary {
+    color: hsl(var(--beepbite-text-secondary));
+  }
+  
+  .beepbite-text-tertiary {
+    color: hsl(var(--beepbite-text-tertiary));
+  }
+  
+  .beepbite-bg-cream {
+    background-color: hsl(var(--beepbite-background-cream));
+  }
+  
+  .beepbite-border-light {
+    border-color: hsl(var(--beepbite-border-light));
+  }
+  
+  .beepbite-border-medium {
+    border-color: hsl(var(--beepbite-border-medium));
+  }
+
   .glass-effect {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
@@ -177,5 +220,11 @@
 
   .mobile-card-padding {
     @apply p-4 sm:p-6;
+  }
+}
+
+@layer components {
+  .font-inter {
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
 }

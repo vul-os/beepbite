@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Logo from '@/components/ui/logo';
+import ScrollToTop from '@/components/ui/scroll-to-top';
 import { 
   Bell, 
   Smartphone, 
@@ -22,7 +23,11 @@ import {
   Play,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Award,
+  Lightbulb,
+  Target,
+  Heart
 } from 'lucide-react';
 
 // WhatsApp SVG Icon Component
@@ -35,50 +40,58 @@ const WhatsAppIcon = ({ className = "w-5 h-5" }) => (
 const LandingPage = () => {
   const navigate = useNavigate();
 
+  // Smooth scroll function
+  const scrollToSection = (sectionId) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const features = [
     {
-      icon: <WhatsAppIcon className="w-5 h-5" />,
+      icon: <WhatsAppIcon className="w-6 h-6" />,
       title: "Instant WhatsApp Alerts",
-      description: "Never miss an order with real-time WhatsApp notifications sent directly to your phone.",
+      description: "Alert customers the moment their food is ready. No more cold meals or unhappy diners waiting around.",
       highlight: true
     },
     {
-      icon: <Clock className="w-5 h-5" />,
-      title: "Real-Time Order Tracking", 
-      description: "Monitor order status from pending to ready with automated preparation time tracking.",
+      icon: <Clock className="w-6 h-6" />,
+      title: "Faster Food Delivery", 
+      description: "Get hot food to customers quickly with automated pickup notifications sent directly to their phone.",
       highlight: false
     },
     {
-      icon: <BarChart3 className="w-5 h-5" />,
-      title: "Smart Analytics",
-      description: "Identify peak hours, track performance metrics, and optimize your restaurant operations.",
+      icon: <Shield className="w-6 h-6" />,
+      title: "No Devices Needed",
+      description: "Works with your existing setup. No hardware to buy, install, or maintain. Just pure simplicity.",
       highlight: false
     },
     {
-      icon: <Users className="w-5 h-5" />,
-      title: "Team Management",
-      description: "Invite staff with role-based access for seamless kitchen and front-of-house coordination.",
+      icon: <Star className="w-6 h-6" />,
+      title: "Private Customer Reviews",
+      description: "Get honest feedback sent directly to you via WhatsApp instead of public review sites.",
       highlight: false
     },
     {
-      icon: <Star className="w-5 h-5" />,
-      title: "Customer Reviews",
-      description: "Collect and manage customer feedback to continuously improve service quality.",
+      icon: <Heart className="w-6 h-6" />,
+      title: "Happier Customers",
+      description: "No more complaints about cold food or long waits. Keep customers satisfied and coming back.",
       highlight: false
     },
     {
-      icon: <Shield className="w-5 h-5" />,
-      title: "Reliable & Secure",
-      description: "99.9% uptime with enterprise-grade security to keep your restaurant data safe.",
+      icon: <Zap className="w-6 h-6" />,
+      title: "Zero Setup Costs",
+      description: "No upfront fees, no monthly contracts, no hidden costs. Start serving hot food faster today.",
       highlight: false
     }
   ];
 
   const stats = [
-    { number: "15,000+", label: "Orders Processed Daily", icon: <BarChart3 className="w-4 h-4" /> },
-    { number: "800+", label: "Active Restaurants", icon: <Utensils className="w-4 h-4" /> },
-    { number: "99.9%", label: "System Uptime", icon: <Shield className="w-4 h-4" /> },
-    { number: "<1s", label: "Notification Speed", icon: <Zap className="w-4 h-4" /> }
+    { number: "15,000+", label: "Orders Processed Daily", icon: <BarChart3 className="w-6 h-6" /> },
+    { number: "800+", label: "Active Restaurants", icon: <Utensils className="w-6 h-6" /> },
+    { number: "99.9%", label: "System Uptime", icon: <Shield className="w-6 h-6" /> },
+    { number: "<1s", label: "Notification Speed", icon: <Zap className="w-6 h-6" /> }
   ];
 
   const testimonials = [
@@ -87,7 +100,7 @@ const LandingPage = () => {
       restaurant: "Casa Maria Bistro",
       location: "Miami, FL",
       rating: 5,
-      text: "BeepBite completely transformed our kitchen operations. We process 3x more orders during peak hours and never miss a single notification.",
+      text: "No more angry customers complaining about cold food! BeepBite gets them their meals while they're still hot. Game changer.",
       avatar: "MR"
     },
     {
@@ -95,7 +108,7 @@ const LandingPage = () => {
       restaurant: "Spice Garden",
       location: "Houston, TX",
       rating: 5,
-      text: "The WhatsApp integration is brilliant! Our entire team stays coordinated and customers love how quickly we prepare their orders.",
+      text: "We love getting honest reviews directly to WhatsApp instead of nasty public reviews. Customers actually help us improve now.",
       avatar: "AH"
     },
     {
@@ -103,7 +116,7 @@ const LandingPage = () => {
       restaurant: "Golden Dragon",
       location: "San Francisco, CA", 
       rating: 5,
-      text: "Analytics helped us identify our peak patterns and optimize staffing. Our revenue increased by 35% in just 3 months!",
+      text: "Setup took 2 minutes, no devices needed. Now our customers pick up food fast and we get zero complaints about wait times.",
       avatar: "SC"
     }
   ];
@@ -111,178 +124,187 @@ const LandingPage = () => {
   const steps = [
     {
       step: "01",
-      title: "Quick Setup",
-      description: "Create your account and add restaurant details in under 5 minutes. No technical expertise required.",
-      icon: <Utensils className="w-6 h-6" />
+      title: "Sign Up & Add Restaurant",
+      description: "Create your account and add your restaurant details in under 2 minutes. That's it - you're ready to stop serving cold food!",
+      icon: <Utensils className="w-8 h-8" />
+    }
+  ];
+
+  const benefits = [
+    {
+      icon: <Zap className="w-6 h-6" />,
+      title: "No More Cold Food",
+      description: "Customers get notified instantly when food is ready for pickup"
     },
     {
-      step: "02", 
-      title: "Connect WhatsApp",
-      description: "Link your WhatsApp number to receive instant notifications when new orders arrive.",
-      icon: <WhatsAppIcon className="w-6 h-6" />
+      icon: <Heart className="w-6 h-6" />,
+      title: "Stop Customer Complaints",
+      description: "End frustration about long waits and cold meals"
     },
     {
-      step: "03",
-      title: "Manage & Grow",
-      description: "Track orders in real-time, analyze performance, and scale your restaurant operations effortlessly.",
-      icon: <TrendingUp className="w-6 h-6" />
+      icon: <MessageSquare className="w-6 h-6" />,
+      title: "Get Private Reviews",
+      description: "Receive honest feedback directly instead of public criticism"
+    },
+    {
+      icon: <Shield className="w-6 h-6" />,
+      title: "Zero Equipment Costs",
+      description: "No devices to buy, install, or maintain - works instantly"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-hidden">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50/20">
+      <section id="home" className="relative min-h-screen flex items-center bg-gradient-to-br from-gray-50/30 via-white to-orange-50/10">
+        {/* Background Pattern */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZjc0MDAiIGZpbGwtb3BhY2l0eT0iMC4wMiI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-40"></div>
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZjZiMzUiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-40"></div>
+          {/* Floating Elements */}
+          <div className="absolute top-20 right-10 w-20 h-20 beepbite-gradient rounded-full opacity-10 animate-pulse"></div>
+          <div className="absolute bottom-32 left-10 w-32 h-32 bg-orange-500/5 rounded-full"></div>
+          <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-orange-500/5 rounded-full"></div>
         </div>
         
-        <div className="relative pt-16 pb-8 lg:pt-20 lg:pb-12">
-          <div className="w-full">
-            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center px-6 lg:px-8">
-              {/* Left Content */}
-              <div className="space-y-6 lg:space-y-8">
-                <div className="space-y-4">
-                  <Badge className="inline-flex items-center gap-2 beepbite-gradient text-white px-3 py-1 text-xs font-medium rounded-full">
-                    <Sparkles className="w-3 h-3" />
-                    Trusted by 800+ Restaurants
-                  </Badge>
-                  
-                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight tracking-tight text-slate-900">
-                    Never Miss an Order with{' '}
-                    <span className="beepbite-gradient-text">BeepBite</span>
-                  </h1>
-                  
-                  <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl">
-                    The most reliable restaurant order management system with instant WhatsApp notifications, 
-                    real-time tracking, and powerful analytics to keep your kitchen running smoothly.
-                  </p>
-                </div>
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            {/* Left Content */}
+            <div className="space-y-8 text-center lg:text-left">
+              <div className="space-y-6">
+                <Badge className="inline-flex items-center gap-2 beepbite-gradient text-white px-4 py-2 text-sm font-semibold rounded-full shadow-lg">
+                  <Sparkles className="w-4 h-4" />
+                  No Setup Costs
+                </Badge>
                 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button 
-                    size="default" 
-                    className="beepbite-gradient text-white shadow-md hover:shadow-lg transition-all duration-200 group h-11 px-6 text-sm font-semibold"
-                    onClick={() => navigate('/signup')}
-                  >
-                    Start Free Trial
-                    <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                  <Button 
-                    size="default" 
-                    variant="outline" 
-                    className="border border-slate-300 text-slate-700 hover:bg-slate-50 transition-all duration-200 h-11 px-6 text-sm font-semibold group"
-                  >
-                    <Play className="mr-2 w-4 h-4 group-hover:scale-110 transition-transform" />
-                    Watch Demo
-                  </Button>
-                </div>
-
-                <div className="flex flex-wrap gap-4 pt-2">
-                  {[
-                    { icon: <WhatsAppIcon className="w-4 h-4 text-green-600" />, text: "WhatsApp alerts" },
-                    { icon: <CheckCircle className="w-4 h-4 text-green-600" />, text: "No setup fees" },
-                    { icon: <CheckCircle className="w-4 h-4 text-green-600" />, text: "Cancel anytime" }
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      {item.icon}
-                      <span className="text-xs font-medium text-slate-600">{item.text}</span>
-                    </div>
-                  ))}
-                </div>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-gray-900">
+                  Stop Serving Cold Food with{' '}
+                  <span className="beepbite-gradient-text">BeepBite</span>
+                </h1>
+                
+                <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 leading-relaxed max-w-2xl lg:max-w-none">
+                  Get food to customers faster with instant WhatsApp notifications. 
+                  No devices, no setup fees, no maintenance - just happier customers and hotter food.
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <Button 
+                  size="lg" 
+                  className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-300 group h-14 px-8 text-lg font-semibold rounded-xl"
+                  onClick={() => navigate('/signup')}
+                >
+                  Start For Free
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white transition-all duration-300 h-14 px-8 text-lg font-semibold rounded-xl group"
+                >
+                  <Play className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                  Watch Demo
+                </Button>
               </div>
 
-              {/* Right Visual */}
-              <div className="relative lg:justify-self-end">
-                <div className="relative z-10 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-w-sm mx-auto lg:mx-0">
-                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-4 py-3 border-b border-slate-200">
-                    <div className="flex items-center gap-3">
-                      <div className="flex gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
-                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
-                      </div>
-                      <h3 className="font-semibold text-slate-800 text-base">Live Orders</h3>
-                      <Badge className="ml-auto bg-green-100 text-green-700 text-xs px-2 py-0.5">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse"></div>
-                        Live
-                      </Badge>
-                    </div>
+              <div className="flex flex-wrap justify-center lg:justify-start gap-6 pt-4">
+                {[
+                  { icon: <WhatsAppIcon className="w-5 h-5 text-green-600" />, text: "WhatsApp alerts" },
+                  { icon: <CheckCircle className="w-5 h-5 text-green-600" />, text: "No setup costs" },
+                  { icon: <CheckCircle className="w-5 h-5 text-green-600" />, text: "No devices needed" }
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    {item.icon}
+                    <span className="text-sm font-semibold text-gray-700">{item.text}</span>
                   </div>
-                  
-                  <div className="p-4 space-y-3">
-                    {[
-                      { id: "#2847", customer: "Maria G.", items: "2x Spicy Burger, 1x Fries", time: "Just now", status: "new", urgent: true },
-                      { id: "#2846", customer: "John D.", items: "1x Margherita Pizza", time: "3 min ago", status: "preparing", urgent: false },
-                      { id: "#2845", customer: "Sarah K.", items: "3x Fish Tacos, 2x Drinks", time: "8 min ago", status: "ready", urgent: false }
-                    ].map((order, i) => (
-                      <div key={i} className={`p-3 rounded-lg border ${order.urgent ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'} transition-all duration-200 hover:shadow-sm`}>
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-900 text-sm">{order.id}</span>
-                              <Badge 
-                                variant={order.status === 'ready' ? 'default' : order.status === 'new' ? 'destructive' : 'secondary'} 
-                                className="text-xs px-2 py-0.5"
-                              >
-                                {order.status}
-                              </Badge>
-                            </div>
-                            <p className="font-medium text-slate-800 text-sm">{order.customer}</p>
-                            <p className="text-xs text-slate-600">{order.items}</p>
-                            <p className="text-xs text-slate-500">{order.time}</p>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Visual */}
+            <div className="relative">
+              <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden max-w-md mx-auto transform hover:scale-105 transition-transform duration-300">
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center gap-4">
+                    <div className="flex gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                      <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                      <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                    </div>
+                    <h3 className="font-bold text-gray-900 text-lg">Live Orders</h3>
+                    <Badge className="ml-auto bg-green-100 text-green-700 text-sm px-3 py-1 rounded-full">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                      Live
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="p-6 space-y-4">
+                  {[
+                    { id: "#2847", customer: "Maria G.", items: "2x Spicy Burger, 1x Fries", time: "Just now", status: "new", urgent: true },
+                    { id: "#2846", customer: "John D.", items: "1x Margherita Pizza", time: "3 min ago", status: "preparing", urgent: false },
+                    { id: "#2845", customer: "Sarah K.", items: "3x Fish Tacos, 2x Drinks", time: "8 min ago", status: "ready", urgent: false }
+                  ].map((order, i) => (
+                    <div key={i} className={`p-4 rounded-xl border-2 ${order.urgent ? 'bg-orange-50 border-orange-200 shadow-lg' : 'bg-gray-50 border-gray-200'} transition-all duration-300 hover:shadow-md transform hover:-translate-y-1`}>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-gray-900 text-lg">{order.id}</span>
+                            <Badge 
+                              variant={order.status === 'ready' ? 'default' : order.status === 'new' ? 'destructive' : 'secondary'} 
+                              className="text-xs px-3 py-1 rounded-full"
+                            >
+                              {order.status}
+                            </Badge>
                           </div>
-                          <div className="ml-3">
-                            <div className={`p-2 rounded-lg ${order.urgent ? 'bg-orange-100' : 'bg-slate-100'}`}>
-                              <Bell className={`w-4 h-4 ${order.urgent ? 'text-orange-600 animate-pulse' : 'text-slate-500'}`} />
-                            </div>
+                          <p className="font-semibold text-gray-900">{order.customer}</p>
+                          <p className="text-sm text-gray-600">{order.items}</p>
+                          <p className="text-xs text-gray-500 font-medium">{order.time}</p>
+                        </div>
+                        <div className="ml-4">
+                          <div className={`p-3 rounded-xl ${order.urgent ? 'bg-orange-100' : 'bg-gray-100'}`}>
+                            <Bell className={`w-5 h-5 ${order.urgent ? 'text-orange-500 animate-pulse' : 'text-gray-400'}`} />
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-                
-                {/* Floating decorative elements */}
-                <div className="absolute -top-6 -right-6 w-24 h-24 beepbite-gradient rounded-full opacity-8 animate-pulse"></div>
-                <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-slate-100 rounded-full"></div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-     
       {/* Features Section */}
-      <section className="bg-white pt-12 pb-8 lg:pt-16 lg:pb-12">
-        <div className="w-full">
-          <div className="text-center mb-12 lg:mb-16 px-6 lg:px-8">
-            <Badge className="inline-flex items-center gap-2 bg-orange-100 text-orange-800 px-3 py-1 text-xs font-medium rounded-full mb-4">
-              <Zap className="w-3 h-3" />
-              Powerful Features
+      <section id="features" className="py-16 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge className="inline-flex items-center gap-2 bg-orange-100 text-orange-600 px-4 py-2 text-sm font-semibold rounded-full mb-6">
+              <Zap className="w-4 h-4" />
+              Core Benefits
             </Badge>
-            <h2 className="text-2xl lg:text-4xl font-bold mb-4 text-slate-900">
-              Everything Your Restaurant Needs
+            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">
+              Stop Food From Going Cold
             </h2>
-            <p className="text-base lg:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              From instant notifications to comprehensive analytics, BeepBite provides all the tools 
-              to streamline operations and deliver exceptional customer service.
+            <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              BeepBite solves the biggest problem in food service - getting hot food to customers fast 
+              with zero hassle and no expensive equipment.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 px-6 lg:px-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, i) => (
-              <Card key={i} className={`group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-slate-200 ${feature.highlight ? 'ring-1 ring-orange-200 bg-orange-50/50' : ''}`}>
-                <CardContent className="p-6 text-center">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-105 transition-transform duration-300 ${
+              <Card key={i} className={`group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border-2 ${feature.highlight ? 'ring-2 ring-orange-200 bg-orange-50/50 border-orange-200' : 'border-gray-200 hover:border-orange-300'} rounded-2xl overflow-hidden`}>
+                <CardContent className="p-8 text-center">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 ${
                     feature.highlight 
-                      ? 'beepbite-gradient text-white' 
-                      : 'bg-slate-100 text-slate-600 group-hover:bg-orange-500 group-hover:text-white'
+                      ? 'beepbite-gradient text-white shadow-lg' 
+                      : 'bg-gray-100 text-gray-600 group-hover:bg-orange-500 group-hover:text-white'
                   }`}>
                     {feature.icon}
                   </div>
-                  <h3 className="text-lg font-semibold mb-3 text-slate-900">{feature.title}</h3>
-                  <p className="text-slate-600 leading-relaxed text-sm">{feature.description}</p>
+                  <h3 className="text-xl lg:text-2xl font-bold mb-4 text-gray-900">{feature.title}</h3>
+                  <p className="text-gray-600 leading-relaxed">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -290,34 +312,59 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Benefits Section */}
+      <section id="benefits" className="py-16 lg:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">
+              The Cold Food Problem, Solved
+            </h2>
+            <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto">
+              Stop losing customers to cold food and long waits. Get food to them faster with zero hassle.
+            </p>
+          </div>
+          
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {benefits.map((benefit, i) => (
+              <div key={i} className="text-center group">
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <div className="text-orange-500">
+                    {benefit.icon}
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-gray-900">{benefit.title}</h3>
+                <p className="text-gray-600">{benefit.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* How It Works */}
-      <section className="bg-gradient-to-br from-slate-50 to-white pt-12 pb-8 lg:pt-16 lg:pb-12">
-        <div className="w-full">
-          <div className="text-center mb-12 lg:mb-16 px-6 lg:px-8">
-            <Badge className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 text-xs font-medium rounded-full mb-4">
-              <Clock className="w-3 h-3" />
-              Quick Setup
+      <section id="how-it-works" className="py-16 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge className="inline-flex items-center gap-2 bg-orange-100 text-orange-600 px-4 py-2 text-sm font-semibold rounded-full mb-6">
+              <Clock className="w-4 h-4" />
+              Super Simple
             </Badge>
-            <h2 className="text-2xl lg:text-4xl font-bold mb-4 text-slate-900">How BeepBite Works</h2>
-            <p className="text-base lg:text-lg text-slate-600 max-w-xl mx-auto">Get started in minutes, not hours</p>
+            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">Just 1 Simple Step</h2>
+            <p className="text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">Sign up, add your restaurant, and start serving hot food</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 lg:gap-12 px-6 lg:px-8">
+          <div className="flex justify-center">
             {steps.map((step, i) => (
-              <div key={i} className="text-center group">
-                <div className="relative mb-6">
-                  <div className="w-16 h-16 beepbite-gradient rounded-full flex items-center justify-center text-white mx-auto group-hover:scale-105 transition-transform duration-300 shadow-lg">
+              <div key={i} className="text-center group max-w-md">
+                <div className="relative mb-8">
+                  <div className="w-24 h-24 beepbite-gradient rounded-3xl flex items-center justify-center text-white mx-auto group-hover:scale-110 transition-transform duration-300 shadow-xl">
                     {step.icon}
                   </div>
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
+                  <div className="absolute -top-3 -right-3 w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center text-sm font-bold shadow-lg">
                     {step.step}
                   </div>
-                  {i < steps.length - 1 && (
-                    <div className="hidden md:block absolute top-8 left-full w-full h-0.5 bg-gradient-to-r from-orange-300 to-transparent transform translate-x-6"></div>
-                  )}
                 </div>
-                <h3 className="text-lg lg:text-xl font-semibold mb-3 text-slate-900">{step.title}</h3>
-                <p className="text-slate-600 leading-relaxed text-sm">{step.description}</p>
+                <h3 className="text-xl lg:text-2xl font-bold mb-4 text-gray-900">{step.title}</h3>
+                <p className="text-gray-600 leading-relaxed text-lg">{step.description}</p>
               </div>
             ))}
           </div>
@@ -325,37 +372,37 @@ const LandingPage = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="bg-white pt-12 pb-8 lg:pt-16 lg:pb-12">
-        <div className="w-full">
-          <div className="text-center mb-12 lg:mb-16 px-6 lg:px-8">
-            <Badge className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 text-xs font-medium rounded-full mb-4">
-              <Star className="w-3 h-3" />
+      <section id="testimonials" className="py-16 lg:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 text-sm font-semibold rounded-full mb-6">
+              <Star className="w-4 h-4" />
               Customer Success
             </Badge>
-            <h2 className="text-2xl lg:text-4xl font-bold mb-4 text-slate-900">Loved by Restaurant Owners</h2>
-            <p className="text-base lg:text-lg text-slate-600 max-w-xl mx-auto">See what our customers say about BeepBite</p>
+            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">Real Results, Happy Customers</h2>
+            <p className="text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">See how restaurants stopped cold food complaints</p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6 px-6 lg:px-8">
+          <div className="grid lg:grid-cols-3 gap-8">
             {testimonials.map((testimonial, i) => (
-              <Card key={i} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-slate-200">
-                <CardContent className="p-6">
-                  <div className="flex items-center mb-4">
+              <Card key={i} className="group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border-2 border-gray-200 hover:border-orange-300 rounded-2xl overflow-hidden">
+                <CardContent className="p-8">
+                  <div className="flex items-center mb-6">
                     {[...Array(testimonial.rating)].map((_, j) => (
-                      <Star key={j} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <Star key={j} className="w-5 h-5 fill-orange-400 text-orange-400" />
                     ))}
                   </div>
-                  <blockquote className="text-slate-600 mb-4 leading-relaxed text-sm">
+                  <blockquote className="text-gray-600 mb-6 leading-relaxed text-lg italic">
                     "{testimonial.text}"
                   </blockquote>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 beepbite-gradient rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 beepbite-gradient rounded-2xl flex items-center justify-center text-white font-bold">
                       {testimonial.avatar}
                     </div>
                     <div>
-                      <div className="font-semibold text-slate-900 text-sm">{testimonial.name}</div>
-                      <div className="text-xs text-slate-600">{testimonial.restaurant}</div>
-                      <div className="text-xs text-slate-500 flex items-center gap-1">
+                      <div className="font-bold text-gray-900">{testimonial.name}</div>
+                      <div className="text-sm text-gray-600 font-semibold">{testimonial.restaurant}</div>
+                      <div className="text-sm text-gray-500 flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         {testimonial.location}
                       </div>
@@ -368,138 +415,228 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="beepbite-gradient text-white relative overflow-hidden py-12 lg:py-16">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="relative">
-          <div className="w-full text-center">
-            <div className="mx-auto space-y-6 px-6 lg:px-8">
-              <Badge className="inline-flex items-center gap-2 bg-white/20 text-white px-3 py-1 text-xs font-medium rounded-full">
-                <Sparkles className="w-3 h-3" />
-                Join 800+ Restaurants
-              </Badge>
-              <h2 className="text-2xl lg:text-4xl font-bold leading-tight">
-                Ready to Transform Your Restaurant Operations?
-              </h2>
-              <p className="text-base lg:text-lg opacity-90 max-w-2xl mx-auto leading-relaxed">
-                Join thousands of restaurants using BeepBite to streamline operations, 
-                reduce missed orders, and deliver exceptional customer service.
+      {/* Support Section */}
+      <section id="support" className="py-16 lg:py-24 bg-gray-900 text-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge className="inline-flex items-center gap-2 bg-white/10 text-white px-4 py-2 text-sm font-semibold rounded-full mb-6">
+              <WhatsAppIcon className="w-4 h-4" />
+              Get Help
+            </Badge>
+            <h2 className="text-3xl lg:text-5xl font-bold mb-6">Need Support?</h2>
+            <p className="text-lg lg:text-xl text-gray-300 max-w-2xl mx-auto">
+              Our team is here to help you get the most out of BeepBite
+            </p>
+          </div>
+          
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="text-center group">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+                <WhatsAppIcon className="w-8 h-8 text-orange-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">WhatsApp Support</h3>
+              <p className="text-gray-400 mb-4">Quick help via WhatsApp</p>
+              <a 
+                href="https://wa.me/27118765432" 
+                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                <WhatsAppIcon className="w-4 h-4" />
+                Message Us
+              </a>
+            </div>
+            
+            <div className="text-center group">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+                <Mail className="w-8 h-8 text-orange-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Email Support</h3>
+              <p className="text-gray-400 mb-4">Get detailed assistance</p>
+              <a 
+                href="mailto:support@beepbite.io" 
+                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
+              >
+                <Mail className="w-4 h-4" />
+                Email Us
+              </a>
+            </div>
+            
+            <div className="text-center group">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+                <Phone className="w-8 h-8 text-orange-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Phone Support</h3>
+              <p className="text-gray-400 mb-4">Speak directly with our team</p>
+              <a 
+                href="tel:+27118765432" 
+                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
+              >
+                <Phone className="w-4 h-4" />
+                Call Us
+              </a>
+            </div>
+            
+            <div className="text-center group">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+                <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-3">Documentation</h3>
+              <p className="text-gray-400 mb-4">Self-service help guides</p>
+              <a 
+                href="/docs" 
+                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                View Docs
+              </a>
+            </div>
+          </div>
+          
+          <div className="mt-16 text-center">
+            <div className="bg-white/5 rounded-2xl p-8 border border-white/10">
+              <h3 className="text-2xl font-bold mb-4">Still Need Help?</h3>
+              <p className="text-gray-300 mb-6">
+                Our support team is available 24/7 to help you succeed with BeepBite
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
-                  size="default" 
-                  variant="secondary"
-                  className="bg-white text-orange-600 hover:bg-slate-50 shadow-md h-11 px-6 text-sm font-semibold"
-                  onClick={() => navigate('/signup')}
-                >
-                  Start Your Free Trial
-                </Button>
-                <Button 
-                  size="default" 
-                  variant="outline"
-                  className="border border-white text-white bg-transparent hover:bg-transparent hover:text-white h-11 px-6 text-sm font-semibold"
+                  className="beepbite-gradient text-white font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  onClick={() => scrollToSection('get-started')}
                 >
                   Schedule a Demo
                 </Button>
-              </div>
-              <div className="flex flex-wrap justify-center gap-6 pt-4 text-xs opacity-80">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>Free 30-day trial</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>No credit card required</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>Setup in 5 minutes</span>
-                </div>
+                <Button 
+                  variant="outline"
+                  className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500 font-semibold px-8 py-3 rounded-xl transition-all duration-300"
+                  onClick={() => window.open('https://wa.me/27118765432', '_blank')}
+                >
+                  <WhatsAppIcon className="w-4 h-4 mr-2" />
+                  Chat Now
+                </Button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* CTA Section */}
+      <section id="get-started" className="beepbite-gradient text-white relative overflow-hidden py-20 lg:py-32">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 text-center">
+          <Badge className="inline-flex items-center gap-2 bg-white/20 text-white px-4 py-2 text-sm font-semibold rounded-full mb-8">
+            <Sparkles className="w-4 h-4" />
+            No Setup Costs
+          </Badge>
+          <h2 className="text-3xl lg:text-6xl font-bold leading-tight mb-8">
+            Ready to Stop Serving Cold Food?
+          </h2>
+          <p className="text-lg lg:text-2xl opacity-90 max-w-3xl mx-auto leading-relaxed mb-12">
+            Join restaurants using BeepBite to get hot food to customers faster, 
+            reduce complaints, and get honest feedback directly to WhatsApp.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Button 
+              size="lg" 
+              variant="secondary"
+              className="bg-white text-orange-600 hover:bg-gray-100 shadow-lg h-16 px-10 text-xl font-bold rounded-2xl"
+              onClick={() => navigate('/signup')}
+            >
+              Start For Free
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              className="border-2 border-white text-white bg-transparent hover:bg-white hover:text-orange-600 h-16 px-10 text-xl font-bold rounded-2xl"
+            >
+              Schedule a Demo
+            </Button>
+          </div>
+          <div className="flex flex-wrap justify-center gap-8 pt-8 text-sm opacity-80">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              <span>Start for free</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              <span>No setup costs</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              <span>No devices needed</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="bg-slate-900 text-white py-10">
-        <div className="w-full">
-          <div className="grid md:grid-cols-5 gap-6 lg:gap-8 px-6 lg:px-8">
-            <div className="col-span-2 space-y-4">
+      <footer className="bg-white border-t border-gray-200 py-20">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
+            <div className="col-span-2 md:col-span-1 space-y-6">
               <Logo variant="minimal" className="text-left" />
-              <p className="text-slate-300 max-w-md leading-relaxed text-sm flex items-start gap-2">
-                <WhatsAppIcon className="w-4 h-4 mt-0.5 text-green-400 flex-shrink-0" />
-                BeepBite helps restaurants manage orders efficiently with real-time WhatsApp notifications 
-                and comprehensive analytics to grow your business.
+              <p className="text-gray-600 max-w-md leading-relaxed flex items-start gap-2">
+                <WhatsAppIcon className="w-5 h-5 mt-1 text-green-500 flex-shrink-0" />
+                BeepBite helps restaurants stop serving cold food with instant WhatsApp notifications 
+                and zero setup costs.
               </p>
-              <div className="flex space-x-3">
-                {[
-                  { icon: "M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z", href: "#" },
-                  { icon: "M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 3.95-.36.1-.74.15-1.13.15-.27 0-.54-.03-.8-.08.54 1.69 2.11 2.95 4 2.98-1.46 1.16-3.31 1.84-5.33 1.84-.35 0-.69-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z", href: "#" },
-                  { icon: "M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24.009c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641.001 12.017.001z", href: "#" }
-                ].map((social, i) => (
-                  <a key={i} href={social.href} className="w-8 h-8 bg-slate-700 hover:bg-orange-500 rounded-lg flex items-center justify-center transition-colors">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d={social.icon} />
-                    </svg>
-                  </a>
-                ))}
-              </div>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-4 text-base">Product</h4>
-              <ul className="space-y-2 text-slate-300 text-sm">
-                <li><a href="/docs/features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="/docs/api" className="hover:text-white transition-colors">API</a></li>
-                <li><a href="#demo" className="hover:text-white transition-colors">Demo</a></li>
-                <li><a href="/docs/integrations" className="hover:text-white transition-colors">Integrations</a></li>
+              <h4 className="font-bold mb-6 text-lg text-gray-900">Product</h4>
+              <ul className="space-y-3 text-gray-600">
+                <li><button onClick={() => scrollToSection('features')} className="hover:text-orange-500 transition-colors text-left">Features</button></li>
+                <li><button onClick={() => scrollToSection('how-it-works')} className="hover:text-orange-500 transition-colors text-left">How It Works</button></li>
+                <li><button onClick={() => scrollToSection('testimonials')} className="hover:text-orange-500 transition-colors text-left">Reviews</button></li>
+                <li><button onClick={() => scrollToSection('get-started')} className="hover:text-orange-500 transition-colors text-left">Demo</button></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-4 text-base">Resources</h4>
-              <ul className="space-y-2 text-slate-300 text-sm">
-                <li><a href="/docs" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="/terms" className="hover:text-white transition-colors">Terms of Service</a></li>
-                <li><a href="/cookies" className="hover:text-white transition-colors">Cookie Policy</a></li>
+              <h4 className="font-bold mb-6 text-lg text-gray-900">Navigation</h4>
+              <ul className="space-y-3 text-gray-600">
+                <li><button onClick={() => scrollToSection('home')} className="hover:text-orange-500 transition-colors text-left">Home</button></li>
+                <li><button onClick={() => scrollToSection('stats')} className="hover:text-orange-500 transition-colors text-left">Stats</button></li>
+                <li><button onClick={() => scrollToSection('benefits')} className="hover:text-orange-500 transition-colors text-left">Benefits</button></li>
+                <li><button onClick={() => scrollToSection('support')} className="hover:text-orange-500 transition-colors text-left">Support</button></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-4 text-base">Support</h4>
-              <ul className="space-y-2 text-slate-300 text-sm">
-                <li className="flex items-center gap-2">
-                  <Mail className="w-3 h-3" />
-                  <a href="mailto:support@beepbite.com" className="hover:text-white transition-colors">support@beepbite.com</a>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="w-3 h-3" />
-                  <a href="tel:+1-555-BEEP-BITE" className="hover:text-white transition-colors">+1 (555) BEEP-BITE</a>
-                </li>
-                <li><a href="/docs/troubleshooting" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="https://status.beepbite.com" className="hover:text-white transition-colors">Status Page</a></li>
+              <h4 className="font-bold mb-6 text-lg text-gray-900">Resources</h4>
+              <ul className="space-y-3 text-gray-600">
+                <li><a href="/docs" className="hover:text-orange-500 transition-colors">Documentation</a></li>
+                <li><a href="/docs/privacy" className="hover:text-orange-500 transition-colors">Privacy Policy</a></li>
+                <li><a href="/docs/terms" className="hover:text-orange-500 transition-colors">Terms of Service</a></li>
+                <li><a href="/docs/cookies" className="hover:text-orange-500 transition-colors">Cookie Policy</a></li>
               </ul>
             </div>
           </div>
           
-          <div className="border-t border-slate-700 mt-8 pt-6 px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
-              <p className="text-slate-300 text-xs">
+          <div className="border-t border-gray-200 mt-12 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+              <p className="text-gray-500">
                 &copy; {new Date().getFullYear()} BeepBite. All rights reserved.
               </p>
-              <div className="flex flex-wrap justify-center md:justify-end gap-4 text-xs text-slate-300">
-                <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
-                <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
-                <a href="/cookies" className="hover:text-white transition-colors">Cookie Policy</a>
-                <a href="/docs" className="hover:text-white transition-colors">Documentation</a>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => scrollToSection('home')} 
+                  className="text-gray-500 hover:text-orange-500 transition-colors text-sm"
+                >
+                  Back to Top
+                </button>
               </div>
             </div>
           </div>
         </div>
       </footer>
+
+      {/* Scroll to Top Button */}
+      <ScrollToTop />
     </div>
   );
 };

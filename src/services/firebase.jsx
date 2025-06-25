@@ -8,12 +8,12 @@ import { getAnalytics, logEvent } from "firebase/analytics";
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "***REMOVED-FIREBASE-WEB-KEY***",
-  authDomain: "case-on-pty.firebaseapp.com",
-  projectId: "case-on-pty",
-  storageBucket: "case-on-pty.firebasestorage.app",
-  messagingSenderId: "227303496056",
-  appId: "1:227303496056:web:0aa30b9987e3753aab508d",
-  measurementId: "G-SEPE6VED3E"
+  authDomain: "beepbite-io.firebaseapp.com",
+  projectId: "beepbite-io",
+  storageBucket: "beepbite-io.firebasestorage.app",
+  messagingSenderId: "461673464535",
+  appId: "1:461673464535:web:33a2d854b3f7be7017e692",
+  measurementId: "G-7ZEQY4DED1"
 };
 
 

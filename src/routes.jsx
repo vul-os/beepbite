@@ -15,9 +15,9 @@ const getLoadingMessage = (pathname) => {
   if (pathname.includes('/dashboard')) return 'Loading dashboard...';
   if (pathname.includes('/reports')) return 'Loading reports...';
   if (pathname.includes('/reviews')) return 'Loading reviews...';
-  if (pathname.includes('/privacy')) return 'Loading privacy policy...';
-  if (pathname.includes('/terms')) return 'Loading terms of service...';
-  if (pathname.includes('/cookies')) return 'Loading cookie policy...';
+  if (pathname.includes('/docs/privacy')) return 'Loading privacy policy...';
+  if (pathname.includes('/docs/terms')) return 'Loading terms of service...';
+  if (pathname.includes('/docs/cookies')) return 'Loading cookie policy...';
   if (pathname.includes('/docs')) return 'Loading documentation...';
   if (pathname === '/') return 'Loading homepage...';
   return 'Loading...';
@@ -53,13 +53,11 @@ const Dashboard = lazyImport(() => import('./pages/dashboard'));
 const Reports = lazyImport(() => import('./pages/reports'));
 const Reviews = lazyImport(() => import('./pages/reviews'));
 
-// Lazy loaded components - Legal pages
-const PrivacyPolicy = lazyImport(() => import('./pages/legal/privacy-policy'));
-const TermsOfService = lazyImport(() => import('./pages/legal/terms-of-service'));
-const CookiesPolicy = lazyImport(() => import('./pages/legal/cookies-policy'));
-
 // Lazy loaded components - Documentation pages
 const DocsIndex = lazyImport(() => import('./pages/docs/index'));
+const DocsPrivacyPolicy = lazyImport(() => import('./pages/docs/privacy-policy'));
+const DocsTermsOfService = lazyImport(() => import('./pages/docs/terms-of-service'));
+const DocsCookiesPolicy = lazyImport(() => import('./pages/docs/cookies-policy'));
 
 // Other pages
 const NotFound = lazyImport(() => import('./pages/not-found'));
@@ -81,13 +79,18 @@ const AppRoutes = () => {
           <Route path="/verify-email" element={<VerifyEmail />} />
         </Route>
 
-        {/* Public landing page and legal pages */}
+        {/* Public routes with main layout */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/cookies" element={<CookiesPolicy />} />
           <Route path="/docs" element={<DocsIndex />} />
+          <Route path="/docs/privacy" element={<DocsPrivacyPolicy />} />
+          <Route path="/docs/terms" element={<DocsTermsOfService />} />
+          <Route path="/docs/cookies" element={<DocsCookiesPolicy />} />
+          
+          {/* Legacy redirects for old legal routes */}
+          <Route path="/privacy" element={<DocsPrivacyPolicy />} />
+          <Route path="/terms" element={<DocsTermsOfService />} />
+          <Route path="/cookies" element={<DocsCookiesPolicy />} />
         </Route>
 
         {/* Protected app routes */}

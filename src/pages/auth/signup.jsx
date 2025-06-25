@@ -12,9 +12,7 @@ import {
   Lock,
   AlertCircle,
   Utensils,
-  Bell,
-  User,
-  Phone
+  Bell
 } from 'lucide-react';
 import Logo from '@/components/ui/logo';
 
@@ -24,23 +22,13 @@ const SignUpPage = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
     email: '',
     password: '',
-    restaurantName: '',
     agreeToTerms: false
   });
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
-
-    if (!formData.restaurantName.trim()) {
-      newErrors.restaurantName = 'Restaurant name is required';
-    }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
@@ -82,10 +70,6 @@ const SignUpPage = () => {
         await signUp(formData.email, formData.password);
         // Store email in localStorage for verify-email page
         localStorage.setItem('pendingVerificationEmail', formData.email);
-        localStorage.setItem('pendingUserData', JSON.stringify({
-          fullName: formData.fullName,
-          restaurantName: formData.restaurantName
-        }));
         navigate('/verify-email');
       } catch (error) {
         setErrors(prev => ({
@@ -129,10 +113,10 @@ const SignUpPage = () => {
         <Card className="border border-gray-200 shadow-xl bg-white/95 backdrop-blur-sm">
           <CardHeader className="space-y-2 pb-6 text-center">
             <CardTitle className="text-2xl font-bold tracking-tight text-gray-900">
-              Create Your Restaurant Account
+              Create Your Account
             </CardTitle>
             <CardDescription className="text-sm text-gray-600">
-              Join thousands of restaurants using BeepBite to streamline operations
+              Join thousands of restaurants using BeepBite for WhatsApp notifications
             </CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6">
@@ -170,51 +154,6 @@ const SignUpPage = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fullName" className="text-sm font-medium text-gray-700">Full Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="fullName"
-                        name="fullName"
-                        type="text"
-                        autoComplete="name"
-                        className={`pl-10 h-10 bg-white border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 ${errors.fullName ? "border-red-400" : ""}`}
-                        value={formData.fullName}
-                        onChange={handleInputChange}
-                        required
-                        disabled={isLoading}
-                        placeholder="Your full name"
-                      />
-                    </div>
-                    {errors.fullName && (
-                      <p className="text-xs text-red-500">{errors.fullName}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="restaurantName" className="text-sm font-medium text-gray-700">Restaurant Name</Label>
-                    <div className="relative">
-                      <Utensils className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="restaurantName"
-                        name="restaurantName"
-                        type="text"
-                        className={`pl-10 h-10 bg-white border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 ${errors.restaurantName ? "border-red-400" : ""}`}
-                        value={formData.restaurantName}
-                        onChange={handleInputChange}
-                        required
-                        disabled={isLoading}
-                        placeholder="Restaurant name"
-                      />
-                    </div>
-                    {errors.restaurantName && (
-                      <p className="text-xs text-red-500">{errors.restaurantName}</p>
-                    )}
-                  </div>
-                </div>
-
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address</Label>
                   <div className="relative">
@@ -281,11 +220,11 @@ const SignUpPage = () => {
                       className="text-sm text-gray-700 leading-relaxed cursor-pointer"
                     >
                       I agree to the{' '}
-                      <a href="#" className="text-primary hover:text-primary/80 font-medium underline">
+                      <a href="/docs/terms" className="text-primary hover:text-primary/80 font-medium underline">
                         Terms of Service
                       </a>{' '}
                       and{' '}
-                      <a href="#" className="text-primary hover:text-primary/80 font-medium underline">
+                      <a href="/docs/privacy" className="text-primary hover:text-primary/80 font-medium underline">
                         Privacy Policy
                       </a>
                     </label>
@@ -308,7 +247,7 @@ const SignUpPage = () => {
                   ) : (
                     <div className="flex items-center space-x-2">
                       <Utensils className="w-4 h-4" />
-                      <span>Create Restaurant Account</span>
+                      <span>Create Account</span>
                     </div>
                   )}
                 </Button>
@@ -323,6 +262,17 @@ const SignUpPage = () => {
                   disabled={isLoading}
                 >
                   Sign in here
+                </Button>
+              </div>
+              
+              <div className="text-center">
+                <Button
+                  variant="link"
+                  className="text-gray-500 hover:text-gray-700 p-0 h-auto text-xs"
+                  onClick={() => navigate('/forgot-password')}
+                  disabled={isLoading}
+                >
+                  Forgot your password?
                 </Button>
               </div>
             </div>
