@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Settings, 
@@ -14,6 +14,7 @@ import {
   ChefHat
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { supabase } from '@/services/supabase-client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +25,7 @@ import {
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import Logo from '@/components/ui/logo';
 
@@ -39,7 +40,31 @@ const TopBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState('');
   
+  // Fetch user's avatar URL from profile
+  useEffect(() => {
+    const fetchUserAvatar = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .single();
+        
+        if (data?.avatar_url && !error) {
+          setUserAvatarUrl(data.avatar_url);
+        }
+      } catch (error) {
+        console.error('Error fetching user avatar:', error);
+      }
+    };
+
+    fetchUserAvatar();
+  }, [user?.id]);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -263,6 +288,9 @@ const TopBar = () => {
                     }}
                   >
                     <Avatar className="h-10 w-10">
+                      {userAvatarUrl && (
+                        <AvatarImage src={userAvatarUrl} alt="User avatar" />
+                      )}
                       <AvatarFallback className="beepbite-gradient text-white font-bold">
                         {getUserInitials()}
                       </AvatarFallback>
@@ -328,6 +356,9 @@ const TopBar = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 border-2 border-white/30">
+                      {userAvatarUrl && (
+                        <AvatarImage src={userAvatarUrl} alt="User avatar" />
+                      )}
                       <AvatarFallback className="bg-white/20 text-white font-bold">
                         {getUserInitials()}
                       </AvatarFallback>
@@ -398,7 +429,29 @@ const TopBar = () => {
                 {/* Account Section */}
                 <div className="space-y-3 mb-6">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Account
+                    Profile
+                  </h3>
+                  <div className="space-y-2">
+                    <Link 
+                      to="/account" 
+                      onClick={closeMobileMenu}
+                      className="flex items-center gap-4 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <UserCircle className="w-5 h-5 text-gray-600" />
+                      </div>
+                      <div>
+                        <span className="text-base font-medium">Account</span>
+                        <p className="text-sm text-gray-500">Profile & preferences</p>
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Management Section */}
+                <div className="space-y-3 mb-6">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                    Management
                   </h3>
                   <div className="space-y-2">
                     <Link 

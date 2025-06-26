@@ -43,7 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
@@ -403,6 +403,10 @@ const Members = () => {
                       {/* Member Info */}
                       <div className="flex items-start gap-4">
                         <Avatar className="h-14 w-14 border-2 border-gray-100">
+                          <AvatarImage 
+                            src={member.profiles?.avatar_url} 
+                            alt={`${member.profiles?.full_name || member.profiles?.username || 'User'} avatar`}
+                          />
                           <AvatarFallback className="bg-gray-100 text-gray-700 font-semibold text-lg">
                             {getInitials(member.profiles?.full_name, member.profiles?.username, member.profiles?.email)}
                           </AvatarFallback>

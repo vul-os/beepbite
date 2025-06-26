@@ -14,7 +14,8 @@ import {
   Zap,
   MessageSquare,
   Settings,
-  ExternalLink
+  ExternalLink,
+  User
 } from 'lucide-react';
 import Logo from '@/components/ui/logo';
 
@@ -97,6 +98,12 @@ const DocsLayout = ({ children, title, description }) => {
     {
       title: "Support",
       items: [
+        {
+          title: "Custom Avatar URLs",
+          href: "/docs/custom-avatar-url",
+          icon: <User className="w-4 h-4" />,
+          active: location.pathname === "/docs/custom-avatar-url"
+        },
         {
           title: "Troubleshooting",
           href: "/docs#troubleshooting",
