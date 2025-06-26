@@ -27,8 +27,22 @@ import {
   Award,
   Lightbulb,
   Target,
-  Heart
+  Heart,
+  X,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/services/supabase-client";
 
 // WhatsApp SVG Icon Component
 const WhatsAppIcon = ({ className = "w-5 h-5" }) => (
@@ -39,6 +53,123 @@ const WhatsAppIcon = ({ className = "w-5 h-5" }) => (
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  // reCAPTCHA v3 Site Key
+  const RECAPTCHA_SITE_KEY = '6Le4UG0rAAAAAJXfVlipl7lFPKVERsSX5cHqHy7B';
+  
+  // Demo modal state
+  const [isDemoOpen, setIsDemoOpen] = React.useState(false);
+  const [phoneNumber, setPhoneNumber] = React.useState('+27');
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [demoError, setDemoError] = React.useState('');
+  const [demoSuccess, setDemoSuccess] = React.useState(false);
+
+  // Hero animation state
+  const [heroStep, setHeroStep] = React.useState(0); // 0: initial, 1: completing, 2: notifications
+  const [isAnimating, setIsAnimating] = React.useState(false);
+
+  // Load reCAPTCHA script
+  React.useEffect(() => {
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+    script.async = true;
+    document.head.appendChild(script);
+    
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  // Handle demo submission
+  const handleDemoSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setDemoError('');
+    
+    try {
+      // Validate phone number
+      if (!phoneNumber || phoneNumber.length < 10) {
+        setDemoError('Please enter a valid phone number');
+        setIsLoading(false);
+        return;
+      }
+
+      // Get reCAPTCHA token
+      const token = await new Promise((resolve, reject) => {
+        if (typeof window.grecaptcha === 'undefined') {
+          reject(new Error('reCAPTCHA not loaded'));
+          return;
+        }
+        
+        window.grecaptcha.ready(() => {
+          window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
+            action: 'whatsapp_demo'
+          }).then(resolve).catch(reject);
+        });
+      });
+
+      // Call Supabase function
+      const { data, error } = await supabase.functions.invoke('landing-whatsapp-demo', {
+        body: {
+          recaptcha_token: token,
+          action: 'whatsapp_demo',
+          cell_number: phoneNumber
+        }
+      });
+
+      if (error) {
+        setDemoError(error.message || 'Failed to send demo message');
+        return;
+      }
+
+      if (!data.success) {
+        setDemoError(data.error || 'Failed to send demo message');
+        return;
+      }
+
+      setDemoSuccess(true);
+      toast({
+        title: "Demo sent successfully! 🎉",
+        description: `Check your WhatsApp for a demo notification (template message)`,
+      });
+
+    } catch (error) {
+      setDemoError(error.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetDemo = () => {
+    setDemoSuccess(false);
+    setDemoError('');
+    setPhoneNumber('+27');
+  };
+
+  const openDemo = () => {
+    resetDemo();
+    setIsDemoOpen(true);
+  };
+
+  // Hero animation handler
+  const startHeroAnimation = async () => {
+    if (isAnimating) return;
+    
+    setIsAnimating(true);
+    setHeroStep(1); // Start completing order
+    
+    // Step 1: Order completion (2 seconds)
+    setTimeout(() => {
+      setHeroStep(2); // Show notifications
+    }, 2000);
+    
+    // Step 2: Reset after showing notifications (4 seconds)
+    setTimeout(() => {
+      setHeroStep(0);
+      setIsAnimating(false);
+    }, 6000);
+  };
 
   // Smooth scroll function
   const scrollToSection = (sectionId) => {
@@ -200,9 +331,10 @@ const LandingPage = () => {
                   size="lg" 
                   variant="outline" 
                   className="border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white transition-all duration-300 h-14 px-8 text-lg font-semibold rounded-xl group"
+                  onClick={openDemo}
                 >
                   <Play className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
-                  Watch Demo
+                  Try Demo Now
                 </Button>
               </div>
 
@@ -220,56 +352,149 @@ const LandingPage = () => {
               </div>
             </div>
 
-            {/* Right Visual */}
+            {/* Right Visual - Interactive Animation */}
             <div className="relative">
-              <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden max-w-md mx-auto transform hover:scale-105 transition-transform duration-300">
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center gap-4">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                      <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                      <div className="w-3 h-3 rounded-full bg-green-400"></div>
+              {/* Step 0: Initial Dashboard */}
+              {heroStep === 0 && (
+                <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden max-w-md mx-auto transform transition-all duration-700">
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                        <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                        <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                      </div>
+                      <h3 className="font-bold text-gray-900 text-lg">Kitchen Dashboard</h3>
+                      <Badge className="ml-auto bg-green-100 text-green-700 text-sm px-3 py-1 rounded-full">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                        Live
+                      </Badge>
                     </div>
-                    <h3 className="font-bold text-gray-900 text-lg">Live Orders</h3>
-                    <Badge className="ml-auto bg-green-100 text-green-700 text-sm px-3 py-1 rounded-full">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                      Live
-                    </Badge>
                   </div>
-                </div>
-                
-                <div className="p-6 space-y-4">
-                  {[
-                    { id: "#2847", customer: "Maria G.", items: "2x Spicy Burger, 1x Fries", time: "Just now", status: "new", urgent: true },
-                    { id: "#2846", customer: "John D.", items: "1x Margherita Pizza", time: "3 min ago", status: "preparing", urgent: false },
-                    { id: "#2845", customer: "Sarah K.", items: "3x Fish Tacos, 2x Drinks", time: "8 min ago", status: "ready", urgent: false }
-                  ].map((order, i) => (
-                    <div key={i} className={`p-4 rounded-xl border-2 ${order.urgent ? 'bg-orange-50 border-orange-200 shadow-lg' : 'bg-gray-50 border-gray-200'} transition-all duration-300 hover:shadow-md transform hover:-translate-y-1`}>
+                  
+                  <div className="p-6 space-y-4">
+                    <div className="p-4 rounded-xl border-2 bg-orange-50 border-orange-200 shadow-lg">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-3">
-                            <span className="font-bold text-gray-900 text-lg">{order.id}</span>
-                            <Badge 
-                              variant={order.status === 'ready' ? 'default' : order.status === 'new' ? 'destructive' : 'secondary'} 
-                              className="text-xs px-3 py-1 rounded-full"
-                            >
-                              {order.status}
+                            <span className="font-bold text-gray-900 text-lg">#2847</span>
+                            <Badge variant="default" className="text-xs px-3 py-1 rounded-full bg-orange-500 text-white">
+                              cooking
                             </Badge>
                           </div>
-                          <p className="font-semibold text-gray-900">{order.customer}</p>
-                          <p className="text-sm text-gray-600">{order.items}</p>
-                          <p className="text-xs text-gray-500 font-medium">{order.time}</p>
-                        </div>
-                        <div className="ml-4">
-                          <div className={`p-3 rounded-xl ${order.urgent ? 'bg-orange-100' : 'bg-gray-100'}`}>
-                            <Bell className={`w-5 h-5 ${order.urgent ? 'text-orange-500 animate-pulse' : 'text-gray-400'}`} />
-                          </div>
+                          <p className="font-semibold text-gray-900">Maria G.</p>
+                          <p className="text-sm text-gray-600">2x Spicy Burger, 1x Fries</p>
+                          <p className="text-xs text-gray-500 font-medium">5 min ago</p>
                         </div>
                       </div>
                     </div>
-                  ))}
+
+                    <div className="flex justify-center pt-4">
+                      <Button 
+                        onClick={startHeroAnimation}
+                        disabled={isAnimating}
+                        className="beepbite-gradient text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group"
+                      >
+                        <CheckCircle className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                        Complete Order #2847
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Step 1: Order Completing */}
+              {heroStep === 1 && (
+                <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden max-w-md mx-auto transform transition-all duration-700">
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 px-6 py-4 border-b border-green-200">
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+                        <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+                        <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+                      </div>
+                      <h3 className="font-bold text-green-800 text-lg">Order Completed!</h3>
+                      <Badge className="ml-auto bg-green-200 text-green-800 text-sm px-3 py-1 rounded-full">
+                        <Zap className="w-3 h-3 mr-2" />
+                        Processing
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 text-center space-y-6">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                      <CheckCircle className="w-10 h-10 text-green-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">Order #2847 Ready!</h3>
+                      <p className="text-gray-600">Sending WhatsApp notification to Maria...</p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                      <span className="text-sm text-gray-500">Notifying customer...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: WhatsApp Notifications */}
+              {heroStep === 2 && (
+                <div className="relative z-10 space-y-4">
+                  {/* Customer Phone 1 */}
+                  <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-4 animate-in slide-in-from-right-5 duration-700">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 beepbite-gradient rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">MG</span>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900">Maria G.</div>
+                        <div className="text-xs text-gray-500">+27 82 555 0123</div>
+                      </div>
+                      <WhatsAppIcon className="w-6 h-6 text-green-500 ml-auto" />
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-400">
+                      <div className="flex items-start gap-2">
+                        <div className="text-sm">
+                          <div className="font-semibold text-green-800 mb-1">🎉 BeepBite - Order Ready!</div>
+                          <div className="text-gray-700">Your Order #2847 is ready for pickup!</div>
+                          <div className="text-xs text-gray-500 mt-1">Just now</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Success Animation */}
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-2xl p-6 text-center border-2 border-green-200 animate-in fade-in duration-1000">
+                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-8 h-8 text-white animate-bounce" />
+                    </div>
+                    <h3 className="text-lg font-bold text-green-800 mb-2">Notification Sent!</h3>
+                    <p className="text-sm text-green-700">Maria will get her hot food in minutes, not hours.</p>
+                    <div className="flex items-center justify-center gap-4 mt-4 text-sm text-green-600">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        <span>Instant delivery</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Heart className="w-4 h-4" />
+                        <span>Happy customer</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Try Again Button */}
+                  <div className="text-center pt-4">
+                    <Button 
+                      onClick={startHeroAnimation}
+                      variant="outline"
+                      className="border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white px-6 py-2 rounded-xl transition-all duration-300"
+                    >
+                      <Play className="mr-2 w-4 h-4" />
+                      See it again
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -573,6 +798,104 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Demo Modal */}
+      <Dialog open={isDemoOpen} onOpenChange={setIsDemoOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-auto">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-center text-xl font-bold">
+              {demoSuccess ? "Demo Sent! 🎉" : "Try BeepBite Demo"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {demoSuccess ? (
+            <div className="py-6 text-center space-y-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-green-600">Check Your WhatsApp!</h3>
+                <p className="text-sm text-gray-600">
+                  You should receive a "Hello World" template message showing that BeepBite's WhatsApp notification system is working. 
+                  In production, this would be your custom order notification!
+                </p>
+              </div>
+              <Button 
+                onClick={() => setIsDemoOpen(false)}
+                className="beepbite-gradient text-white w-full"
+              >
+                Got it!
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleDemoSubmit} className="space-y-6">
+              <div className="text-center space-y-2">
+                <p className="text-gray-600">
+                  Test BeepBite's WhatsApp notification system!
+                </p>
+                <p className="text-xs text-orange-600 font-medium">
+                  🇿🇦 South Africa only for now - check back next month, we're expanding rapidly!
+                </p>
+              </div>
+
+              {/* Error Alert */}
+              {demoError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">{demoError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Phone Number Input */}
+              <div className="space-y-2">
+                <Label htmlFor="demo-phone" className="text-sm font-medium">
+                  WhatsApp Number
+                </Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    id="demo-phone"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+27123456789"
+                    className="pl-10 h-12 text-lg"
+                    required
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Enter your WhatsApp number to receive a demo notification
+                </p>
+              </div>
+
+              {/* Submit Button */}
+              <Button 
+                type="submit"
+                disabled={isLoading}
+                className="beepbite-gradient text-white w-full h-12 text-lg font-semibold"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                    Testing System...
+                  </>
+                ) : (
+                  <>
+                    <WhatsAppIcon className="mr-2 w-5 h-5" />
+                    Test WhatsApp System
+                  </>
+                )}
+              </Button>
+              
+              <div className="text-center">
+                <p className="text-xs text-gray-500">
+                  Protected by reCAPTCHA • No spam, just a quick demo
+                </p>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 py-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -620,7 +943,7 @@ const LandingPage = () => {
           <div className="border-t border-gray-200 mt-12 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
               <p className="text-gray-500">
-                &copy; {new Date().getFullYear()} BeepBite. All rights reserved.
+                &copy; {new Date().getFullYear()} BeepBite Pty is a member of Exolution Technologies Pty
               </p>
               <div className="flex items-center gap-4">
                 <button 

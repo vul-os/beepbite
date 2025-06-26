@@ -245,22 +245,37 @@ const TopBar = () => {
         <>
           {/* Backdrop */}
           <div 
-            className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             onClick={closeMobileMenu}
           />
           
           {/* Mobile Menu */}
-          <div className="lg:hidden fixed top-16 inset-x-0 z-50 mx-4 mb-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-beepbite-light-alt overflow-hidden animate-in slide-in-from-top-2 duration-300">
-              <div className="p-6 space-y-4">
-                {/* Menu Header */}
-                <div className="text-center pb-4 border-b border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-900">Navigation</h3>
-                  <p className="text-sm text-gray-600">Quick access to your dashboard</p>
+          <div className="lg:hidden fixed top-16 inset-x-0 z-50 mx-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+              
+              {/* User Info Header */}
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-12 w-12 border-2 border-white/30">
+                    <AvatarFallback className="bg-white/20 text-white font-bold text-lg">
+                      {getUserInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-white font-bold text-lg">Welcome back!</p>
+                    <p className="text-white/90 text-sm truncate max-w-[200px]">
+                      {user.email}
+                    </p>
+                  </div>
                 </div>
+              </div>
 
-                {/* Navigation Items */}
-                <div className="space-y-2">
+              <div className="p-6">
+                {/* Main Navigation */}
+                <div className="space-y-3 mb-6">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                    Main Menu
+                  </h3>
                   {navigationItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = isActivePath(item.path);
@@ -271,28 +286,28 @@ const TopBar = () => {
                         to={item.path}
                         onClick={closeMobileMenu}
                         className={cn(
-                          "flex items-center gap-4 px-4 py-4 rounded-xl font-semibold transition-all duration-200 w-full group",
+                          "flex items-center gap-4 px-4 py-4 rounded-xl font-medium transition-all duration-200 w-full",
                           isActive 
-                            ? "bg-orange-500 text-white shadow-lg" 
-                            : "text-gray-700 hover:text-white hover:bg-orange-500 hover:shadow-md"
+                            ? "bg-orange-500 text-white shadow-lg shadow-orange-500/25" 
+                            : "text-gray-700 hover:bg-orange-50 hover:text-orange-600 active:bg-orange-100"
                         )}
                       >
                         <div className={cn(
-                          "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200",
+                          "w-10 h-10 rounded-lg flex items-center justify-center",
                           isActive 
                             ? "bg-white/20" 
-                            : "bg-orange-500/10 group-hover:bg-white/20"
+                            : "bg-gray-100"
                         )}>
                           <Icon className={cn(
-                            "w-6 h-6",
-                            isActive ? "text-white" : "text-orange-500 group-hover:text-white"
+                            "w-5 h-5",
+                            isActive ? "text-white" : "text-gray-600"
                           )} />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-base">{item.name}</span>
+                          <span className="text-base font-semibold">{item.name}</span>
                           <span className={cn(
                             "text-sm",
-                            isActive ? "text-white/80" : "text-gray-600 group-hover:text-white/80"
+                            isActive ? "text-white/80" : "text-gray-500"
                           )}>{item.description}</span>
                         </div>
                       </Link>
@@ -300,43 +315,58 @@ const TopBar = () => {
                   })}
                 </div>
 
-                {/* Quick Actions */}
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-sm font-semibold text-gray-600 mb-3">Quick Actions</p>
-                  <div className="grid grid-cols-2 gap-3">
+                {/* Account Section */}
+                <div className="space-y-3 mb-6">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                    Account
+                  </h3>
+                  <div className="space-y-2">
                     <Link 
                       to="/settings" 
                       onClick={closeMobileMenu}
-                      className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gray-100 hover:bg-orange-50 transition-colors duration-200 group"
+                      className="flex items-center gap-4 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
                     >
-                      <Settings className="w-6 h-6 text-gray-600 group-hover:text-orange-500" />
-                      <span className="text-sm font-semibold text-gray-700">Settings</span>
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <Settings className="w-5 h-5 text-gray-600" />
+                      </div>
+                      <div>
+                        <span className="text-base font-medium">Settings</span>
+                        <p className="text-sm text-gray-500">Restaurant preferences</p>
+                      </div>
                     </Link>
+                    
                     <Link 
                       to="/team" 
                       onClick={closeMobileMenu}
-                      className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gray-100 hover:bg-orange-50 transition-colors duration-200 group"
+                      className="flex items-center gap-4 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
                     >
-                      <Users className="w-6 h-6 text-gray-600 group-hover:text-orange-500" />
-                      <span className="text-sm font-semibold text-gray-700">Team</span>
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <Users className="w-5 h-5 text-gray-600" />
+                      </div>
+                      <div>
+                        <span className="text-base font-medium">Team Members</span>
+                        <p className="text-sm text-gray-500">Manage restaurant staff</p>
+                      </div>
                     </Link>
                   </div>
                 </div>
 
-                {/* Sign Out Button */}
+                {/* Sign Out */}
                 <div className="pt-4 border-t border-gray-200">
                   <Button
                     onClick={() => {
                       handleSignOut();
                       closeMobileMenu();
                     }}
-                    variant="outline"
-                    className="w-full justify-start gap-3 py-4 border-beepbite-accent/20 text-beepbite-accent hover:bg-beepbite-accent hover:text-white rounded-xl"
+                    variant="ghost"
+                    className="w-full justify-start gap-4 py-4 px-4 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl font-medium"
                   >
-                    <LogOut className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                      <LogOut className="w-5 h-5 text-red-600" />
+                    </div>
                     <div className="text-left">
-                      <div className="font-semibold">Sign Out</div>
-                      <div className="text-xs opacity-80">End your session</div>
+                      <div className="text-base font-medium">Sign Out</div>
+                      <div className="text-sm text-red-500">End your session</div>
                     </div>
                   </Button>
                 </div>

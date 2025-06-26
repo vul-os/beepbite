@@ -10,7 +10,6 @@ import {
   Clock, 
   CheckCircle, 
   AlertCircle,
-  Filter,
   MoreHorizontal,
   Phone,
   Hash,
@@ -28,6 +27,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import CreateBiteModal from '@/components/modals/create-bite-modal';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
@@ -38,9 +47,10 @@ const Dashboard = () => {
   const [bites, setBites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('current');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [currentBistro, setCurrentBistro] = useState(null);
+  const [confirmCompleteDialog, setConfirmCompleteDialog] = useState({ isOpen: false, biteId: null, orderNumber: '' });
 
   useEffect(() => {
     fetchCurrentBistro();
@@ -133,6 +143,19 @@ const Dashboard = () => {
     }
   };
 
+  const handleCompleteOrder = (biteId, orderNumber) => {
+    setConfirmCompleteDialog({ isOpen: true, biteId, orderNumber });
+  };
+
+  const confirmCompleteOrder = () => {
+    updateBiteStatus(confirmCompleteDialog.biteId, 'completed');
+    setConfirmCompleteDialog({ isOpen: false, biteId: null, orderNumber: '' });
+  };
+
+  const cancelCompleteOrder = () => {
+    setConfirmCompleteDialog({ isOpen: false, biteId: null, orderNumber: '' });
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'pending':
@@ -166,11 +189,30 @@ const Dashboard = () => {
   const filteredBites = bites.filter(bite => {
     const matchesSearch = bite.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          bite.whatsapp_number.includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || bite.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    
+    // If searching, show all matching results regardless of status filter
+    if (searchTerm.trim()) {
+      return matchesSearch;
+    }
+    
+    // Otherwise apply status filter
+    let matchesStatus = false;
+    switch (statusFilter) {
+      case 'current':
+        matchesStatus = ['pending', 'preparing', 'ready'].includes(bite.status);
+        break;
+      case 'all':
+        matchesStatus = true;
+        break;
+      default:
+        matchesStatus = bite.status === statusFilter;
+    }
+    
+    return matchesStatus;
   });
 
   const statusCounts = {
+    current: bites.filter(b => ['pending', 'preparing', 'ready'].includes(b.status)).length,
     all: bites.length,
     pending: bites.filter(b => b.status === 'pending').length,
     preparing: bites.filter(b => b.status === 'preparing').length,
@@ -180,15 +222,12 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-            <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="h-48 bg-gray-200 rounded animate-pulse"></div>
+      <div className="container mx-auto p-4">
+        <div className="space-y-4">
+          <div className="h-12 bg-gray-200 rounded w-full animate-pulse"></div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="h-40 bg-gray-200 rounded animate-pulse"></div>
             ))}
           </div>
         </div>
@@ -197,84 +236,94 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col space-y-3 sm:space-y-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1 sm:space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm sm:text-base text-gray-600">
-            {currentBistro ? `${currentBistro.name} - Manage your orders in real-time` : 'Manage your restaurant orders in real-time'}
-          </p>
-        </div>
-        <Button 
-          onClick={() => setIsCreateModalOpen(true)}
-          size="lg"
-          className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
-        >
-          <Plus className="w-4 sm:w-5 h-4 sm:h-5 mr-2" />
-          <span className="text-sm sm:text-base">Create a Bite</span>
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        {[
-          { key: 'all', label: 'Total Orders', color: 'bg-gray-50 border-gray-200' },
-          { key: 'pending', label: 'Pending', color: 'bg-yellow-50 border-yellow-200' },
-          { key: 'preparing', label: 'Preparing', color: 'bg-blue-50 border-blue-200' },
-          { key: 'ready', label: 'Ready', color: 'bg-green-50 border-green-200' },
-          { key: 'completed', label: 'Completed', color: 'bg-gray-50 border-gray-200' },
-        ].map((stat) => (
-          <Card 
-            key={stat.key}
-            className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-              statusFilter === stat.key ? 'ring-2 ring-orange-500' : ''
-            } ${stat.color}`}
-            onClick={() => setStatusFilter(stat.key)}
-          >
-            <CardContent className="p-3 sm:p-4 text-center">
-              <div className="text-xl sm:text-2xl font-bold">{statusCounts[stat.key]}</div>
-              <div className="text-xs sm:text-sm text-gray-600 leading-tight">{stat.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Search and Filters */}
-      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:gap-4">
+    <div className="space-y-4 p-4">
+      {/* Search and Create Button */}
+      <div className="flex gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <Input
             placeholder="Search by order number or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 text-sm sm:text-base"
+            className="pl-12 h-14 text-lg font-medium"
           />
         </div>
-        <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4" />
-          <span className="text-sm sm:text-base">Filters</span>
+        {/* Desktop Create Button - Hidden on mobile */}
+        <Button 
+          onClick={() => setIsCreateModalOpen(true)}
+          size="lg"
+          className="hidden sm:flex beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-300 h-14 px-6"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Create
         </Button>
+      </div>
+
+      {/* Mobile FAB - Only visible on mobile */}
+      <Button
+        onClick={() => setIsCreateModalOpen(true)}
+        className="sm:hidden fixed bottom-6 right-6 w-16 h-16 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-50 flex items-center justify-center"
+        size="lg"
+      >
+        <Plus className="w-8 h-8" />
+      </Button>
+
+      {/* Status Filter Buttons */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { key: 'current', label: 'Current', count: statusCounts.current, color: 'bg-orange-100 text-orange-800' },
+          { key: 'all', label: 'All', count: statusCounts.all, color: 'bg-gray-100 text-gray-800' },
+          { key: 'pending', label: 'Pending', count: statusCounts.pending, color: 'bg-yellow-100 text-yellow-800' },
+          { key: 'preparing', label: 'Preparing', count: statusCounts.preparing, color: 'bg-blue-100 text-blue-800' },
+          { key: 'ready', label: 'Ready', count: statusCounts.ready, color: 'bg-green-100 text-green-800' },
+          { key: 'completed', label: 'Completed', count: statusCounts.completed, color: 'bg-gray-100 text-gray-800' },
+        ].map((status) => (
+          <Button
+            key={status.key}
+            variant={statusFilter === status.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter(status.key)}
+            className={`whitespace-nowrap h-10 px-4 ${
+              statusFilter === status.key 
+                ? 'beepbite-gradient text-white' 
+                : 'hover:bg-gray-50'
+            }`}
+          >
+            <span className="font-medium">{status.label}</span>
+            <Badge variant="secondary" className="ml-2 text-xs">
+              {status.count}
+            </Badge>
+          </Button>
+        ))}
       </div>
 
       {/* Orders Grid */}
       <div className="space-y-4">
         {filteredBites.length === 0 ? (
-          <Card className="p-8 sm:p-12 text-center">
+          <Card className="p-8 text-center">
             <div className="space-y-4">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                <Hash className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                <Hash className="w-8 h-8 text-gray-400" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-base sm:text-lg font-medium text-gray-900">No orders found</h3>
-                <p className="text-sm sm:text-base text-gray-500">
-                  {searchTerm ? 'Try adjusting your search terms' : 'Create your first bite to get started'}
+                <h3 className="text-lg font-medium text-gray-900">
+                  {searchTerm ? 'No orders found' : 'No orders in this view'}
+                </h3>
+                <p className="text-base text-gray-500">
+                  {searchTerm 
+                    ? 'Try adjusting your search terms' 
+                    : statusFilter === 'current'
+                      ? 'No active orders at the moment'
+                      : statusFilter === 'all'
+                        ? 'Create your first bite to get started'
+                        : `No ${statusFilter} orders found`
+                  }
                 </p>
               </div>
-              {!searchTerm && (
+              {!searchTerm && statusFilter === 'current' && (
                 <Button 
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="beepbite-gradient text-white w-full sm:w-auto"
+                  className="beepbite-gradient text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Bite
@@ -283,35 +332,48 @@ const Dashboard = () => {
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredBites.map((bite) => (
-              <Card key={bite.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-orange-500">
-                <CardHeader className="pb-2 sm:pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
-                      <Hash className="w-4 sm:w-5 h-4 sm:h-5 text-orange-600" />
-                      <span className="truncate">{bite.order_number}</span>
-                    </CardTitle>
-                    <Badge className={`${getStatusColor(bite.status)} capitalize text-xs sm:text-sm shrink-0`}>
-                      <span className="flex items-center gap-1">
+              <Card key={bite.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-orange-500 min-h-fit">
+                <CardHeader className="pb-3 px-4 pt-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-orange-600 shrink-0" />
+                        <span className="truncate">{bite.order_number}</span>
+                      </CardTitle>
+                    </div>
+                    
+                    {/* Status Button */}
+                    <Button
+                      size="default"
+                      className={`w-full h-10 text-sm ${getStatusColor(bite.status)} border hover:shadow-sm transition-all duration-200`}
+                      variant="outline"
+                      onClick={() => {
+                        if (bite.status === 'pending') updateBiteStatus(bite.id, 'preparing');
+                        else if (bite.status === 'preparing') updateBiteStatus(bite.id, 'ready');
+                        else if (bite.status === 'ready') updateBiteStatus(bite.id, 'completed');
+                      }}
+                    >
+                      <span className="flex items-center gap-2 justify-center">
                         {getStatusIcon(bite.status)}
-                        <span className="hidden sm:inline">{bite.status}</span>
+                        <span className="capitalize font-medium">{bite.status}</span>
                       </span>
-                    </Badge>
+                    </Button>
                   </div>
                 </CardHeader>
                 
-                <CardContent className="space-y-3 sm:space-y-4">
+                <CardContent className="space-y-4 px-4 pb-4">
                   <div className="space-y-2">
-                    <div className="flex items-center text-xs sm:text-sm text-gray-600">
-                      <Phone className="w-3 sm:w-4 h-3 sm:h-4 mr-2 text-gray-400 shrink-0" />
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Phone className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
                       <span className="truncate">{bite.whatsapp_number}</span>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      Created {formatDistanceToNow(new Date(bite.created_at), { addSuffix: true })}
+                    <div className="text-sm text-gray-500">
+                      {formatDistanceToNow(new Date(bite.created_at), { addSuffix: true })}
                     </div>
                     {bite.order_ready_at && (
-                      <div className="text-xs text-green-600">
+                      <div className="text-sm text-green-600 font-medium">
                         Ready {formatDistanceToNow(new Date(bite.order_ready_at), { addSuffix: true })}
                       </div>
                     )}
@@ -319,127 +381,104 @@ const Dashboard = () => {
 
                   {/* Action Buttons */}
                   <div className="space-y-3">
-                    {/* Primary Action Button */}
-                    <div className="space-y-2">
-                      {bite.status === 'pending' && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateBiteStatus(bite.id, 'preparing')}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all duration-200 hover:shadow-md"
-                        >
-                          <ChefHat className="w-4 h-4 mr-2" />
-                          Start Preparing
-                        </Button>
-                      )}
-                      {bite.status === 'preparing' && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateBiteStatus(bite.id, 'ready')}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all duration-200 hover:shadow-md"
-                        >
-                          <Bell className="w-4 h-4 mr-2" />
-                          Mark Ready
-                        </Button>
-                      )}
-                      {bite.status === 'ready' && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateBiteStatus(bite.id, 'completed')}
-                          className="w-full bg-orange-600 hover:bg-orange-700 text-white shadow-sm transition-all duration-200 hover:shadow-md"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Complete Order
-                        </Button>
-                      )}
-                      {bite.status === 'completed' && (
-                        <div className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-center text-sm font-medium">
-                          <CheckCircle className="w-4 h-4 inline mr-2 text-green-600" />
-                          Order Completed
-                        </div>
-                      )}
+                    {/* Status Change Buttons */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="default"
+                        variant={bite.status === 'pending' ? "default" : "outline"}
+                        onClick={() => updateBiteStatus(bite.id, 'pending')}
+                        className={`h-10 text-sm transition-all duration-200 ${
+                          bite.status === 'pending' 
+                            ? 'bg-yellow-600 hover:bg-yellow-700 text-white' 
+                            : 'hover:bg-yellow-50 hover:border-yellow-200 hover:text-yellow-700'
+                        }`}
+                      >
+                        <Clock className="w-4 h-4 mr-2" />
+                        Pending
+                      </Button>
+                      
+                      <Button
+                        size="default"
+                        variant={bite.status === 'preparing' ? "default" : "outline"}
+                        onClick={() => updateBiteStatus(bite.id, 'preparing')}
+                        className={`h-10 text-sm transition-all duration-200 ${
+                          bite.status === 'preparing' 
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                            : 'hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700'
+                        }`}
+                      >
+                        <ChefHat className="w-4 h-4 mr-2" />
+                        Preparing
+                      </Button>
+                      
+                      <Button
+                        size="default"
+                        variant={bite.status === 'ready' ? "default" : "outline"}
+                        onClick={() => updateBiteStatus(bite.id, 'ready')}
+                        className={`h-10 text-sm transition-all duration-200 ${
+                          bite.status === 'ready' 
+                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                            : 'hover:bg-green-50 hover:border-green-200 hover:text-green-700'
+                        }`}
+                      >
+                        <Bell className="w-4 h-4 mr-2" />
+                        Ready
+                      </Button>
+                      
+                      <Button
+                        size="default"
+                        variant={bite.status === 'completed' ? "default" : "outline"}
+                        onClick={() => bite.status !== 'completed' && handleCompleteOrder(bite.id, bite.order_number)}
+                        disabled={bite.status === 'completed'}
+                        className={`h-10 text-sm transition-all duration-200 ${
+                          bite.status === 'completed' 
+                            ? 'bg-gray-600 text-white cursor-not-allowed' 
+                            : 'hover:bg-gray-50 hover:border-gray-200 hover:text-gray-700'
+                        }`}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Done
+                      </Button>
                     </div>
+
+                    {/* Big Complete Button - Only show for ready orders */}
+                    {bite.status === 'ready' && (
+                      <Button
+                        size="lg"
+                        onClick={() => handleCompleteOrder(bite.id, bite.order_number)}
+                        className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-bold text-base shadow-lg hover:shadow-xl transition-all duration-300"
+                      >
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        COMPLETE ORDER
+                      </Button>
+                    )}
 
                     {/* Secondary Actions */}
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 transition-all duration-200"
+                        size="default"
+                        className="flex-1 h-10 text-sm hover:bg-orange-50 hover:border-orange-200"
                         onClick={() => {
-                          // Add notification/WhatsApp functionality
                           console.log('Send notification for order:', bite.order_number);
                         }}
                       >
-                        <MessageSquare className="w-3 h-3 mr-1" />
+                        <MessageSquare className="w-4 h-4 mr-2" />
                         Notify
                       </Button>
                       
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
+                        size="default"
+                        className="flex-1 h-10 text-sm hover:bg-blue-50 hover:border-blue-200"
                         onClick={() => {
-                          // Add view details functionality
                           console.log('View details for order:', bite.order_number);
                         }}
                       >
-                        <Eye className="w-3 h-3 mr-1" />
+                        <Eye className="w-4 h-4 mr-2" />
                         Details
                       </Button>
                     </div>
-
-                    {/* More Actions Dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="w-full text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:border-gray-300"
-                        >
-                          <MoreHorizontal className="w-3 sm:w-4 h-3 sm:h-4 mr-1" />
-                          More Actions
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem 
-                          onClick={() => updateBiteStatus(bite.id, 'pending')}
-                          className="flex items-center gap-2 hover:bg-yellow-50"
-                        >
-                          <Clock className="w-4 h-4 text-yellow-600" />
-                          Set to Pending
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => updateBiteStatus(bite.id, 'preparing')}
-                          className="flex items-center gap-2 hover:bg-blue-50"
-                        >
-                          <ChefHat className="w-4 h-4 text-blue-600" />
-                          Set to Preparing
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => updateBiteStatus(bite.id, 'ready')}
-                          className="flex items-center gap-2 hover:bg-green-50"
-                        >
-                          <Bell className="w-4 h-4 text-green-600" />
-                          Set to Ready
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => updateBiteStatus(bite.id, 'completed')}
-                          className="flex items-center gap-2 hover:bg-gray-50"
-                        >
-                          <CheckCircle className="w-4 h-4 text-gray-600" />
-                          Set to Completed
-                        </DropdownMenuItem>
-                        <div className="border-t border-gray-100 my-1"></div>
-                        <DropdownMenuItem className="flex items-center gap-2 hover:bg-orange-50 text-orange-700">
-                          <MessageSquare className="w-4 h-4" />
-                          Send WhatsApp Update
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="flex items-center gap-2 hover:bg-blue-50 text-blue-700">
-                          <Eye className="w-4 h-4" />
-                          View Full Details
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
@@ -454,6 +493,28 @@ const Dashboard = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onBiteCreated={fetchBites}
       />
+
+      {/* Complete Order Confirmation Dialog */}
+      <AlertDialog open={confirmCompleteDialog.isOpen} onOpenChange={cancelCompleteOrder}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete Order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark order <strong>#{confirmCompleteDialog.orderNumber}</strong> as completed? 
+              This action will finalize the order.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelCompleteOrder}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmCompleteOrder}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Yes, Complete Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

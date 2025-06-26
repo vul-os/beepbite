@@ -221,6 +221,62 @@
   .mobile-card-padding {
     @apply p-4 sm:p-6;
   }
+
+  /* Hero Animation Custom Styles */
+  .animate-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+
+  .slide-in-from-right-5 {
+    animation: slide-in-right 0.7s ease-out forwards;
+  }
+
+  .fade-in {
+    animation: fade-in 1s ease-out forwards;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Enhanced pulse animation for hero elements */
+  .hero-pulse {
+    animation: hero-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes hero-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+
+  /* Smooth transitions for hero steps */
+  .hero-transition {
+    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
 
 @layer components {
