@@ -142,6 +142,13 @@ const BistroSetupPopup = ({ isOpen, onClose }) => {
     }
   };
 
+  // Helper function to normalize phone numbers (remove + prefix)
+  const normalizePhoneNumber = (phone) => {
+    if (!phone) return phone;
+    const trimmed = phone.trim();
+    return trimmed.startsWith('+') ? trimmed.substring(1) : trimmed;
+  };
+
   // Auto-save function with debouncing
   const autoSave = useCallback(async (dataToSave) => {
     if (!activeBistro) return;
@@ -158,11 +165,14 @@ const BistroSetupPopup = ({ isOpen, onClose }) => {
         if (bistroError) throw bistroError;
       }
 
+      // Normalize phone number before saving
+      const normalizedCellNumber = dataToSave.cell_number ? normalizePhoneNumber(dataToSave.cell_number) : null;
+
       // Update bistro settings
       const { error: settingsError } = await supabase.rpc('update_bistro_details', {
         p_bistro_id: activeBistro.id,
         p_description: dataToSave.description || null,
-        p_cell_number: dataToSave.cell_number || null,
+        p_cell_number: normalizedCellNumber,
         p_address: dataToSave.address || null,
         p_company_name: dataToSave.company_name || null,
         p_company_reg_identifier: dataToSave.company_reg_identifier || null,
@@ -242,11 +252,14 @@ const BistroSetupPopup = ({ isOpen, onClose }) => {
         if (bistroError) throw bistroError;
       }
 
+      // Normalize phone number before saving
+      const normalizedCellNumber = formData.cell_number ? normalizePhoneNumber(formData.cell_number) : null;
+
       // Save final data and mark as completed
       const { error } = await supabase.rpc('update_bistro_details', {
         p_bistro_id: activeBistro.id,
         p_description: formData.description,
-        p_cell_number: formData.cell_number,
+        p_cell_number: normalizedCellNumber,
         p_address: formData.address,
         p_company_name: formData.company_name,
         p_company_reg_identifier: formData.company_reg_identifier,

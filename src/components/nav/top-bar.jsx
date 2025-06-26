@@ -112,8 +112,12 @@ const TopBar = () => {
               <Link to="/" className="flex items-center">
                 <div className="block sm:hidden">
                   {/* Mobile logo - just icon */}
-                  <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">B</span>
+                  <div className="w-10 h-10 bg-white rounded-lg shadow-sm flex items-center justify-center border border-gray-200">
+                    <img 
+                      src="/icon.svg" 
+                      alt="BeepBite" 
+                      className="w-6 h-6"
+                    />
                   </div>
                 </div>
                 <div className="hidden sm:block">

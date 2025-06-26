@@ -81,6 +81,12 @@ const LandingPage = () => {
     };
   }, []);
 
+  // Helper function to normalize phone numbers (remove + prefix)
+  const normalizePhoneNumber = (phone) => {
+    const trimmed = phone.trim();
+    return trimmed.startsWith('+') ? trimmed.substring(1) : trimmed;
+  };
+
   // Handle demo submission
   const handleDemoSubmit = async (e) => {
     e.preventDefault();
@@ -88,8 +94,11 @@ const LandingPage = () => {
     setDemoError('');
     
     try {
+      // Normalize phone number before processing
+      const normalizedPhone = normalizePhoneNumber(phoneNumber);
+
       // Validate phone number
-      if (!phoneNumber || phoneNumber.length < 10) {
+      if (!normalizedPhone || normalizedPhone.length < 10) {
         setDemoError('Please enter a valid phone number');
         setIsLoading(false);
         return;
@@ -114,7 +123,7 @@ const LandingPage = () => {
         body: {
           recaptcha_token: token,
           action: 'whatsapp_demo',
-          cell_number: phoneNumber
+          cell_number: normalizedPhone
         }
       });
 
@@ -287,7 +296,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       {/* Hero Section */}
-      <section id="home" className="relative min-h-screen flex items-center bg-gradient-to-br from-gray-50/30 via-white to-orange-50/10">
+      <section id="home" className="relative min-h-[calc(100vh-5rem)] sm:min-h-[calc(100vh-4rem)] flex items-center bg-gradient-to-br from-gray-50/30 via-white to-orange-50/10 pt-8 lg:pt-8">
         {/* Background Pattern */}
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZjZiMzUiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-40"></div>
@@ -298,10 +307,10 @@ const LandingPage = () => {
         </div>
         
         <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            {/* Left Content */}
-            <div className="space-y-8 text-center lg:text-left">
-              <div className="space-y-6">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+              {/* Left Content */}
+              <div className="space-y-4 sm:space-y-6 lg:space-y-8 text-center lg:text-left">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                 <Badge className="inline-flex items-center gap-2 beepbite-gradient text-white px-4 py-2 text-sm font-semibold rounded-full shadow-lg">
                   <Sparkles className="w-4 h-4" />
                   No Setup Costs
@@ -338,7 +347,7 @@ const LandingPage = () => {
                 </Button>
               </div>
 
-              <div className="flex flex-wrap justify-center lg:justify-start gap-6 pt-4">
+              <div className="flex flex-wrap justify-center lg:justify-start gap-4 lg:gap-6 pt-2 lg:pt-4">
                 {[
                   { icon: <WhatsAppIcon className="w-5 h-5 text-green-600" />, text: "WhatsApp alerts" },
                   { icon: <CheckCircle className="w-5 h-5 text-green-600" />, text: "No setup costs" },
@@ -501,9 +510,9 @@ const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-16 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
+      <section id="features" className="py-8 sm:py-12 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
             <Badge className="inline-flex items-center gap-2 bg-orange-100 text-orange-600 px-4 py-2 text-sm font-semibold rounded-full mb-6">
               <Zap className="w-4 h-4" />
               Core Benefits

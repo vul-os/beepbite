@@ -134,6 +134,13 @@ const Settings = () => {
     }
   };
 
+  // Helper function to normalize phone numbers (remove + prefix)
+  const normalizePhoneNumber = (phone) => {
+    if (!phone) return phone;
+    const trimmed = phone.trim();
+    return trimmed.startsWith('+') ? trimmed.substring(1) : trimmed;
+  };
+
   const saveSettings = async () => {
     if (!activeBistro) return;
     
@@ -151,11 +158,14 @@ const Settings = () => {
         if (bistroError) throw bistroError;
       }
 
+      // Normalize phone number before saving
+      const normalizedCellNumber = formData.cell_number ? normalizePhoneNumber(formData.cell_number) : null;
+
       // Update bistro settings
       const { error: settingsError } = await supabase.rpc('update_bistro_details', {
         p_bistro_id: activeBistro.id,
         p_description: formData.description || null,
-        p_cell_number: formData.cell_number || null,
+        p_cell_number: normalizedCellNumber,
         p_address: formData.address || null,
         p_company_name: formData.company_name || null,
         p_company_reg_identifier: formData.company_reg_identifier || null,

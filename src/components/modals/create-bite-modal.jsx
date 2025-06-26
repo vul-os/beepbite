@@ -118,6 +118,12 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
     return true;
   };
 
+  // Helper function to normalize phone numbers (remove + prefix)
+  const normalizePhoneNumber = (phone) => {
+    const trimmed = phone.trim();
+    return trimmed.startsWith('+') ? trimmed.substring(1) : trimmed;
+  };
+
   const handleSubmit = async () => {
     setError('');
     
@@ -146,18 +152,16 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
         return;
       }
 
-      // Create the bite
+      // Create the bite using SQL function (handles customer creation automatically)
+      // Use original phone number to preserve format for consent tracking
       const { data, error: supabaseError } = await supabase
-        .from('bites')
-        .insert([
-          {
-            bistro_id: currentBistro.id,
-            order_number: orderNumber.trim(),
-            whatsapp_number: phoneNumber.trim(),
-            status: 'pending'
-          }
-        ])
-        .select();
+        .rpc('create_bite_with_customer', {
+          p_bistro_id: currentBistro.id,
+          p_order_number: orderNumber.trim(),
+          p_original_number: phoneNumber.trim(),
+          p_customer_display_name: null, // Could add a customer name field later
+          p_status: 'pending'
+        });
 
       if (supabaseError) throw supabaseError;
       
@@ -242,7 +246,7 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
 
               <div>
                 <Label htmlFor="phoneNumber" className="text-sm font-medium">
-                  Customer WhatsApp Number
+                  Customer Phone Number
                 </Label>
                 <div className="relative mt-1">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
