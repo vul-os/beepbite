@@ -52,6 +52,7 @@ const VerifyEmail = lazyImport(() => import('./pages/auth/verify-email'));
 const Dashboard = lazyImport(() => import('./pages/dashboard'));
 const Reports = lazyImport(() => import('./pages/reports'));
 const Reviews = lazyImport(() => import('./pages/reviews'));
+const Members = lazyImport(() => import('./pages/members'));
 
 // Lazy loaded components - Documentation pages
 const DocsIndex = lazyImport(() => import('./pages/docs/index'));
@@ -108,6 +109,11 @@ const AppRoutes = () => {
           <Route path="/reviews" element={
             <Protected>
               <Reviews />
+            </Protected>
+          } />
+          <Route path="/members" element={
+            <Protected>
+              <Members />
             </Protected>
           } />
         </Route>

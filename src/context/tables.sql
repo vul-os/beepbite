@@ -5,6 +5,8 @@ DROP TABLE IF EXISTS bistro_invites CASCADE;
 DROP TABLE IF EXISTS bistro_members CASCADE;
 DROP TABLE IF EXISTS bistros CASCADE;
 DROP TABLE IF EXISTS profiles CASCADE;
+DROP TABLE IF EXISTS bistro_settings CASCADE;
+DROP TABLE IF EXISTS bistro_verifications CASCADE;
 
 -- Create profiles table EXACTLY as in original
 CREATE TABLE profiles (
@@ -23,9 +25,6 @@ ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
 CREATE TABLE bistros (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name text NOT NULL,
-    description text,
-    whatsapp_number text,
-    address text,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -81,14 +80,46 @@ DECLARE
    new_profile_id uuid;
    bistro_id uuid;
    invite_exists boolean;
+   proposed_username text;
+   final_username text;
+   username_counter integer := 1;
+   username_exists boolean;
 BEGIN
+   -- Determine username: use provided username or extract from email
+   proposed_username := COALESCE(
+       NULLIF(trim(new.raw_user_meta_data->>'username'), ''),
+       split_part(new.email, '@', 1)
+   );
+   
+   -- Ensure username meets minimum length requirement (3 characters)
+   IF char_length(proposed_username) < 3 THEN
+       proposed_username := proposed_username || '123';
+   END IF;
+   
+   -- Handle potential username conflicts
+   final_username := proposed_username;
+   
+   LOOP
+       SELECT EXISTS(
+           SELECT 1 FROM public.profiles WHERE username = final_username
+       ) INTO username_exists;
+       
+       IF NOT username_exists THEN
+           EXIT;
+       END IF;
+       
+       final_username := proposed_username || username_counter::text;
+       username_counter := username_counter + 1;
+   END LOOP;
+
    -- Create profile and get its ID
-   INSERT INTO public.profiles (id, full_name, email, avatar_url)
+   INSERT INTO public.profiles (id, full_name, email, avatar_url, username)
    VALUES (
        new.id, 
        new.raw_user_meta_data->>'full_name', 
        new.email,
-       new.raw_user_meta_data->>'avatar_url'
+       new.raw_user_meta_data->>'avatar_url',
+       final_username
    )
    RETURNING id INTO new_profile_id;
    
@@ -193,6 +224,16 @@ CREATE TRIGGER update_bistro_invites_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_bistro_settings_updated_at
+    BEFORE UPDATE ON bistro_settings
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_bistro_verifications_updated_at
+    BEFORE UPDATE ON bistro_verifications
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Create indexes for better performance
 CREATE INDEX idx_bistro_members_bistro_id ON bistro_members(bistro_id);
 CREATE INDEX idx_bistro_members_profile_id ON bistro_members(profile_id);
@@ -204,3 +245,30 @@ CREATE INDEX idx_reviews_bite_id ON reviews(bite_id);
 CREATE INDEX idx_reviews_rating ON reviews(rating);
 CREATE INDEX idx_bistro_invites_email ON bistro_invites(email);
 CREATE INDEX idx_bistro_invites_status ON bistro_invites(status);
+CREATE INDEX idx_bistro_settings_bistro_id ON bistro_settings(bistro_id);
+CREATE INDEX idx_bistro_verifications_bistro_id ON bistro_verifications(bistro_id);
+CREATE INDEX idx_bistro_verifications_status ON bistro_verifications(status);
+
+-- Create bistro_settings table
+CREATE TABLE bistro_settings (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    bistro_id uuid REFERENCES bistros(id) ON DELETE CASCADE NOT NULL UNIQUE,
+    verified boolean DEFAULT false,
+    description text,
+    cell_number text,
+    address text,
+    company_name text,
+    company_reg_identifier text,
+    stages jsonb DEFAULT '{}',
+    created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create bistro_verifications table
+CREATE TABLE bistro_verifications (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    bistro_id uuid REFERENCES bistros(id) ON DELETE CASCADE NOT NULL,
+    status text NOT NULL CHECK (status IN ('pending', 'completed', 'verified')),
+    created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);

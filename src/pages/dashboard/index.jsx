@@ -19,7 +19,9 @@ import {
   Eye,
   ArrowRight,
   ChefHat,
-  Utensils
+  Utensils,
+  UserPlus,
+  X
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -38,19 +40,93 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import CreateBiteModal from '@/components/modals/create-bite-modal';
+import AcceptInviteDialog from '@/components/modals/accept-invite-dialog';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, formatDistance } from 'date-fns';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, pendingInvites, acceptInvite, rejectInvite } = useAuth();
   const [bites, setBites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('current');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [currentBistro, setCurrentBistro] = useState(null);
   const [confirmCompleteDialog, setConfirmCompleteDialog] = useState({ isOpen: false, biteId: null, orderNumber: '' });
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Custom function to format time with seconds always visible
+  const formatTimeWithSeconds = (date) => {
+    const diffInSeconds = Math.floor((currentTime - new Date(date)) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds} seconds ago`;
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      const remainingSeconds = diffInSeconds % 60;
+      return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      const remainingMinutes = Math.floor((diffInSeconds % 3600) / 60);
+      const remainingSeconds = diffInSeconds % 60;
+      return `${hours} hour${hours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''} ago`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      const remainingHours = Math.floor((diffInSeconds % 86400) / 3600);
+      const remainingMinutes = Math.floor((diffInSeconds % 3600) / 60);
+      const remainingSeconds = diffInSeconds % 60;
+      return `${days} day${days !== 1 ? 's' : ''} ${remainingHours} hour${remainingHours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''} ago`;
+    }
+  };
+
+  // Live timer for updating timestamps every 2 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 2000); // Update every 2 seconds
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Show invite dialog automatically when there are pending invites
+  useEffect(() => {
+    if (pendingInvites && pendingInvites.length > 0 && !isInviteDialogOpen) {
+      setIsInviteDialogOpen(true);
+    } else if (pendingInvites && pendingInvites.length === 0 && isInviteDialogOpen) {
+      setIsInviteDialogOpen(false);
+    }
+  }, [pendingInvites, isInviteDialogOpen]);
+
+  const handleAcceptInvite = async (inviteId) => {
+    setInviteLoading(true);
+    try {
+      await acceptInvite(inviteId);
+      // Dialog will close automatically when pendingInvites updates
+    } catch (error) {
+      console.error('Failed to accept invite:', error);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRejectInvite = async (inviteId) => {
+    setInviteLoading(true);
+    try {
+      await rejectInvite(inviteId);
+      // Dialog will close automatically when pendingInvites updates
+    } catch (error) {
+      console.error('Failed to reject invite:', error);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCloseInviteDialog = () => {
+    setIsInviteDialogOpen(false);
+  };
 
   useEffect(() => {
     fetchCurrentBistro();
@@ -73,8 +149,7 @@ const Dashboard = () => {
           role,
           bistros (
             id,
-            name,
-            description
+            name
           )
         `)
         .eq('profile_id', user.id)
@@ -237,6 +312,36 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 p-4">
+      {/* Pending Invites Banner */}
+      {pendingInvites && pendingInvites.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-orange-900">
+                    {pendingInvites.length} Pending Invitation{pendingInvites.length > 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-sm text-orange-700">
+                    You've been invited to join {pendingInvites.length > 1 ? 'bistros' : 'a bistro'}. Review and respond to your invitations.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setIsInviteDialogOpen(true)}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Review Invites
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Search and Create Button */}
       <div className="flex gap-3">
         <div className="relative flex-1">
@@ -370,11 +475,18 @@ const Dashboard = () => {
                       <span className="truncate">{bite.whatsapp_number}</span>
                     </div>
                     <div className="text-sm text-gray-500">
-                      {formatDistanceToNow(new Date(bite.created_at), { addSuffix: true })}
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span key={currentTime.getTime()}>
+                          {formatTimeWithSeconds(bite.created_at)}
+                        </span>
+                      </div>
                     </div>
                     {bite.order_ready_at && (
                       <div className="text-sm text-green-600 font-medium">
-                        Ready {formatDistanceToNow(new Date(bite.order_ready_at), { addSuffix: true })}
+                        <span key={currentTime.getTime()}>
+                          Ready {formatTimeWithSeconds(bite.order_ready_at)}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -460,7 +572,7 @@ const Dashboard = () => {
                         size="default"
                         className="flex-1 h-10 text-sm hover:bg-orange-50 hover:border-orange-200"
                         onClick={() => {
-                          console.log('Send notification for order:', bite.order_number);
+                          // Send notification functionality will be implemented here
                         }}
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
@@ -472,7 +584,7 @@ const Dashboard = () => {
                         size="default"
                         className="flex-1 h-10 text-sm hover:bg-blue-50 hover:border-blue-200"
                         onClick={() => {
-                          console.log('View details for order:', bite.order_number);
+                          // View details functionality will be implemented here
                         }}
                       >
                         <Eye className="w-4 h-4 mr-2" />
@@ -515,6 +627,16 @@ const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Accept Invite Dialog */}
+      <AcceptInviteDialog
+        invites={pendingInvites || []}
+        isOpen={isInviteDialogOpen}
+        onAccept={handleAcceptInvite}
+        onReject={handleRejectInvite}
+        isLoading={inviteLoading}
+        onClose={handleCloseInviteDialog}
+      />
     </div>
   );
 };
