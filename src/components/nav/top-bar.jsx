@@ -10,9 +10,9 @@ import {
   BarChart3,
   MessageSquare,
   Hash,
-  Bell,
   Menu,
-  X
+  X,
+  ChefHat
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -30,7 +30,13 @@ import { cn } from "@/lib/utils";
 import Logo from '@/components/ui/logo';
 
 const TopBar = () => {
-  const { user, signOut } = useAuth();
+  const { 
+    user, 
+    signOut, 
+    bistros, 
+    activeBistro,
+    switchBistro
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -41,6 +47,14 @@ const TopBar = () => {
       navigate('/signin');
     } catch (error) {
       console.error("Error signing out:", error);
+    }
+  };
+
+  const handleSwitchBistro = (bistroId) => {
+    try {
+      switchBistro(bistroId);
+    } catch (error) {
+      console.error("Error switching bistro:", error);
     }
   };
 
@@ -90,7 +104,16 @@ const TopBar = () => {
           {/* Left: Logo and Navigation */}
           <div className="flex items-center gap-6 sm:gap-8">
             <Link to="/" className="flex items-center">
-              <Logo variant="minimal" />
+              <div className="block sm:hidden">
+                {/* Mobile logo - just icon */}
+                <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">B</span>
+                </div>
+              </div>
+              <div className="hidden sm:block">
+                {/* Desktop logo - with text */}
+                <Logo variant="minimal" />
+              </div>
             </Link>
 
             {/* Desktop Navigation - Only show for authenticated users */}
@@ -120,10 +143,109 @@ const TopBar = () => {
             )}
           </div>
 
-          {/* Right: User Menu or Sign In */}
-          <div className="flex items-center gap-3 sm:gap-4">
+          {/* Right: Bistro Selector and User Menu */}
+          <div className="flex items-center gap-3">
             {user ? (
               <>
+                {/* Bistro Selector - Desktop */}
+                <div className="hidden md:block">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        className="h-9 px-3 text-sm font-medium flex items-center gap-2 border border-gray-200/80 hover:border-orange-300 hover:bg-orange-50/80 transition-colors"
+                      >
+                        <Building2 className="h-4 w-4 text-orange-500" />
+                        <span className="max-w-[120px] truncate">
+                          {activeBistro?.name || "Select Bistro"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Your Bistros
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        {bistros?.map((bistro) => (
+                          <DropdownMenuItem
+                            key={bistro.id}
+                            onClick={() => handleSwitchBistro(bistro.id)}
+                            className={cn(
+                              "flex items-center gap-2 py-2",
+                              activeBistro?.id === bistro.id ? "bg-orange-50 text-orange-900" : ""
+                            )}
+                          >
+                            <ChefHat className="h-4 w-4 text-gray-500" />
+                            <div className="flex flex-col">
+                              <span className="font-medium">{bistro.name}</span>
+                              <span className="text-xs text-gray-500">Restaurant</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Bistro Selector - Mobile */}
+                <div className="md:hidden">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        className="h-9 px-2 text-sm font-medium flex items-center gap-1 border border-gray-200/80 hover:border-orange-300 hover:bg-orange-50/80 transition-colors"
+                      >
+                        <Building2 className="h-4 w-4 text-orange-500" />
+                        <span className="max-w-[80px] truncate text-xs">
+                          {activeBistro?.name || "Bistro"}
+                        </span>
+                        <ChevronDown className="h-3 w-3 text-gray-400" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="end" 
+                      className="w-72 max-h-[70vh] overflow-y-auto"
+                      sideOffset={8}
+                    >
+                      <DropdownMenuLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Your Bistros
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        {bistros?.map((bistro) => (
+                          <DropdownMenuItem
+                            key={bistro.id}
+                            onClick={() => handleSwitchBistro(bistro.id)}
+                            className={cn(
+                              "flex items-center gap-3 py-3",
+                              activeBistro?.id === bistro.id ? "bg-orange-50 text-orange-900" : ""
+                            )}
+                          >
+                            <div className={cn(
+                              "w-8 h-8 rounded-lg flex items-center justify-center",
+                              activeBistro?.id === bistro.id ? "bg-orange-500" : "bg-gray-100"
+                            )}>
+                              <ChefHat className={cn(
+                                "w-4 h-4",
+                                activeBistro?.id === bistro.id ? "text-white" : "text-gray-500"
+                              )} />
+                            </div>
+                            <div className="flex flex-col flex-1">
+                              <span className="font-medium">{bistro.name}</span>
+                              <span className="text-xs text-gray-500">Restaurant</span>
+                            </div>
+                            {activeBistro?.id === bistro.id && (
+                              <div className="w-2 h-2 bg-orange-500 rounded-full" />
+                            )}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
                 {/* Mobile Menu Button */}
                 <div className="lg:hidden">
                   <Button
@@ -245,28 +367,37 @@ const TopBar = () => {
         <>
           {/* Backdrop */}
           <div 
-            className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
             onClick={closeMobileMenu}
           />
           
           {/* Mobile Menu */}
-          <div className="lg:hidden fixed top-16 inset-x-0 z-50 mx-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+          <div className="lg:hidden fixed top-0 inset-x-0 z-[250] mx-4 mt-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in slide-in-from-top-2 duration-300 max-h-[calc(100vh-2rem)] overflow-y-auto">
               
               {/* User Info Header */}
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12 border-2 border-white/30">
-                    <AvatarFallback className="bg-white/20 text-white font-bold text-lg">
-                      {getUserInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-white font-bold text-lg">Welcome back!</p>
-                    <p className="text-white/90 text-sm truncate max-w-[200px]">
-                      {user.email}
-                    </p>
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border-2 border-white/30">
+                      <AvatarFallback className="bg-white/20 text-white font-bold">
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white/90 text-sm truncate font-medium">
+                        {user.email}
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={closeMobileMenu}
+                    className="text-white hover:bg-white/20 p-2 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
                 </div>
               </div>
 

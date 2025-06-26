@@ -262,7 +262,7 @@ const Dashboard = () => {
       {/* Mobile FAB - Only visible on mobile */}
       <Button
         onClick={() => setIsCreateModalOpen(true)}
-        className="sm:hidden fixed bottom-6 right-6 w-16 h-16 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-50 flex items-center justify-center"
+        className="sm:hidden fixed bottom-6 right-6 w-16 h-16 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center"
         size="lg"
       >
         <Plus className="w-8 h-8" />

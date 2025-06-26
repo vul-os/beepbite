@@ -14,53 +14,60 @@ export function useAuth() {
 export function AuthProvider({ children, onNavigate, pathname }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [firms, setFirms] = useState([]);
-  const [activeFirm, setActiveFirm] = useState(null);
-  const [hasLoadedFirms, setHasLoadedFirms] = useState(false);
+  const [bistros, setBistros] = useState([]);
+  const [activeBistro, setActiveBistro] = useState(null);
+  const [hasLoadedBistros, setHasLoadedBistros] = useState(false);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [hasLoadedInvites, setHasLoadedInvites] = useState(false);
 
-  const getFirmBySlug = useCallback((slug) => {
-    return firms.find(firm => firm.slug === slug);
-  }, [firms]);
+  const getBistroBySlug = useCallback((slug) => {
+    return bistros.find(bistro => bistro.slug === slug);
+  }, [bistros]);
 
-  const fetchFirms = useCallback(async () => {
+  const fetchBistros = useCallback(async () => {
     if (!user) {
-      setHasLoadedFirms(true);
+      setHasLoadedBistros(true);
       return;
     }
     
     try {
       const { data, error } = await supabase
-        .from('firms')
-        .select('*');
+        .from('bistros')
+        .select(`
+          *,
+          bistro_members!inner(
+            role,
+            profile_id
+          )
+        `)
+        .eq('bistro_members.profile_id', user.id);
 
       if (error) throw error;
-      setFirms(data || []);
-      if (data && data.length > 0 && !activeFirm) {
-        setActiveFirm(data[0]);
+      setBistros(data || []);
+      if (data && data.length > 0 && !activeBistro) {
+        setActiveBistro(data[0]);
       }
     } catch (error) {
-      console.error('Error fetching firms:', error);
+      console.error('Error fetching bistros:', error);
     } finally {
-      setHasLoadedFirms(true);
+      setHasLoadedBistros(true);
     }
-  }, [user, activeFirm]);
+  }, [user, activeBistro]);
 
-  const switchFirm = useCallback((firmId) => {
-    const newActiveFirm = firms.find(firm => firm.id === firmId);
-    if (newActiveFirm) {
-      setActiveFirm(newActiveFirm);
+  const switchBistro = useCallback((bistroId) => {
+    const newActiveBistro = bistros.find(bistro => bistro.id === bistroId);
+    if (newActiveBistro) {
+      setActiveBistro(newActiveBistro);
     }
-    return newActiveFirm;
-  }, [firms]);
+    return newActiveBistro;
+  }, [bistros]);
 
-  const switchFirmBySlug = useCallback((slug) => {
-    const newActiveFirm = firms.find(firm => firm.slug === slug);
-    if (newActiveFirm) {
-      setActiveFirm(newActiveFirm);
+  const switchBistroBySlug = useCallback((slug) => {
+    const newActiveBistro = bistros.find(bistro => bistro.slug === slug);
+    if (newActiveBistro) {
+      setActiveBistro(newActiveBistro);
     }
-  }, [firms]);
+  }, [bistros]);
 
   const handleAuthStateChange = useCallback((event, session) => {
     console.log('Auth state changed:', event);
@@ -79,7 +86,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
           access_token: session.access_token,
           refresh_token: session.refresh_token
         });
-        setHasLoadedFirms(false);
+        setHasLoadedBistros(false);
         setHasLoadedInvites(false);
         
         // Only navigate to search on manual sign-in, not on session restoration
@@ -93,9 +100,9 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       }
     } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
       setUser(null);
-      setFirms([]);
-      setActiveFirm(null);
-      setHasLoadedFirms(true);
+      setBistros([]);
+      setActiveBistro(null);
+      setHasLoadedBistros(true);
       setPendingInvites([]);
       setHasLoadedInvites(true);
     } else if (event === 'USER_UPDATED') {
@@ -203,14 +210,14 @@ export function AuthProvider({ children, onNavigate, pathname }) {
 
   const acceptInvite = useCallback(async (inviteId) => {
     try {
-      // Get the firm_id from the pending invite
+      // Get the bistro_id from the pending invite
       const currentInvite = pendingInvites.find(invite => invite.invite_id === inviteId);
       if (!currentInvite) {
         throw new Error('Invite not found');
       }
 
       const { data, error } = await supabase.rpc('respond_invitation', {
-        p_firm_id: currentInvite.firm_id,
+        p_bistro_id: currentInvite.bistro_id,
         p_accept: true
       });
 
@@ -220,26 +227,26 @@ export function AuthProvider({ children, onNavigate, pathname }) {
         throw new Error(data.error || 'Failed to accept invitation');
       }
       
-      // Refresh invites and firms after accepting
-      await Promise.all([fetchInvites(), fetchFirms()]);
+      // Refresh invites and bistros after accepting
+      await Promise.all([fetchInvites(), fetchBistros()]);
       
       return { success: true, message: data.message };
     } catch (error) {
       console.error('Error accepting invite:', error);
       return { success: false, error: error.message };
     }
-  }, [pendingInvites, fetchInvites, fetchFirms]);
+  }, [pendingInvites, fetchInvites, fetchBistros]);
 
   const rejectInvite = useCallback(async (inviteId) => {
     try {
-      // Get the firm_id from the pending invite
+      // Get the bistro_id from the pending invite
       const currentInvite = pendingInvites.find(invite => invite.invite_id === inviteId);
       if (!currentInvite) {
         throw new Error('Invite not found');
       }
 
       const { data, error } = await supabase.rpc('respond_invitation', {
-        p_firm_id: currentInvite.firm_id,
+        p_bistro_id: currentInvite.bistro_id,
         p_accept: false
       });
 
@@ -292,12 +299,12 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     };
   }, [handleAuthStateChange]);
 
-  // Fetch firms when user changes
+  // Fetch bistros when user changes
   useEffect(() => {
-    if (!hasLoadedFirms) {
-      fetchFirms();
+    if (!hasLoadedBistros) {
+      fetchBistros();
     }
-  }, [user, hasLoadedFirms, fetchFirms]);
+  }, [user, hasLoadedBistros, fetchBistros]);
 
   // Fetch invites when user changes  
   useEffect(() => {
@@ -350,23 +357,23 @@ export function AuthProvider({ children, onNavigate, pathname }) {
   const contextValue = useMemo(() => ({
     loading,
     user,
-    firms,
-    activeFirm,
-    hasLoadedFirms,
-    setHasLoadedFirms,
+    bistros,
+    activeBistro,
+    hasLoadedBistros,
+    setHasLoadedBistros,
     pendingInvites,
     hasLoadedInvites,
     setHasLoadedInvites,
-    switchFirm,
-    switchFirmBySlug,
-    getFirmBySlug,
+    switchBistro,
+    switchBistroBySlug,
+    getBistroBySlug,
     signUp,
     signIn,
     signInWithGoogle,
     signOut,
     forgotPassword,
     updateUserPassword,
-    fetchFirms,
+    fetchBistros,
     refreshToken,
     fetchInvites,
     acceptInvite,
@@ -374,21 +381,21 @@ export function AuthProvider({ children, onNavigate, pathname }) {
   }), [
     loading,
     user,
-    firms,
-    activeFirm,
-    hasLoadedFirms,
+    bistros,
+    activeBistro,
+    hasLoadedBistros,
     pendingInvites,
     hasLoadedInvites,
-    switchFirm,
-    switchFirmBySlug,
-    getFirmBySlug,
+    switchBistro,
+    switchBistroBySlug,
+    getBistroBySlug,
     signUp,
     signIn,
     signInWithGoogle,
     signOut,
     forgotPassword,
     updateUserPassword,
-    fetchFirms,
+    fetchBistros,
     refreshToken,
     fetchInvites,
     acceptInvite,
