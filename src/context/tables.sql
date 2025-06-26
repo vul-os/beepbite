@@ -253,7 +253,7 @@ CREATE INDEX idx_bistro_verifications_status ON bistro_verifications(status);
 CREATE TABLE bistro_settings (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     bistro_id uuid REFERENCES bistros(id) ON DELETE CASCADE NOT NULL UNIQUE,
-    verified boolean DEFAULT false,
+    completed boolean DEFAULT false,
     description text,
     cell_number text,
     address text,

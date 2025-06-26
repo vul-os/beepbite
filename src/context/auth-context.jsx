@@ -19,10 +19,38 @@ export function AuthProvider({ children, onNavigate, pathname }) {
   const [hasLoadedBistros, setHasLoadedBistros] = useState(false);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [hasLoadedInvites, setHasLoadedInvites] = useState(false);
+  const [bistroSetupCompleted, setBistroSetupCompleted] = useState(true); // Default to true to avoid popup until checked
 
   const getBistroBySlug = useCallback((slug) => {
     return bistros.find(bistro => bistro.slug === slug);
   }, [bistros]);
+
+  // Function to check if bistro setup is completed
+  const checkBistroSetupCompleted = useCallback(async (bistroId) => {
+    if (!bistroId) {
+      setBistroSetupCompleted(true);
+      return true;
+    }
+    
+    try {
+      const { data, error } = await supabase.rpc('check_bistro_setup_completed', {
+        p_bistro_id: bistroId
+      });
+      
+      if (error) {
+        console.error('Error checking bistro setup completion:', error);
+        setBistroSetupCompleted(true); // Default to true on error to avoid popup spam
+        return true;
+      }
+      
+      setBistroSetupCompleted(data);
+      return data;
+    } catch (error) {
+      console.error('Error checking bistro setup completion:', error);
+      setBistroSetupCompleted(true);
+      return true;
+    }
+  }, []);
 
   const fetchBistros = useCallback(async () => {
     if (!user) {
@@ -105,6 +133,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       setHasLoadedBistros(true);
       setPendingInvites([]);
       setHasLoadedInvites(true);
+      setBistroSetupCompleted(true); // Reset setup state on signout
     } else if (event === 'USER_UPDATED') {
       setUser(prev => prev ? {
         ...session?.user,
@@ -313,6 +342,13 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [user, hasLoadedInvites, fetchInvites]);
 
+  // Check bistro setup completion when activeBistro changes
+  useEffect(() => {
+    if (activeBistro) {
+      checkBistroSetupCompleted(activeBistro.id);
+    }
+  }, [activeBistro, checkBistroSetupCompleted]);
+
   // Add token refresh function
   const refreshToken = async () => {
     console.log("Attempting to refresh token...");
@@ -364,6 +400,9 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     pendingInvites,
     hasLoadedInvites,
     setHasLoadedInvites,
+    bistroSetupCompleted,
+    setBistroSetupCompleted,
+    checkBistroSetupCompleted,
     switchBistro,
     switchBistroBySlug,
     getBistroBySlug,
@@ -386,6 +425,8 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     hasLoadedBistros,
     pendingInvites,
     hasLoadedInvites,
+    bistroSetupCompleted,
+    checkBistroSetupCompleted,
     switchBistro,
     switchBistroBySlug,
     getBistroBySlug,
