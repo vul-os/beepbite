@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Settings, 
@@ -14,7 +14,6 @@ import {
   ChefHat
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-import { supabase } from '@/services/supabase-client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +31,7 @@ import Logo from '@/components/ui/logo';
 const TopBar = () => {
   const { 
     user, 
+    userProfile,
     signOut, 
     bistros, 
     activeBistro,
@@ -40,30 +40,6 @@ const TopBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [userAvatarUrl, setUserAvatarUrl] = useState('');
-  
-  // Fetch user's avatar URL from profile
-  useEffect(() => {
-    const fetchUserAvatar = async () => {
-      if (!user?.id) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('avatar_url')
-          .eq('id', user.id)
-          .single();
-        
-        if (data?.avatar_url && !error) {
-          setUserAvatarUrl(data.avatar_url);
-        }
-      } catch (error) {
-        console.error('Error fetching user avatar:', error);
-      }
-    };
-
-    fetchUserAvatar();
-  }, [user?.id]);
 
   const handleSignOut = async () => {
     try {
@@ -287,10 +263,7 @@ const TopBar = () => {
                       handleAvatarClick();
                     }}
                   >
-                    <Avatar className="h-10 w-10">
-                      {userAvatarUrl && (
-                        <AvatarImage src={userAvatarUrl} alt="User avatar" />
-                      )}
+                    <Avatar className="h-10 w-10 border-2 border-white/30">
                       <AvatarFallback className="beepbite-gradient text-white font-bold">
                         {getUserInitials()}
                       </AvatarFallback>
@@ -340,11 +313,15 @@ const TopBar = () => {
             "fixed animate-in slide-in-from-top-2 duration-300 z-[9999]",
             // Mobile: full screen overlay
             "inset-4 md:inset-auto",
-            // Desktop/Tablet: dropdown at far right
-            "md:top-16 md:right-0 md:w-80 md:max-h-[calc(100vh-6rem)]"
+            // Tablet portrait: generous like mobile
+            "md:top-16 md:right-4 md:w-80 md:max-h-[calc(100vh-4rem)]",
+            // Tablet landscape: compact
+            "lg:w-64 lg:max-h-[calc(100vh-5rem)]",
+            // Large desktop: generous again
+            "xl:right-6 xl:w-96 xl:max-h-[calc(100vh-4rem)]"
           )}>
             <div 
-              className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden h-full flex flex-col"
+              className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden h-full flex flex-col max-h-full"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -352,19 +329,16 @@ const TopBar = () => {
             >
               
               {/* User Info Header */}
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 flex-shrink-0">
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 lg:px-4 lg:py-2.5 xl:px-6 xl:py-4 flex-shrink-0">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border-2 border-white/30">
-                      {userAvatarUrl && (
-                        <AvatarImage src={userAvatarUrl} alt="User avatar" />
-                      )}
-                      <AvatarFallback className="bg-white/20 text-white font-bold">
+                  <div className="flex items-center gap-3 lg:gap-2 xl:gap-3">
+                    <Avatar className="h-10 w-10 lg:h-8 lg:w-8 xl:h-10 xl:w-10 border-2 border-white/30">
+                      <AvatarFallback className="beepbite-gradient text-white font-bold text-sm lg:text-xs xl:text-sm">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white/90 text-sm truncate font-medium">
+                      <p className="text-white/90 text-sm lg:text-xs xl:text-sm truncate font-medium">
                         {user.email}
                       </p>
                     </div>
@@ -373,134 +347,134 @@ const TopBar = () => {
                     variant="ghost"
                     size="sm"
                     onClick={closeMobileMenu}
-                    className="text-white/90 hover:text-white hover:bg-white/30 p-3 rounded-xl transition-all duration-200 border border-white/20 hover:border-white/40"
+                    className="text-white/90 hover:text-white hover:bg-white/30 p-3 lg:p-1.5 xl:p-3 rounded-xl lg:rounded-lg xl:rounded-xl transition-all duration-200 border border-white/20 hover:border-white/40"
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-6 h-6 lg:w-4 lg:h-4 xl:w-6 xl:h-6" />
                   </Button>
                 </div>
               </div>
 
-              {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {/* Main Navigation */}
-                <div className="space-y-3 mb-6">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Main Menu
-                  </h3>
-                  {navigationItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = isActivePath(item.path);
-                    
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={closeMobileMenu}
-                        className={cn(
-                          "flex items-center gap-4 px-4 py-4 rounded-xl font-medium transition-all duration-200 w-full",
-                          isActive 
-                            ? "bg-orange-500 text-white shadow-lg shadow-orange-500/25" 
-                            : "text-gray-700 hover:bg-orange-50 hover:text-orange-600 active:bg-orange-100"
-                        )}
-                      >
-                        <div className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center",
-                          isActive 
-                            ? "bg-white/20" 
-                            : "bg-gray-100"
-                        )}>
-                          <Icon className={cn(
-                            "w-5 h-5",
-                            isActive ? "text-white" : "text-gray-600"
-                          )} />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-base font-semibold">{item.name}</span>
-                          <span className={cn(
-                            "text-sm",
-                            isActive ? "text-white/80" : "text-gray-500"
-                          )}>{item.description}</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
+              {/* Scrollable Content with forced scroll */}
+              <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain" style={{ scrollBehavior: 'smooth' }}>
+                <div className="p-6 lg:p-3 xl:p-6 pb-4 lg:pb-1 xl:pb-4">
+                  {/* Main Navigation */}
+                  <div className="space-y-3 lg:space-y-1 xl:space-y-3 mb-6 lg:mb-4 xl:mb-6">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 lg:mb-1.5 xl:mb-3 px-1">
+                      Menu
+                    </h3>
+                    {navigationItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = isActivePath(item.path);
+                      
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={closeMobileMenu}
+                          className={cn(
+                            "flex items-center gap-4 lg:gap-2.5 xl:gap-4 px-4 lg:px-2.5 xl:px-4 py-4 lg:py-2 xl:py-4 rounded-xl lg:rounded-lg xl:rounded-xl font-medium transition-all duration-200 w-full",
+                            isActive 
+                              ? "bg-orange-500 text-white shadow-lg lg:shadow-md xl:shadow-lg shadow-orange-500/25" 
+                              : "text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-10 h-10 lg:w-7 lg:h-7 xl:w-10 xl:h-10 rounded-lg lg:rounded-md xl:rounded-lg flex items-center justify-center",
+                            isActive 
+                              ? "bg-white/20" 
+                              : "bg-gray-100"
+                          )}>
+                            <Icon className={cn(
+                              "w-5 h-5 lg:w-3.5 lg:h-3.5 xl:w-5 xl:h-5",
+                              isActive ? "text-white" : "text-gray-600"
+                            )} />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-base lg:text-xs xl:text-base font-semibold truncate">{item.name}</span>
+                            <span className={cn(
+                              "text-sm lg:hidden xl:block truncate",
+                              isActive ? "text-white/80" : "text-gray-500"
+                            )}>{item.description}</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
 
-                {/* Account Section */}
-                <div className="space-y-3 mb-6">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Profile
-                  </h3>
-                  <div className="space-y-2">
+                  {/* Account Section */}
+                  <div className="space-y-2 lg:space-y-1 xl:space-y-2 mb-6 lg:mb-4 xl:mb-6">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 lg:mb-1.5 xl:mb-3 px-1">
+                      Account
+                    </h3>
                     <Link 
                       to="/account" 
                       onClick={closeMobileMenu}
-                      className="flex items-center gap-4 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
+                      className="flex items-center gap-4 lg:gap-2.5 xl:gap-4 px-4 lg:px-2.5 xl:px-4 py-3 lg:py-2 xl:py-3 rounded-xl lg:rounded-lg xl:rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <UserCircle className="w-5 h-5 text-gray-600" />
+                      <div className="w-10 h-10 lg:w-7 lg:h-7 xl:w-10 xl:h-10 rounded-lg lg:rounded-md xl:rounded-lg bg-gray-100 flex items-center justify-center">
+                        <UserCircle className="w-5 h-5 lg:w-3.5 lg:h-3.5 xl:w-5 xl:h-5 text-gray-600" />
                       </div>
-                      <div>
-                        <span className="text-base font-medium">Account</span>
-                        <p className="text-sm text-gray-500">Profile & preferences</p>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-base lg:text-xs xl:text-base font-medium block truncate">Account</span>
+                        <p className="text-sm lg:hidden xl:block text-gray-500 truncate">Profile & preferences</p>
                       </div>
                     </Link>
                   </div>
-                </div>
 
-                {/* Management Section */}
-                <div className="space-y-3 mb-6">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Management
-                  </h3>
-                  <div className="space-y-2">
-                    <Link 
-                      to="/settings" 
-                      onClick={closeMobileMenu}
-                      className="flex items-center gap-4 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <Settings className="w-5 h-5 text-gray-600" />
-                      </div>
-                      <div>
-                        <span className="text-base font-medium">Settings</span>
-                        <p className="text-sm text-gray-500">Restaurant preferences</p>
-                      </div>
-                    </Link>
-                    
-                    <Link 
-                      to="/members" 
-                      onClick={closeMobileMenu}
-                      className="flex items-center gap-4 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <Users className="w-5 h-5 text-gray-600" />
-                      </div>
-                      <div>
-                        <span className="text-base font-medium">Team Members</span>
-                        <p className="text-sm text-gray-500">Manage restaurant staff</p>
-                      </div>
-                    </Link>
+                  {/* Management Section */}
+                  <div className="space-y-2 lg:space-y-1 xl:space-y-2 mb-4 lg:mb-3 xl:mb-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 lg:mb-1.5 xl:mb-3 px-1">
+                      Management
+                    </h3>
+                    <div className="space-y-2 lg:space-y-0.5 xl:space-y-2">
+                      <Link 
+                        to="/settings" 
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-4 lg:gap-2.5 xl:gap-4 px-4 lg:px-2.5 xl:px-4 py-3 lg:py-2 xl:py-3 rounded-xl lg:rounded-lg xl:rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
+                      >
+                        <div className="w-10 h-10 lg:w-7 lg:h-7 xl:w-10 xl:h-10 rounded-lg lg:rounded-md xl:rounded-lg bg-gray-100 flex items-center justify-center">
+                          <Settings className="w-5 h-5 lg:w-3.5 lg:h-3.5 xl:w-5 xl:h-5 text-gray-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-base lg:text-xs xl:text-base font-medium block truncate">Settings</span>
+                          <p className="text-sm lg:hidden xl:block text-gray-500 truncate">Restaurant preferences</p>
+                        </div>
+                      </Link>
+                      
+                      <Link 
+                        to="/members" 
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-4 lg:gap-2.5 xl:gap-4 px-4 lg:px-2.5 xl:px-4 py-3 lg:py-2 xl:py-3 rounded-xl lg:rounded-lg xl:rounded-xl text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
+                      >
+                        <div className="w-10 h-10 lg:w-7 lg:h-7 xl:w-10 xl:h-10 rounded-lg lg:rounded-md xl:rounded-lg bg-gray-100 flex items-center justify-center">
+                          <Users className="w-5 h-5 lg:w-3.5 lg:h-3.5 xl:w-5 xl:h-5 text-gray-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-base lg:text-xs xl:text-base font-medium block truncate">Team Members</span>
+                          <p className="text-sm lg:hidden xl:block text-gray-500 truncate">Manage restaurant staff</p>
+                        </div>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Fixed Bottom Sign Out */}
-              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gray-50/50">
+              <div className="flex-shrink-0 p-6 lg:p-2.5 xl:p-6 border-t border-gray-200 bg-gray-50/50">
                 <Button
                   onClick={() => {
                     handleSignOut();
                     closeMobileMenu();
                   }}
                   variant="ghost"
-                  className="w-full justify-start gap-4 py-4 px-4 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl font-medium"
+                  className="w-full justify-start gap-4 lg:gap-2.5 xl:gap-4 py-4 lg:py-2 xl:py-4 px-4 lg:px-2.5 xl:px-4 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl lg:rounded-lg xl:rounded-xl font-medium"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                    <LogOut className="w-5 h-5 text-red-600" />
+                  <div className="w-10 h-10 lg:w-7 lg:h-7 xl:w-10 xl:h-10 rounded-lg lg:rounded-md xl:rounded-lg bg-red-100 flex items-center justify-center">
+                    <LogOut className="w-5 h-5 lg:w-3.5 lg:h-3.5 xl:w-5 xl:h-5 text-red-600" />
                   </div>
-                  <div className="text-left">
-                    <div className="text-base font-medium">Sign Out</div>
-                    <div className="text-sm text-red-500">End your session</div>
+                  <div className="text-left min-w-0 flex-1">
+                    <div className="text-base lg:text-xs xl:text-base font-medium truncate">Sign Out</div>
+                    <div className="text-sm lg:hidden xl:block text-red-500 truncate">End your session</div>
                   </div>
                 </Button>
               </div>

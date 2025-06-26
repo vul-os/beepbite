@@ -403,10 +403,6 @@ const Members = () => {
                       {/* Member Info */}
                       <div className="flex items-start gap-4">
                         <Avatar className="h-14 w-14 border-2 border-gray-100">
-                          <AvatarImage 
-                            src={member.profiles?.avatar_url} 
-                            alt={`${member.profiles?.full_name || member.profiles?.username || 'User'} avatar`}
-                          />
                           <AvatarFallback className="bg-gray-100 text-gray-700 font-semibold text-lg">
                             {getInitials(member.profiles?.full_name, member.profiles?.username, member.profiles?.email)}
                           </AvatarFallback>

@@ -13,6 +13,7 @@ export function useAuth() {
 
 export function AuthProvider({ children, onNavigate, pathname }) {
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bistros, setBistros] = useState([]);
   const [activeBistro, setActiveBistro] = useState(null);
@@ -51,6 +52,32 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       return true;
     }
   }, []);
+
+  const fetchUserProfile = useCallback(async () => {
+    if (!user?.id) {
+      setUserProfile(null);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        setUserProfile(null);
+        return;
+      }
+      
+      setUserProfile(data);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      setUserProfile(null);
+    }
+  }, [user?.id]);
 
   const fetchBistros = useCallback(async () => {
     if (!user) {
@@ -128,6 +155,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       }
     } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
       setUser(null);
+      setUserProfile(null);
       setBistros([]);
       setActiveBistro(null);
       setHasLoadedBistros(true);
@@ -335,6 +363,11 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [user, hasLoadedBistros, fetchBistros]);
 
+  // Fetch user profile when user changes
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
+
   // Fetch invites when user changes  
   useEffect(() => {
     if (!hasLoadedInvites) {
@@ -393,6 +426,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
   const contextValue = useMemo(() => ({
     loading,
     user,
+    userProfile,
     bistros,
     activeBistro,
     hasLoadedBistros,
@@ -417,9 +451,11 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     fetchInvites,
     acceptInvite,
     rejectInvite,
+    fetchUserProfile,
   }), [
     loading,
     user,
+    userProfile,
     bistros,
     activeBistro,
     hasLoadedBistros,
@@ -441,6 +477,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     fetchInvites,
     acceptInvite,
     rejectInvite,
+    fetchUserProfile,
   ]);
 
   return (

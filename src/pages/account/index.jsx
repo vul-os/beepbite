@@ -19,14 +19,13 @@ import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 
 const Account = () => {
-  const { user } = useAuth();
+  const { user, fetchUserProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [formData, setFormData] = useState({
     full_name: '',
-    username: '',
-    avatar_url: ''
+    username: ''
   });
 
   // Check if user signed in with Google
@@ -45,7 +44,7 @@ const Account = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, username, avatar_url')
+        .select('full_name, username')
         .eq('id', user.id)
         .single();
       
@@ -54,8 +53,7 @@ const Account = () => {
       } else {
         setFormData({
           full_name: data?.full_name || '',
-          username: data?.username || '',
-          avatar_url: data?.avatar_url || ''
+          username: data?.username || ''
         });
       }
     } catch (error) {
@@ -85,15 +83,6 @@ const Account = () => {
       errors.push('Username must be at least 3 characters long');
     }
     
-    // Avatar URL validation - just check if it's a valid URL
-    if (formData.avatar_url) {
-      try {
-        new URL(formData.avatar_url);
-      } catch {
-        errors.push('Avatar URL must be a valid URL');
-      }
-    }
-    
     return errors;
   };
 
@@ -115,8 +104,7 @@ const Account = () => {
         .from('profiles')
         .update({
           full_name: formData.full_name || null,
-          username: formData.username,
-          avatar_url: formData.avatar_url || null
+          username: formData.username
         })
         .eq('id', user.id);
       
@@ -128,6 +116,8 @@ const Account = () => {
       setTimeout(() => {
         setSaveMessage('');
       }, 3000);
+      
+      await fetchUserProfile();
       
     } catch (error) {
       console.error('Error saving account:', error);
@@ -338,7 +328,6 @@ const Account = () => {
             {/* Current Avatar Preview */}
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 border-2 border-gray-200">
-                <AvatarImage src={formData.avatar_url} />
                 <AvatarFallback className="bg-gray-100 text-gray-700 font-semibold text-lg">
                   {getInitials(formData.full_name, formData.username, user?.email)}
                 </AvatarFallback>
@@ -346,30 +335,9 @@ const Account = () => {
               <div>
                 <p className="text-sm font-medium text-gray-900">Current Avatar</p>
                 <p className="text-xs text-gray-500">
-                  {formData.avatar_url ? 'Using custom avatar' : 'Using default avatar'}
+                  Using initials from your name or email
                 </p>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Avatar URL
-                {isGoogleAuth && <Lock className="w-3 h-3 text-gray-400 inline ml-1" />}
-              </label>
-              <Input
-                type="url"
-                placeholder="https://example.com/your-avatar.jpg"
-                value={formData.avatar_url}
-                onChange={(e) => handleInputChange('avatar_url', e.target.value)}
-                disabled={isGoogleAuth}
-                className="w-full"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {isGoogleAuth 
-                  ? "This field is managed by your Google account"
-                  : "Direct link to your profile picture"
-                }
-              </p>
             </div>
 
             {/* Avatar Help */}
@@ -378,20 +346,13 @@ const Account = () => {
                 <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-orange-800 mb-1">
-                    Avatar Requirements
+                    Avatar Information
                   </p>
                   <ul className="text-xs text-orange-700 space-y-1">
-                    <li>• Must be a direct link to an image file</li>
-                    <li>• Image should be square and at least 100x100px</li>
-                    <li>• Any hosting service works (Imgur, Google Drive, GitHub, etc.)</li>
+                    <li>• Avatars are automatically generated from your name or email</li>
+                    <li>• Your initials will be displayed in a colored circle</li>
+                    <li>• No need to upload or link to external images</li>
                   </ul>
-                  <a
-                    href="/docs/custom-avatar-url"
-                    className="text-xs text-orange-600 hover:text-orange-700 font-medium underline flex items-center gap-1 mt-2"
-                  >
-                    Learn more about custom avatars
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
                 </div>
               </div>
             </div>
