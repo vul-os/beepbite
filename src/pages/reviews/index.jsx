@@ -36,97 +36,65 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/context/auth-context';
+import reviewsService from '@/services/reviews';
 
 const Reviews = () => {
+  const { user, activeBistro } = useAuth();
   const [reviews, setReviews] = useState([]);
+  const [reviewsData, setReviewsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [timeRange, setTimeRange] = useState('30d');
   const [searchTerm, setSearchTerm] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState(null);
   const [replyText, setReplyText] = useState('');
 
-  // Mock reviews data - replace with real API
-  const mockReviews = [
-    {
-      id: '1',
-      order_number: '2543',
-      customer_name: 'Maria G.',
-      rating: 5,
-      comment: 'Amazing food and super fast service! Got my order notification immediately and the food was ready exactly when promised. Will definitely order again!',
-      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      has_reply: false,
-      verified: true
-    },
-    {
-      id: '2',
-      order_number: '2544',
-      customer_name: 'John D.',
-      rating: 4,
-      comment: 'Good food overall. The notification system works great, but the packaging could be improved. Food arrived hot though!',
-      created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-      has_reply: true,
-      reply: 'Thank you for the feedback! We\'ve noted your comment about packaging and are working on improvements.',
-      verified: true
-    },
-    {
-      id: '3',
-      order_number: '2545',
-      customer_name: 'Sarah K.',
-      rating: 5,
-      comment: 'Perfect experience! Love how I got instant WhatsApp updates about my order status. Food was delicious too!',
-      created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      has_reply: false,
-      verified: true
-    },
-    {
-      id: '4',
-      order_number: '2540',
-      customer_name: 'Ahmed H.',
-      rating: 3,
-      comment: 'Food was okay but took longer than expected. The notification came but the actual preparation time was longer.',
-      created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      has_reply: false,
-      verified: true
-    },
-    {
-      id: '5',
-      order_number: '2538',
-      customer_name: 'Lisa M.',
-      rating: 5,
-      comment: 'Excellent service and communication! The BeepBite system made ordering so smooth. Highly recommend!',
-      created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      has_reply: true,
-      reply: 'Thank you so much Lisa! We\'re thrilled you enjoyed the experience.',
-      verified: true
-    }
-  ];
-
   useEffect(() => {
-    fetchReviews();
-  }, []);
+    if (activeBistro) {
+      fetchReviews();
+    }
+  }, [activeBistro, timeRange]);
 
   const fetchReviews = async () => {
+    if (!activeBistro?.id) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setError(null);
     try {
-      // TODO: Replace with actual API call
-      // const { data, error } = await supabase
-      //   .from('reviews')
-      //   .select(`
-      //     *,
-      //     bites!inner(order_number, whatsapp_number)
-      //   `)
-      //   .order('created_at', { ascending: false });
+      console.log('Fetching reviews data for bistro:', activeBistro.id, 'period:', timeRange);
+      const data = await reviewsService.getReviewsData(timeRange, 100, activeBistro.id);
+      console.log('Reviews data received:', data);
       
-      // if (error) throw error;
-      
-      // Simulate API delay
-      setTimeout(() => {
-        setReviews(mockReviews);
-        setLoading(false);
-      }, 500);
+      setReviewsData(data);
+      setReviews(data.reviews || []);
     } catch (error) {
       console.error('Error fetching reviews:', error);
+      setError(error.message);
+      
+      // Fallback to empty state
+      setReviewsData({
+        reviews: [],
+        summary: {
+          totalReviews: 0,
+          averageRating: 0,
+          anonymousReviews: 0,
+          publicReviews: 0,
+          reviewsWithComments: 0
+        },
+        ratingStats: {
+          average: 0,
+          distribution: []
+        },
+        trends: []
+      });
+      setReviews([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -134,9 +102,14 @@ const Reviews = () => {
   const handleReply = async (reviewId) => {
     try {
       // TODO: Implement actual reply functionality
+      // This could involve:
+      // 1. Storing the reply in a new table (review_replies)
+      // 2. Sending the reply via WhatsApp
+      // 3. Updating the UI to show the reply
+      
       console.log('Replying to review:', reviewId, 'with text:', replyText);
       
-      // Update local state
+      // For now, just update local state
       setReviews(prev => prev.map(review => 
         review.id === reviewId 
           ? { ...review, has_reply: true, reply: replyText }
@@ -158,11 +131,13 @@ const Reviews = () => {
   };
 
   const getStarDisplay = (rating) => {
+    // Convert 10-point scale to 5-star display
+    const starRating = Math.round(rating / 2);
     return [...Array(5)].map((_, i) => (
       <Star 
         key={i} 
         className={`w-4 h-4 ${
-          i < rating 
+          i < starRating 
             ? 'text-yellow-400 fill-current' 
             : 'text-gray-300'
         }`} 
@@ -171,8 +146,8 @@ const Reviews = () => {
   };
 
   const getRatingColor = (rating) => {
-    if (rating >= 4) return 'text-green-600 bg-green-50 border-green-200';
-    if (rating >= 3) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    if (rating >= 8) return 'text-green-600 bg-green-50 border-green-200';
+    if (rating >= 6) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
@@ -189,9 +164,10 @@ const Reviews = () => {
     return matchesSearch && matchesRating;
   });
 
-  const ratingStats = {
+  // Use data from service or fallback to calculated stats
+  const ratingStats = reviewsData?.ratingStats || {
     average: reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : '0.0',
-    distribution: [5, 4, 3, 2, 1].map(rating => ({
+    distribution: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(rating => ({
       rating,
       count: reviews.filter(r => r.rating === rating).length,
       percentage: reviews.length > 0 ? (reviews.filter(r => r.rating === rating).length / reviews.length * 100).toFixed(0) : '0'
@@ -216,6 +192,32 @@ const Reviews = () => {
     );
   }
 
+  // Show message when no bistro is selected
+  if (!activeBistro) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col space-y-3 sm:space-y-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customer Reviews</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage and respond to customer feedback</p>
+        </div>
+        
+        <Card className="p-8 sm:p-12 text-center">
+          <div className="space-y-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
+              <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">No Restaurant Selected</h3>
+              <p className="text-sm sm:text-base text-gray-500">
+                Please select a restaurant from the dropdown in the top navigation to view reviews.
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -223,20 +225,43 @@ const Reviews = () => {
         <div className="space-y-1 sm:space-y-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customer Reviews</h1>
           <p className="text-sm sm:text-base text-gray-600">Manage and respond to customer feedback</p>
+          {error && (
+            <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md">
+              ⚠️ Using limited data: {error}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-3">
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1d">Last 24 hours</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 3 months</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <Select value={ratingFilter} onValueChange={setRatingFilter}>
             <SelectTrigger className="w-full sm:w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Ratings</SelectItem>
-              <SelectItem value="5">5 Stars</SelectItem>
-              <SelectItem value="4">4 Stars</SelectItem>
-              <SelectItem value="3">3 Stars</SelectItem>
-              <SelectItem value="2">2 Stars</SelectItem>
-              <SelectItem value="1">1 Star</SelectItem>
+              <SelectItem value="10">10/10 Excellent</SelectItem>
+              <SelectItem value="9">9/10 Great</SelectItem>
+              <SelectItem value="8">8/10 Good</SelectItem>
+              <SelectItem value="7">7/10 Average</SelectItem>
+              <SelectItem value="6">6/10 Fair</SelectItem>
+              <SelectItem value="5">5/10 Poor</SelectItem>
+              <SelectItem value="4">4/10 Bad</SelectItem>
+              <SelectItem value="3">3/10 Terrible</SelectItem>
+              <SelectItem value="2">2/10 Awful</SelectItem>
+              <SelectItem value="1">1/10 Worst</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -269,8 +294,7 @@ const Reviews = () => {
                 {ratingStats.distribution.map((stat) => (
                   <div key={stat.rating} className="flex items-center gap-2 sm:gap-3">
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className="text-xs sm:text-sm font-medium">{stat.rating}</span>
-                      <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                      <span className="text-xs sm:text-sm font-medium w-6 text-center">{stat.rating}</span>
                     </div>
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
                       <div 
@@ -313,7 +337,7 @@ const Reviews = () => {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs sm:text-sm text-gray-600">5-Star Rate</span>
+                <span className="text-xs sm:text-sm text-gray-600">10/10 Rate</span>
                 <span className="font-semibold text-sm sm:text-base text-green-600">
                   {ratingStats.distribution[0].percentage}%
                 </span>
@@ -411,7 +435,7 @@ const Reviews = () => {
                           {getStarDisplay(review.rating)}
                         </div>
                         <Badge className={`${getRatingColor(review.rating)} border text-xs`}>
-                          {review.rating} / 5
+                          {review.rating} / 10
                         </Badge>
                       </div>
 
