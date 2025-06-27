@@ -39,25 +39,32 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, addDays } from 'date-fns';
 import analyticsService from '../../services/analytics.js';
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 const Reports = () => {
   const [timeRange, setTimeRange] = useState('7d');
+  const [customDateRange, setCustomDateRange] = useState(null);
+  const [useCustomRange, setUseCustomRange] = useState(false);
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchAnalytics();
-  }, [timeRange]);
+  }, [timeRange, customDateRange, useCustomRange]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching analytics data for period:', timeRange);
-      const data = await analyticsService.getAnalyticsData(timeRange);
+      console.log('Fetching analytics data for:', useCustomRange ? customDateRange : timeRange);
+      
+      // Use custom date range if enabled and available, otherwise use predefined period
+      const queryParam = useCustomRange && customDateRange ? customDateRange : timeRange;
+      const data = await analyticsService.getAnalyticsData(queryParam);
+      
       console.log('Analytics data received:', data);
       setAnalyticsData(data);
     } catch (error) {
@@ -97,6 +104,28 @@ const Reports = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTimeRangeChange = (value) => {
+    if (value === 'custom') {
+      setUseCustomRange(true);
+      setTimeRange('custom'); // Set timeRange to 'custom' so dropdown shows it
+      // Set default custom range to last 7 days
+      if (!customDateRange) {
+        const defaultRange = {
+          from: addDays(new Date(), -6),
+          to: new Date(),
+        };
+        setCustomDateRange(defaultRange);
+      }
+    } else {
+      setUseCustomRange(false);
+      setTimeRange(value);
+    }
+  };
+
+  const handleCustomDateRangeChange = (dateRange) => {
+    setCustomDateRange(dateRange);
   };
 
   const getTrendColor = (direction) => {
@@ -226,10 +255,15 @@ const Reports = () => {
                 ⚠️ Using limited data: {error}
               </div>
             )}
+            {loading && (
+              <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
+                📊 Loading analytics data...
+              </div>
+            )}
           </div>
           
           <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:items-center gap-2 sm:gap-3 shrink-0">
-            <Select value={timeRange} onValueChange={setTimeRange}>
+            <Select value={useCustomRange ? 'custom' : timeRange} onValueChange={handleTimeRangeChange}>
               <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
@@ -238,8 +272,18 @@ const Reports = () => {
                 <SelectItem value="7d">Last 7 days</SelectItem>
                 <SelectItem value="30d">Last 30 days</SelectItem>
                 <SelectItem value="90d">Last 3 months</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
               </SelectContent>
             </Select>
+            
+            {useCustomRange && (
+              <DateRangePicker
+                date={customDateRange}
+                setDate={handleCustomDateRangeChange}
+                className="w-full sm:w-80"
+                placeholder="Select date range"
+              />
+            )}
             
             <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto whitespace-nowrap">
               <Download className="w-4 h-4 shrink-0" />

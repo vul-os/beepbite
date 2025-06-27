@@ -1,4 +1,5 @@
 import { supabase } from '../services/supabase-client.jsx';
+import { format } from 'date-fns';
 
 /**
  * Analytics service to fetch real data for reports dashboard
@@ -51,61 +52,163 @@ class AnalyticsService {
 
   /**
    * Get comprehensive analytics data for the dashboard
+   * @param {string|Object} timeRangeOrDates - Either a period string ('7d') or date range object {from, to}
    */
-  async getAnalyticsData(timeRange = '7d') {
+  async getAnalyticsData(timeRangeOrDates = '7d') {
     try {
       const bistroId = await this.getUserBistroId();
       if (!bistroId) {
         throw new Error('No bistro found for user');
       }
 
-      // Execute all analytics queries in parallel
-      const [
-        summaryResult,
-        statusDistResult,
-        hourlyResult,
-        dailyTrendsResult,
-        recentOrdersResult,
-        customerAnalyticsResult
-      ] = await Promise.all([
-        supabase.rpc('get_analytics_summary', { p_bistro_id: bistroId, p_period: timeRange }),
-        supabase.rpc('get_order_status_distribution', { p_bistro_id: bistroId, p_period: timeRange }),
-        supabase.rpc('get_orders_by_hour', { p_bistro_id: bistroId, p_period: timeRange }),
-        supabase.rpc('get_daily_trends', { p_bistro_id: bistroId, p_period: timeRange }),
-        supabase.rpc('get_recent_orders_with_response_times', { p_bistro_id: bistroId, p_limit: 10 }),
-        supabase.rpc('get_customer_analytics', { p_bistro_id: bistroId, p_period: timeRange })
-      ]);
-
-      // Check for errors
-      if (summaryResult.error) throw summaryResult.error;
-      if (statusDistResult.error) throw statusDistResult.error;
-      if (hourlyResult.error) throw hourlyResult.error;
-      if (dailyTrendsResult.error) throw dailyTrendsResult.error;
-      if (recentOrdersResult.error) throw recentOrdersResult.error;
-      if (customerAnalyticsResult.error) throw customerAnalyticsResult.error;
-
-      const summary = summaryResult.data[0] || {};
-      const statusDistribution = statusDistResult.data || [];
-      const hourlyData = hourlyResult.data || [];
-      const dailyTrends = dailyTrendsResult.data || [];
-      const recentOrders = recentOrdersResult.data || [];
-      const customerStats = customerAnalyticsResult.data[0] || {};
-
-      // Transform the data to match the expected format
-      return this.transformAnalyticsData({
-        summary,
-        statusDistribution,
-        hourlyData,
-        dailyTrends,
-        recentOrders,
-        customerStats,
-        timeRange
-      });
-
+      // Check if we have a custom date range or a predefined period
+      if (typeof timeRangeOrDates === 'object' && timeRangeOrDates.from && timeRangeOrDates.to) {
+        return await this.getAnalyticsDataByDateRange(bistroId, timeRangeOrDates);
+      } else {
+        return await this.getAnalyticsDataByPeriod(bistroId, timeRangeOrDates);
+      }
     } catch (error) {
       console.error('Error fetching analytics data:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get analytics data using predefined period strings (existing functionality)
+   */
+  async getAnalyticsDataByPeriod(bistroId, timeRange) {
+    // Execute all analytics queries in parallel
+    const [
+      summaryResult,
+      statusDistResult,
+      hourlyResult,
+      dailyTrendsResult,
+      recentOrdersResult,
+      customerAnalyticsResult
+    ] = await Promise.all([
+      supabase.rpc('get_analytics_summary', { p_bistro_id: bistroId, p_period: timeRange }),
+      supabase.rpc('get_order_status_distribution', { p_bistro_id: bistroId, p_period: timeRange }),
+      supabase.rpc('get_orders_by_hour', { p_bistro_id: bistroId, p_period: timeRange }),
+      supabase.rpc('get_daily_trends', { p_bistro_id: bistroId, p_period: timeRange }),
+      supabase.rpc('get_recent_orders_with_response_times', { p_bistro_id: bistroId, p_limit: 10 }),
+      supabase.rpc('get_customer_analytics', { p_bistro_id: bistroId, p_period: timeRange })
+    ]);
+
+    // Check for errors
+    if (summaryResult.error) throw summaryResult.error;
+    if (statusDistResult.error) throw statusDistResult.error;
+    if (hourlyResult.error) throw hourlyResult.error;
+    if (dailyTrendsResult.error) throw dailyTrendsResult.error;
+    if (recentOrdersResult.error) throw recentOrdersResult.error;
+    if (customerAnalyticsResult.error) throw customerAnalyticsResult.error;
+
+    const summary = summaryResult.data[0] || {};
+    const statusDistribution = statusDistResult.data || [];
+    const hourlyData = hourlyResult.data || [];
+    const dailyTrends = dailyTrendsResult.data || [];
+    const recentOrders = recentOrdersResult.data || [];
+    const customerStats = customerAnalyticsResult.data[0] || {};
+
+    // Transform the data to match the expected format
+    return this.transformAnalyticsData({
+      summary,
+      statusDistribution,
+      hourlyData,
+      dailyTrends,
+      recentOrders,
+      customerStats,
+      timeRange
+    });
+  }
+
+  /**
+   * Get analytics data using custom date range
+   */
+  async getAnalyticsDataByDateRange(bistroId, dateRange) {
+    const startDate = format(dateRange.from, 'yyyy-MM-dd');
+    const endDate = format(dateRange.to, 'yyyy-MM-dd');
+
+    // Execute all analytics queries in parallel with date range
+    const [
+      summaryResult,
+      statusDistResult,
+      hourlyResult,
+      dailyTrendsResult,
+      recentOrdersResult,
+      customerAnalyticsResult
+    ] = await Promise.all([
+      supabase.rpc('get_analytics_summary_by_date_range', { 
+        p_bistro_id: bistroId, 
+        p_start_date: startDate, 
+        p_end_date: endDate 
+      }),
+      supabase.rpc('get_order_status_distribution_by_date_range', { 
+        p_bistro_id: bistroId, 
+        p_start_date: startDate, 
+        p_end_date: endDate 
+      }),
+      supabase.rpc('get_orders_by_hour_by_date_range', { 
+        p_bistro_id: bistroId, 
+        p_start_date: startDate, 
+        p_end_date: endDate 
+      }),
+      supabase.rpc('get_daily_trends_by_date_range', { 
+        p_bistro_id: bistroId, 
+        p_start_date: startDate, 
+        p_end_date: endDate 
+      }),
+      supabase.rpc('get_recent_orders_with_response_times_by_date_range', { 
+        p_bistro_id: bistroId, 
+        p_start_date: startDate, 
+        p_end_date: endDate,
+        p_limit: 10 
+      }),
+      supabase.rpc('get_customer_analytics_by_date_range', { 
+        p_bistro_id: bistroId, 
+        p_start_date: startDate, 
+        p_end_date: endDate 
+      })
+    ]);
+
+    // If the new date range functions don't exist, fall back to period-based queries with a rough equivalent
+    if (summaryResult.error && summaryResult.error.message?.includes('function')) {
+      console.warn('Date range functions not available, falling back to period-based queries');
+      // Calculate rough equivalent period
+      const daysDiff = Math.ceil((dateRange.to - dateRange.from) / (1000 * 60 * 60 * 24));
+      let equivalent = '7d';
+      if (daysDiff <= 1) equivalent = '1d';
+      else if (daysDiff <= 7) equivalent = '7d';
+      else if (daysDiff <= 30) equivalent = '30d';
+      else equivalent = '90d';
+      
+      return await this.getAnalyticsDataByPeriod(bistroId, equivalent);
+    }
+
+    // Check for errors
+    if (summaryResult.error) throw summaryResult.error;
+    if (statusDistResult.error) throw statusDistResult.error;
+    if (hourlyResult.error) throw hourlyResult.error;
+    if (dailyTrendsResult.error) throw dailyTrendsResult.error;
+    if (recentOrdersResult.error) throw recentOrdersResult.error;
+    if (customerAnalyticsResult.error) throw customerAnalyticsResult.error;
+
+    const summary = summaryResult.data[0] || {};
+    const statusDistribution = statusDistResult.data || [];
+    const hourlyData = hourlyResult.data || [];
+    const dailyTrends = dailyTrendsResult.data || [];
+    const recentOrders = recentOrdersResult.data || [];
+    const customerStats = customerAnalyticsResult.data[0] || {};
+
+    // Transform the data to match the expected format
+    return this.transformAnalyticsData({
+      summary,
+      statusDistribution,
+      hourlyData,
+      dailyTrends,
+      recentOrders,
+      customerStats,
+      timeRange: `${startDate} to ${endDate}`
+    });
   }
 
   /**

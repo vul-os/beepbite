@@ -732,4 +732,253 @@ BEGIN
     GROUP BY DATE(r.created_at), TO_CHAR(r.created_at, 'Dy')
     ORDER BY date_day;
 END;
+$$;
+
+-- NEW DATE RANGE FUNCTIONS
+
+-- Function to get analytics summary by custom date range
+CREATE OR REPLACE FUNCTION get_analytics_summary_by_date_range(
+    p_bistro_id uuid,
+    p_start_date date,
+    p_end_date date
+)
+RETURNS TABLE (
+    total_orders bigint,
+    completed_orders bigint,
+    completion_rate numeric,
+    average_rating numeric,
+    total_reviews bigint,
+    avg_response_time_minutes numeric,
+    period_start timestamptz,
+    period_end timestamptz
+) 
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    start_date timestamptz;
+    end_date timestamptz;
+BEGIN
+    -- Convert dates to timestamps
+    start_date := p_start_date::timestamptz;
+    end_date := (p_end_date + INTERVAL '1 day - 1 second')::timestamptz;
+
+    RETURN QUERY
+    SELECT 
+        COUNT(DISTINCT b.id)::bigint as total_orders,
+        COUNT(DISTINCT CASE WHEN b.status = 'completed' THEN b.id END)::bigint as completed_orders,
+        CASE 
+            WHEN COUNT(DISTINCT b.id) > 0 THEN 
+                ROUND((COUNT(DISTINCT CASE WHEN b.status = 'completed' THEN b.id END)::numeric / COUNT(DISTINCT b.id)::numeric) * 100, 1)
+            ELSE 0
+        END as completion_rate,
+        COALESCE(AVG(r.rating), 0)::numeric as average_rating,
+        COUNT(DISTINCT r.id)::bigint as total_reviews,
+        COALESCE(
+            AVG(EXTRACT(EPOCH FROM (b.order_ready_at - b.created_at)) / 60.0)
+            FILTER (WHERE b.order_ready_at IS NOT NULL), 0
+        )::numeric as avg_response_time_minutes,
+        start_date as period_start,
+        end_date as period_end
+    FROM bites b
+    LEFT JOIN reviews r ON r.bite_id = b.id
+    WHERE b.bistro_id = p_bistro_id
+        AND b.created_at >= start_date
+        AND b.created_at <= end_date;
+END;
+$$;
+
+-- Function to get order status distribution by date range
+CREATE OR REPLACE FUNCTION get_order_status_distribution_by_date_range(
+    p_bistro_id uuid,
+    p_start_date date,
+    p_end_date date
+)
+RETURNS TABLE (
+    status text,
+    count bigint
+) 
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    start_date timestamptz;
+    end_date timestamptz;
+BEGIN
+    start_date := p_start_date::timestamptz;
+    end_date := (p_end_date + INTERVAL '1 day - 1 second')::timestamptz;
+
+    RETURN QUERY
+    SELECT 
+        b.status,
+        COUNT(*)::bigint as count
+    FROM bites b
+    WHERE b.bistro_id = p_bistro_id
+        AND b.created_at >= start_date
+        AND b.created_at <= end_date
+    GROUP BY b.status
+    ORDER BY count DESC;
+END;
+$$;
+
+-- Function to get orders by hour by date range
+CREATE OR REPLACE FUNCTION get_orders_by_hour_by_date_range(
+    p_bistro_id uuid,
+    p_start_date date,
+    p_end_date date
+)
+RETURNS TABLE (
+    hour_label text,
+    order_count bigint,
+    avg_response_time_minutes numeric
+) 
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    start_date timestamptz;
+    end_date timestamptz;
+BEGIN
+    start_date := p_start_date::timestamptz;
+    end_date := (p_end_date + INTERVAL '1 day - 1 second')::timestamptz;
+
+    RETURN QUERY
+    SELECT 
+        EXTRACT(hour FROM b.created_at)::text || ':00' as hour_label,
+        COUNT(*)::bigint as order_count,
+        COALESCE(
+            AVG(EXTRACT(EPOCH FROM (b.order_ready_at - b.created_at)) / 60.0)
+            FILTER (WHERE b.order_ready_at IS NOT NULL), 0
+        )::numeric as avg_response_time_minutes
+    FROM bites b
+    WHERE b.bistro_id = p_bistro_id
+        AND b.created_at >= start_date
+        AND b.created_at <= end_date
+    GROUP BY EXTRACT(hour FROM b.created_at)
+    ORDER BY EXTRACT(hour FROM b.created_at);
+END;
+$$;
+
+-- Function to get daily trends by date range
+CREATE OR REPLACE FUNCTION get_daily_trends_by_date_range(
+    p_bistro_id uuid,
+    p_start_date date,
+    p_end_date date
+)
+RETURNS TABLE (
+    day_name text,
+    order_count bigint,
+    avg_response_time_minutes numeric
+) 
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    start_date timestamptz;
+    end_date timestamptz;
+BEGIN
+    start_date := p_start_date::timestamptz;
+    end_date := (p_end_date + INTERVAL '1 day - 1 second')::timestamptz;
+
+    RETURN QUERY
+    SELECT 
+        TO_CHAR(DATE(b.created_at), 'Mon DD') as day_name,
+        COUNT(*)::bigint as order_count,
+        COALESCE(
+            AVG(EXTRACT(EPOCH FROM (b.order_ready_at - b.created_at)) / 60.0)
+            FILTER (WHERE b.order_ready_at IS NOT NULL), 0
+        )::numeric as avg_response_time_minutes
+    FROM bites b
+    WHERE b.bistro_id = p_bistro_id
+        AND b.created_at >= start_date
+        AND b.created_at <= end_date
+    GROUP BY DATE(b.created_at)
+    ORDER BY DATE(b.created_at);
+END;
+$$;
+
+-- Function to get recent orders with response times by date range
+CREATE OR REPLACE FUNCTION get_recent_orders_with_response_times_by_date_range(
+    p_bistro_id uuid,
+    p_start_date date,
+    p_end_date date,
+    p_limit integer DEFAULT 10
+)
+RETURNS TABLE (
+    order_number text,
+    created_at timestamptz,
+    status text,
+    response_time_formatted text,
+    customer_name text
+) 
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    start_date timestamptz;
+    end_date timestamptz;
+BEGIN
+    start_date := p_start_date::timestamptz;
+    end_date := (p_end_date + INTERVAL '1 day - 1 second')::timestamptz;
+
+    RETURN QUERY
+    SELECT 
+        b.order_number,
+        b.created_at,
+        b.status,
+        CASE 
+            WHEN b.order_ready_at IS NOT NULL THEN
+                EXTRACT(epoch FROM (b.order_ready_at - b.created_at))::integer::text || ' seconds'
+            ELSE 'No response'
+        END as response_time_formatted,
+        COALESCE(c.display_name, c.first_name || ' ' || c.last_name, 'Unknown') as customer_name
+    FROM bites b
+    LEFT JOIN customers c ON c.id = b.customer_id
+    WHERE b.bistro_id = p_bistro_id
+        AND b.created_at >= start_date
+        AND b.created_at <= end_date
+    ORDER BY b.created_at DESC
+    LIMIT p_limit;
+END;
+$$;
+
+-- Function to get customer analytics by date range
+CREATE OR REPLACE FUNCTION get_customer_analytics_by_date_range(
+    p_bistro_id uuid,
+    p_start_date date,
+    p_end_date date
+)
+RETURNS TABLE (
+    total_customers bigint,
+    new_customers bigint,
+    returning_customers bigint,
+    avg_orders_per_customer numeric,
+    customer_retention_rate numeric
+) 
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    start_date timestamptz;
+    end_date timestamptz;
+BEGIN
+    start_date := p_start_date::timestamptz;
+    end_date := (p_end_date + INTERVAL '1 day - 1 second')::timestamptz;
+
+    RETURN QUERY
+    SELECT 
+        COUNT(DISTINCT b.customer_id)::bigint as total_customers,
+        COUNT(DISTINCT CASE WHEN cb.first_interaction_at >= start_date THEN b.customer_id END)::bigint as new_customers,
+        COUNT(DISTINCT CASE WHEN cb.first_interaction_at < start_date THEN b.customer_id END)::bigint as returning_customers,
+        CASE 
+            WHEN COUNT(DISTINCT b.customer_id) > 0 THEN 
+                COUNT(*)::numeric / COUNT(DISTINCT b.customer_id)::numeric
+            ELSE 0
+        END as avg_orders_per_customer,
+        CASE 
+            WHEN COUNT(DISTINCT CASE WHEN cb.first_interaction_at < start_date THEN b.customer_id END) > 0 THEN
+                (COUNT(DISTINCT CASE WHEN cb.first_interaction_at < start_date THEN b.customer_id END)::numeric / 
+                 COUNT(DISTINCT b.customer_id)::numeric) * 100
+            ELSE 0
+        END as customer_retention_rate
+    FROM bites b
+    LEFT JOIN customer_bistros cb ON cb.customer_id = b.customer_id AND cb.bistro_id = b.bistro_id
+    WHERE b.bistro_id = p_bistro_id
+        AND b.created_at >= start_date
+        AND b.created_at <= end_date;
+END;
 $$; 
