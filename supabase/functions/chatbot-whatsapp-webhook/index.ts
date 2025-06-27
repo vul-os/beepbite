@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendSmartMessage, canUseWhatsApp } from "../utility/communication.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,7 +47,7 @@ const supabase = createClient(
 )
 
 const ITEMS_PER_PAGE = 5
-const REVIEW_WINDOW_HOURS = 48
+const REVIEW_WINDOW_HOURS = 24
 
 function getTimeRemaining(createdAt: string): string {
   const now = new Date()
@@ -671,6 +672,81 @@ async function saveReview(biteId: string, rating: number, comment?: string, isAn
   return true
 }
 
+async function sendConsentConfirmation(whatsappNumber: string, connectedBite: any, chatId: string) {
+  // Get all incomplete bites for comprehensive overview
+  const incompleteBites = await getIncompleteBites(whatsappNumber)
+  
+  // Get unreviewed bites
+  const unreviewedBites = await getUnreviewedBites(whatsappNumber)
+  
+  let message = `✅ *Connected Successfully!*\n\n`
+  message += `🔗 You've been connected to order:\n`
+  message += `📋 #${connectedBite.order_number}\n`
+  message += `🏪 ${connectedBite.bistros.name}\n`
+  message += `📅 ${new Date(connectedBite.created_at).toLocaleString()}\n`
+  
+  const statusEmoji = {
+    'pending': '⏳',
+    'preparing': '👨‍🍳',
+    'ready': '🔔',
+    'completed': '🎉',
+    'cancelled': '❌'
+  }
+  message += `${statusEmoji[connectedBite.status] || '📋'} Status: *${connectedBite.status.charAt(0).toUpperCase() + connectedBite.status.slice(1)}*\n\n`
+  
+  // Show active orders if any
+  if (incompleteBites.length > 0) {
+    message += `📋 *Your Active Orders (${incompleteBites.length}):*\n\n`
+    
+    incompleteBites.slice(0, 5).forEach((bite, index) => {
+      const date = new Date(bite.created_at).toLocaleString()
+      message += `*[${index + 1}]* 📋 #${bite.order_number}\n`
+      message += `        🏪 ${bite.bistros.name}\n`
+      message += `        📅 ${date}\n`
+      message += `        ${statusEmoji[bite.status] || '📋'} Status: *${bite.status.charAt(0).toUpperCase() + bite.status.slice(1)}*\n\n`
+    })
+    
+    if (incompleteBites.length > 5) {
+      message += `        ... and ${incompleteBites.length - 5} more active orders\n\n`
+    }
+  }
+  
+  // Show orders to review if any
+  if (unreviewedBites.length > 0) {
+    message += `⭐ *Orders to Review (${unreviewedBites.length}):*\n\n`
+    
+    unreviewedBites.slice(0, 3).forEach((bite, index) => {
+      const date = new Date(bite.created_at).toLocaleString()
+      const timeRemaining = getTimeRemaining(bite.created_at)
+      message += `• 📋 #${bite.order_number} - ${bite.bistros.name}\n`
+      message += `  📅 ${date} | ${timeRemaining}\n`
+    })
+    
+    if (unreviewedBites.length > 3) {
+      message += `• ... and ${unreviewedBites.length - 3} more to review\n`
+    }
+    
+    message += `\n💫 *Type anything to start reviewing!*\n\n`
+  } else {
+    message += `💬 *Type anything to chat with me!*\n\n`
+  }
+  
+  message += `📱 *Powered by BeepBite.io* 🚀`
+  
+  // Send the message
+  const success = await sendWhatsAppMessage(whatsappNumber, message)
+  
+  if (success) {
+    // Save outbound message
+    await saveMessage(chatId, '', 'outbound', message)
+    
+    // Update chat state to welcome with comprehensive info shown
+    await updateChatState(chatId, { step: 'welcome' }, 'Consent confirmation sent')
+  }
+  
+  return success
+}
+
 async function handleConsentMessage(messageBody: string, normalizedFrom: string): Promise<boolean> {
   // Regex to match CONSENT-{uuid} format - case insensitive
   const consentRegex = /CONSENT-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
@@ -692,7 +768,10 @@ async function handleConsentMessage(messageBody: string, normalizedFrom: string)
         customer_id,
         order_number,
         bistro_id,
-        whatsapp_number
+        whatsapp_number,
+        created_at,
+        status,
+        bistros(name)
       `)
       .eq('id', biteId)
       .single()
@@ -734,15 +813,18 @@ async function handleConsentMessage(messageBody: string, normalizedFrom: string)
     console.log(`- Set original_number to ${originalNumberWithPrefix}`)
     console.log(`- Set whatsapp_number to ${normalizedFrom}`)
     
-    // Create chat for the consenting customer - normal welcome flow will take over
+    // Create chat for the consenting customer
     const chat = await getOrCreateChat(consentingCustomer.id)
     if (chat) {
       console.log(`Chat created/found for consenting customer: ${chat.id}`)
       
-      // Save the consent message as inbound - normal flow will handle the response
+      // Save the consent message as inbound
       await saveMessage(chat.id, '', 'inbound', messageBody)
       
-      console.log('Consent processed successfully, normal welcome flow will handle response')
+      // Send comprehensive consent confirmation with orders overview
+      await sendConsentConfirmation(normalizedFrom, bite, chat.id)
+      
+      console.log('Consent processed successfully with comprehensive response sent')
     } else {
       console.error('Failed to create chat for consenting customer')
       
@@ -765,8 +847,9 @@ async function handleMessage(phoneNumberId: string, from: string, messageId: str
   // Check if this is a consent message first
   const isConsentMessage = await handleConsentMessage(messageBody, normalizedFrom)
   if (isConsentMessage) {
-    // Consent has been processed, but continue with normal conversation flow to show welcome
-    console.log('Consent processed, continuing with normal welcome flow')
+    // Consent has been processed and comprehensive response sent - exit early
+    console.log('Consent processed successfully, comprehensive response sent')
+    return
   }
   
   // Verify this is our bot
@@ -1085,15 +1168,43 @@ async function handleMessage(phoneNumberId: string, from: string, messageId: str
     newState = { step: 'welcome', review_page: 0 }
   }
 
-  // Send response
-  const messageSent = await sendWhatsAppMessage(normalizedFrom, responseMessage)
+  // Send response using smart routing
+  console.log('=== WEBHOOK SENDING RESPONSE ===')
   
-  if (messageSent) {
-    // Save outbound message
-    await saveMessage(chat.id, '', 'outbound', responseMessage)
+  // Check if we can use WhatsApp for this customer
+  const whatsappCheck = await canUseWhatsApp(normalizedFrom)
+  console.log('WhatsApp capability check:', whatsappCheck)
+  
+  if (whatsappCheck.canUse) {
+    // Can use WhatsApp - send directly
+    const messageSent = await sendWhatsAppMessage(normalizedFrom, responseMessage)
     
-    // Update chat state
+    if (messageSent) {
+      // Save outbound message
+      await saveMessage(chat.id, '', 'outbound', responseMessage)
+      
+      // Update chat state
+      await updateChatState(chat.id, newState, responseMessage.substring(0, 100))
+    }
+  } else {
+    // Cannot use WhatsApp - use smart routing for fallbacks
+    console.log('Cannot use WhatsApp for response - using smart routing')
+    
+    const smartResult = await sendSmartMessage({
+      whatsapp_number: normalizedFrom,
+      message: responseMessage,
+      subject: 'BeepBite.io - Restaurant Chat'
+    })
+    
+    console.log('Smart message result for webhook response:', smartResult)
+    
+    // Still update chat state regardless of send method
     await updateChatState(chat.id, newState, responseMessage.substring(0, 100))
+    
+    // Only save to messages table if it was sent via WhatsApp
+    if (smartResult.method === 'whatsapp') {
+      await saveMessage(chat.id, '', 'outbound', responseMessage)
+    }
   }
 }
 

@@ -217,13 +217,20 @@ CREATE TABLE bites (
     order_number text NOT NULL,
     whatsapp_number text NOT NULL, -- Keep for backwards compatibility and quick reference
     original_number text, -- Store the original number before any processing
+    original_email text, -- Store the original email before any processing
     status text DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
     order_ready_at timestamp with time zone,
     review_requested_at timestamp with time zone,
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-    UNIQUE(bistro_id, order_number)
+    updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Drop existing unique constraint if it exists
+ALTER TABLE bites DROP CONSTRAINT IF EXISTS bites_bistro_id_order_number_key;
+
+-- Create unique index for order numbers within 24-hour window (per day)
+CREATE UNIQUE INDEX unique_order_number_per_day 
+    ON bites (bistro_id, order_number, date_trunc('day', created_at AT TIME ZONE 'UTC'));
 
 -- Create chats table to store chat sessions/conversations
 CREATE TABLE chats (

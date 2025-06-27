@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { sendSms } from "./sms.ts"
+import { sendSmartMessage } from "../utility/communication.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -144,6 +144,34 @@ async function checkCustomerHasChats(customerId: string): Promise<boolean> {
   return hasChats
 }
 
+async function checkRecentChatActivity(customerId: string): Promise<boolean> {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  
+  const { data: recentMessages, error } = await supabase
+    .from('messages')
+    .select(`
+      id,
+      chats!inner(
+        customer_id
+      )
+    `)
+    .eq('chats.customer_id', customerId)
+    .gte('created_at', twentyFourHoursAgo)
+    .limit(1)
+
+  if (error) {
+    console.error('Error checking recent chat activity:', error)
+    return false
+  }
+
+  const hasRecentActivity = recentMessages && recentMessages.length > 0
+  console.log(`Customer ${customerId} has recent chat activity (24h): ${hasRecentActivity}`)
+  
+  return hasRecentActivity
+}
+
+
+
 async function getOrCreateChat(customerId: string) {
   // Check if active chat exists for this customer with our bot
   const { data: existingChat, error: fetchError } = await supabase
@@ -234,31 +262,7 @@ function formatStatusMessage(bistroName: string, orderNumber: string, status: st
   }
 }
 
-async function sendConsentSms(phoneNumber: string, bistroName: string, biteId: string): Promise<boolean> {
-  // Remove the + if present for SMS
-  const cleanNumber = phoneNumber.replace('+', '')
-  
-  // Create wa.me link with pre-filled consent message including bite ID
-  const consentMessage = `Hi there! ${bistroName} wants to send you WhatsApp notifications about your order! Please click this link: https://wa.me/27731136480?text=CONSENT-${biteId}`
-  
-  try {
-    const result = await sendSms({
-      phoneNumber: cleanNumber,
-      message: consentMessage
-    }, 'winsms')
-    
-    if (result.success) {
-      console.log('Consent SMS sent successfully to:', phoneNumber)
-      return true
-    } else {
-      console.error('Failed to send consent SMS:', result.error)
-      return false
-    }
-  } catch (error) {
-    console.error('Error sending consent SMS:', error)
-    return false
-  }
-}
+
 
 async function updateBiteStatus(biteId: string, status: string) {
   const updateData: any = { status }
@@ -392,84 +396,28 @@ serve(async (req) => {
       }
     }
 
-    // Get or create customer first
-    const customer = await getOrCreateCustomer(whatsappNumber)
-    if (!customer) {
-      console.log('ERROR: Failed to create/find customer')
-      return new Response(
-        JSON.stringify({ error: 'Failed to create/find customer' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
-      )
-    }
-
-    // Check if customer has any chats - if not, send consent SMS
-    console.log(`=== CHAT CHECK ===`)
-    console.log(`Checking if customer ${customer.id} has any chats`)
-    
-    const hasChats = await checkCustomerHasChats(customer.id)
-    console.log(`Chat check result - hasChats: ${hasChats}, bistroName: ${bistroName}, bite_id: ${body.bite_id}`)
-    
-    if (!hasChats && bistroName && body.bite_id) {
-      // No chats yet - send SMS to get consent
-      console.log('=== NO CHATS - SENDING CONSENT SMS ===')
-      console.log(`Sending consent SMS to: ${whatsappNumber} for bistro: ${bistroName}`)
-      
-      const smsSent = await sendConsentSms(whatsappNumber, bistroName, body.bite_id)
-      console.log(`Consent SMS sent result: ${smsSent}`)
-      
-      // Return early - don't send WhatsApp message yet, wait for consent
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Consent SMS sent - waiting for customer consent before sending WhatsApp notifications',
-          data: {
-            bite_id: body.bite_id,
-            order_number: orderNumber,
-            status: body.order_status,
-            whatsapp_number: whatsappNumber,
-            bistro_name: bistroName,
-            consent_sms_sent: smsSent
-          }
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-    }
-    
-    console.log('=== HAS CHATS - PROCEEDING WITH WHATSAPP MESSAGE ===')
-    console.log(`Customer has existing chats, proceeding with WhatsApp message to: ${whatsappNumber}`)
-
-    // Get or create chat
-    const chat = await getOrCreateChat(customer.id)
-    if (!chat) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to create/find chat' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
-      )
-    }
-
-    // Send message
-    console.log(`=== SENDING WHATSAPP MESSAGE ===`)
+    // Use smart message routing to handle 24-hour rule and fallbacks
+    console.log('=== USING SMART MESSAGE ROUTING ===')
     console.log(`Sending to: ${whatsappNumber}`)
     console.log(`Message: ${message.substring(0, 200)}...`)
     
-    const sendResult = await sendWhatsAppMessage(whatsappNumber, message)
-    console.log(`WhatsApp send result:`, sendResult)
+    const smartResult = await sendSmartMessage({
+      whatsapp_number: whatsappNumber,
+      message: message,
+      subject: `Order Update from ${bistroName}`,
+      bistro_name: bistroName,
+      order_number: orderNumber,
+      bite_id: body.bite_id
+    })
     
-    if (!sendResult.success) {
-      console.log('ERROR: Failed to send WhatsApp message:', sendResult.error)
+    console.log('Smart message result:', smartResult)
+    
+    if (!smartResult.success) {
+      console.log('ERROR: Smart message failed:', smartResult.error)
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to send WhatsApp message',
-          details: sendResult.error 
+          error: 'Failed to send notification',
+          details: smartResult.error 
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -478,34 +426,41 @@ serve(async (req) => {
       )
     }
 
-    // Save message to database
-    console.log(`Saving message to chat: ${chat.id}`)
-    await saveMessage(chat.id, 'outbound', message, sendResult.messageId)
-
-    // Update chat with last message
-    await supabase
-      .from('chats')
-      .update({
-        last_message_at: new Date().toISOString(),
-        last_message_preview: message.substring(0, 100)
-      })
-      .eq('id', chat.id)
+    // Handle database updates for WhatsApp messages
+    if (smartResult.method === 'whatsapp' && smartResult.details?.customer_id) {
+      // Get or create chat for WhatsApp messages only
+      const chat = await getOrCreateChat(smartResult.details.customer_id)
+      if (chat) {
+        // Save message to database
+        await saveMessage(chat.id, 'outbound', message)
+        
+        // Update chat with last message
+        await supabase
+          .from('chats')
+          .update({
+            last_message_at: new Date().toISOString(),
+            last_message_preview: message.substring(0, 100)
+          })
+          .eq('id', chat.id)
+      }
+    }
 
     console.log('=== SUCCESS ===')
-    console.log(`Message sent successfully to ${whatsappNumber}`)
+    console.log(`Message sent successfully to ${whatsappNumber} via ${smartResult.method}`)
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Message sent successfully',
+        message: `Message sent successfully via ${smartResult.method}`,
         data: {
           bite_id: body.bite_id,
           order_number: orderNumber,
           status: body.order_status,
           whatsapp_number: whatsappNumber,
-          message_id: sendResult.messageId,
           bistro_name: bistroName,
-          message_preview: message.substring(0, 100)
+          message_preview: message.substring(0, 100),
+          method: smartResult.method,
+          details: smartResult.details
         }
       }),
       {

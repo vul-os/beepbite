@@ -526,7 +526,7 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {features.map((feature, i) => (
               <Card key={i} className={`group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border-2 ${feature.highlight ? 'ring-2 ring-orange-200 bg-orange-50/50 border-orange-200' : 'border-gray-200 hover:border-orange-300'} rounded-2xl overflow-hidden`}>
                 <CardContent className="p-8 text-center">
@@ -547,9 +547,9 @@ const LandingPage = () => {
       </section>
 
       {/* Benefits Section */}
-      <section id="benefits" className="py-16 lg:py-24 bg-white">
+      <section id="benefits" className="py-8 sm:py-12 lg:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">
               The Cold Food Problem, Solved
             </h2>
@@ -558,7 +558,7 @@ const LandingPage = () => {
             </p>
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
             {benefits.map((benefit, i) => (
               <div key={i} className="text-center group">
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
@@ -575,9 +575,9 @@ const LandingPage = () => {
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="py-16 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
+      <section id="how-it-works" className="py-8 sm:py-12 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
             <Badge className="inline-flex items-center gap-2 bg-orange-100 text-orange-600 px-4 py-2 text-sm font-semibold rounded-full mb-6">
               <Clock className="w-4 h-4" />
               Super Simple
@@ -606,9 +606,9 @@ const LandingPage = () => {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="py-16 lg:py-24 bg-white">
+      <section id="testimonials" className="py-8 sm:py-12 lg:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
             <Badge className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 text-sm font-semibold rounded-full mb-6">
               <Star className="w-4 h-4" />
               Customer Success
@@ -617,7 +617,7 @@ const LandingPage = () => {
             <p className="text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">See how restaurants stopped cold food complaints</p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
             {testimonials.map((testimonial, i) => (
               <Card key={i} className="group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border-2 border-gray-200 hover:border-orange-300 rounded-2xl overflow-hidden">
                 <CardContent className="p-8">
@@ -650,9 +650,9 @@ const LandingPage = () => {
       </section>
 
       {/* Support Section */}
-      <section id="support" className="py-16 lg:py-24 bg-gray-900 text-white">
+      <section id="support" className="py-8 sm:py-12 lg:py-24 bg-gray-900 text-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
             <Badge className="inline-flex items-center gap-2 bg-white/10 text-white px-4 py-2 text-sm font-semibold rounded-full mb-6">
               <WhatsAppIcon className="w-4 h-4" />
               Get Help
@@ -663,9 +663,9 @@ const LandingPage = () => {
             </p>
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
             <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
                 <WhatsAppIcon className="w-8 h-8 text-orange-400" />
               </div>
               <h3 className="text-xl font-bold mb-3">WhatsApp Support</h3>
@@ -682,7 +682,7 @@ const LandingPage = () => {
             </div>
             
             <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
                 <Mail className="w-8 h-8 text-orange-400" />
               </div>
               <h3 className="text-xl font-bold mb-3">Email Support</h3>
@@ -697,7 +697,7 @@ const LandingPage = () => {
             </div>
             
             <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
                 <Phone className="w-8 h-8 text-orange-400" />
               </div>
               <h3 className="text-xl font-bold mb-3">Phone Support</h3>
@@ -712,7 +712,7 @@ const LandingPage = () => {
             </div>
             
             <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
+              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
                 <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -731,8 +731,8 @@ const LandingPage = () => {
             </div>
           </div>
           
-          <div className="mt-16 text-center">
-            <div className="bg-white/5 rounded-2xl p-8 border border-white/10">
+          <div className="mt-8 sm:mt-12 lg:mt-16 text-center">
+            <div className="bg-white/5 rounded-2xl p-6 sm:p-8 border border-white/10">
               <h3 className="text-2xl font-bold mb-4">Still Need Help?</h3>
               <p className="text-gray-300 mb-6">
                 Our support team is available 24/7 to help you succeed with BeepBite
@@ -759,7 +759,7 @@ const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section id="get-started" className="beepbite-gradient text-white relative overflow-hidden py-20 lg:py-32">
+      <section id="get-started" className="beepbite-gradient text-white relative overflow-hidden py-12 sm:py-16 lg:py-32">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 text-center">
           <Badge className="inline-flex items-center gap-2 bg-white/20 text-white px-4 py-2 text-sm font-semibold rounded-full mb-8">
@@ -769,7 +769,7 @@ const LandingPage = () => {
           <h2 className="text-3xl lg:text-6xl font-bold leading-tight mb-8">
             Ready to Stop Serving Cold Food?
           </h2>
-          <p className="text-lg lg:text-2xl opacity-90 max-w-3xl mx-auto leading-relaxed mb-12">
+          <p className="text-lg lg:text-2xl opacity-90 max-w-3xl mx-auto leading-relaxed mb-8 sm:mb-12">
             Join restaurants using BeepBite to get hot food to customers faster, 
             reduce complaints, and get honest feedback directly to WhatsApp.
           </p>
@@ -906,7 +906,7 @@ const LandingPage = () => {
       </Dialog>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-20">
+      <footer className="bg-white border-t border-gray-200 py-12 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
             <div className="col-span-2 md:col-span-1 space-y-6">
@@ -949,7 +949,7 @@ const LandingPage = () => {
             </div>
           </div>
           
-          <div className="border-t border-gray-200 mt-12 pt-8">
+          <div className="border-t border-gray-200 mt-8 sm:mt-12 pt-6 sm:pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
               <p className="text-gray-500">
                 &copy; {new Date().getFullYear()} BeepBite Pty is a member of Exolution Technologies Pty

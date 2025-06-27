@@ -42,24 +42,27 @@ const Dashboard = () => {
   const formatTimeWithSeconds = (date) => {
     const diffInSeconds = Math.floor((currentTime - new Date(date)) / 1000);
     
-    if (diffInSeconds < 60) {
-      return `${diffInSeconds} seconds ago`;
-    } else if (diffInSeconds < 3600) {
-      const minutes = Math.floor(diffInSeconds / 60);
-      const remainingSeconds = diffInSeconds % 60;
-      return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''} ago`;
-    } else if (diffInSeconds < 86400) {
-      const hours = Math.floor(diffInSeconds / 3600);
-      const remainingMinutes = Math.floor((diffInSeconds % 3600) / 60);
-      const remainingSeconds = diffInSeconds % 60;
-      return `${hours} hour${hours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''} ago`;
-    } else {
-      const days = Math.floor(diffInSeconds / 86400);
-      const remainingHours = Math.floor((diffInSeconds % 86400) / 3600);
-      const remainingMinutes = Math.floor((diffInSeconds % 3600) / 60);
-      const remainingSeconds = diffInSeconds % 60;
-      return `${days} day${days !== 1 ? 's' : ''} ${remainingHours} hour${remainingHours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''} ago`;
+    const days = Math.floor(diffInSeconds / 86400);
+    const hours = Math.floor((diffInSeconds % 86400) / 3600);
+    const minutes = Math.floor((diffInSeconds % 3600) / 60);
+    const seconds = diffInSeconds % 60;
+    
+    const parts = [];
+    
+    if (days > 0) {
+      parts.push(`${days} day${days !== 1 ? 's' : ''}`);
     }
+    if (hours > 0) {
+      parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+    }
+    if (minutes > 0) {
+      parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+    }
+    if (seconds > 0 || parts.length === 0) {
+      parts.push(`${seconds} second${seconds !== 1 ? 's' : ''}`);
+    }
+    
+    return `${parts.join(' ')} ago`;
   };
 
   // Live timer for updating timestamps every 2 seconds
