@@ -183,10 +183,10 @@ const TopBar = () => {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-b border-beepbite-light-alt/50 shadow-lg">
-        <nav className="h-16 px-4 sm:px-6 lg:px-8">
-          <div className="h-full flex items-center justify-between max-w-7xl mx-auto">
+        <nav className="h-16 px-2 sm:px-3 lg:px-4">
+          <div className="h-full flex items-center justify-between w-full">
             {/* Left: Logo and Navigation */}
-            <div className="flex items-center gap-6 sm:gap-8">
+            <div className="flex items-center gap-4 sm:gap-6">
               <Link to="/" className="flex items-center">
                 <div className="block sm:hidden">
                   {/* Mobile logo - just icon */}
@@ -232,7 +232,7 @@ const TopBar = () => {
             </div>
 
             {/* Right: Location Selector and User Menu */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {user ? (
                 <>
                   {/* Location Selector - Desktop */}
