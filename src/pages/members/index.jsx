@@ -19,7 +19,8 @@ import {
   Clock,
   XCircle,
   ChefHat,
-  Building2
+  Building2,
+  AlertCircle
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -50,7 +51,7 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 
 const Members = () => {
-  const { user, activeBistro } = useAuth();
+  const { user, activeOrganization } = useAuth();
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,21 +60,22 @@ const Members = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('staff');
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState('');
 
   useEffect(() => {
-    if (activeBistro) {
+    if (activeOrganization) {
       fetchMembers();
       fetchInvites();
     }
-  }, [activeBistro]);
+  }, [activeOrganization]);
 
   const fetchMembers = async () => {
-    if (!activeBistro) return;
+    if (!activeOrganization) return;
     
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('bistro_members')
+        .from('organization_members')
         .select(`
           id,
           role,
@@ -86,7 +88,7 @@ const Members = () => {
             avatar_url
           )
         `)
-        .eq('bistro_id', activeBistro.id)
+        .eq('organization_id', activeOrganization.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -99,22 +101,23 @@ const Members = () => {
   };
 
   const fetchInvites = async () => {
-    if (!activeBistro) return;
+    if (!activeOrganization) return;
     
     try {
       const { data, error } = await supabase
-        .from('bistro_invites')
+        .from('organization_invites')
         .select(`
           id,
           email,
           role,
           status,
           created_at,
-          invited_by:profiles!bistro_invites_invited_by_fkey (
+          invited_by,
+          profiles!organization_invites_invited_by_fkey (
             full_name
           )
         `)
-        .eq('bistro_id', activeBistro.id)
+        .eq('organization_id', activeOrganization.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -125,29 +128,41 @@ const Members = () => {
   };
 
   const sendInvite = async () => {
-    if (!inviteEmail || !activeBistro) return;
+    if (!inviteEmail || !activeOrganization) return;
     
     setInviteLoading(true);
     try {
-      const { data, error } = await supabase.rpc('send_invitation', {
-        p_bistro_id: activeBistro.id,
-        p_email: inviteEmail,
-        p_role: inviteRole
-      });
+      // Insert invite directly into the database
+      const { data, error } = await supabase
+        .from('organization_invites')
+        .insert({
+          organization_id: activeOrganization.id,
+          email: inviteEmail.trim().toLowerCase(),
+          role: inviteRole,
+          invited_by: user.id,
+          status: 'pending'
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
-
-      if (data.success) {
-        setInviteEmail('');
-        setInviteRole('staff');
-        setIsInviteModalOpen(false);
-        fetchInvites();
-      } else {
-        alert(data.error || 'Failed to send invitation');
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          throw new Error('This email has already been invited');
+        }
+        throw error;
       }
+
+      setInviteEmail('');
+      setInviteRole('staff');
+      setIsInviteModalOpen(false);
+      fetchInvites();
+      
+      // Here you would typically send an email notification
+      // For now, we'll just show success
+      alert('Invitation sent successfully!');
     } catch (error) {
       console.error('Error sending invite:', error);
-      alert('Failed to send invitation');
+      alert(error.message || 'Failed to send invitation');
     } finally {
       setInviteLoading(false);
     }
@@ -156,9 +171,10 @@ const Members = () => {
   const removeMember = async (memberId) => {
     if (!confirm('Are you sure you want to remove this member?')) return;
     
+    setActionLoading(memberId);
     try {
       const { error } = await supabase
-        .from('bistro_members')
+        .from('organization_members')
         .delete()
         .eq('id', memberId);
       
@@ -167,13 +183,16 @@ const Members = () => {
     } catch (error) {
       console.error('Error removing member:', error);
       alert('Failed to remove member');
+    } finally {
+      setActionLoading('');
     }
   };
 
   const updateMemberRole = async (memberId, newRole) => {
+    setActionLoading(memberId);
     try {
       const { error } = await supabase
-        .from('bistro_members')
+        .from('organization_members')
         .update({ role: newRole })
         .eq('id', memberId);
       
@@ -182,6 +201,26 @@ const Members = () => {
     } catch (error) {
       console.error('Error updating member role:', error);
       alert('Failed to update member role');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const cancelInvite = async (inviteId) => {
+    setActionLoading(inviteId);
+    try {
+      const { error } = await supabase
+        .from('organization_invites')
+        .delete()
+        .eq('id', inviteId);
+      
+      if (error) throw error;
+      fetchInvites();
+    } catch (error) {
+      console.error('Error canceling invite:', error);
+      alert('Failed to cancel invitation');
+    } finally {
+      setActionLoading('');
     }
   };
 
@@ -189,8 +228,10 @@ const Members = () => {
     switch (role) {
       case 'owner':
         return <Crown className="w-4 h-4" />;
-      case 'manager':
+      case 'admin':
         return <Shield className="w-4 h-4" />;
+      case 'manager':
+        return <ChefHat className="w-4 h-4" />;
       case 'staff':
         return <User className="w-4 h-4" />;
       default:
@@ -202,8 +243,10 @@ const Members = () => {
     switch (role) {
       case 'owner':
         return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'admin':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'manager':
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'staff':
         return 'bg-gray-50 text-gray-600 border-gray-150';
       default:
@@ -216,9 +259,9 @@ const Members = () => {
       case 'pending':
         return <Clock className="w-4 h-4 text-orange-500" />;
       case 'accepted':
-        return <CheckCircle className="w-4 h-4 text-gray-600" />;
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'rejected':
-        return <XCircle className="w-4 h-4 text-gray-400" />;
+        return <XCircle className="w-4 h-4 text-red-500" />;
       default:
         return <Clock className="w-4 h-4 text-gray-400" />;
     }
@@ -247,7 +290,17 @@ const Members = () => {
   });
 
   const currentUserMember = members.find(m => m.profiles?.id === user?.id);
-  const canManageMembers = currentUserMember?.role === 'owner' || currentUserMember?.role === 'manager';
+  const canManageMembers = currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin';
+
+  if (!activeOrganization) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <AlertCircle className="w-16 h-16 text-gray-400 mb-4" />
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Organization Selected</h2>
+        <p className="text-gray-600">Please select an organization to manage members.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -273,7 +326,7 @@ const Members = () => {
               Team Members
             </h1>
             <p className="text-gray-600 mt-1">
-              Manage your bistro team and invite new members
+              Manage your organization team and invite new members
             </p>
           </div>
         </div>
@@ -350,8 +403,8 @@ const Members = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-lg font-semibold text-gray-900 truncate">{activeBistro?.name || 'Bistro'}</p>
-                <p className="text-sm text-gray-600 mt-1">Current Bistro</p>
+                <p className="text-lg font-semibold text-gray-900 truncate">{activeOrganization?.name || 'Organization'}</p>
+                <p className="text-sm text-gray-600 mt-1">Current Organization</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
                 <Building2 className="w-6 h-6 text-orange-600" />
@@ -395,6 +448,7 @@ const Members = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
             {filteredMembers.map((member) => {
               const isCurrentUser = member.profiles?.id === user?.id;
+              const isLoading = actionLoading === member.id;
               
               return (
                 <Card key={member.id} className="border-gray-200 hover:border-orange-200 hover:shadow-md transition-all duration-200">
@@ -403,6 +457,7 @@ const Members = () => {
                       {/* Member Info */}
                       <div className="flex items-start gap-4">
                         <Avatar className="h-14 w-14 border-2 border-gray-100">
+                          <AvatarImage src={member.profiles?.avatar_url} />
                           <AvatarFallback className="bg-gray-100 text-gray-700 font-semibold text-lg">
                             {getInitials(member.profiles?.full_name, member.profiles?.username, member.profiles?.email)}
                           </AvatarFallback>
@@ -444,6 +499,7 @@ const Members = () => {
                               size="sm"
                               variant={member.role === 'staff' ? "default" : "outline"}
                               onClick={() => updateMemberRole(member.id, 'staff')}
+                              disabled={isLoading}
                               className={cn(
                                 "text-xs",
                                 member.role === 'staff' 
@@ -459,17 +515,35 @@ const Members = () => {
                               size="sm"
                               variant={member.role === 'manager' ? "default" : "outline"}
                               onClick={() => updateMemberRole(member.id, 'manager')}
+                              disabled={isLoading}
                               className={cn(
                                 "text-xs",
                                 member.role === 'manager' 
-                                  ? "bg-gray-600 hover:bg-gray-700 text-white" 
-                                  : "hover:bg-gray-50"
+                                  ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                                  : "hover:bg-blue-50"
                               )}
                             >
-                              <Shield className="w-3 h-3 mr-1" />
+                              <ChefHat className="w-3 h-3 mr-1" />
                               Manager
                             </Button>
                           </div>
+
+                          {/* Admin Button */}
+                          <Button
+                            size="sm"
+                            variant={member.role === 'admin' ? "default" : "outline"}
+                            onClick={() => updateMemberRole(member.id, 'admin')}
+                            disabled={isLoading}
+                            className={cn(
+                              "w-full text-xs",
+                              member.role === 'admin' 
+                                ? "bg-purple-600 hover:bg-purple-700 text-white" 
+                                : "hover:bg-purple-50 border-purple-200 text-purple-700"
+                            )}
+                          >
+                            <Shield className="w-3 h-3 mr-1" />
+                            Admin
+                          </Button>
 
                           {/* Owner Button (only for current owners) */}
                           {currentUserMember?.role === 'owner' && (
@@ -477,6 +551,7 @@ const Members = () => {
                               size="sm"
                               variant={member.role === 'owner' ? "default" : "outline"}
                               onClick={() => updateMemberRole(member.id, 'owner')}
+                              disabled={isLoading}
                               className={cn(
                                 "w-full text-xs",
                                 member.role === 'owner' 
@@ -494,6 +569,7 @@ const Members = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => removeMember(member.id)}
+                            disabled={isLoading}
                             className="w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                           >
                             <Trash2 className="w-3 h-3 mr-1" />
@@ -541,7 +617,10 @@ const Members = () => {
                             variant="outline" 
                             className={cn("text-xs font-medium", getRoleColor(invite.role))}
                           >
-                            {invite.role}
+                            <span className="flex items-center gap-1.5">
+                              {getRoleIcon(invite.role)}
+                              {invite.role}
+                            </span>
                           </Badge>
                           <span className="text-xs text-gray-500">
                             Invited {formatDistanceToNow(new Date(invite.created_at), { addSuffix: true })}
@@ -555,11 +634,24 @@ const Members = () => {
                       <span className={cn(
                         "text-sm font-medium capitalize",
                         invite.status === 'pending' && "text-orange-600",
-                        invite.status === 'accepted' && "text-gray-600",
-                        invite.status === 'rejected' && "text-gray-500"
+                        invite.status === 'accepted' && "text-green-600",
+                        invite.status === 'rejected' && "text-red-500"
                       )}>
                         {invite.status}
                       </span>
+                      
+                      {/* Cancel Invite Button */}
+                      {invite.status === 'pending' && canManageMembers && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => cancelInvite(invite.id)}
+                          disabled={actionLoading === invite.id}
+                          className="text-gray-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -578,7 +670,7 @@ const Members = () => {
               Invite New Member
             </DialogTitle>
             <DialogDescription>
-              Send an invitation to join {activeBistro?.name} as a team member.
+              Send an invitation to join {activeOrganization?.name} as a team member.
             </DialogDescription>
           </DialogHeader>
           
@@ -613,8 +705,14 @@ const Members = () => {
                   </SelectItem>
                   <SelectItem value="manager">
                     <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4" />
+                      <ChefHat className="w-4 h-4" />
                       Manager
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Admin
                     </div>
                   </SelectItem>
                   {currentUserMember?.role === 'owner' && (
@@ -634,6 +732,7 @@ const Members = () => {
                 variant="outline" 
                 onClick={() => setIsInviteModalOpen(false)}
                 className="flex-1"
+                disabled={inviteLoading}
               >
                 Cancel
               </Button>

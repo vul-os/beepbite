@@ -11,44 +11,104 @@ export function useAuth() {
   return context;
 }
 
+// Helper functions for localStorage
+const getStoredActiveOrganization = () => {
+  try {
+    const stored = localStorage.getItem('activeOrganization');
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.error('Error parsing stored active organization:', error);
+    return null;
+  }
+};
+
+const setStoredActiveOrganization = (organization) => {
+  try {
+    if (organization) {
+      localStorage.setItem('activeOrganization', JSON.stringify(organization));
+    } else {
+      localStorage.removeItem('activeOrganization');
+    }
+  } catch (error) {
+    console.error('Error storing active organization:', error);
+  }
+};
+
+const getStoredActiveLocation = () => {
+  try {
+    const stored = localStorage.getItem('activeLocation');
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.error('Error parsing stored active location:', error);
+    return null;
+  }
+};
+
+const setStoredActiveLocation = (location) => {
+  try {
+    if (location) {
+      localStorage.setItem('activeLocation', JSON.stringify(location));
+    } else {
+      localStorage.removeItem('activeLocation');
+    }
+  } catch (error) {
+    console.error('Error storing active location:', error);
+  }
+};
+
 export function AuthProvider({ children, onNavigate, pathname }) {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [bistros, setBistros] = useState([]);
-  const [activeBistro, setActiveBistro] = useState(null);
-  const [hasLoadedBistros, setHasLoadedBistros] = useState(false);
+  const [organizations, setOrganizations] = useState([]);
+  const [activeOrganization, setActiveOrganization] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [activeLocation, setActiveLocation] = useState(null);
+  const [hasLoadedOrganizations, setHasLoadedOrganizations] = useState(false);
+  const [hasLoadedLocations, setHasLoadedLocations] = useState(false);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [hasLoadedInvites, setHasLoadedInvites] = useState(false);
-  const [bistroSetupCompleted, setBistroSetupCompleted] = useState(true); // Default to true to avoid popup until checked
+  const [organizationSetupCompleted, setOrganizationSetupCompleted] = useState(true); // Default to true to avoid popup until checked
 
-  const getBistroBySlug = useCallback((slug) => {
-    return bistros.find(bistro => bistro.slug === slug);
-  }, [bistros]);
+  // Helper function to update active organization with localStorage
+  const updateActiveOrganization = useCallback((organization) => {
+    setActiveOrganization(organization);
+    setStoredActiveOrganization(organization);
+  }, []);
 
-  // Function to check if bistro setup is completed
-  const checkBistroSetupCompleted = useCallback(async (bistroId) => {
-    if (!bistroId) {
-      setBistroSetupCompleted(true);
+  // Helper function to update active location with localStorage
+  const updateActiveLocation = useCallback((location) => {
+    setActiveLocation(location);
+    setStoredActiveLocation(location);
+  }, []);
+
+  const getOrganizationBySlug = useCallback((slug) => {
+    return organizations.find(organization => organization.slug === slug);
+  }, [organizations]);
+
+  // Function to check if organization setup is completed
+  const checkOrganizationSetupCompleted = useCallback(async (organizationId) => {
+    if (!organizationId) {
+      setOrganizationSetupCompleted(true);
       return true;
     }
     
     try {
-      const { data, error } = await supabase.rpc('check_bistro_setup_completed', {
-        p_bistro_id: bistroId
+      const { data, error } = await supabase.rpc('check_organization_setup_completed', {
+        p_organization_id: organizationId
       });
       
       if (error) {
-        console.error('Error checking bistro setup completion:', error);
-        setBistroSetupCompleted(true); // Default to true on error to avoid popup spam
+        console.error('Error checking organization setup completion:', error);
+        setOrganizationSetupCompleted(true); // Default to true on error to avoid popup spam
         return true;
       }
       
-      setBistroSetupCompleted(data);
+      setOrganizationSetupCompleted(data);
       return data;
     } catch (error) {
-      console.error('Error checking bistro setup completion:', error);
-      setBistroSetupCompleted(true);
+      console.error('Error checking organization setup completion:', error);
+      setOrganizationSetupCompleted(true);
       return true;
     }
   }, []);
@@ -79,50 +139,112 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [user?.id]);
 
-  const fetchBistros = useCallback(async () => {
+  const fetchOrganizations = useCallback(async () => {
     if (!user) {
-      setHasLoadedBistros(true);
+      setHasLoadedOrganizations(true);
       return;
     }
     
     try {
       const { data, error } = await supabase
-        .from('bistros')
+        .from('organizations')
         .select(`
-          *,
-          bistro_members!inner(
-            role,
-            profile_id
-          )
+          *
         `)
-        .eq('bistro_members.profile_id', user.id);
+        .eq('is_active', true);
 
       if (error) throw error;
-      setBistros(data || []);
-      if (data && data.length > 0 && !activeBistro) {
-        setActiveBistro(data[0]);
+      setOrganizations(data || []);
+      
+      // Set active organization from localStorage or default to first organization
+      const storedOrganization = getStoredActiveOrganization();
+      if (storedOrganization && data?.find(o => o.id === storedOrganization.id)) {
+        updateActiveOrganization(storedOrganization);
+      } else if (data && data.length > 0) {
+        // Always set first organization if no valid stored one exists
+        updateActiveOrganization(data[0]);
       }
     } catch (error) {
-      console.error('Error fetching bistros:', error);
+      console.error('Error fetching organizations:', error);
     } finally {
-      setHasLoadedBistros(true);
+      setHasLoadedOrganizations(true);
     }
-  }, [user, activeBistro]);
+  }, [user, updateActiveOrganization]);
 
-  const switchBistro = useCallback((bistroId) => {
-    const newActiveBistro = bistros.find(bistro => bistro.id === bistroId);
-    if (newActiveBistro) {
-      setActiveBistro(newActiveBistro);
+  const fetchLocations = useCallback(async () => {
+    if (!activeOrganization) {
+      setLocations([]);
+      setActiveLocation(null);
+      setStoredActiveLocation(null);
+      setHasLoadedLocations(true);
+      return;
     }
-    return newActiveBistro;
-  }, [bistros]);
+    
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('organization_id', activeOrganization.id)
+        .eq('is_active', true);
 
-  const switchBistroBySlug = useCallback((slug) => {
-    const newActiveBistro = bistros.find(bistro => bistro.slug === slug);
-    if (newActiveBistro) {
-      setActiveBistro(newActiveBistro);
+      if (error) {
+        throw error;
+      }
+
+      setLocations(data || []);
+      
+      // Set active location from localStorage or default to first location
+      const storedLocation = getStoredActiveLocation();
+      if (storedLocation && data?.find(l => l.id === storedLocation.id && l.organization_id === activeOrganization.id)) {
+        updateActiveLocation(storedLocation);
+      } else if (data && data.length > 0) {
+        // Always set first location if no valid stored one exists
+        updateActiveLocation(data[0]);
+      } else {
+        // No locations found, clear active location
+        updateActiveLocation(null);
+      }
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      setLocations([]);
+      updateActiveLocation(null);
+    } finally {
+      setHasLoadedLocations(true);
     }
-  }, [bistros]);
+  }, [activeOrganization, updateActiveLocation]);
+
+  const switchOrganization = useCallback((organizationId) => {
+    const newActiveOrganization = organizations.find(organization => organization.id === organizationId);
+    if (newActiveOrganization) {
+      updateActiveOrganization(newActiveOrganization);
+      // Reset location when switching organization
+      setActiveLocation(null);
+      setStoredActiveLocation(null);
+      setLocations([]);
+      setHasLoadedLocations(false);
+    }
+    return newActiveOrganization;
+  }, [organizations, updateActiveOrganization]);
+
+  const switchOrganizationBySlug = useCallback((slug) => {
+    const newActiveOrganization = organizations.find(organization => organization.slug === slug);
+    if (newActiveOrganization) {
+      updateActiveOrganization(newActiveOrganization);
+      // Reset location when switching organization
+      setActiveLocation(null);
+      setStoredActiveLocation(null);
+      setLocations([]);
+      setHasLoadedLocations(false);
+    }
+  }, [organizations, updateActiveOrganization]);
+
+  const switchLocation = useCallback((locationId) => {
+    const newActiveLocation = locations.find(location => location.id === locationId);
+    if (newActiveLocation) {
+      updateActiveLocation(newActiveLocation);
+    }
+    return newActiveLocation;
+  }, [locations, updateActiveLocation]);
 
   const handleAuthStateChange = useCallback((event, session) => {
     console.log('Auth state changed:', event);
@@ -141,7 +263,8 @@ export function AuthProvider({ children, onNavigate, pathname }) {
           access_token: session.access_token,
           refresh_token: session.refresh_token
         });
-        setHasLoadedBistros(false);
+        setHasLoadedOrganizations(false);
+        setHasLoadedLocations(false);
         setHasLoadedInvites(false);
         
         // Only navigate to search on manual sign-in, not on session restoration
@@ -156,12 +279,19 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
       setUser(null);
       setUserProfile(null);
-      setBistros([]);
-      setActiveBistro(null);
-      setHasLoadedBistros(true);
+      setOrganizations([]);
+      setActiveOrganization(null);
+      setLocations([]);
+      setActiveLocation(null);
+      setHasLoadedOrganizations(true);
+      setHasLoadedLocations(true);
       setPendingInvites([]);
       setHasLoadedInvites(true);
-      setBistroSetupCompleted(true); // Reset setup state on signout
+      setOrganizationSetupCompleted(true); // Reset setup state on signout
+      
+      // Clear localStorage on signout
+      setStoredActiveOrganization(null);
+      setStoredActiveLocation(null);
     } else if (event === 'USER_UPDATED') {
       setUser(prev => prev ? {
         ...session?.user,
@@ -267,14 +397,14 @@ export function AuthProvider({ children, onNavigate, pathname }) {
 
   const acceptInvite = useCallback(async (inviteId) => {
     try {
-      // Get the bistro_id from the pending invite
+      // Get the organization_id from the pending invite
       const currentInvite = pendingInvites.find(invite => invite.invite_id === inviteId);
       if (!currentInvite) {
         throw new Error('Invite not found');
       }
 
       const { data, error } = await supabase.rpc('respond_invitation', {
-        p_bistro_id: currentInvite.bistro_id,
+        p_organization_id: currentInvite.organization_id,
         p_accept: true
       });
 
@@ -284,26 +414,26 @@ export function AuthProvider({ children, onNavigate, pathname }) {
         throw new Error(data.error || 'Failed to accept invitation');
       }
       
-      // Refresh invites and bistros after accepting
-      await Promise.all([fetchInvites(), fetchBistros()]);
+      // Refresh invites and organizations after accepting
+      await Promise.all([fetchInvites(), fetchOrganizations()]);
       
       return { success: true, message: data.message };
     } catch (error) {
       console.error('Error accepting invite:', error);
       return { success: false, error: error.message };
     }
-  }, [pendingInvites, fetchInvites, fetchBistros]);
+  }, [pendingInvites, fetchInvites, fetchOrganizations]);
 
   const rejectInvite = useCallback(async (inviteId) => {
     try {
-      // Get the bistro_id from the pending invite
+      // Get the organization_id from the pending invite
       const currentInvite = pendingInvites.find(invite => invite.invite_id === inviteId);
       if (!currentInvite) {
         throw new Error('Invite not found');
       }
 
       const { data, error } = await supabase.rpc('respond_invitation', {
-        p_bistro_id: currentInvite.bistro_id,
+        p_organization_id: currentInvite.organization_id,
         p_accept: false
       });
 
@@ -356,12 +486,27 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     };
   }, [handleAuthStateChange]);
 
-  // Fetch bistros when user changes
+  // Fetch organizations when user changes
   useEffect(() => {
-    if (!hasLoadedBistros) {
-      fetchBistros();
+    if (!hasLoadedOrganizations) {
+      fetchOrganizations();
     }
-  }, [user, hasLoadedBistros, fetchBistros]);
+  }, [user, hasLoadedOrganizations, fetchOrganizations]);
+
+  // Fetch locations when active organization changes
+  useEffect(() => {
+    if (!hasLoadedLocations) {
+      fetchLocations();
+    }
+  }, [activeOrganization, hasLoadedLocations, fetchLocations]);
+
+  // Dedicated effect for when activeOrganization changes - always fetch locations
+  useEffect(() => {
+    if (activeOrganization) {
+      console.log('Active organization changed, fetching locations for:', activeOrganization.name);
+      setHasLoadedLocations(false);
+    }
+  }, [activeOrganization?.id]); // Only depend on ID to avoid unnecessary re-renders
 
   // Fetch user profile when user changes
   useEffect(() => {
@@ -375,12 +520,12 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [user, hasLoadedInvites, fetchInvites]);
 
-  // Check bistro setup completion when activeBistro changes
+  // Check organization setup completion when activeOrganization changes
   useEffect(() => {
-    if (activeBistro) {
-      checkBistroSetupCompleted(activeBistro.id);
+    if (activeOrganization) {
+      checkOrganizationSetupCompleted(activeOrganization.id);
     }
-  }, [activeBistro, checkBistroSetupCompleted]);
+  }, [activeOrganization, checkOrganizationSetupCompleted]);
 
   // Add token refresh function
   const refreshToken = async () => {
@@ -427,26 +572,32 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     loading,
     user,
     userProfile,
-    bistros,
-    activeBistro,
-    hasLoadedBistros,
-    setHasLoadedBistros,
+    organizations,
+    activeOrganization,
+    locations,
+    activeLocation,
+    hasLoadedOrganizations,
+    setHasLoadedOrganizations,
+    hasLoadedLocations,
+    setHasLoadedLocations,
     pendingInvites,
     hasLoadedInvites,
     setHasLoadedInvites,
-    bistroSetupCompleted,
-    setBistroSetupCompleted,
-    checkBistroSetupCompleted,
-    switchBistro,
-    switchBistroBySlug,
-    getBistroBySlug,
+    organizationSetupCompleted,
+    setOrganizationSetupCompleted,
+    checkOrganizationSetupCompleted,
+    switchOrganization,
+    switchOrganizationBySlug,
+    switchLocation,
+    getOrganizationBySlug,
     signUp,
     signIn,
     signInWithGoogle,
     signOut,
     forgotPassword,
     updateUserPassword,
-    fetchBistros,
+    fetchOrganizations,
+    fetchLocations,
     refreshToken,
     fetchInvites,
     acceptInvite,
@@ -456,23 +607,28 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     loading,
     user,
     userProfile,
-    bistros,
-    activeBistro,
-    hasLoadedBistros,
+    organizations,
+    activeOrganization,
+    locations,
+    activeLocation,
+    hasLoadedOrganizations,
+    hasLoadedLocations,
     pendingInvites,
     hasLoadedInvites,
-    bistroSetupCompleted,
-    checkBistroSetupCompleted,
-    switchBistro,
-    switchBistroBySlug,
-    getBistroBySlug,
+    organizationSetupCompleted,
+    checkOrganizationSetupCompleted,
+    switchOrganization,
+    switchOrganizationBySlug,
+    switchLocation,
+    getOrganizationBySlug,
     signUp,
     signIn,
     signInWithGoogle,
     signOut,
     forgotPassword,
     updateUserPassword,
-    fetchBistros,
+    fetchOrganizations,
+    fetchLocations,
     refreshToken,
     fetchInvites,
     acceptInvite,

@@ -4,8 +4,8 @@
 CREATE OR REPLACE FUNCTION check_invites()
 RETURNS TABLE (
     invite_id uuid,
-    bistro_id uuid,
-    bistro_name text,
+    organization_id uuid,
+    organization_name text,
     invited_by_name text,
     role text,
     created_at timestamptz
@@ -24,24 +24,24 @@ BEGIN
     
     RETURN QUERY
     SELECT 
-        bi.id as invite_id,
-        bi.bistro_id,
-        b.name as bistro_name,
+        oi.id as invite_id,
+        oi.organization_id,
+        o.name as organization_name,
         p.full_name as invited_by_name,
-        bi.role,
-        bi.created_at
-    FROM bistro_invites bi
-    JOIN bistros b ON bi.bistro_id = b.id
-    JOIN profiles p ON bi.invited_by = p.id
-    WHERE bi.email = current_user_email 
-    AND bi.status = 'pending'
-    ORDER BY bi.created_at DESC;
+        oi.role,
+        oi.created_at
+    FROM organization_invites oi
+    JOIN organizations o ON oi.organization_id = o.id
+    JOIN profiles p ON oi.invited_by = p.id
+    WHERE oi.email = current_user_email 
+    AND oi.status = 'pending'
+    ORDER BY oi.created_at DESC;
 END;
 $$;
 
 -- Function to respond to invitations (accept or reject)
 CREATE OR REPLACE FUNCTION respond_invitation(
-    p_bistro_id uuid,
+    p_organization_id uuid,
     p_accept boolean
 )
 RETURNS json
@@ -50,7 +50,7 @@ AS $$
 DECLARE
     current_user_email text;
     current_user_id uuid;
-    invite_record bistro_invites%ROWTYPE;
+    invite_record organization_invites%ROWTYPE;
     result json;
 BEGIN
     -- Get current user info
@@ -66,28 +66,28 @@ BEGIN
     
     -- Find the pending invite
     SELECT * INTO invite_record
-    FROM bistro_invites 
-    WHERE bistro_id = p_bistro_id 
+    FROM organization_invites 
+    WHERE organization_id = p_organization_id 
     AND email = current_user_email 
     AND status = 'pending';
     
     IF NOT FOUND THEN
         RETURN json_build_object(
             'success', false,
-            'error', 'No pending invitation found for this bistro'
+            'error', 'No pending invitation found for this organization'
         );
     END IF;
     
     IF p_accept THEN
         -- Accept invitation
-        UPDATE bistro_invites 
+        UPDATE organization_invites 
         SET status = 'accepted', updated_at = now()
         WHERE id = invite_record.id;
         
-        -- Add user to bistro members
-        INSERT INTO bistro_members (bistro_id, profile_id, role)
-        VALUES (p_bistro_id, current_user_id, invite_record.role)
-        ON CONFLICT (bistro_id, profile_id) DO NOTHING;
+        -- Add user to organization members
+        INSERT INTO organization_members (organization_id, profile_id, role)
+        VALUES (p_organization_id, current_user_id, invite_record.role)
+        ON CONFLICT (organization_id, profile_id) DO NOTHING;
         
         result := json_build_object(
             'success', true,
@@ -95,7 +95,7 @@ BEGIN
         );
     ELSE
         -- Reject invitation
-        UPDATE bistro_invites 
+        UPDATE organization_invites 
         SET status = 'rejected', updated_at = now()
         WHERE id = invite_record.id;
         
@@ -116,7 +116,7 @@ $$;
 
 -- Function to send invitations
 CREATE OR REPLACE FUNCTION send_invitation(
-    p_bistro_id uuid,
+    p_organization_id uuid,
     p_email text,
     p_role text DEFAULT 'staff'
 )
@@ -125,7 +125,7 @@ LANGUAGE plpgsql SECURITY DEFINER
 AS $$
 DECLARE
     current_user_id uuid;
-    bistro_exists boolean;
+    organization_exists boolean;
     user_is_member boolean;
     invite_exists boolean;
     result json;
@@ -141,40 +141,40 @@ BEGIN
     END IF;
     
     -- Validate role
-    IF p_role NOT IN ('owner', 'manager', 'staff') THEN
+    IF p_role NOT IN ('owner', 'manager', 'staff', 'admin') THEN
         RETURN json_build_object(
             'success', false,
-            'error', 'Invalid role. Must be owner, manager, or staff'
+            'error', 'Invalid role. Must be owner, manager, staff, or admin'
         );
     END IF;
     
-    -- Check if bistro exists
-    SELECT EXISTS(SELECT 1 FROM bistros WHERE id = p_bistro_id) INTO bistro_exists;
+    -- Check if organization exists
+    SELECT EXISTS(SELECT 1 FROM organizations WHERE id = p_organization_id) INTO organization_exists;
     
-    IF NOT bistro_exists THEN
+    IF NOT organization_exists THEN
         RETURN json_build_object(
             'success', false,
-            'error', 'Bistro not found'
+            'error', 'Organization not found'
         );
     END IF;
     
-    -- Check if current user is a member of the bistro
+    -- Check if current user is a member of the organization
     SELECT EXISTS(
-        SELECT 1 FROM bistro_members 
-        WHERE bistro_id = p_bistro_id AND profile_id = current_user_id
+        SELECT 1 FROM organization_members 
+        WHERE organization_id = p_organization_id AND profile_id = current_user_id
     ) INTO user_is_member;
     
     IF NOT user_is_member THEN
         RETURN json_build_object(
             'success', false,
-            'error', 'You are not a member of this bistro'
+            'error', 'You are not a member of this organization'
         );
     END IF;
     
     -- Check if invite already exists
     SELECT EXISTS(
-        SELECT 1 FROM bistro_invites 
-        WHERE bistro_id = p_bistro_id 
+        SELECT 1 FROM organization_invites 
+        WHERE organization_id = p_organization_id 
         AND email = p_email 
         AND status = 'pending'
     ) INTO invite_exists;
@@ -188,21 +188,21 @@ BEGIN
     
     -- Check if user is already a member
     SELECT EXISTS(
-        SELECT 1 FROM bistro_members bm
-        JOIN profiles p ON bm.profile_id = p.id
-        WHERE bm.bistro_id = p_bistro_id AND p.email = p_email
+        SELECT 1 FROM organization_members om
+        JOIN profiles p ON om.profile_id = p.id
+        WHERE om.organization_id = p_organization_id AND p.email = p_email
     ) INTO invite_exists;
     
     IF invite_exists THEN
         RETURN json_build_object(
             'success', false,
-            'error', 'User is already a member of this bistro'
+            'error', 'User is already a member of this organization'
         );
     END IF;
     
     -- Create invitation
-    INSERT INTO bistro_invites (bistro_id, email, invited_by, role, status)
-    VALUES (p_bistro_id, p_email, current_user_id, p_role, 'pending');
+    INSERT INTO organization_invites (organization_id, email, invited_by, role, status)
+    VALUES (p_organization_id, p_email, current_user_id, p_role, 'pending');
     
     RETURN json_build_object(
         'success', true,

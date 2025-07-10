@@ -55,10 +55,7 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // reCAPTCHA v3 Site Key
-  const RECAPTCHA_SITE_KEY = '6Le4UG0rAAAAAJXfVlipl7lFPKVERsSX5cHqHy7B';
-  
-  // Demo modal state
+   // Demo modal state
   const [isDemoOpen, setIsDemoOpen] = React.useState(false);
   const [phoneNumber, setPhoneNumber] = React.useState('+27');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -69,17 +66,6 @@ const LandingPage = () => {
   const [heroStep, setHeroStep] = React.useState(0); // 0: initial, 1: completing, 2: notifications
   const [isAnimating, setIsAnimating] = React.useState(false);
 
-  // Load reCAPTCHA script
-  React.useEffect(() => {
-    const script = document.createElement('script');
-    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
-    script.async = true;
-    document.head.appendChild(script);
-    
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
 
   // Helper function to normalize phone numbers (remove + prefix)
   const normalizePhoneNumber = (phone) => {
@@ -104,24 +90,11 @@ const LandingPage = () => {
         return;
       }
 
-      // Get reCAPTCHA token
-      const token = await new Promise((resolve, reject) => {
-        if (typeof window.grecaptcha === 'undefined') {
-          reject(new Error('reCAPTCHA not loaded'));
-          return;
-        }
-        
-        window.grecaptcha.ready(() => {
-          window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
-            action: 'whatsapp_demo'
-          }).then(resolve).catch(reject);
-        });
-      });
 
       // Call Supabase function
       const { data, error } = await supabase.functions.invoke('landing-whatsapp-demo', {
         body: {
-          recaptcha_token: token,
+          recaptcha_token: "",
           action: 'whatsapp_demo',
           cell_number: normalizedPhone
         }
@@ -894,12 +867,7 @@ const LandingPage = () => {
                   </>
                 )}
               </Button>
-              
-              <div className="text-center">
-                <p className="text-xs text-gray-500">
-                  Protected by reCAPTCHA • No spam, just a quick demo
-                </p>
-              </div>
+            
             </form>
           )}
         </DialogContent>

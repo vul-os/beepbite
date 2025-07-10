@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/auth/protected-route';
 
 import { Progress as LoadingComponent } from './components/ui/progress';
@@ -12,9 +12,13 @@ import LandingPage from './pages/landing';
 const getLoadingMessage = (pathname) => {
   if (pathname.includes('/signin')) return 'Loading sign in...';
   if (pathname.includes('/signup')) return 'Loading sign up...';
+  if (pathname.includes('/home')) return 'Loading home...';
   if (pathname.includes('/dashboard')) return 'Loading dashboard...';
   if (pathname.includes('/reports')) return 'Loading reports...';
   if (pathname.includes('/reviews')) return 'Loading reviews...';
+  if (pathname.includes('/menu/ai-menu-creator')) return 'Loading AI menu creator...';
+  if (pathname.includes('/menu')) return 'Loading menu...';
+  if (pathname.includes('/categories')) return 'Loading categories...';
   if (pathname.includes('/settings')) return 'Loading settings...';
   if (pathname.includes('/account')) return 'Loading account...';
   if (pathname.includes('/docs/privacy')) return 'Loading privacy policy...';
@@ -52,12 +56,20 @@ const UpdatePassword = lazyImport(() => import('./pages/auth/update-password'));
 const VerifyEmail = lazyImport(() => import('./pages/auth/verify-email'));
 
 // Lazy loaded components - App pages
+const Home = lazyImport(() => import('./pages/home'));
 const Dashboard = lazyImport(() => import('./pages/dashboard'));
 const Reports = lazyImport(() => import('./pages/reports'));
 const Reviews = lazyImport(() => import('./pages/reviews'));
 const Members = lazyImport(() => import('./pages/members'));
-const Settings = lazyImport(() => import('./pages/settings'));
+const Staff = lazyImport(() => import('./pages/staff'));
+const Menu = lazyImport(() => import('./pages/menu'));
+const Categories = lazyImport(() => import('./pages/categories'));
+const AIMenuCreator = lazyImport(() => import('./pages/menu/ai-menu-creator'));
 const Account = lazyImport(() => import('./pages/account'));
+
+// Lazy loaded components - Settings pages
+const OrganizationSettings = lazyImport(() => import('./pages/settings').then(module => ({ default: module.OrganizationSettings })));
+const LocationSettings = lazyImport(() => import('./pages/settings').then(module => ({ default: module.LocationSettings })));
 
 // Lazy loaded components - Documentation pages
 const DocsIndex = lazyImport(() => import('./pages/docs/index'));
@@ -103,6 +115,11 @@ const AppRoutes = () => {
 
         {/* Protected app routes */}
         <Route element={<MainLayout />}>
+          <Route path="/home" element={
+            <Protected>
+              <Home />
+            </Protected>
+          } />
           <Route path="/dashboard" element={
             <Protected>
               <Dashboard />
@@ -123,11 +140,42 @@ const AppRoutes = () => {
               <Members />
             </Protected>
           } />
-          <Route path="/settings" element={
+          <Route path="/staff" element={
             <Protected>
-              <Settings />
+              <Staff />
             </Protected>
           } />
+          <Route path="/menu" element={
+            <Protected>
+              <Menu />
+            </Protected>
+          } />
+          <Route path="/menu/ai-menu-creator" element={
+            <Protected>
+              <AIMenuCreator />
+            </Protected>
+          } />
+          <Route path="/categories" element={
+            <Protected>
+              <Categories />
+            </Protected>
+          } />
+          
+          {/* Settings routes */}
+          <Route path="/settings" element={<Navigate to="/settings/organization" replace />} />
+          <Route path="/settings/organization" element={
+            <Protected>
+              <OrganizationSettings />
+            </Protected>
+          } />
+          <Route path="/settings/location/:locationId" element={
+            <Protected>
+              <LocationSettings />
+            </Protected>
+          } />
+          {/* Redirect old location settings route */}
+          <Route path="/settings/location" element={<Navigate to="/settings/organization" replace />} />
+          
           <Route path="/account" element={
             <Protected>
               <Account />
@@ -135,7 +183,7 @@ const AppRoutes = () => {
           } />
         </Route>
 
-        {/* Global catch-all route */}
+        {/* 404 Route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </CustomSuspense>
