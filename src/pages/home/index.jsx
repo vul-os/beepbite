@@ -1,46 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { 
-  Plus, 
-  Search, 
   Clock,
-  CheckCircle,
-  Package,
-  TrendingUp,
-  Utensils,
-  Users,
-  Timer,
-  ArrowRight,
-  Eye,
-  Edit,
-  Trash2,
-  PhoneCall,
-  MapPin,
-  DollarSign,
-  AlertCircle,
-  Star,
   ShoppingCart,
-  Minus,
-  Hash,
-  Filter,
-  X,
   PanelLeftOpen,
   PanelRightOpen,
-  RotateCcw,
-  Settings,
-  ArrowLeft
+  AlertCircle
 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Tabs,
   TabsContent,
@@ -49,8 +16,12 @@ import {
 } from "@/components/ui/tabs";
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
-import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from 'date-fns';
+
+// Import the new components
+import OrdersSection from './components/orders-section';
+import CartSection from './components/cart-section';
+import POSSection from './components/pos-section';
+import OrderModals from './components/order-modal';
 
 const Home = () => {
   const { activeOrganization, activeLocation } = useAuth();
@@ -163,7 +134,7 @@ const Home = () => {
       setOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
-        setOrders([]);
+      setOrders([]);
     } finally {
       setLoadingOrders(false);
     }
@@ -774,351 +745,48 @@ const Home = () => {
         {/* Tab Content */}
         <Tabs value={activeTab} className="flex-1 flex flex-col">
           {/* Active Orders Tab */}
-          <TabsContent value="orders" className="flex-1 overflow-hidden m-0">
-            {/* Orders Search and Filter Header */}
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex gap-2 items-center">
-                {/* Search Input */}
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search orders..."
-                    value={orderSearchTerm}
-                    onChange={(e) => setOrderSearchTerm(e.target.value)}
-                    className="pl-10 h-8 text-sm border-gray-300 focus:border-orange-400 focus:ring-orange-200"
-                  />
-                  {orderSearchTerm && (
-                    <button
-                      onClick={() => setOrderSearchTerm('')}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                
-                {/* Filter Buttons */}
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant={orderStatusFilter === 'active' ? 'default' : 'outline'}
-                    onClick={() => setOrderStatusFilter('active')}
-                    className={cn(
-                      "h-8 px-3 text-xs transition-all",
-                      orderStatusFilter === 'active'
-                        ? "bg-orange-500 hover:bg-orange-600 text-white"
-                        : "border-orange-200 text-gray-700 hover:bg-orange-50"
-                    )}
-                  >
-                    Active
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={orderStatusFilter === 'inactive' ? 'default' : 'outline'}
-                    onClick={() => setOrderStatusFilter('inactive')}
-                    className={cn(
-                      "h-8 px-3 text-xs transition-all",
-                      orderStatusFilter === 'inactive'
-                        ? "bg-orange-500 hover:bg-orange-600 text-white"
-                        : "border-orange-200 text-gray-700 hover:bg-orange-50"
-                    )}
-                  >
-                    Inactive
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={orderStatusFilter === 'all' ? 'default' : 'outline'}
-                    onClick={() => setOrderStatusFilter('all')}
-                    className={cn(
-                      "h-8 px-3 text-xs transition-all",
-                      orderStatusFilter === 'all'
-                        ? "bg-orange-500 hover:bg-orange-600 text-white"
-                        : "border-orange-200 text-gray-700 hover:bg-orange-50"
-                    )}
-                  >
-                    All
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Orders List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {loadingOrders ? (
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-24 bg-gray-200 rounded-lg animate-pulse"></div>
-                  ))}
-                </div>
-              ) : filteredOrders.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    {orderSearchTerm ? 'No orders found' : 'No orders available'}
-                  </h3>
-                  <p className="text-gray-500">
-                    {orderSearchTerm 
-                      ? 'Try adjusting your search or filter criteria.'
-                      : `No ${orderStatusFilter === 'all' ? '' : orderStatusFilter + ' '}orders found.`
-                    }
-                  </p>
-                </div>
-              ) : (
-                filteredOrders.map((order) => (
-                  <Card key={order.id} className="border border-orange-200 hover:border-orange-300 transition-colors hover:shadow-md">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-bold text-gray-900 text-lg">#{order.order_number}</h4>
-                          <p className="text-sm text-gray-600 mt-1 flex items-center">
-                            <PhoneCall className="w-4 h-4 mr-2" />
-                            {order.customers?.whatsapp_number || 'No phone'}
-                          </p>
-                          {order.customers?.first_name && (
-                            <p className="text-sm text-gray-700 font-medium mt-1">
-                              {order.customers.first_name} {order.customers.last_name}
-                            </p>
-                          )}
-                        </div>
-                        <Badge className={cn("text-xs font-medium", getStatusColor(order.status))}>
-                          {getStatusLabel(order.status)}
-                        </Badge>
-                      </div>
-                      
-                      <p className="text-sm text-gray-500 flex items-center mb-3">
-                        <Timer className="w-4 h-4 mr-2" />
-                        {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
-                      </p>
-
-                      <div className="flex gap-2">
-                        {getNextStatus(order.status) && (
-                          <Button
-                            size="sm"
-                            onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-8 text-sm"
-                          >
-                            Mark {getStatusLabel(getNextStatus(order.status))}
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingOrder(order);
-                            setIsOrderEditModalOpen(true);
-                          }}
-                          className="h-8 px-3 border-orange-200 hover:bg-orange-50"
-                        >
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => viewOrderDetails(order)}
-                          className="h-8 px-3 border-orange-200 hover:bg-orange-50"
-                        >
-                          <Eye className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+          <TabsContent 
+            value="orders" 
+            className={`overflow-hidden m-0 ${activeTab === 'orders' ? 'flex-1 flex flex-col relative' : ''}`}
+          >
+            <OrdersSection
+              orders={orders}
+              loadingOrders={loadingOrders}
+              orderSearchTerm={orderSearchTerm}
+              setOrderSearchTerm={setOrderSearchTerm}
+              orderStatusFilter={orderStatusFilter}
+              setOrderStatusFilter={setOrderStatusFilter}
+              filteredOrders={filteredOrders}
+              updateOrderStatus={updateOrderStatus}
+              setEditingOrder={setEditingOrder}
+              setIsOrderEditModalOpen={setIsOrderEditModalOpen}
+              viewOrderDetails={viewOrderDetails}
+              getStatusColor={getStatusColor}
+              getNextStatus={getNextStatus}
+              getStatusLabel={getStatusLabel}
+              isOrdersExpanded={isOrdersExpanded}
+            />
           </TabsContent>
 
           {/* Cart Tab */}
-          <TabsContent value="cart" className="flex-1 flex flex-col overflow-hidden m-0">
-            {cart.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center">
-                  <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Cart is empty</h3>
-                  <p className="text-gray-500">Add items from the menu to get started.</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {cart.map((item) => {
-                    const isExpanded = expandedCartItems.has(item.cartItemKey);
-                    const originalItem = items.find(i => i.id === item.id);
-                    
-                    return (
-                      <Card key={item.cartItemKey} className="border border-orange-200 hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          {/* Top Row: Item Name and Edit Button */}
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium text-gray-900 flex-1 pr-2">{item.name}</h4>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => toggleCartItemExpanded(item.cartItemKey)}
-                              className={cn(
-                                "h-8 w-8 p-0 rounded-full border-orange-200 transition-colors",
-                                isExpanded ? "bg-orange-100 border-orange-400" : ""
-                              )}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </div>
-
-                          {/* Current Variations Display */}
-                          {item.variationDetails && item.variationDetails.length > 0 && (
-                            <div className="mb-3">
-                              <div className="flex flex-wrap gap-1">
-                                {item.variationDetails.map((variation, index) => (
-                                  <span key={index} className="inline-block bg-gray-100 rounded-full px-2 py-1 text-xs text-gray-700">
-                                    <span className="font-medium">{variation.variationName}:</span> {variation.optionName}
-                                    {variation.priceModifier !== 0 && (
-                                      <span className="text-orange-600 ml-1">
-                                        {variation.priceModifier > 0 ? '+' : ''}R{variation.priceModifier.toFixed(2)}
-                                      </span>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-            </div>
-          )}
-
-                          {/* Expandable Variation Edit Section */}
-                          {isExpanded && originalItem?.item_variations && (
-                            <div className="mb-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                              <h5 className="text-sm font-medium text-gray-900 mb-3">Edit Options:</h5>
-                              <div className="space-y-3">
-                                {originalItem.item_variations.map((variation) => (
-                                  <div key={variation.id} className="space-y-2">
-                                    <label className="text-xs font-medium text-gray-700 block">
-                                      {variation.name} {variation.is_required && <span className="text-red-500">*</span>}
-                                    </label>
-                                    <div className="grid grid-cols-1 gap-1">
-                                      {variation.item_variation_options?.map((option) => (
-                                        <button
-                                          key={option.id}
-                                          onClick={() => updateTempVariation(item.cartItemKey, variation.id, option.id)}
-                                          className={cn(
-                                            "text-left p-2 rounded border transition-colors text-xs",
-                                            tempVariationSelections[item.cartItemKey]?.[variation.id] === option.id
-                                              ? "border-orange-400 bg-orange-100 text-orange-700"
-                                              : "border-gray-200 hover:border-orange-300 hover:bg-orange-50"
-                                          )}
-                                        >
-                                          <div className="flex justify-between items-center">
-                                            <span className="font-medium">{option.name}</span>
-                                            {option.price_modifier !== 0 && (
-                                              <span className="text-orange-600">
-                                                {option.price_modifier > 0 ? '+' : ''}R{parseFloat(option.price_modifier || 0).toFixed(2)}
-                                              </span>
-                                            )}
-                                          </div>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
-                                
-                                {/* Save/Cancel Buttons */}
-                                <div className="flex gap-2 pt-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => toggleCartItemExpanded(item.cartItemKey)}
-                                    className="flex-1 h-7 text-xs"
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => saveInlineVariationEdit(item.cartItemKey)}
-                                    className="flex-1 h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
-                                  >
-                                    Save
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Bottom Row: Quantity Controls (Left) and Price (Right) */}
-                          <div className="flex justify-between items-center">
-                            {/* Quantity Controls - Bottom Left */}
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateCartQuantity(item.cartItemKey, item.quantity - 1)}
-                                className="h-7 w-7 p-0 rounded-full border-orange-200"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </Button>
-                              
-                              <span className="text-sm font-medium w-8 text-center">
-                                {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}
-                              </span>
-                              
-                              <Button
-                                size="sm"
-                                onClick={() => updateCartQuantity(item.cartItemKey, item.quantity + 1)}
-                                className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </Button>
-
-                              {/* Settings Icon for Fractional Quantity */}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openFractionalQtyModal(item)}
-                                className="h-7 w-7 p-0 rounded-full border-orange-200 hover:bg-orange-50"
-                              >
-                                <Settings className="w-3 h-3" />
-                              </Button>
-                            </div>
-
-                            {/* Price and Per-Item Cost - Bottom Right */}
-                            <div className="text-right">
-                              <div className="text-lg font-bold text-orange-600">
-                                R{(item.price * item.quantity).toFixed(2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                R{parseFloat(item.price).toFixed(2)} each
-                              </div>
-                            </div>
-                          </div>
-        </CardContent>
-      </Card>
-                    );
-                  })}
-                </div>
-                
-                {/* Cart Footer */}
-                <div className="border-t border-gray-200 bg-gray-50 p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-xl font-bold text-gray-900">Total:</span>
-                    <span className="text-2xl font-bold text-orange-600">
-                      R{cartTotal.toFixed(2)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={clearCart}
-                      variant="outline"
-                      className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50"
-                    >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Clear
-                    </Button>
-                    <Button
-                      onClick={() => setIsCreateOrderOpen(true)}
-                      className="flex-2 bg-orange-500 hover:bg-orange-600 text-white h-12 text-lg font-semibold"
-                    >
-                      Create Order
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
+          <TabsContent 
+            value="cart" 
+            className={`overflow-hidden m-0 ${activeTab === 'cart' ? 'flex-1 flex flex-col' : ''}`}
+          >
+            <CartSection
+              cart={cart}
+              items={items}
+              expandedCartItems={expandedCartItems}
+              tempVariationSelections={tempVariationSelections}
+              updateCartQuantity={updateCartQuantity}
+              toggleCartItemExpanded={toggleCartItemExpanded}
+              updateTempVariation={updateTempVariation}
+              saveInlineVariationEdit={saveInlineVariationEdit}
+              openFractionalQtyModal={openFractionalQtyModal}
+              cartTotal={cartTotal}
+              clearCart={clearCart}
+              setIsCreateOrderOpen={setIsCreateOrderOpen}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -1139,679 +807,67 @@ const Home = () => {
         className="flex flex-col min-w-0 transition-all duration-300 ease-in-out"
         style={{ width: mainWidth }}
       >
-        {/* Top Search Bar */}
-        <div className="p-4 bg-white border-b border-orange-200 shadow-sm">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-            <Input
-              placeholder="Search menu items..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 text-lg font-medium border-2 border-orange-200 focus:border-orange-400 focus:ring-orange-200 rounded-xl"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Categories Row */}
-        <div className="p-3 bg-white border-b border-orange-200">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            <Button
-              variant={selectedCategory === 'all' ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory('all')}
-              className={cn(
-                "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
-                selectedCategory === 'all'
-                  ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
-                  : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
-              )}
-            >
-              <Filter className="w-3 h-3 mr-2" />
-              All Items
-            </Button>
-            {categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
-                onClick={() => setSelectedCategory(category.id)}
-                className={cn(
-                  "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
-                  selectedCategory === category.id
-                    ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
-                    : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
-                )}
-              >
-                {category.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Items Grid - Fixed layout for consistent card sizes */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {loadingItems ? (
-            <div className={cn(
-              "grid gap-4",
-              isOrdersExpanded 
-                ? "grid-cols-1 xl:grid-cols-2" 
-                : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-            )}>
-              {[...Array(isOrdersExpanded ? 8 : 24)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse"></div>
-              ))}
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="text-center py-12">
-              <Utensils className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-              <p className="text-gray-500">
-                {searchTerm ? 'Try a different search term' : 'No items in this category'}
-              </p>
-            </div>
-          ) : (
-            <div className={cn(
-              "grid gap-4",
-              isOrdersExpanded 
-                ? "grid-cols-1 xl:grid-cols-2" 
-                : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-            )}>
-              {filteredItems.map((item) => (
-                <Card
-                  key={item.id}
-                  className="border-2 border-orange-200 hover:border-orange-400 transition-all duration-200 hover:shadow-lg cursor-pointer transform hover:scale-105"
-                  onClick={() => addToCart(item)}
-                >
-                  <CardContent className={cn(
-                    "p-4 flex flex-col justify-between",
-                    isOrdersExpanded ? "h-40" : "h-32"
-                  )}>
-                    <div className="flex-1 min-h-0">
-                      <h3 className={cn(
-                        "font-bold text-gray-900 mb-1 leading-tight overflow-hidden text-ellipsis whitespace-nowrap",
-                        isOrdersExpanded ? "text-base" : "text-sm"
-                      )}>
-                        {item.name.length > (isOrdersExpanded ? 25 : 20) 
-                          ? item.name.substring(0, isOrdersExpanded ? 25 : 20) + '...'
-                          : item.name
-                        }
-                      </h3>
-                      
-                      {item.description && (
-                        <p className={cn(
-                          "text-gray-600 mb-1 overflow-hidden text-ellipsis whitespace-nowrap",
-                          isOrdersExpanded ? "text-sm" : "text-xs"
-                        )}>
-                          {item.description.length > (isOrdersExpanded ? 50 : 35) 
-                            ? item.description.substring(0, isOrdersExpanded ? 50 : 35) + '...'
-                            : item.description
-                          }
-                        </p>
-                      )}
-
-                      {/* Show variations preview - more compact */}
-                      {item.item_variations && item.item_variations.length > 0 && (
-                        <div className="text-xs text-gray-500">
-                          {item.item_variations.slice(0, isOrdersExpanded ? 2 : 1).map((variation, index) => (
-                            <span key={variation.id}>
-                              {variation.name}
-                              {index < Math.min(item.item_variations.length, isOrdersExpanded ? 2 : 1) - 1 && ', '}
-                            </span>
-                          ))}
-                          {item.item_variations.length > (isOrdersExpanded ? 2 : 1) && '...'}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex justify-between items-center mt-auto pt-2">
-                      <span className={cn(
-                        "font-bold text-orange-600",
-                        isOrdersExpanded ? "text-lg" : "text-base"
-                      )}>
-                        R{parseFloat(item.price || 0).toFixed(2)}
-                      </span>
-                      
-                      <Button
-                        size="sm"
-                        className={cn(
-                          "bg-orange-500 hover:bg-orange-600 text-white p-0 rounded-full flex-shrink-0",
-                          isOrdersExpanded ? "h-8 w-8" : "h-7 w-7"
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(item);
-                        }}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+        <POSSection
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          categories={categories}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          filteredItems={filteredItems}
+          loadingItems={loadingItems}
+          isOrdersExpanded={isOrdersExpanded}
+          addToCart={addToCart}
+        />
       </div>
 
-      {/* Quick Order Creation Dialog */}
-      <Dialog open={isCreateOrderOpen} onOpenChange={setIsCreateOrderOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-orange-500" />
-              Create Order
-            </DialogTitle>
-            <DialogDescription>
-              {cart.length > 0 
-                ? `Create order with ${cart.length} items (Total: R${cartTotal.toFixed(2)})`
-                : "Create a new order with customer details."
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 mt-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-2">
-                Order Number <span className="text-red-500">*</span>
-              </label>
-              <Input
-                placeholder="e.g., ORD123"
-                value={orderNumber}
-                onChange={(e) => setOrderNumber(e.target.value)}
-                className="w-full"
-              />
-            </div>
+      {/* All Modals */}
+      <OrderModals
+        // Quick Order Creation Modal
+        isCreateOrderOpen={isCreateOrderOpen}
+        setIsCreateOrderOpen={setIsCreateOrderOpen}
+        customerPhone={customerPhone}
+        setCustomerPhone={setCustomerPhone}
+        orderNumber={orderNumber}
+        setOrderNumber={setOrderNumber}
+        creating={creating}
+        createOrder={createOrder}
+        cart={cart}
+        cartTotal={cartTotal}
 
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-2">
-                Customer Phone <span className="text-red-500">*</span>
-              </label>
-              <Input
-                placeholder="Enter phone number"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className="w-full"
-              />
-            </div>
+        // Variation Selection Modal
+        isVariationModalOpen={isVariationModalOpen}
+        setIsVariationModalOpen={setIsVariationModalOpen}
+        selectedItem={selectedItem}
+        setSelectedItem={setSelectedItem}
+        selectedVariations={selectedVariations}
+        handleVariationChange={handleVariationChange}
+        addToCart={addToCart}
 
-            {cart.length > 0 && (
-              <div className="bg-orange-50 p-3 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">Order Items:</h4>
-                <div className="space-y-1 text-sm">
-                  {cart.map((item) => (
-                    <div key={item.cartItemKey} className="flex justify-between">
-                      <span>
-                        {item.quantity}x {item.name}
-                        {item.variationDetails && item.variationDetails.length > 0 && (
-                          <span className="text-gray-500 text-xs ml-1">
-                            ({item.variationDetails.map(v => v.optionName).join(', ')})
-                          </span>
-                        )}
-                      </span>
-                      <span>R{(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  <div className="border-t pt-1 mt-2 font-semibold flex justify-between">
-                    <span>Total:</span>
-                    <span>R{cartTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsCreateOrderOpen(false)}
-              className="flex-1"
-              disabled={creating}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={createOrder}
-              disabled={creating || !customerPhone.trim() || !orderNumber.trim()}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              {creating ? (
-                <>
-                  <Clock className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Order
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        // Order Edit Modal
+        isOrderEditModalOpen={isOrderEditModalOpen}
+        setIsOrderEditModalOpen={setIsOrderEditModalOpen}
+        editingOrder={editingOrder}
+        setEditingOrder={setEditingOrder}
+        updateOrderStatus={updateOrderStatus}
 
-      {/* Variation Selection Modal */}
-      <Dialog open={isVariationModalOpen} onOpenChange={setIsVariationModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Utensils className="w-5 h-5 text-orange-500" />
-              Customize Item
-            </DialogTitle>
-            <DialogDescription>
-              {selectedItem?.name} - R{parseFloat(selectedItem?.price || 0).toFixed(2)}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedItem && (
-            <div className="space-y-4 mt-4">
-              {selectedItem.item_variations?.map((variation) => (
-                <div key={variation.id} className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 block">
-                    {variation.name} {variation.is_required && <span className="text-red-500">*</span>}
-                  </label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {variation.item_variation_options?.map((option) => (
-                      <button
-                        key={option.id}
-                        onClick={() => handleVariationChange(variation.id, option.id)}
-                        className={cn(
-                          "text-left p-3 rounded-lg border transition-colors",
-                          selectedVariations[variation.id] === option.id
-                            ? "border-orange-400 bg-orange-50 text-orange-700"
-                            : "border-gray-200 hover:border-orange-300 hover:bg-orange-50"
-                        )}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">{option.name}</span>
-                          {option.price_modifier !== 0 && (
-                            <span className="text-sm text-orange-600">
-                              {option.price_modifier > 0 ? '+' : ''}R{parseFloat(option.price_modifier || 0).toFixed(2)}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+        // Order Details Modal
+        isOrderDetailsModalOpen={isOrderDetailsModalOpen}
+        setIsOrderDetailsModalOpen={setIsOrderDetailsModalOpen}
+        viewingOrder={viewingOrder}
+        orderDetails={orderDetails}
+        loadingOrderDetails={loadingOrderDetails}
+        closeOrderDetails={closeOrderDetails}
+        getStatusColor={getStatusColor}
+        getStatusLabel={getStatusLabel}
 
-              {/* Price Preview */}
-              <div className="bg-orange-50 p-3 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-900">Total Price:</span>
-                  <span className="text-lg font-bold text-orange-600">
-                    R{(() => {
-                      let total = parseFloat(selectedItem.price || 0);
-                      selectedItem.item_variations?.forEach(variation => {
-                        const selectedOptionId = selectedVariations[variation.id];
-                        if (selectedOptionId) {
-                          const option = variation.item_variation_options.find(opt => opt.id === selectedOptionId);
-                          if (option) {
-                            total += parseFloat(option.price_modifier || 0);
-                          }
-                        }
-                      });
-                      return total.toFixed(2);
-                    })()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsVariationModalOpen(false);
-                setEditingCartItem(null);
-                setSelectedItem(null);
-              }}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => addToCart(selectedItem, selectedVariations)}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              Add to Cart
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Order Edit Modal */}
-      <Dialog open={isOrderEditModalOpen} onOpenChange={setIsOrderEditModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-orange-500" />
-              Edit Order #{editingOrder?.order_number}
-            </DialogTitle>
-            <DialogDescription>
-              Modify order status and details
-            </DialogDescription>
-          </DialogHeader>
-          
-          {editingOrder && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-2">
-                  Order Status
-                </label>
-                <select
-                  value={editingOrder.status}
-                  onChange={(e) => setEditingOrder({...editingOrder, status: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-orange-400 focus:ring-orange-200"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="preparing">Preparing</option>
-                  <option value="ready">Ready</option>
-                  <option value="out_for_delivery">Out for Delivery</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-2">
-                  Customer Phone
-                </label>
-                <Input
-                  value={editingOrder.customers?.whatsapp_number || ''}
-                  onChange={(e) => setEditingOrder({
-                    ...editingOrder, 
-                    customers: {...editingOrder.customers, whatsapp_number: e.target.value}
-                  })}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  <strong>Created:</strong> {formatDistanceToNow(new Date(editingOrder.created_at), { addSuffix: true })}
-                </p>
-                <p className="text-sm text-blue-700">
-                  <strong>Type:</strong> {editingOrder.order_type}
-                </p>
-              </div>
-            </div>
-          )}
-          
-          <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsOrderEditModalOpen(false);
-                setEditingOrder(null);
-              }}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={async () => {
-                if (editingOrder) {
-                  await updateOrderStatus(editingOrder.id, editingOrder.status);
-                  setIsOrderEditModalOpen(false);
-                  setEditingOrder(null);
-                }
-              }}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              Save Changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Fractional Quantity Modal */}
-      <Dialog open={isFractionalQtyOpen} onOpenChange={setIsFractionalQtyOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-orange-500" />
-              Fractional Quantity
-            </DialogTitle>
-            <DialogDescription>
-              Enter a fractional quantity for {fractionalQtyItem?.name}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 mt-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-2">
-                Quantity (e.g., 1.5, 2.25, 0.75)
-              </label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={fractionalQtyValue}
-                onChange={(e) => setFractionalQtyValue(e.target.value)}
-                placeholder="Enter quantity"
-                className="w-full text-center text-lg"
-              />
-            </div>
-
-            {/* Quick Preset Buttons */}
-            <div className="grid grid-cols-4 gap-2">
-              {[0.25, 0.5, 0.75, 1].map((preset) => (
-                <Button
-                  key={preset}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setFractionalQtyValue(preset.toString())}
-                  className="h-8 text-xs border-orange-200 hover:bg-orange-50"
-                >
-                  {preset}
-                </Button>
-              ))}
-            </div>
-
-            {/* Current Total Price Preview */}
-            {fractionalQtyItem && fractionalQtyValue && !isNaN(parseFloat(fractionalQtyValue)) && (
-              <div className="bg-orange-50 p-3 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-700">Total Price:</span>
-                  <span className="text-lg font-bold text-orange-600">
-                    R{(fractionalQtyItem.price * parseFloat(fractionalQtyValue)).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsFractionalQtyOpen(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={saveFractionalQty}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              Update Quantity
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Order Details Modal */}
-      <Dialog open={isOrderDetailsModalOpen} onOpenChange={setIsOrderDetailsModalOpen}>
-        <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="w-5 h-5 text-orange-500" />
-              Order Details
-            </DialogTitle>
-            <DialogDescription>
-              Detailed view of order #{viewingOrder?.order_number}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {loadingOrderDetails ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-16 bg-gray-200 rounded-lg animate-pulse"></div>
-                ))}
-              </div>
-            </div>
-          ) : orderDetails ? (
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Order Header */}
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-gray-900 text-xl">Order #{orderDetails.order_number}</h3>
-                  <Badge className={cn("text-xs", getStatusColor(orderDetails.status))}>
-                    {getStatusLabel(orderDetails.status)}
-                  </Badge>
-                </div>
-                <p className="text-sm text-gray-600">
-                  <strong>Created:</strong> {formatDistanceToNow(new Date(orderDetails.created_at), { addSuffix: true })}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Type:</strong> {orderDetails.order_type}
-                </p>
-              </div>
-
-              {/* Customer Info */}
-              <Card className="border-gray-200">
-                <CardContent className="p-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Customer Information</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><strong>Phone:</strong> {orderDetails.customers?.whatsapp_number || 'N/A'}</p>
-                    {orderDetails.customers?.first_name && (
-                      <p><strong>Name:</strong> {orderDetails.customers.first_name} {orderDetails.customers.last_name}</p>
-                    )}
-                    {orderDetails.customers?.email && (
-                      <p><strong>Email:</strong> {orderDetails.customers.email}</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Order Details */}
-              <Card className="border-gray-200">
-                <CardContent className="p-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Order Details</h4>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Delivery Address:</strong> {orderDetails.order_details?.[0]?.delivery_address || 'N/A'}</p>
-                    <p><strong>Notes:</strong> {orderDetails.order_details?.[0]?.notes || 'N/A'}</p>
-                    <p><strong>Kitchen Notes:</strong> {orderDetails.order_details?.[0]?.kitchen_notes || 'N/A'}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Order Items */}
-              <Card className="border-gray-200">
-                <CardContent className="p-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Order Items</h4>
-                  <div className="space-y-3">
-                    {orderDetails.order_items?.map((orderItem) => (
-                      <div key={orderItem.id} className="border border-gray-200 rounded-lg p-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <h5 className="font-medium text-gray-900">{orderItem.items?.name}</h5>
-                            {orderItem.items?.description && (
-                              <p className="text-xs text-gray-600">{orderItem.items.description}</p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-orange-600">R{parseFloat(orderItem.total_price).toFixed(2)}</div>
-                            <div className="text-xs text-gray-500">
-                              {orderItem.quantity % 1 === 0 ? orderItem.quantity : parseFloat(orderItem.quantity).toFixed(2)} × R{parseFloat(orderItem.unit_price).toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Variations */}
-                        {orderItem.order_item_variations && orderItem.order_item_variations.length > 0 && (
-                          <div className="mt-2">
-                            <div className="flex flex-wrap gap-1">
-                              {orderItem.order_item_variations.map((variation, index) => (
-                                <span key={index} className="inline-block bg-blue-100 rounded-full px-2 py-1 text-xs text-blue-700">
-                                  <span className="font-medium">{variation.item_variations?.name}:</span> {variation.item_variation_options?.name}
-                                  {variation.price_modifier !== 0 && (
-                                    <span className="text-blue-600 ml-1">
-                                      {variation.price_modifier > 0 ? '+' : ''}R{parseFloat(variation.price_modifier).toFixed(2)}
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Financial Summary */}
-              {orderDetails.order_financial_details?.[0] && (
-                <Card className="border-gray-200">
-                  <CardContent className="p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Order Summary</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Subtotal:</span>
-                        <span>R{parseFloat(orderDetails.order_financial_details[0].subtotal || 0).toFixed(2)}</span>
-                      </div>
-                      {orderDetails.order_financial_details[0].delivery_fee > 0 && (
-                        <div className="flex justify-between">
-                          <span>Delivery Fee:</span>
-                          <span>R{parseFloat(orderDetails.order_financial_details[0].delivery_fee).toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span>Tax (15%):</span>
-                        <span>R{parseFloat(orderDetails.order_financial_details[0].tax_amount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                        <span>Total:</span>
-                        <span className="text-orange-600">R{parseFloat(orderDetails.order_financial_details[0].total_amount).toFixed(2)}</span>
-                      </div>
-                      <div className="pt-2 border-t">
-                        <p><strong>Payment:</strong> {orderDetails.order_financial_details[0].payment_method} ({orderDetails.order_financial_details[0].payment_status})</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Notes */}
-              {orderDetails.order_details?.[0]?.notes && (
-                <Card className="border-gray-200">
-                  <CardContent className="p-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Notes</h4>
-                    <p className="text-sm text-gray-600">{orderDetails.order_details[0].notes}</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">Failed to load order details</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        // Fractional Quantity Modal
+        isFractionalQtyOpen={isFractionalQtyOpen}
+        setIsFractionalQtyOpen={setIsFractionalQtyOpen}
+        fractionalQtyItem={fractionalQtyItem}
+        fractionalQtyValue={fractionalQtyValue}
+        setFractionalQtyValue={setFractionalQtyValue}
+        saveFractionalQty={saveFractionalQty}
+      />
     </div>
   );
 };
