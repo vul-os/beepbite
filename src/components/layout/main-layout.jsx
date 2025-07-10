@@ -43,7 +43,7 @@ const MainLayout = () => {
     <div className="flex flex-col min-h-screen">
       <TopBar />
       
-      <div className="flex flex-1" style={{ marginTop: TOP_BAR_HEIGHT }}>
+      <div className={`flex flex-1 ${isLandingPage ? '' : `mt-16`}`}>
         {isLandingPage ? (
           <main className="flex-1 min-w-0">
             <Outlet />

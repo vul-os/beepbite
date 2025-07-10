@@ -39,8 +39,8 @@ const COMMON_EMAIL_DOMAINS = [
   'gmail.co.za', 'yahoo.co.za', 'hotmail.co.za', 'outlook.co.za', 'live.co.za'
 ];
 
-const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
-  const { user } = useAuth();
+const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
+  const { user, activeLocation } = useAuth();
   const [orderNumber, setOrderNumber] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
@@ -49,7 +49,6 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [currentBistro, setCurrentBistro] = useState(null);
   const [customerDetails, setCustomerDetails] = useState(null);
   const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
   const [lookupTimer, setLookupTimer] = useState(null);
@@ -57,38 +56,6 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
   const [orderNumberExists, setOrderNumberExists] = useState(false);
   const [orderCheckTimer, setOrderCheckTimer] = useState(null);
   const [completedOldOrders, setCompletedOldOrders] = useState(0);
-
-  // Fetch current user's bistro
-  useEffect(() => {
-    const fetchCurrentBistro = async () => {
-      if (!user) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('bistro_members')
-          .select(`
-            bistro_id,
-            role,
-            bistros (
-              id,
-              name
-            )
-          `)
-          .eq('profile_id', user.id)
-          .single();
-
-        if (error) throw error;
-        setCurrentBistro(data.bistros);
-      } catch (error) {
-        console.error('Error fetching bistro:', error);
-        setError('Unable to load restaurant information');
-      }
-    };
-
-    if (isOpen) {
-      fetchCurrentBistro();
-    }
-  }, [user, isOpen]);
 
   // Lookup customer details when phone number changes
   const lookupCustomerDetails = async (phoneNum) => {
@@ -124,36 +91,28 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
     }
   };
 
-  // Check if order number exists within 24 hours and auto-complete old orders
+  // Check if order number exists within 24 hours
   const checkOrderNumberExists = async (orderNum) => {
-    if (!currentBistro || !orderNum.trim()) {
+    if (!activeLocation || !orderNum.trim()) {
       setOrderNumberExists(false);
       setIsCheckingOrderNumber(false);
       return;
     }
 
     try {
+      // Simple check for existing orders with same number in last 24 hours
       const { data, error } = await supabase
-        .rpc('check_and_prepare_order_number', {
-          p_bistro_id: currentBistro.id,
-          p_order_number: orderNum.trim()
-        });
+        .from('orders')
+        .select('id')
+        .eq('location_id', activeLocation.id)
+        .eq('order_number', orderNum.trim())
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .limit(1);
 
       if (error) throw error;
       
-      const result = data?.[0];
-      if (result) {
-        setOrderNumberExists(!result.is_available);
-        setCompletedOldOrders(result.completed_old_orders || 0);
-        
-        // Log if old orders were auto-completed
-        if (result.completed_old_orders > 0) {
-          console.log(`Auto-completed ${result.completed_old_orders} old orders with number ${orderNum}`);
-        }
-      } else {
-        setOrderNumberExists(false);
-        setCompletedOldOrders(0);
-      }
+      setOrderNumberExists(data && data.length > 0);
+      setCompletedOldOrders(0); // Reset for now, can implement auto-completion later
     } catch (error) {
       console.error('Error checking order number:', error);
       setOrderNumberExists(false);
@@ -173,7 +132,7 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
     setCompletedOldOrders(0);
     
     // If order number is too short or no bistro, don't check
-    if (!orderNumber.trim() || !currentBistro) {
+    if (!orderNumber.trim() || !activeLocation) {
       setIsCheckingOrderNumber(false);
       return;
     }
@@ -193,7 +152,7 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
         clearTimeout(timer);
       }
     };
-  }, [orderNumber, currentBistro]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orderNumber, activeLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced customer lookup when phone number changes
   useEffect(() => {
@@ -304,8 +263,8 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
   };
 
   const validateForm = () => {
-    if (!currentBistro) {
-      setError('No restaurant found for your account');
+    if (!activeLocation) {
+      setError('No location found for your account');
       return false;
     }
     if (!orderNumber.trim()) {
@@ -348,19 +307,52 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
     setIsSubmitting(true);
     
     try {
-      // Create the bite using SQL function (handles customer creation automatically)
-      // Use original phone number to preserve format for consent tracking
-      const { data, error: supabaseError } = await supabase
-        .rpc('create_bite_with_customer', {
-          p_bistro_id: currentBistro.id,
-          p_order_number: orderNumber.trim(),
-          p_original_number: phoneNumber.trim(),
-          p_customer_display_name: null, // Could add a customer name field later
-          p_status: 'pending',
-          p_email: email.trim() || null
-        });
+      // First, create or get customer
+      let customerId = customerDetails?.customer_id;
+      
+      if (!customerId) {
+        // Create new customer
+        const { data: newCustomer, error: customerError } = await supabase
+          .from('customers')
+          .insert({
+            whatsapp_number: phoneNumber.trim(),
+            email: email.trim() || null
+          })
+          .select('id')
+          .single();
 
-      if (supabaseError) throw supabaseError;
+        if (customerError) throw customerError;
+        customerId = newCustomer.id;
+      } else if (email.trim() && email !== customerDetails.email) {
+        // Update customer email if changed
+        await supabase
+          .from('customers')
+          .update({ email: email.trim() })
+          .eq('id', customerId);
+      }
+
+      // Create the order
+      const { data: newOrder, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          location_id: activeLocation.id,
+          customer_id: customerId,
+          order_number: orderNumber.trim(),
+          order_type: 'whatsapp',
+          status: 'pending'
+        })
+        .select('id')
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Optionally create order_details record
+      await supabase
+        .from('order_details')
+        .insert({
+          order_id: newOrder.id,
+          estimated_prep_time: 30 // Default 30 minutes
+        });
       
       setSuccess(true);
       
@@ -381,15 +373,15 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
           setOrderCheckTimer(null);
         }
         onClose();
-        onBiteCreated?.();
+        onOrderCreated?.();
       }, 1500);
       
     } catch (error) {
-      console.error('Error creating bite:', error);
+      console.error('Error creating order:', error);
       
       // Handle specific error cases
-      if (error.message && error.message.includes('already exists within the last 24 hours')) {
-        setError(`Order #${orderNumber.trim()} was already created within the last 24 hours. Please use a different order number or wait.`);
+      if (error.message && error.message.includes('duplicate key')) {
+        setError(`Order #${orderNumber.trim()} already exists. Please use a different order number.`);
       } else {
         setError(error.message || 'Failed to create order. Please try again.');
       }
@@ -422,6 +414,10 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="w-[95vw] max-w-lg mx-auto max-h-[95vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create New Order</DialogTitle>
+        </DialogHeader>
+        
         {success ? (
           <div className="py-6 text-center">
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -474,7 +470,7 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
                       ⚠️ Already used (24h)
                     </div>
                   )}
-                  {!isCheckingOrderNumber && orderNumber.trim() && !orderNumberExists && currentBistro && (
+                  {!isCheckingOrderNumber && orderNumber.trim() && !orderNumberExists && activeLocation && (
                     <div className="text-xs text-green-600">
                       ✅ Available
                       {completedOldOrders > 0 && (
@@ -732,7 +728,7 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
                   className="flex-1 h-9 sm:h-10 beepbite-gradient text-white"
                 >
                   {customerDetails?.email && email.trim() && email.includes('@') ? (
-                    <span className="text-sm sm:text-base">Create Bite</span>
+                    <span className="text-sm sm:text-base">Create Order</span>
                   ) : (
                     <div className="flex items-center">
                       <span className="text-sm sm:text-base mr-2">Next</span>
@@ -752,7 +748,7 @@ const CreateBiteModal = ({ isOpen, onClose, onBiteCreated }) => {
                       <span className="text-sm sm:text-base">Creating...</span>
                     </div>
                   ) : (
-                    <span className="text-sm sm:text-base">Create Bite</span>
+                    <span className="text-sm sm:text-base">Create Order</span>
                   )}
                 </Button>
               )}

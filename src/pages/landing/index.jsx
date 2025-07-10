@@ -164,38 +164,38 @@ const LandingPage = () => {
   const features = [
     {
       icon: <WhatsAppIcon className="w-6 h-6" />,
-      title: "Instant WhatsApp Alerts",
-      description: "Alert customers the moment their food is ready. No more cold meals or unhappy diners waiting around.",
+      title: "Complete POS + WhatsApp",
+      description: "Full traditional point of sale system with all standard restaurant features, PLUS WhatsApp ordering, payments, and customer notifications.",
       highlight: true
     },
     {
       icon: <Clock className="w-6 h-6" />,
-      title: "Faster Food Delivery", 
-      description: "Get hot food to customers quickly with automated pickup notifications sent directly to their phone.",
+      title: "Digital Restaurant Pagers", 
+      description: "Replace old buzzer systems with modern WhatsApp notifications. Works alongside your normal POS operations for dine-in and takeaway.",
       highlight: false
     },
     {
       icon: <Shield className="w-6 h-6" />,
-      title: "No Devices Needed",
-      description: "Works with your existing setup. No hardware to buy, install, or maintain. Just pure simplicity.",
+      title: "Traditional POS Features",
+      description: "Complete restaurant POS with inventory management, staff controls, reporting, and payment processing - everything you expect from a modern POS system.",
       highlight: false
     },
     {
       icon: <Star className="w-6 h-6" />,
-      title: "Private Customer Reviews",
-      description: "Get honest feedback sent directly to you via WhatsApp instead of public review sites.",
+      title: "Dual Order Channels",
+      description: "Take orders normally through your POS terminal AND accept WhatsApp orders. One system handles both in-restaurant and remote customers.",
       highlight: false
     },
     {
       icon: <Heart className="w-6 h-6" />,
-      title: "Happier Customers",
-      description: "No more complaints about cold food or long waits. Keep customers satisfied and coming back.",
+      title: "Standard + WhatsApp Payments",
+      description: "Process card payments, cash, and contactless like any POS, plus accept payments directly through WhatsApp for remote orders.",
       highlight: false
     },
     {
       icon: <Zap className="w-6 h-6" />,
-      title: "Zero Setup Costs",
-      description: "No upfront fees, no monthly contracts, no hidden costs. Start serving hot food faster today.",
+      title: "Enhanced Restaurant Operations",
+      description: "Everything your current POS does - sales tracking, menu management, staff functions - enhanced with WhatsApp customer engagement.",
       highlight: false
     }
   ];
@@ -204,7 +204,7 @@ const LandingPage = () => {
     { number: "15,000+", label: "Orders Processed Daily", icon: <BarChart3 className="w-6 h-6" /> },
     { number: "800+", label: "Active Restaurants", icon: <Utensils className="w-6 h-6" /> },
     { number: "99.9%", label: "System Uptime", icon: <Shield className="w-6 h-6" /> },
-    { number: "<1s", label: "Notification Speed", icon: <Zap className="w-6 h-6" /> }
+    { number: "<1s", label: "WhatsApp Response Time", icon: <Zap className="w-6 h-6" /> }
   ];
 
   const testimonials = [
@@ -213,7 +213,7 @@ const LandingPage = () => {
       restaurant: "Casa Maria Bistro",
       location: "Miami, FL",
       rating: 5,
-      text: "No more angry customers complaining about cold food! BeepBite gets them their meals while they're still hot. Game changer.",
+      text: "BeepBite works perfectly as our main POS system for dine-in customers, but the WhatsApp ordering has opened up a whole new revenue stream. Best of both worlds!",
       avatar: "MR"
     },
     {
@@ -221,7 +221,7 @@ const LandingPage = () => {
       restaurant: "Spice Garden",
       location: "Houston, TX",
       rating: 5,
-      text: "We love getting honest reviews directly to WhatsApp instead of nasty public reviews. Customers actually help us improve now.",
+      text: "We use it just like our old POS for normal restaurant operations, but now we can also take WhatsApp orders and send digital notifications. Game changer.",
       avatar: "AH"
     },
     {
@@ -229,7 +229,7 @@ const LandingPage = () => {
       restaurant: "Golden Dragon",
       location: "San Francisco, CA", 
       rating: 5,
-      text: "Setup took 2 minutes, no devices needed. Now our customers pick up food fast and we get zero complaints about wait times.",
+      text: "Full POS functionality we need for daily operations, plus the WhatsApp features give us an edge over competitors. Finally ditched those buzzer pagers too!",
       avatar: "SC"
     }
   ];
@@ -237,8 +237,8 @@ const LandingPage = () => {
   const steps = [
     {
       step: "01",
-      title: "Sign Up & Add Restaurant",
-      description: "Create your account and add your restaurant details in under 2 minutes. That's it - you're ready to stop serving cold food!",
+      title: "Setup Your Complete POS System",
+      description: "Install BeepBite as your main restaurant POS - handles all traditional operations plus WhatsApp integration. Works for dine-in, takeaway, and remote orders.",
       icon: <Utensils className="w-8 h-8" />
     }
   ];
@@ -246,699 +246,708 @@ const LandingPage = () => {
   const benefits = [
     {
       icon: <Zap className="w-6 h-6" />,
-      title: "No More Cold Food",
-      description: "Customers get notified instantly when food is ready for pickup"
+      title: "Full Traditional POS",
+      description: "Complete point of sale with all standard restaurant features you expect"
     },
     {
       icon: <Heart className="w-6 h-6" />,
-      title: "Stop Customer Complaints",
-      description: "End frustration about long waits and cold meals"
+      title: "Plus Digital Pagers",
+      description: "Traditional POS operations enhanced with WhatsApp notifications"
     },
     {
       icon: <MessageSquare className="w-6 h-6" />,
-      title: "Get Private Reviews",
-      description: "Receive honest feedback directly instead of public criticism"
+      title: "Dual Order Channels",
+      description: "In-restaurant POS orders AND WhatsApp remote orders in one system"
     },
     {
       icon: <Shield className="w-6 h-6" />,
-      title: "Zero Equipment Costs",
-      description: "No devices to buy, install, or maintain - works instantly"
+      title: "Everything You Need",
+      description: "Inventory, staff management, reporting, payments - standard POS plus more"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden">
-      {/* Hero Section */}
-      <section id="home" className="relative min-h-[calc(100vh-5rem)] sm:min-h-[calc(100vh-4rem)] flex items-center bg-gradient-to-br from-gray-50/30 via-white to-orange-50/10 pt-8 lg:pt-8">
-        {/* Background Pattern */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZjZiMzUiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-40"></div>
-          {/* Floating Elements */}
-          <div className="absolute top-20 right-10 w-20 h-20 beepbite-gradient rounded-full opacity-10 animate-pulse"></div>
-          <div className="absolute bottom-32 left-10 w-32 h-32 bg-orange-500/5 rounded-full"></div>
-          <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-orange-500/5 rounded-full"></div>
-        </div>
+    <div className="min-h-screen bg-white overflow-hidden relative">
+      {/* Professional background elements */}
+      <div className="fixed inset-0 z-0">
+        {/* Subtle professional gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-orange-50/30"></div>
         
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-              {/* Left Content */}
-              <div className="space-y-4 sm:space-y-6 lg:space-y-8 text-center lg:text-left">
-                <div className="space-y-3 sm:space-y-4 lg:space-y-6">
-                <Badge className="inline-flex items-center gap-2 beepbite-gradient text-white px-4 py-2 text-sm font-semibold rounded-full shadow-lg">
-                  <Sparkles className="w-4 h-4" />
-                  No Setup Costs
-                </Badge>
+        {/* Sophisticated geometric shapes */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+          <div className="absolute top-20 -left-20 w-96 h-96 bg-gray-100/40 rounded-full blur-3xl"></div>
+          <div className="absolute top-60 right-10 w-80 h-80 bg-orange-50/60 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-40 left-10 w-64 h-64 bg-gray-50/80 rounded-full blur-2xl"></div>
+        </div>
+
+        {/* Professional grid pattern */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDYwIDAgTCAwIDAgMCA2MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZjk3MzE2IiBzdHJva2Utd2lkdGg9IjAuMyIgb3BhY2l0eT0iMC4xIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIiAvPjwvc3ZnPg==')] opacity-30"></div>
+        </div>
+
+        {/* Minimal floating elements */}
+        <div className="absolute top-32 right-16 w-2 h-2 bg-orange-400/40 rounded-full animate-pulse"></div>
+        <div className="absolute top-96 left-20 w-1 h-1 bg-gray-400/50 rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute bottom-48 right-40 w-1.5 h-1.5 bg-orange-300/30 rounded-full animate-pulse delay-2000"></div>
+      </div>
+
+      {/* Hero Section with professional design */}
+      <section id="home" className="relative min-h-screen flex items-center pt-20 lg:pt-24 pb-16 z-10">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+              {/* Left Content with professional styling */}
+              <div className="space-y-8 lg:space-y-10 text-center lg:text-left">
+                <div className="space-y-6 lg:space-y-8">
+                  <Badge className="inline-flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 text-sm font-semibold rounded-full shadow-lg border border-orange-600/20">
+                    <Sparkles className="w-4 h-4" />
+                    Complete POS System
+                  </Badge>
+                  
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
+                    <span className="text-gray-900">Complete Restaurant POS with{' '}</span>
+                    <span className="text-orange-500">WhatsApp Integration</span>
+                  </h1>
+                  
+                  <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 leading-relaxed max-w-2xl lg:max-w-none font-medium">
+                    Full-featured point of sale system that restaurants rely on daily, enhanced with WhatsApp 
+                    ordering, payments, and digital customer notifications.
+                  </p>
+                </div>
                 
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-gray-900">
-                  Stop Serving Cold Food with{' '}
-                  <span className="beepbite-gradient-text">BeepBite</span>
-                </h1>
-                
-                <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 leading-relaxed max-w-2xl lg:max-w-none">
-                  Get food to customers faster with instant WhatsApp notifications. 
-                  No devices, no setup fees, no maintenance - just happier customers and hotter food.
-                </p>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Button 
-                  size="lg" 
-                  className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-300 group h-14 px-8 text-lg font-semibold rounded-xl"
-                  onClick={() => navigate('/signup')}
-                >
-                  Start For Free
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white transition-all duration-300 h-14 px-8 text-lg font-semibold rounded-xl group"
-                  onClick={openDemo}
-                >
-                  <Play className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
-                  Try Demo Now
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                  <Button 
+                    size="lg" 
+                    className="bg-orange-500 hover:bg-orange-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 group h-14 px-8 text-lg font-semibold rounded-xl border border-orange-600/20"
+                    onClick={() => navigate('/signup')}
+                  >
+                    Start For Free
+                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 h-14 px-8 text-lg font-semibold rounded-xl group shadow-lg"
+                    onClick={openDemo}
+                  >
+                    <Play className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform text-orange-500" />
+                    Try Demo Now
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap justify-center lg:justify-start gap-6 pt-4">
+                  {[
+                    { icon: <WhatsAppIcon className="w-5 h-5 text-green-600" />, text: "Full POS System" },
+                    { icon: <CheckCircle className="w-5 h-5 text-emerald-600" />, text: "Traditional + WhatsApp" },
+                    { icon: <Zap className="w-5 h-5 text-amber-600" />, text: "Digital pagers" }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-md border border-gray-200/50">
+                      {item.icon}
+                      <span className="text-sm font-semibold text-gray-700">{item.text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex flex-wrap justify-center lg:justify-start gap-4 lg:gap-6 pt-2 lg:pt-4">
-                {[
-                  { icon: <WhatsAppIcon className="w-5 h-5 text-green-600" />, text: "WhatsApp alerts" },
-                  { icon: <CheckCircle className="w-5 h-5 text-green-600" />, text: "No setup costs" },
-                  { icon: <CheckCircle className="w-5 h-5 text-green-600" />, text: "No devices needed" }
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    {item.icon}
-                    <span className="text-sm font-semibold text-gray-700">{item.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right Visual - Interactive Animation */}
-            <div className="relative">
-              {/* Step 0: Initial Dashboard */}
-              {heroStep === 0 && (
-                <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden max-w-md mx-auto transform transition-all duration-700">
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center gap-4">
-                      <div className="flex gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                        <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                        <div className="w-3 h-3 rounded-full bg-green-400"></div>
+              {/* Right Visual - Professional Interactive Animation */}
+              <div className="relative">
+                {/* Professional backdrop */}
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-50/80 to-orange-50/40 rounded-3xl blur-3xl transform rotate-3"></div>
+                
+                {/* Step 0: Professional Dashboard */}
+                {heroStep === 0 && (
+                  <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-gray-200/80 overflow-hidden max-w-md mx-auto transform transition-all duration-700">
+                    <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-4 border-b border-gray-700">
+                      <div className="flex items-center gap-4">
+                        <div className="flex gap-2">
+                          <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                          <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                          <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                        </div>
+                        <h3 className="font-bold text-white text-lg">WhatsApp POS Dashboard</h3>
+                        <Badge className="ml-auto bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                          <div className="w-2 h-2 bg-green-200 rounded-full mr-2 animate-pulse"></div>
+                          Live Orders
+                        </Badge>
                       </div>
-                      <h3 className="font-bold text-gray-900 text-lg">Kitchen Dashboard</h3>
-                      <Badge className="ml-auto bg-green-100 text-green-700 text-sm px-3 py-1 rounded-full">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                        Live
-                      </Badge>
+                    </div>
+                    
+                    <div className="p-6 space-y-5">
+                      <div className="p-5 rounded-xl border border-orange-200 bg-orange-50/50 shadow-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-3 flex-1">
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-gray-900 text-xl">#2847</span>
+                              <Badge variant="default" className="text-xs px-3 py-1 rounded-full bg-orange-500 text-white font-semibold">
+                                cooking
+                              </Badge>
+                            </div>
+                            <p className="font-semibold text-gray-900">Maria G.</p>
+                            <p className="text-sm text-gray-600 font-medium">2x Spicy Burger, 1x Fries • R180.00</p>
+                            <p className="text-xs text-gray-500 font-medium">Paid via WhatsApp • 5 min ago</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-center pt-4">
+                        <Button 
+                          onClick={startHeroAnimation}
+                          disabled={isAnimating}
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 group"
+                        >
+                          <CheckCircle className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                          Mark Order Ready
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="p-6 space-y-4">
-                    <div className="p-4 rounded-xl border-2 bg-orange-50 border-orange-200 shadow-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-gray-900 text-lg">#2847</span>
-                            <Badge variant="default" className="text-xs px-3 py-1 rounded-full bg-orange-500 text-white">
-                              cooking
-                            </Badge>
+                )}
+
+                {/* Professional animation steps */}
+                {heroStep === 1 && (
+                  <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-emerald-200 overflow-hidden max-w-md mx-auto transform transition-all duration-700">
+                    <div className="bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-4 border-b border-emerald-500">
+                      <div className="flex items-center gap-4">
+                        <div className="flex gap-2">
+                          <div className="w-3 h-3 rounded-full bg-white/70 animate-pulse"></div>
+                          <div className="w-3 h-3 rounded-full bg-white/70 animate-pulse delay-200"></div>
+                          <div className="w-3 h-3 rounded-full bg-white/70 animate-pulse delay-400"></div>
+                        </div>
+                        <h3 className="font-bold text-white text-lg">Order Ready!</h3>
+                        <Badge className="ml-auto bg-white/20 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                          <Zap className="w-3 h-3 mr-2" />
+                          Sending WhatsApp
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="p-6 text-center space-y-6">
+                      <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl">
+                        <CheckCircle className="w-10 h-10 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Order #2847 Ready!</h3>
+                        <p className="text-gray-600 font-medium">Sending pickup notification via WhatsApp...</p>
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                        <span className="text-sm text-gray-500 font-medium">Digital pager notification...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Professional notification display */}
+                {heroStep === 2 && (
+                  <div className="relative z-10 space-y-5">
+                    {/* Customer Phone with professional styling */}
+                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-5 animate-in slide-in-from-right-5 duration-700">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-sm">MG</span>
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900">Maria G.</div>
+                          <div className="text-xs text-gray-500">+27 82 555 0123</div>
+                        </div>
+                        <WhatsAppIcon className="w-6 h-6 text-green-500 ml-auto" />
+                      </div>
+                      <div className="bg-green-50 rounded-xl p-4 border-l-4 border-green-500 shadow-sm">
+                        <div className="flex items-start gap-2">
+                          <div className="text-sm">
+                            <div className="font-bold text-green-800 mb-1">🍔 BeepBite - Order Ready!</div>
+                            <div className="text-gray-700 font-medium">Order #2847 (R180.00) is ready for pickup!</div>
+                            <div className="text-xs text-gray-500 mt-1 font-medium">Just now • Digital notification</div>
                           </div>
-                          <p className="font-semibold text-gray-900">Maria G.</p>
-                          <p className="text-sm text-gray-600">2x Spicy Burger, 1x Fries</p>
-                          <p className="text-xs text-gray-500 font-medium">5 min ago</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex justify-center pt-4">
+                    {/* Professional success display */}
+                    <div className="bg-emerald-50 rounded-2xl p-6 text-center border-2 border-emerald-200 shadow-xl animate-in fade-in duration-1000">
+                      <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <CheckCircle className="w-8 h-8 text-white" />
+                      </div>
+                      <h3 className="text-lg font-bold text-emerald-800 mb-2">Digital Pager Sent!</h3>
+                      <p className="text-sm text-emerald-700 font-medium">Maria gets her pickup notification instantly - no lost buzzers!</p>
+                      <div className="flex items-center justify-center gap-4 mt-4 text-sm text-emerald-600">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          <span className="font-medium">Instant notification</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Heart className="w-4 h-4" />
+                          <span className="font-medium">Modern experience</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Professional try again button */}
+                    <div className="text-center pt-4">
                       <Button 
                         onClick={startHeroAnimation}
-                        disabled={isAnimating}
-                        className="beepbite-gradient text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group"
+                        variant="outline"
+                        className="border-2 border-orange-400 text-orange-600 bg-white hover:bg-orange-50 hover:border-orange-500 px-6 py-2 rounded-xl transition-all duration-300 font-semibold shadow-lg"
                       >
-                        <CheckCircle className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
-                        Complete Order #2847
+                        <Play className="mr-2 w-4 h-4" />
+                        See it again
                       </Button>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
 
-              {/* Step 1: Order Completing */}
-              {heroStep === 1 && (
-                <div className="relative z-10 bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden max-w-md mx-auto transform transition-all duration-700">
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 px-6 py-4 border-b border-green-200">
+        {/* Features Section with professional design */}
+        <section id="features" className="py-16 lg:py-24 relative z-10 bg-gray-50/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 lg:mb-16">
+              <Badge className="inline-flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 text-sm font-semibold rounded-full mb-6 shadow-lg">
+                <Zap className="w-4 h-4" />
+                Full POS Features
+              </Badge>
+              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900 leading-tight">
+                Traditional POS + WhatsApp Innovation
+              </h2>
+              <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed font-medium">
+                Complete restaurant point of sale system with all the features you expect, enhanced with WhatsApp 
+                ordering, payments, and digital notifications. One system handles everything.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+              {features.map((feature, i) => (
+                <Card key={i} className={`group hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 border ${feature.highlight ? 'ring-2 ring-orange-200 bg-orange-50/50 border-orange-200' : 'border-gray-200 hover:border-orange-300 bg-white'} rounded-2xl overflow-hidden`}>
+                  <CardContent className="p-8 text-center">
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg ${
+                      feature.highlight 
+                        ? 'bg-orange-500 text-white' 
+                        : 'bg-gray-100 text-gray-600 group-hover:bg-orange-500 group-hover:text-white'
+                    }`}>
+                      {feature.icon}
+                    </div>
+                    <h3 className="text-xl lg:text-2xl font-bold mb-4 text-gray-900">{feature.title}</h3>
+                    <p className="text-gray-600 leading-relaxed font-medium">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Professional Benefits Section */}
+        <section id="benefits" className="py-16 lg:py-24 relative z-10 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 lg:mb-16">
+              <Badge className="inline-flex items-center gap-2 bg-emerald-500 text-white px-5 py-2.5 text-sm font-semibold rounded-full mb-6 shadow-lg">
+                <Clock className="w-4 h-4" />
+                Easy Setup
+              </Badge>
+              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900 leading-tight">
+                Upgrade Your Current POS System
+              </h2>
+              <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed font-medium">
+                Get all traditional POS features you need, plus WhatsApp capabilities your current system doesn't have.
+              </p>
+            </div>
+            
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+              {benefits.map((benefit, i) => (
+                <div key={i} className="text-center group">
+                  <div className="bg-gray-50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 group-hover:bg-orange-50 transition-all duration-300 shadow-lg border border-gray-200">
+                    <div className="text-orange-500 group-hover:scale-110 transition-transform duration-300">
+                      {benefit.icon}
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-gray-900">{benefit.title}</h3>
+                  <p className="text-gray-600 font-medium">{benefit.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Professional How It Works */}
+        <section id="how-it-works" className="py-16 lg:py-24 relative z-10 bg-gradient-to-br from-gray-50 to-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 lg:mb-16">
+              <Badge className="inline-flex items-center gap-2 bg-blue-500 text-white px-5 py-2.5 text-sm font-semibold rounded-full mb-6 shadow-lg">
+                <Lightbulb className="w-4 h-4" />
+                Easy Setup
+              </Badge>
+              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900 leading-tight">Setup Your Enhanced POS System</h2>
+              <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed font-medium">
+                Replace your current POS with a system that does everything it does, plus WhatsApp integration
+              </p>
+            </div>
+
+            <div className="flex justify-center">
+              {steps.map((step, i) => (
+                <div key={i} className="text-center group max-w-lg">
+                  <div className="relative mb-10">
+                    <div className="w-28 h-28 bg-orange-500 rounded-3xl flex items-center justify-center text-white mx-auto group-hover:scale-110 transition-transform duration-300 shadow-2xl">
+                      {step.icon}
+                    </div>
+                    <div className="absolute -top-2 -right-2 w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center text-sm font-bold shadow-lg">
+                      {step.step}
+                    </div>
+                  </div>
+                  <h3 className="text-2xl lg:text-3xl font-bold mb-4 text-gray-900">{step.title}</h3>
+                  <p className="text-gray-600 leading-relaxed text-lg font-medium">{step.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Professional Testimonials */}
+        <section id="testimonials" className="py-16 lg:py-24 relative z-10 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 lg:mb-16">
+              <Badge className="inline-flex items-center gap-2 bg-emerald-500 text-white px-5 py-2.5 text-sm font-semibold rounded-full mb-6 shadow-lg">
+                <Star className="w-4 h-4" />
+                Customer Success
+              </Badge>
+              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900 leading-tight">Real Restaurants, Real Results</h2>
+              <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed font-medium">
+                See how restaurants upgraded from traditional POS to BeepBite's enhanced system
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+              {testimonials.map((testimonial, i) => (
+                <Card key={i} className="group hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 border border-gray-200 hover:border-emerald-300 rounded-2xl overflow-hidden bg-white">
+                  <CardContent className="p-8">
+                    <div className="flex items-center mb-6">
+                      {[...Array(testimonial.rating)].map((_, j) => (
+                        <Star key={j} className="w-5 h-5 fill-orange-400 text-orange-400" />
+                      ))}
+                    </div>
+                    <blockquote className="text-gray-600 mb-6 leading-relaxed text-lg italic font-medium">
+                      "{testimonial.text}"
+                    </blockquote>
                     <div className="flex items-center gap-4">
-                      <div className="flex gap-2">
-                        <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
-                        <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
-                        <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
-                      </div>
-                      <h3 className="font-bold text-green-800 text-lg">Order Completed!</h3>
-                      <Badge className="ml-auto bg-green-200 text-green-800 text-sm px-3 py-1 rounded-full">
-                        <Zap className="w-3 h-3 mr-2" />
-                        Processing
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="p-6 text-center space-y-6">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto animate-pulse">
-                      <CheckCircle className="w-10 h-10 text-green-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">Order #2847 Ready!</h3>
-                      <p className="text-gray-600">Sending WhatsApp notification to Maria...</p>
-                    </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
-                      <span className="text-sm text-gray-500">Notifying customer...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: WhatsApp Notifications */}
-              {heroStep === 2 && (
-                <div className="relative z-10 space-y-4">
-                  {/* Customer Phone 1 */}
-                  <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-4 animate-in slide-in-from-right-5 duration-700">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 beepbite-gradient rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">MG</span>
+                      <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg">
+                        {testimonial.avatar}
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900">Maria G.</div>
-                        <div className="text-xs text-gray-500">+27 82 555 0123</div>
-                      </div>
-                      <WhatsAppIcon className="w-6 h-6 text-green-500 ml-auto" />
-                    </div>
-                    <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-400">
-                      <div className="flex items-start gap-2">
-                        <div className="text-sm">
-                          <div className="font-semibold text-green-800 mb-1">🎉 BeepBite - Order Ready!</div>
-                          <div className="text-gray-700">Your Order #2847 is ready for pickup!</div>
-                          <div className="text-xs text-gray-500 mt-1">Just now</div>
+                        <div className="font-bold text-gray-900">{testimonial.name}</div>
+                        <div className="text-sm text-gray-600 font-semibold">{testimonial.restaurant}</div>
+                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {testimonial.location}
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Success Animation */}
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-2xl p-6 text-center border-2 border-green-200 animate-in fade-in duration-1000">
-                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="w-8 h-8 text-white animate-bounce" />
-                    </div>
-                    <h3 className="text-lg font-bold text-green-800 mb-2">Notification Sent!</h3>
-                    <p className="text-sm text-green-700">Maria will get her hot food in minutes, not hours.</p>
-                    <div className="flex items-center justify-center gap-4 mt-4 text-sm text-green-600">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        <span>Instant delivery</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Heart className="w-4 h-4" />
-                        <span>Happy customer</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Try Again Button */}
-                  <div className="text-center pt-4">
-                    <Button 
-                      onClick={startHeroAnimation}
-                      variant="outline"
-                      className="border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white px-6 py-2 rounded-xl transition-all duration-300"
-                    >
-                      <Play className="mr-2 w-4 h-4" />
-                      See it again
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-8 sm:py-12 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-            <Badge className="inline-flex items-center gap-2 bg-orange-100 text-orange-600 px-4 py-2 text-sm font-semibold rounded-full mb-6">
-              <Zap className="w-4 h-4" />
-              Core Benefits
-            </Badge>
-            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">
-              Stop Food From Going Cold
-            </h2>
-            <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              BeepBite solves the biggest problem in food service - getting hot food to customers fast 
-              with zero hassle and no expensive equipment.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {features.map((feature, i) => (
-              <Card key={i} className={`group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border-2 ${feature.highlight ? 'ring-2 ring-orange-200 bg-orange-50/50 border-orange-200' : 'border-gray-200 hover:border-orange-300'} rounded-2xl overflow-hidden`}>
-                <CardContent className="p-8 text-center">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 ${
-                    feature.highlight 
-                      ? 'beepbite-gradient text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-600 group-hover:bg-orange-500 group-hover:text-white'
-                  }`}>
-                    {feature.icon}
-                  </div>
-                  <h3 className="text-xl lg:text-2xl font-bold mb-4 text-gray-900">{feature.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section id="benefits" className="py-8 sm:py-12 lg:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">
-              The Cold Food Problem, Solved
-            </h2>
-            <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto">
-              Stop losing customers to cold food and long waits. Get food to them faster with zero hassle.
-            </p>
+        {/* Professional Support Section */}
+        <section id="support" className="py-16 lg:py-24 bg-gray-900 text-white relative overflow-hidden">
+          {/* Subtle professional background */}
+          <div className="absolute inset-0">
+            <div className="absolute top-20 left-20 w-64 h-64 bg-orange-500/5 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-20 right-20 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl"></div>
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {benefits.map((benefit, i) => (
-              <div key={i} className="text-center group">
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <div className="text-orange-500">
-                    {benefit.icon}
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-gray-900">{benefit.title}</h3>
-                <p className="text-gray-600">{benefit.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section id="how-it-works" className="py-8 sm:py-12 lg:py-24 bg-gradient-to-br from-gray-50/50 to-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-            <Badge className="inline-flex items-center gap-2 bg-orange-100 text-orange-600 px-4 py-2 text-sm font-semibold rounded-full mb-6">
-              <Clock className="w-4 h-4" />
-              Super Simple
-            </Badge>
-            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">Just 1 Simple Step</h2>
-            <p className="text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">Sign up, add your restaurant, and start serving hot food</p>
-          </div>
-
-          <div className="flex justify-center">
-            {steps.map((step, i) => (
-              <div key={i} className="text-center group max-w-md">
-                <div className="relative mb-8">
-                  <div className="w-24 h-24 beepbite-gradient rounded-3xl flex items-center justify-center text-white mx-auto group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                    {step.icon}
-                  </div>
-                  <div className="absolute -top-3 -right-3 w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center text-sm font-bold shadow-lg">
-                    {step.step}
-                  </div>
-                </div>
-                <h3 className="text-xl lg:text-2xl font-bold mb-4 text-gray-900">{step.title}</h3>
-                <p className="text-gray-600 leading-relaxed text-lg">{step.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section id="testimonials" className="py-8 sm:py-12 lg:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-            <Badge className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 text-sm font-semibold rounded-full mb-6">
-              <Star className="w-4 h-4" />
-              Customer Success
-            </Badge>
-            <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-gray-900">Real Results, Happy Customers</h2>
-            <p className="text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">See how restaurants stopped cold food complaints</p>
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
-            {testimonials.map((testimonial, i) => (
-              <Card key={i} className="group hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border-2 border-gray-200 hover:border-orange-300 rounded-2xl overflow-hidden">
-                <CardContent className="p-8">
-                  <div className="flex items-center mb-6">
-                    {[...Array(testimonial.rating)].map((_, j) => (
-                      <Star key={j} className="w-5 h-5 fill-orange-400 text-orange-400" />
-                    ))}
-                  </div>
-                  <blockquote className="text-gray-600 mb-6 leading-relaxed text-lg italic">
-                    "{testimonial.text}"
-                  </blockquote>
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 beepbite-gradient rounded-2xl flex items-center justify-center text-white font-bold">
-                      {testimonial.avatar}
-                    </div>
-                    <div>
-                      <div className="font-bold text-gray-900">{testimonial.name}</div>
-                      <div className="text-sm text-gray-600 font-semibold">{testimonial.restaurant}</div>
-                      <div className="text-sm text-gray-500 flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {testimonial.location}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Support Section */}
-      <section id="support" className="py-8 sm:py-12 lg:py-24 bg-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-            <Badge className="inline-flex items-center gap-2 bg-white/10 text-white px-4 py-2 text-sm font-semibold rounded-full mb-6">
-              <WhatsAppIcon className="w-4 h-4" />
-              Get Help
-            </Badge>
-            <h2 className="text-3xl lg:text-5xl font-bold mb-6">Need Support?</h2>
-            <p className="text-lg lg:text-xl text-gray-300 max-w-2xl mx-auto">
-              Our team is here to help you get the most out of BeepBite
-            </p>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
-                <WhatsAppIcon className="w-8 h-8 text-orange-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">WhatsApp Support</h3>
-              <p className="text-gray-400 mb-4">Quick help via WhatsApp</p>
-              <a 
-                href="https://wa.me/27118765432" 
-                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 lg:mb-16">
+              <Badge className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-5 py-2.5 text-sm font-semibold rounded-full mb-6 border border-white/20">
                 <WhatsAppIcon className="w-4 h-4" />
-                Message Us
-              </a>
-            </div>
-            
-            <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
-                <Mail className="w-8 h-8 text-orange-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Email Support</h3>
-              <p className="text-gray-400 mb-4">Get detailed assistance</p>
-              <a 
-                href="mailto:support@beepbite.io" 
-                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
-              >
-                <Mail className="w-4 h-4" />
-                Email Us
-              </a>
-            </div>
-            
-            <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
-                <Phone className="w-8 h-8 text-orange-400" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Phone Support</h3>
-              <p className="text-gray-400 mb-4">Speak directly with our team</p>
-              <a 
-                href="tel:+27118765432" 
-                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
-              >
-                <Phone className="w-4 h-4" />
-                Call Us
-              </a>
-            </div>
-            
-            <div className="text-center group">
-              <div className="bg-orange-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:bg-orange-500/20 transition-colors duration-300">
-                <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-3">Documentation</h3>
-              <p className="text-gray-400 mb-4">Self-service help guides</p>
-              <a 
-                href="/docs" 
-                className="inline-flex items-center gap-2 beepbite-gradient text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:text-white transition-all duration-300"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                View Docs
-              </a>
-            </div>
-          </div>
-          
-          <div className="mt-8 sm:mt-12 lg:mt-16 text-center">
-            <div className="bg-white/5 rounded-2xl p-6 sm:p-8 border border-white/10">
-              <h3 className="text-2xl font-bold mb-4">Still Need Help?</h3>
-              <p className="text-gray-300 mb-6">
-                Our support team is available 24/7 to help you succeed with BeepBite
+                Get Help
+              </Badge>
+              <h2 className="text-3xl lg:text-5xl font-bold mb-6">Need Support?</h2>
+              <p className="text-lg lg:text-xl text-gray-300 max-w-3xl mx-auto font-medium">
+                Our team helps restaurants transition from their current POS to BeepBite's enhanced system
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button 
-                  className="beepbite-gradient text-white font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-                  onClick={() => scrollToSection('get-started')}
-                >
-                  Schedule a Demo
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500 font-semibold px-8 py-3 rounded-xl transition-all duration-300"
-                  onClick={() => window.open('https://wa.me/27118765432', '_blank')}
-                >
-                  <WhatsAppIcon className="w-4 h-4 mr-2" />
-                  Chat Now
-                </Button>
-              </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section id="get-started" className="beepbite-gradient text-white relative overflow-hidden py-12 sm:py-16 lg:py-32">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 text-center">
-          <Badge className="inline-flex items-center gap-2 bg-white/20 text-white px-4 py-2 text-sm font-semibold rounded-full mb-8">
-            <Sparkles className="w-4 h-4" />
-            No Setup Costs
-          </Badge>
-          <h2 className="text-3xl lg:text-6xl font-bold leading-tight mb-8">
-            Ready to Stop Serving Cold Food?
-          </h2>
-          <p className="text-lg lg:text-2xl opacity-90 max-w-3xl mx-auto leading-relaxed mb-8 sm:mb-12">
-            Join restaurants using BeepBite to get hot food to customers faster, 
-            reduce complaints, and get honest feedback directly to WhatsApp.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Button 
-              size="lg" 
-              variant="secondary"
-              className="bg-white text-orange-600 hover:bg-gray-100 shadow-lg h-16 px-10 text-xl font-bold rounded-2xl"
-              onClick={() => navigate('/signup')}
-            >
-              Start For Free
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline"
-              className="border-2 border-white text-white bg-transparent hover:bg-white hover:text-orange-600 h-16 px-10 text-xl font-bold rounded-2xl"
-            >
-              Schedule a Demo
-            </Button>
-          </div>
-          <div className="flex flex-wrap justify-center gap-8 pt-8 text-sm opacity-80">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              <span>Start for free</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              <span>No setup costs</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              <span>No devices needed</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Demo Modal */}
-      <Dialog open={isDemoOpen} onOpenChange={setIsDemoOpen}>
-        <DialogContent className="w-[95vw] max-w-md mx-auto">
-          <DialogHeader className="pb-4">
-            <DialogTitle className="text-center text-xl font-bold">
-              {demoSuccess ? "Demo Sent! 🎉" : "Try BeepBite Demo"}
-            </DialogTitle>
-          </DialogHeader>
-
-          {demoSuccess ? (
-            <div className="py-6 text-center space-y-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-green-600">Check Your WhatsApp!</h3>
-                <p className="text-sm text-gray-600">
-                  You should receive a "Hello World" template message showing that BeepBite's WhatsApp notification system is working. 
-                  In production, this would be your custom order notification!
-                </p>
-              </div>
-              <Button 
-                onClick={() => setIsDemoOpen(false)}
-                className="beepbite-gradient text-white w-full"
-              >
-                Got it!
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleDemoSubmit} className="space-y-6">
-              <div className="text-center space-y-2">
-                <p className="text-gray-600">
-                  Test BeepBite's WhatsApp notification system!
-                </p>
-                <p className="text-xs text-orange-600 font-medium">
-                  🇿🇦 South Africa only for now - check back next month, we're expanding rapidly!
-                </p>
-              </div>
-
-              {/* Error Alert */}
-              {demoError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">{demoError}</AlertDescription>
-                </Alert>
-              )}
-
-              {/* Phone Number Input */}
-              <div className="space-y-2">
-                <Label htmlFor="demo-phone" className="text-sm font-medium">
-                  WhatsApp Number
-                </Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="demo-phone"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+27123456789"
-                    className="pl-10 h-12 text-lg"
-                    required
-                  />
+            
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+              <div className="text-center group">
+                <div className="bg-orange-500/10 backdrop-blur-sm w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-500/20 transition-colors duration-300 border border-orange-500/20 shadow-lg">
+                  <WhatsAppIcon className="w-8 h-8 text-orange-400" />
                 </div>
-                <p className="text-xs text-gray-500">
-                  Enter your WhatsApp number to receive a demo notification
+                <h3 className="text-xl font-bold mb-3">WhatsApp Support</h3>
+                <p className="text-gray-400 mb-4 font-medium">Quick help via WhatsApp</p>
+                <a 
+                  href="https://wa.me/27118765432" 
+                  className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-600 hover:shadow-lg transition-all duration-300"
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <WhatsAppIcon className="w-4 h-4" />
+                  Message Us
+                </a>
+              </div>
+              
+              <div className="text-center group">
+                <div className="bg-blue-500/10 backdrop-blur-sm w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-500/20 transition-colors duration-300 border border-blue-500/20 shadow-lg">
+                  <Mail className="w-8 h-8 text-blue-400" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">Email Support</h3>
+                <p className="text-gray-400 mb-4 font-medium">Get detailed assistance</p>
+                <a 
+                  href="mailto:support@beepbite.io" 
+                  className="inline-flex items-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-600 hover:shadow-lg transition-all duration-300"
+                >
+                  <Mail className="w-4 h-4" />
+                  Email Us
+                </a>
+              </div>
+              
+              <div className="text-center group">
+                <div className="bg-green-500/10 backdrop-blur-sm w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-green-500/20 transition-colors duration-300 border border-green-500/20 shadow-lg">
+                  <Phone className="w-8 h-8 text-green-400" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">Phone Support</h3>
+                <p className="text-gray-400 mb-4 font-medium">Speak directly with our team</p>
+                <a 
+                  href="tel:+27118765432" 
+                  className="inline-flex items-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 hover:shadow-lg transition-all duration-300"
+                >
+                  <Phone className="w-4 h-4" />
+                  Call Us
+                </a>
+              </div>
+              
+              <div className="text-center group">
+                <div className="bg-purple-500/10 backdrop-blur-sm w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-purple-500/20 transition-colors duration-300 border border-purple-500/20 shadow-lg">
+                  <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold mb-3">Documentation</h3>
+                <p className="text-gray-400 mb-4 font-medium">Self-service help guides</p>
+                <a 
+                  href="/docs" 
+                  className="inline-flex items-center gap-2 bg-purple-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-purple-600 hover:shadow-lg transition-all duration-300"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  View Docs
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Professional CTA Section */}
+        <section id="get-started" className="py-16 lg:py-24 relative overflow-hidden bg-orange-500">
+          {/* Professional background overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-orange-400/10"></div>
+          
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
+            <Badge className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-5 py-2.5 text-sm font-semibold rounded-full mb-8 border border-white/30 shadow-lg">
+              <Sparkles className="w-4 h-4" />
+              Complete POS System
+            </Badge>
+            <h2 className="text-3xl lg:text-6xl font-bold leading-tight mb-8">
+              Ready to Upgrade Your POS System?
+            </h2>
+            <p className="text-lg lg:text-2xl opacity-90 max-w-4xl mx-auto leading-relaxed mb-12 font-medium">
+              Get all the POS features you currently use, plus WhatsApp ordering, payments, and digital notifications. 
+              One system that handles traditional restaurant operations and modern customer engagement.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <Button 
+                size="lg" 
+                variant="secondary"
+                className="bg-white text-orange-600 hover:bg-gray-50 shadow-xl h-16 px-10 text-xl font-bold rounded-2xl transition-all duration-300"
+                onClick={() => navigate('/signup')}
+              >
+                <Sparkles className="mr-2 w-5 h-5" />
+                Start For Free
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="border-2 border-white text-white bg-transparent hover:bg-white hover:text-orange-600 h-16 px-10 text-xl font-bold rounded-2xl transition-all duration-300"
+              >
+                <Play className="mr-2 w-5 h-5" />
+                Schedule a Demo
+              </Button>
+            </div>
+            <div className="flex flex-wrap justify-center gap-8 pt-8 text-sm opacity-90">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span className="font-semibold">Full POS features</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span className="font-semibold">Plus WhatsApp integration</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span className="font-semibold">Digital notifications</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Demo Modal with professional styling */}
+        <Dialog open={isDemoOpen} onOpenChange={setIsDemoOpen}>
+          <DialogContent className="w-[95vw] max-w-md mx-auto bg-white border border-gray-200 rounded-2xl shadow-2xl">
+            <DialogHeader className="pb-4">
+              <DialogTitle className="text-center text-2xl font-bold text-gray-900">
+                {demoSuccess ? "Demo Sent! 🎉" : "Try BeepBite Demo"}
+              </DialogTitle>
+            </DialogHeader>
+
+            {demoSuccess ? (
+              <div className="py-6 text-center space-y-4">
+                <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                  <CheckCircle className="w-8 h-8 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-bold text-emerald-600">Check Your WhatsApp!</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                    You should receive a demo notification showing how BeepBite's enhanced POS system works. 
+                    This demonstrates the WhatsApp features that work alongside traditional POS operations!
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => setIsDemoOpen(false)}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white w-full py-3 rounded-xl font-semibold shadow-lg transition-all duration-300"
+                >
+                  Got it!
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleDemoSubmit} className="space-y-6">
+                <div className="text-center space-y-2">
+                  <p className="text-gray-600 font-medium">
+                    Test the WhatsApp features of BeepBite's enhanced POS system!
+                  </p>
+                  <p className="text-xs text-orange-600 font-bold bg-orange-50 px-3 py-2 rounded-lg border border-orange-200">
+                    🇿🇦 South Africa only for now - check back next month, we're expanding rapidly!
+                  </p>
+                </div>
+
+                {/* Error Alert */}
+                {demoError && (
+                  <Alert variant="destructive" className="bg-red-50 border border-red-200 rounded-xl">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm font-medium">{demoError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Phone Number Input */}
+                <div className="space-y-2">
+                  <Label htmlFor="demo-phone" className="text-sm font-semibold text-gray-800">
+                    WhatsApp Number
+                  </Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      id="demo-phone"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+27123456789"
+                      className="pl-10 h-12 text-lg border border-gray-300 rounded-xl bg-white focus:border-orange-400 font-medium"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 font-medium">
+                    Enter your WhatsApp number to see how our enhanced POS system sends notifications
+                  </p>
+                </div>
+
+                {/* Submit Button */}
+                <Button 
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-orange-500 hover:bg-orange-600 text-white w-full h-12 text-lg font-semibold rounded-xl shadow-lg transition-all duration-300"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                      Testing System...
+                    </>
+                  ) : (
+                    <>
+                      <WhatsAppIcon className="mr-2 w-5 h-5" />
+                      Test Enhanced POS
+                    </>
+                  )}
+                </Button>
+              
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Professional Footer */}
+        <footer className="bg-white border-t border-gray-200 py-12 lg:py-16 relative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
+              <div className="col-span-2 md:col-span-1 space-y-6">
+                <Logo variant="minimal" className="text-left" />
+                <p className="text-gray-600 max-w-md leading-relaxed flex items-start gap-2 font-medium">
+                  <WhatsAppIcon className="w-5 h-5 mt-1 text-green-500 flex-shrink-0" />
+                  BeepBite is a complete restaurant POS system with all traditional features, enhanced with 
+                  WhatsApp ordering, payments, and digital customer notifications.
                 </p>
               </div>
-
-              {/* Submit Button */}
-              <Button 
-                type="submit"
-                disabled={isLoading}
-                className="beepbite-gradient text-white w-full h-12 text-lg font-semibold"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 w-5 h-5 animate-spin" />
-                    Testing System...
-                  </>
-                ) : (
-                  <>
-                    <WhatsAppIcon className="mr-2 w-5 h-5" />
-                    Test WhatsApp System
-                  </>
-                )}
-              </Button>
-            
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-12 sm:py-16 lg:py-20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
-            <div className="col-span-2 md:col-span-1 space-y-6">
-              <Logo variant="minimal" className="text-left" />
-              <p className="text-gray-600 max-w-md leading-relaxed flex items-start gap-2">
-                <WhatsAppIcon className="w-5 h-5 mt-1 text-green-500 flex-shrink-0" />
-                BeepBite helps restaurants stop serving cold food with instant WhatsApp notifications 
-                and zero setup costs.
-              </p>
+              
+              <div>
+                <h4 className="font-bold mb-6 text-lg text-gray-900">Product</h4>
+                <ul className="space-y-3 text-gray-600">
+                  <li><button onClick={() => scrollToSection('features')} className="hover:text-orange-500 transition-colors text-left font-medium">Features</button></li>
+                  <li><button onClick={() => scrollToSection('how-it-works')} className="hover:text-orange-500 transition-colors text-left font-medium">How It Works</button></li>
+                  <li><button onClick={() => scrollToSection('testimonials')} className="hover:text-orange-500 transition-colors text-left font-medium">Reviews</button></li>
+                  <li><button onClick={() => scrollToSection('get-started')} className="hover:text-orange-500 transition-colors text-left font-medium">Demo</button></li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-bold mb-6 text-lg text-gray-900">Navigation</h4>
+                <ul className="space-y-3 text-gray-600">
+                  <li><button onClick={() => scrollToSection('home')} className="hover:text-orange-500 transition-colors text-left font-medium">Home</button></li>
+                  <li><button onClick={() => scrollToSection('benefits')} className="hover:text-orange-500 transition-colors text-left font-medium">Benefits</button></li>
+                  <li><button onClick={() => scrollToSection('support')} className="hover:text-orange-500 transition-colors text-left font-medium">Support</button></li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-bold mb-6 text-lg text-gray-900">Resources</h4>
+                <ul className="space-y-3 text-gray-600">
+                  <li><a href="/docs" className="hover:text-orange-500 transition-colors font-medium">Documentation</a></li>
+                  <li><a href="/docs/privacy" className="hover:text-orange-500 transition-colors font-medium">Privacy Policy</a></li>
+                  <li><a href="/docs/terms" className="hover:text-orange-500 transition-colors font-medium">Terms of Service</a></li>
+                  <li><a href="/docs/cookies" className="hover:text-orange-500 transition-colors font-medium">Cookie Policy</a></li>
+                </ul>
+              </div>
             </div>
             
-            <div>
-              <h4 className="font-bold mb-6 text-lg text-gray-900">Product</h4>
-              <ul className="space-y-3 text-gray-600">
-                <li><button onClick={() => scrollToSection('features')} className="hover:text-orange-500 transition-colors text-left">Features</button></li>
-                <li><button onClick={() => scrollToSection('how-it-works')} className="hover:text-orange-500 transition-colors text-left">How It Works</button></li>
-                <li><button onClick={() => scrollToSection('testimonials')} className="hover:text-orange-500 transition-colors text-left">Reviews</button></li>
-                <li><button onClick={() => scrollToSection('get-started')} className="hover:text-orange-500 transition-colors text-left">Demo</button></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-bold mb-6 text-lg text-gray-900">Navigation</h4>
-              <ul className="space-y-3 text-gray-600">
-                <li><button onClick={() => scrollToSection('home')} className="hover:text-orange-500 transition-colors text-left">Home</button></li>
-                <li><button onClick={() => scrollToSection('stats')} className="hover:text-orange-500 transition-colors text-left">Stats</button></li>
-                <li><button onClick={() => scrollToSection('benefits')} className="hover:text-orange-500 transition-colors text-left">Benefits</button></li>
-                <li><button onClick={() => scrollToSection('support')} className="hover:text-orange-500 transition-colors text-left">Support</button></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-bold mb-6 text-lg text-gray-900">Resources</h4>
-              <ul className="space-y-3 text-gray-600">
-                <li><a href="/docs" className="hover:text-orange-500 transition-colors">Documentation</a></li>
-                <li><a href="/docs/privacy" className="hover:text-orange-500 transition-colors">Privacy Policy</a></li>
-                <li><a href="/docs/terms" className="hover:text-orange-500 transition-colors">Terms of Service</a></li>
-                <li><a href="/docs/cookies" className="hover:text-orange-500 transition-colors">Cookie Policy</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-200 mt-8 sm:mt-12 pt-6 sm:pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-              <p className="text-gray-500">
-                &copy; {new Date().getFullYear()} BeepBite Pty is a member of Exolution Technologies Pty
-              </p>
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => scrollToSection('home')} 
-                  className="text-gray-500 hover:text-orange-500 transition-colors text-sm"
-                >
-                  Back to Top
-                </button>
+            <div className="border-t border-gray-200 mt-12 pt-8">
+              <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <p className="text-gray-500 font-medium">
+                  &copy; {new Date().getFullYear()} BeepBite Pty is a member of Exolution Technologies Pty
+                </p>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => scrollToSection('home')} 
+                    className="text-gray-500 hover:text-orange-500 transition-colors font-semibold"
+                  >
+                    Back to Top
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
 
-      {/* Scroll to Top Button */}
-      <ScrollToTop />
-    </div>
-  );
-};
+        {/* Scroll to Top Button */}
+        <ScrollToTop />
+      </div>
+    );
+  };
 
-export default LandingPage;
+  export default LandingPage;

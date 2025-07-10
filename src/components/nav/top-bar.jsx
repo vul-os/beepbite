@@ -52,6 +52,9 @@ const TopBar = () => {
   const location = useLocation();
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
 
+  // Check if we're on the landing page
+  const isLandingPage = location.pathname === '/';
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -182,31 +185,57 @@ const TopBar = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-b border-beepbite-light-alt/50 shadow-lg">
-        <nav className="h-16 px-2 sm:px-3 lg:px-4">
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        isLandingPage 
+          ? 'bg-transparent backdrop-blur-0 border-b-0 shadow-none' 
+          : 'bg-white/95 backdrop-blur-lg border-b border-beepbite-light-alt/50 shadow-lg'
+      }`}>
+        <nav className="h-16 px-2 sm:px-3 lg:px-8">
           <div className="h-full flex items-center justify-between w-full">
             {/* Left: Logo and Navigation */}
             <div className="flex items-center gap-4 sm:gap-6">
-              <Link to="/" className="flex items-center">
+              <Link to="/" className="flex items-center group">
                 <div className="block sm:hidden">
-                  {/* Mobile logo - just icon */}
-                  <div className="w-10 h-10 bg-white rounded-lg shadow-sm flex items-center justify-center border border-gray-200">
+                  {/* Mobile logo - enhanced for landing */}
+                  <div className={`w-12 h-12 rounded-xl shadow-lg flex items-center justify-center border-2 transition-all duration-300 group-hover:scale-105 ${
+                    isLandingPage 
+                      ? 'bg-white/90 backdrop-blur-sm border-white/20 shadow-lg' 
+                      : 'bg-white border-gray-200 shadow-sm'
+                  }`}>
                     <img 
                       src="/icon.svg" 
                       alt="BeepBite" 
-                      className="w-6 h-6"
+                      className="w-7 h-7"
                     />
                   </div>
                 </div>
                 <div className="hidden sm:block">
-                  {/* Desktop logo - with text */}
-                  <Logo variant="minimal" />
+                  {/* Desktop logo - enhanced with transparent background */}
+                  <div className={`flex items-center p-3 rounded-2xl transition-all duration-300 group-hover:scale-105 ${
+                    isLandingPage 
+                      ? 'bg-white/10 backdrop-blur-md border border-white/20' 
+                      : 'bg-transparent'
+                  }`}>
+                    <div className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center border border-gray-200 ${
+                      isLandingPage ? 'bg-white/95' : 'bg-white'
+                    }`}>
+                      <img 
+                        src="/icon.svg" 
+                        alt="BeepBite" 
+                        className="w-6 h-6"
+                      />
+                    </div>
+                    <span className="ml-3 text-2xl font-bold">
+                      <span className="text-black">Beep</span>
+                      <span className="text-orange-500">Bite</span>
+                    </span>
+                  </div>
                 </div>
               </Link>
 
               {/* Desktop Navigation - Only show for authenticated users */}
               {user && (
-                <nav className="hidden lg:flex items-center space-x-2">
+                <nav className="hidden sm:flex items-center space-x-2">
                   {topNavigationItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = isActivePath(item.path);
@@ -216,14 +245,39 @@ const TopBar = () => {
                         key={item.path}
                         to={item.path}
                         className={cn(
-                          "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200",
+                          "flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200",
                           isActive 
                             ? "bg-orange-500 text-white shadow-lg" 
                             : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                         )}
                       >
-                        <Icon className="w-5 h-5" />
-                        {item.name}
+                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span className="hidden sm:inline">{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              )}
+
+              {/* Mobile Navigation - Show when no desktop nav */}
+              {user && (
+                <nav className="flex sm:hidden items-center space-x-1">
+                  {topNavigationItems.slice(0, 2).map((item) => {
+                    const Icon = item.icon;
+                    const isActive = isActivePath(item.path);
+                    
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={cn(
+                          "flex items-center justify-center w-8 h-8 rounded-lg text-xs font-semibold transition-all duration-200",
+                          isActive 
+                            ? "bg-orange-500 text-white shadow-lg" 
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
                       </Link>
                     );
                   })}
@@ -236,168 +290,172 @@ const TopBar = () => {
               {user ? (
                 <>
                   {/* Location Selector - Desktop */}
-                  <div className="hidden md:block">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          className="h-9 px-3 text-sm font-medium flex items-center gap-2 border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 hover:border-gray-300 focus-visible:bg-gray-100 focus-visible:text-gray-900 focus-visible:border-gray-300 data-[state=open]:bg-gray-100 data-[state=open]:text-gray-900 data-[state=open]:border-gray-300 transition-all duration-150 group"
-                        >
-                          <MapPin className="h-4 w-4 text-orange-500 transition-colors duration-150" />
-                          <span className="max-w-[140px] truncate">
-                            {activeLocation?.name || "Select Location"}
-                          </span>
-                          <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 group-focus-visible:text-gray-600 group-data-[state=open]:text-gray-600 transition-colors duration-150" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-64">
-                        <DropdownMenuLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Locations
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                          {locations?.length > 0 ? (
-                            locations.map((location) => (
-                              <DropdownMenuItem
-                                key={location.id}
-                                onClick={() => handleSwitchLocation(location.id)}
-                                className={cn(
-                                  "flex items-center gap-2 py-2",
-                                  activeLocation?.id === location.id ? "bg-blue-50 text-blue-900" : ""
-                                )}
-                              >
-                                <MapPin className="h-4 w-4 text-gray-500" />
+                  {!isLandingPage && (
+                    <div className="hidden md:block">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            className="h-9 px-3 text-sm font-medium flex items-center gap-2 border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 hover:border-gray-300 focus-visible:bg-gray-100 focus-visible:text-gray-900 focus-visible:border-gray-300 data-[state=open]:bg-gray-100 data-[state=open]:text-gray-900 data-[state=open]:border-gray-300 transition-all duration-150 group"
+                          >
+                            <MapPin className="h-4 w-4 text-orange-500 transition-colors duration-150" />
+                            <span className="max-w-[140px] truncate">
+                              {activeLocation?.name || "Select Location"}
+                            </span>
+                            <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 group-focus-visible:text-gray-600 group-data-[state=open]:text-gray-600 transition-colors duration-150" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64">
+                          <DropdownMenuLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Locations
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            {locations?.length > 0 ? (
+                              locations.map((location) => (
+                                <DropdownMenuItem
+                                  key={location.id}
+                                  onClick={() => handleSwitchLocation(location.id)}
+                                  className={cn(
+                                    "flex items-center gap-2 py-2",
+                                    activeLocation?.id === location.id ? "bg-blue-50 text-blue-900" : ""
+                                  )}
+                                >
+                                  <MapPin className="h-4 w-4 text-gray-500" />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{location.name}</span>
+                                    <span className="text-xs text-gray-500">Location</span>
+                                  </div>
+                                  {activeLocation?.id === location.id && (
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full ml-auto" />
+                                  )}
+                                </DropdownMenuItem>
+                              ))
+                            ) : (
+                              <DropdownMenuItem disabled className="flex items-center gap-2 py-2 text-gray-500">
+                                <MapPin className="h-4 w-4 text-gray-400" />
                                 <div className="flex flex-col">
-                                  <span className="font-medium">{location.name}</span>
-                                  <span className="text-xs text-gray-500">Location</span>
+                                  <span className="font-medium">No locations</span>
+                                  <span className="text-xs text-gray-400">Add a location to get started</span>
                                 </div>
-                                {activeLocation?.id === location.id && (
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full ml-auto" />
-                                )}
                               </DropdownMenuItem>
-                            ))
-                          ) : (
-                            <DropdownMenuItem disabled className="flex items-center gap-2 py-2 text-gray-500">
-                              <MapPin className="h-4 w-4 text-gray-400" />
-                              <div className="flex flex-col">
-                                <span className="font-medium">No locations</span>
-                                <span className="text-xs text-gray-400">Add a location to get started</span>
-                              </div>
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => navigate('/settings/location')}
-                          className="flex items-center gap-2 py-2 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-medium"
-                        >
-                          <div className="w-4 h-4 rounded-sm bg-orange-100 flex items-center justify-center">
-                            <Plus className="h-3 w-3 text-orange-600" />
-                          </div>
-                          <span className="font-medium">Manage Locations</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                            )}
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => navigate('/settings/location')}
+                            className="flex items-center gap-2 py-2 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-medium"
+                          >
+                            <div className="w-4 h-4 rounded-sm bg-orange-100 flex items-center justify-center">
+                              <Plus className="h-3 w-3 text-orange-600" />
+                            </div>
+                            <span className="font-medium">Manage Locations</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
 
                   {/* Location Selector - Mobile */}
-                  <div className="md:hidden">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          className="h-9 px-2 text-sm font-medium flex items-center gap-1 border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 hover:border-gray-300 focus-visible:bg-gray-100 focus-visible:text-gray-900 focus-visible:border-gray-300 data-[state=open]:bg-gray-100 data-[state=open]:text-gray-900 data-[state=open]:border-gray-300 transition-all duration-150 group"
+                  {!isLandingPage && (
+                    <div className="md:hidden">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            className="h-9 px-2 text-sm font-medium flex items-center gap-1 border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 hover:border-gray-300 focus-visible:bg-gray-100 focus-visible:text-gray-900 focus-visible:border-gray-300 data-[state=open]:bg-gray-100 data-[state=open]:text-gray-900 data-[state=open]:border-gray-300 transition-all duration-150 group"
+                          >
+                            <MapPin className="h-4 w-4 text-orange-500 transition-colors duration-150" />
+                            <span className="max-w-[80px] truncate text-xs">
+                              {activeLocation?.name || "Location"}
+                            </span>
+                            <ChevronDown className="h-3 w-3 text-gray-400 group-hover:text-gray-600 group-focus-visible:text-gray-600 group-data-[state=open]:text-gray-600 transition-colors duration-150" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent 
+                          align="end" 
+                          className="w-72 max-h-[70vh] overflow-y-auto"
+                          sideOffset={8}
                         >
-                          <MapPin className="h-4 w-4 text-orange-500 transition-colors duration-150" />
-                          <span className="max-w-[80px] truncate text-xs">
-                            {activeLocation?.name || "Location"}
-                          </span>
-                          <ChevronDown className="h-3 w-3 text-gray-400 group-hover:text-gray-600 group-focus-visible:text-gray-600 group-data-[state=open]:text-gray-600 transition-colors duration-150" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent 
-                        align="end" 
-                        className="w-72 max-h-[70vh] overflow-y-auto"
-                        sideOffset={8}
-                      >
-                        <DropdownMenuLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Locations
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                          {locations?.length > 0 ? (
-                            locations.map((location) => (
-                              <DropdownMenuItem
-                                key={location.id}
-                                onClick={() => handleSwitchLocation(location.id)}
-                                className={cn(
-                                  "flex items-center gap-3 py-3",
-                                  activeLocation?.id === location.id ? "bg-blue-50 text-blue-900" : ""
-                                )}
-                              >
-                                <div className={cn(
-                                  "w-8 h-8 rounded-lg flex items-center justify-center",
-                                  activeLocation?.id === location.id ? "bg-blue-500" : "bg-gray-100"
-                                )}>
-                                  <MapPin className={cn(
-                                    "w-4 h-4",
-                                    activeLocation?.id === location.id ? "text-white" : "text-gray-500"
-                                  )} />
+                          <DropdownMenuLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Locations
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            {locations?.length > 0 ? (
+                              locations.map((location) => (
+                                <DropdownMenuItem
+                                  key={location.id}
+                                  onClick={() => handleSwitchLocation(location.id)}
+                                  className={cn(
+                                    "flex items-center gap-3 py-3",
+                                    activeLocation?.id === location.id ? "bg-blue-50 text-blue-900" : ""
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                                    activeLocation?.id === location.id ? "bg-blue-500" : "bg-gray-100"
+                                  )}>
+                                    <MapPin className={cn(
+                                      "w-4 h-4",
+                                      activeLocation?.id === location.id ? "text-white" : "text-gray-500"
+                                    )} />
+                                  </div>
+                                  <div className="flex flex-col flex-1">
+                                    <span className="font-medium">{location.name}</span>
+                                    <span className="text-xs text-gray-500">Location</span>
+                                  </div>
+                                  {activeLocation?.id === location.id && (
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                  )}
+                                </DropdownMenuItem>
+                              ))
+                            ) : (
+                              <DropdownMenuItem disabled className="flex items-center gap-3 py-3 text-gray-500">
+                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                                  <MapPin className="w-4 h-4 text-gray-400" />
                                 </div>
                                 <div className="flex flex-col flex-1">
-                                  <span className="font-medium">{location.name}</span>
-                                  <span className="text-xs text-gray-500">Location</span>
+                                  <span className="font-medium">No locations</span>
+                                  <span className="text-xs text-gray-400">Add a location to get started</span>
                                 </div>
-                                {activeLocation?.id === location.id && (
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                                )}
                               </DropdownMenuItem>
-                            ))
-                          ) : (
-                            <DropdownMenuItem disabled className="flex items-center gap-3 py-3 text-gray-500">
-                              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                                <MapPin className="w-4 h-4 text-gray-400" />
-                              </div>
-                              <div className="flex flex-col flex-1">
-                                <span className="font-medium">No locations</span>
-                                <span className="text-xs text-gray-400">Add a location to get started</span>
-                              </div>
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => navigate('/settings/location')}
-                          className="flex items-center gap-3 py-3 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-medium"
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-orange-600" />
-                          </div>
-                          <div className="flex flex-col flex-1">
-                            <span className="font-medium">Manage Locations</span>
-                            <span className="text-xs text-orange-500">Location settings</span>
-                          </div>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                            )}
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => navigate('/settings/location')}
+                            className="flex items-center gap-3 py-3 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-medium"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                              <Plus className="w-4 h-4 text-orange-600" />
+                            </div>
+                            <div className="flex flex-col flex-1">
+                              <span className="font-medium">Manage Locations</span>
+                              <span className="text-xs text-orange-500">Location settings</span>
+                            </div>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
 
-                  {/* Nice Round Menu Button */}
+                  {/* User Menu Button - Always show when authenticated */}
                   <Button 
                     variant="ghost" 
-                    className="h-12 w-12 rounded-full p-0 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg bg-white relative group"
+                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-full p-0 border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg bg-white relative group"
                     aria-label="Open navigation menu"
                     onClick={toggleSideNav}
                   >
-                    <div className="w-11 h-11 rounded-full beepbite-gradient flex items-center justify-center relative">
-                      <Avatar className="h-9 w-9 border-2 border-white/30">
-                        <AvatarFallback className="bg-transparent text-white font-bold text-sm">
+                    <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-full beepbite-gradient flex items-center justify-center relative">
+                      <Avatar className="h-6 w-6 sm:h-9 sm:w-9 border-2 border-white/30">
+                        <AvatarFallback className="bg-transparent text-white font-bold text-xs sm:text-sm">
                           {getUserInitials()}
                         </AvatarFallback>
                       </Avatar>
                       
                       {/* Menu indicator dots */}
-                      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center shadow-sm group-hover:border-orange-300 transition-all duration-200">
+                      <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center shadow-sm group-hover:border-orange-300 transition-all duration-200">
                         <div className="flex flex-col gap-0.5">
                           <div className="w-0.5 h-0.5 bg-gray-600 rounded-full"></div>
                           <div className="w-0.5 h-0.5 bg-gray-600 rounded-full"></div>
@@ -416,13 +474,21 @@ const TopBar = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/signin')}
-                    className="text-sm font-semibold text-gray-700 bg-white hover:text-white hover:bg-orange-500 focus-visible:text-white focus-visible:bg-orange-500 px-4 py-2 rounded-xl transition-all duration-150"
+                    className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all duration-300 ${
+                      isLandingPage 
+                        ? 'text-gray-900 bg-white/90 backdrop-blur-sm border border-white/20 hover:text-gray-900 hover:bg-white hover:border-white/30' 
+                        : 'text-gray-700 bg-white hover:text-white hover:bg-orange-500 focus-visible:text-white focus-visible:bg-orange-500'
+                    }`}
                   >
                     Sign In
                   </Button>
                   <Button
                     size="sm"
-                    className="beepbite-gradient text-white font-semibold px-4 py-2 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-150"
+                    className={`font-semibold px-4 py-2 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 ${
+                      isLandingPage 
+                        ? 'bg-white text-orange-600 hover:bg-white/95' 
+                        : 'beepbite-gradient text-white'
+                    }`}
                     onClick={() => navigate('/signup')}
                   >
                     Get Started
@@ -434,7 +500,7 @@ const TopBar = () => {
         </nav>
       </header>
 
-      {/* Side Navigation */}
+      {/* Side Navigation - only show when not on landing page */}
       {user && isSideNavOpen && (
         <>
           {/* Backdrop */}

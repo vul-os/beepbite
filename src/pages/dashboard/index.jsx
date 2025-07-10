@@ -26,8 +26,8 @@ import StatusFilters from './status-filters';
 import InviteBanner from './invite-banner';
 
 const Dashboard = () => {
-  const { user, pendingInvites, acceptInvite, rejectInvite } = useAuth();
-  const [bites, setBites] = useState([]);
+  const { user, pendingInvites, acceptInvite, rejectInvite, activeOrganization, activeLocation } = useAuth();
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('current');
@@ -35,7 +35,7 @@ const Dashboard = () => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [currentBistro, setCurrentBistro] = useState(null);
-  const [confirmCompleteDialog, setConfirmCompleteDialog] = useState({ isOpen: false, biteId: null, orderNumber: '' });
+  const [confirmCompleteDialog, setConfirmCompleteDialog] = useState({ isOpen: false, orderId: null, orderNumber: '' });
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Custom function to format time with seconds always visible
@@ -112,71 +112,63 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchCurrentBistro();
-  }, [user]);
+    if (activeOrganization) {
+      setCurrentBistro(activeOrganization);
+    }
+  }, [activeOrganization]);
 
   useEffect(() => {
-    if (currentBistro) {
-      fetchBites();
+    if (activeLocation) {
+      fetchOrders();
     }
-  }, [currentBistro]);
+  }, [activeLocation]);
 
-  const fetchCurrentBistro = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('bistro_members')
-        .select(`
-          bistro_id,
-          role,
-          bistros (
-            id,
-            name
-          )
-        `)
-        .eq('profile_id', user.id)
-        .single();
-
-      if (error) throw error;
-      setCurrentBistro(data.bistros);
-    } catch (error) {
-      console.error('Error fetching bistro:', error);
-    }
-  };
-
-  const fetchBites = async () => {
-    if (!currentBistro) return;
+  const fetchOrders = async () => {
+    if (!activeLocation) return;
     
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('bites')
-        .select('*')
-        .eq('bistro_id', currentBistro.id)
+        .from('orders')
+        .select(`
+          *,
+          customers (
+            whatsapp_number,
+            first_name,
+            last_name
+          ),
+          order_details (
+            ready_at,
+            estimated_prep_time,
+            notes
+          )
+        `)
+        .eq('location_id', activeLocation.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      setBites(data || []);
+      setOrders(data || []);
     } catch (error) {
-      console.error('Error fetching bites:', error);
+      console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateBiteStatus = async (biteId, newStatus) => {
+  const updateOrderStatus = async (orderId, newStatus) => {
     try {
       // Update local state immediately for better UX
-      setBites(prev => prev.map(bite => 
-        bite.id === biteId 
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
           ? { 
-              ...bite, 
+              ...order, 
               status: newStatus,
-              order_ready_at: newStatus === 'ready' ? new Date().toISOString() : bite.order_ready_at
+              order_details: newStatus === 'ready' 
+                ? { ...order.order_details, ready_at: new Date().toISOString() }
+                : order.order_details
             }
-          : bite
+          : order
       ));
 
       const updateData = { 
@@ -184,39 +176,49 @@ const Dashboard = () => {
         updated_at: new Date().toISOString()
       };
 
-      if (newStatus === 'ready') {
-        updateData.order_ready_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('bites')
+      // Update orders table
+      const { error: orderError } = await supabase
+        .from('orders')
         .update(updateData)
-        .eq('id', biteId);
+        .eq('id', orderId);
       
-      if (error) throw error;
+      if (orderError) throw orderError;
+
+      // Update order_details table for ready status
+      if (newStatus === 'ready') {
+        const { error: detailsError } = await supabase
+          .from('order_details')
+          .update({ ready_at: new Date().toISOString() })
+          .eq('order_id', orderId);
+        
+        if (detailsError) {
+          console.warn('Could not update order_details ready_at:', detailsError);
+        }
+      }
     } catch (error) {
-      console.error('Error updating bite status:', error);
+      console.error('Error updating order status:', error);
       // Revert optimistic update on error
-      fetchBites();
+      fetchOrders();
     }
   };
 
-  const handleCompleteOrder = (biteId, orderNumber) => {
-    setConfirmCompleteDialog({ isOpen: true, biteId, orderNumber });
+  const handleCompleteOrder = (orderId, orderNumber) => {
+    setConfirmCompleteDialog({ isOpen: true, orderId, orderNumber });
   };
 
   const confirmCompleteOrder = () => {
-    updateBiteStatus(confirmCompleteDialog.biteId, 'completed');
-    setConfirmCompleteDialog({ isOpen: false, biteId: null, orderNumber: '' });
+    updateOrderStatus(confirmCompleteDialog.orderId, 'completed');
+    setConfirmCompleteDialog({ isOpen: false, orderId: null, orderNumber: '' });
   };
 
   const cancelCompleteOrder = () => {
-    setConfirmCompleteDialog({ isOpen: false, biteId: null, orderNumber: '' });
+    setConfirmCompleteDialog({ isOpen: false, orderId: null, orderNumber: '' });
   };
 
-  const filteredBites = bites.filter(bite => {
-    const matchesSearch = bite.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bite.whatsapp_number.includes(searchTerm);
+  const filteredOrders = orders.filter(order => {
+    const customerWhatsapp = order.customers?.whatsapp_number || '';
+    const matchesSearch = order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customerWhatsapp.includes(searchTerm);
     
     // If searching, show all matching results regardless of status filter
     if (searchTerm.trim()) {
@@ -227,25 +229,25 @@ const Dashboard = () => {
     let matchesStatus = false;
     switch (statusFilter) {
       case 'current':
-        matchesStatus = ['pending', 'preparing', 'ready'].includes(bite.status);
+        matchesStatus = ['pending', 'confirmed', 'preparing', 'ready'].includes(order.status);
         break;
       case 'all':
         matchesStatus = true;
         break;
       default:
-        matchesStatus = bite.status === statusFilter;
+        matchesStatus = order.status === statusFilter;
     }
     
     return matchesStatus;
   });
 
   const statusCounts = {
-    current: bites.filter(b => ['pending', 'preparing', 'ready'].includes(b.status)).length,
-    all: bites.length,
-    pending: bites.filter(b => b.status === 'pending').length,
-    preparing: bites.filter(b => b.status === 'preparing').length,
-    ready: bites.filter(b => b.status === 'ready').length,
-    completed: bites.filter(b => b.status === 'completed').length,
+    current: orders.filter(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status)).length,
+    all: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    preparing: orders.filter(o => o.status === 'preparing').length,
+    ready: orders.filter(o => o.status === 'ready').length,
+    completed: orders.filter(o => o.status === 'completed').length,
   };
 
   if (loading) {
@@ -289,7 +291,7 @@ const Dashboard = () => {
           className="hidden sm:flex beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-300 h-14 px-6"
         >
           <Plus className="w-5 h-5 mr-2" />
-          Create
+          Create Order
         </Button>
       </div>
 
@@ -311,7 +313,7 @@ const Dashboard = () => {
 
       {/* Orders Grid */}
       <div className="space-y-4">
-        {filteredBites.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <Card className="p-8 text-center">
             <div className="space-y-4">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
@@ -327,7 +329,7 @@ const Dashboard = () => {
                     : statusFilter === 'current'
                       ? 'No active orders at the moment'
                       : statusFilter === 'all'
-                        ? 'Create your first bite to get started'
+                        ? 'Create your first order to get started'
                         : `No ${statusFilter} orders found`
                   }
                 </p>
@@ -338,19 +340,19 @@ const Dashboard = () => {
                   className="beepbite-gradient text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Create First Bite
+                  Create First Order
                 </Button>
               )}
             </div>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredBites.map((bite) => (
+            {filteredOrders.map((order) => (
               <BiteCard
-                key={bite.id}
-                bite={bite}
+                key={order.id}
+                bite={order}
                 currentTime={currentTime}
-                onStatusUpdate={updateBiteStatus}
+                onStatusUpdate={updateOrderStatus}
                 onCompleteOrder={handleCompleteOrder}
                 formatTimeWithSeconds={formatTimeWithSeconds}
               />
@@ -359,11 +361,11 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Create Bite Modal */}
+      {/* Create Order Modal */}
       <CreateBiteModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onBiteCreated={fetchBites}
+        onOrderCreated={fetchOrders}
       />
 
       {/* Complete Order Confirmation Dialog */}
