@@ -1,376 +1,449 @@
-# User Guide
+# Complete POS System User Guide
 
-Welcome to BeepBite! This guide will help you get the most out of your restaurant order management system.
+Welcome to BeepBite! This guide will help you use your complete restaurant Point of Sale (POS) system, including all traditional POS features plus enhanced WhatsApp capabilities.
 
 ## Getting Started
 
-### Creating Your Account
+### Setting Up Your POS System
 
-1. **Sign Up**:
-   - Visit your BeepBite instance or demo
-   - Click "Start Free Trial"
-   - Enter your email and create a password
-   - Verify your email address
+1. **Restaurant Registration**:
+   - Complete your restaurant profile setup
+   - Enter business information, address, and tax details
+   - Upload restaurant logo and branding
+   - Configure operating hours and service areas
 
-2. **Restaurant Setup**:
-   - Complete your restaurant profile
-   - Add restaurant name, address, and contact information
-   - Upload your restaurant logo
-   - Set operating hours
+2. **POS Configuration**:
+   - Set up payment methods (card, cash, contactless)
+   - Configure tax rates and service charges
+   - Connect hardware (cash drawer, receipt printer, kitchen display)
+   - Test payment processing
+
+3. **Staff Setup**:
+   - Create staff accounts with appropriate roles
+   - Set up PINs and access permissions
+   - Configure shift schedules
+   - Train staff on both POS and WhatsApp features
 
 ### Dashboard Overview
 
-The dashboard provides a real-time overview of your restaurant's operations:
+Your POS dashboard provides real-time oversight of restaurant operations:
 
-- **Active Orders**: Current orders being prepared
-- **Today's Statistics**: Revenue, order count, average prep time
-- **Recent Activity**: Latest orders and updates
-- **Quick Actions**: Common tasks and shortcuts
+- **Live Orders**: All orders (POS + WhatsApp) in unified queue
+- **Daily Sales**: Revenue from both in-restaurant and WhatsApp orders
+- **Inventory Status**: Real-time stock levels and alerts
+- **Staff Activity**: Current shifts and performance metrics
+- **Payment Summary**: Daily transaction totals by payment method
 
-## Order Management
+## Traditional POS Operations
 
-### Receiving Orders
+### Taking In-Restaurant Orders
 
-Orders appear in real-time on your dashboard:
+#### Order Entry Process
+1. **New Transaction**: Start new order on POS terminal
+2. **Table Assignment**: Assign table number for dine-in orders
+3. **Menu Selection**: Add items from digital menu
+4. **Modifications**: Apply customizations, add-ons, special instructions
+5. **Order Review**: Verify order details with customer
+6. **Send to Kitchen**: Transmit order to kitchen display/printer
 
-1. **New Order Notification**:
-   - WhatsApp notification sent immediately
-   - Visual and audio alerts in the app
-   - Order details displayed prominently
+#### Payment Processing
+1. **Calculate Total**: Apply taxes, service charges, tips
+2. **Payment Method**: Select cash, card, or contactless payment
+3. **Process Payment**: Complete transaction securely
+4. **Receipt**: Print customer receipt
+5. **Close Transaction**: Finalize order in system
 
-2. **Order Information**:
-   - Customer name and contact
-   - Order items and quantities
-   - Special instructions or notes
-   - Estimated preparation time
-   - Order total and payment status
+#### Table Management
+- Assign orders to specific tables
+- Track order status by table
+- Handle multiple orders per table
+- Process split bills
+- Manage table turnover
 
-### Order Workflow
+### Kitchen Operations
 
-#### 1. Order Confirmation
-- Review order details
-- Confirm availability of items
-- Click "Accept Order" or "Decline" if unable to fulfill
+#### Order Display
+- View all orders (POS + WhatsApp) in one kitchen display
+- Track preparation times and priorities
+- Update order status as cooking progresses
+- Coordinate between dine-in and pickup orders
 
-#### 2. Preparation Tracking
-- Move order to "Preparing" status
-- Set estimated completion time
-- Update status as needed (e.g., "Almost Ready")
+#### Status Updates
+- Mark orders as "Preparing," "Almost Ready," "Ready"
+- Automatic notifications sent to customers for pickup orders
+- Kitchen timing reports and efficiency metrics
+- Inventory usage tracking
 
-#### 3. Order Completion
-- Mark order as "Ready for Pickup/Delivery"
-- Customer receives automatic notification
-- Complete order when handed over
+### Inventory Management
 
-#### 4. Order History
-- All completed orders stored in history
-- Search and filter past orders
-- Generate reports and analytics
-
-### Order Status Management
-
-Available order statuses:
-
-- **Pending**: Newly received, awaiting confirmation
-- **Confirmed**: Accepted and queued for preparation
-- **Preparing**: Currently being prepared in kitchen
-- **Almost Ready**: Nearly complete, customer notified
-- **Ready**: Completed and ready for pickup/delivery
-- **Completed**: Successfully delivered to customer
-- **Cancelled**: Order cancelled (with reason)
-
-## Team Management
-
-### User Roles
-
-#### Owner
-- Full access to all features
-- Can invite and manage team members
-- Access to financial reports and settings
-- Can modify restaurant information
-
-#### Manager
-- Access to order management and reporting
-- Can manage staff schedules and assignments
-- Cannot modify core restaurant settings
-- Can view financial summaries
-
-#### Staff/Kitchen
-- Can view and update order statuses
-- Limited to order fulfillment tasks
-- Cannot access financial information
-- Cannot modify user settings
-
-### Inviting Team Members
-
-1. Go to **Settings > Team Management**
-2. Click **"Invite Team Member"**
-3. Enter email address and select role
-4. Add personal message (optional)
-5. Send invitation
-
-Team members receive an email invitation with setup instructions.
-
-### Managing Permissions
-
-Customize what each role can access:
-
-- **Order Management**: View, update, complete orders
-- **Reports**: Access to analytics and reports
-- **Settings**: Modify restaurant and app settings
-- **Team Management**: Invite and manage other users
-- **Financial Data**: View revenue and payment information
-
-## WhatsApp Integration
-
-### Setup WhatsApp Notifications
-
-1. **Connect Your Number**:
-   - Go to Settings > Notifications
-   - Enter your WhatsApp Business number
-   - Verify with SMS code
-   - Test connection
-
-2. **Notification Preferences**:
-   - New orders
-   - Order status updates
-   - Customer messages
-   - Daily summaries
-   - System alerts
-
-### WhatsApp Features
-
-#### Order Notifications
-- Instant alerts for new orders
-- Order details formatted for easy reading
-- Quick action buttons (Accept/Decline)
-
-#### Customer Communication
-- Respond to customer inquiries
-- Send order status updates
-- Share estimated completion times
-
-#### Team Notifications
-- Broadcast updates to all team members
-- Role-based notification filtering
-- Emergency alerts and announcements
-
-## Analytics and Reporting
-
-### Dashboard Analytics
-
-Real-time metrics displayed on dashboard:
-
-- **Today's Revenue**: Total sales for current day
-- **Order Count**: Number of orders received
-- **Average Order Value**: Revenue divided by order count
-- **Peak Hours**: Busiest times of day
-- **Preparation Time**: Average time to complete orders
-
-### Detailed Reports
-
-Access comprehensive reports in the Reports section:
-
-#### Sales Reports
-- Daily, weekly, monthly revenue
-- Order volume trends
-- Product performance
-- Payment method breakdown
-
-#### Operational Reports
-- Order fulfillment times
-- Peak hour analysis
-- Staff performance metrics
-- Customer satisfaction scores
-
-#### Customer Reports
-- New vs. returning customers
-- Customer lifetime value
-- Geographic distribution
-- Order frequency patterns
-
-### Exporting Data
-
-- Export reports as PDF or Excel
-- Schedule automated email reports
-- Download raw data for external analysis
-- Integration with accounting software
-
-## Customer Reviews
-
-### Review Collection
-
-BeepBite automatically collects customer feedback:
-
-1. **Post-Order Survey**: Sent after order completion
-2. **Rating System**: 1-5 star ratings for food, service, speed
-3. **Written Feedback**: Optional comments from customers
-4. **Photo Reviews**: Customers can attach photos
-
-### Managing Reviews
-
-#### Review Dashboard
-- Overall rating average
-- Recent reviews and responses
-- Trending keywords and topics
-- Response rate tracking
-
-#### Responding to Reviews
-- Reply to customer feedback
-- Address concerns professionally
-- Thank customers for positive reviews
-- Set up automated response templates
-
-#### Review Analytics
-- Rating trends over time
-- Common complaint categories
-- Improvement suggestions
-- Comparison with industry benchmarks
-
-## Settings and Customization
-
-### Restaurant Settings
-
-#### Basic Information
-- Restaurant name and description
-- Address and contact details
-- Operating hours and days
-- Cuisine type and specialties
+#### Stock Control
+1. **Item Setup**: Configure menu items with inventory tracking
+2. **Receiving**: Log new inventory deliveries
+3. **Usage Tracking**: Automatic deduction with each sale
+4. **Low Stock Alerts**: Notifications when items run low
+5. **Reordering**: Generate purchase orders for suppliers
 
 #### Menu Management
-- Add/edit menu items
-- Set item availability
-- Update prices and descriptions
-- Categorize menu items
+- Add/edit menu items and categories
+- Set pricing, modifiers, and availability
+- Configure prep times and kitchen routing
+- Manage seasonal and promotional items
+- Track item profitability
 
-#### Payment Settings
-- Accepted payment methods
-- Service charges and taxes
-- Delivery fees and minimums
-- Tip suggestions
+### Staff Management
 
-### Notification Settings
+#### User Roles and Permissions
 
-#### WhatsApp Configuration
-- Phone number verification
-- Message templates
-- Auto-response settings
-- Notification timing preferences
+**Owner Role**
+- Full POS system access
+- Financial reports and settings
+- Staff management and payroll
+- Inventory and supplier management
+- WhatsApp integration settings
 
-#### Email Notifications
-- Order confirmations
-- Daily/weekly summaries
-- System updates
-- Marketing communications
+**Manager Role**
+- Daily operations management
+- Staff scheduling and supervision
+- Order oversight (POS + WhatsApp)
+- Basic inventory management
+- Customer service resolution
 
-#### In-App Notifications
-- Sound alerts
-- Desktop notifications
-- Badge counters
-- Notification history
+**Cashier Role**
+- Order entry and payment processing
+- Customer interaction and service
+- Basic inventory lookup
+- Order modification and refunds
+- WhatsApp order coordination
 
-### Account Management
+**Kitchen Staff Role**
+- Order fulfillment and status updates
+- Kitchen display management
+- Inventory usage reporting
+- Food safety compliance
+- WhatsApp pickup notifications
 
-#### Profile Settings
-- Update personal information
-- Change password
-- Two-factor authentication
-- Privacy preferences
+#### Staff Functions
+- Time clock integration
+- Performance tracking
+- Commission and tip management
+- Training module access
+- Communication tools
 
-#### Billing and Subscription
-- View current plan
-- Upgrade/downgrade subscription
-- Payment method management
-- Billing history
+## WhatsApp Enhanced Features
 
-## Mobile Usage
+### WhatsApp Order Management
 
-### Mobile Web App
+#### Receiving WhatsApp Orders
+1. **Order Notification**: Instant alert when customer places WhatsApp order
+2. **Order Review**: View order details in main POS system
+3. **Accept/Decline**: Confirm order availability and acceptance
+4. **Kitchen Integration**: WhatsApp orders appear in same kitchen queue
+5. **Customer Communication**: Send confirmation and updates via WhatsApp
 
-BeepBite works seamlessly on mobile devices:
+#### Processing Remote Orders
+- WhatsApp orders integrate seamlessly with POS workflow
+- Same inventory tracking as in-restaurant orders
+- Unified order numbering system
+- Consistent preparation processes
+- Payment processing for remote orders
 
-- **Responsive Design**: Optimized for phones and tablets
-- **Touch-Friendly**: Large buttons and easy navigation
-- **Offline Support**: Basic functionality without internet
-- **Push Notifications**: Mobile alerts for orders
+### Digital Restaurant Pagers
 
-### Best Practices for Mobile
+#### Replacing Traditional Pagers
+- No more buzzer systems or lost pagers
+- Customers receive WhatsApp notifications when food is ready
+- Professional pickup notifications with restaurant branding
+- Reduced food waste from unclaimed orders
+- Better customer experience with phone notifications
 
-1. **Add to Home Screen**: Create shortcut for quick access
-2. **Enable Notifications**: Allow browser notifications
-3. **Keep App Open**: For fastest order response times
-4. **Use Landscape Mode**: Better view for order details
+#### Notification Management
+1. **Auto-Notifications**: System sends notifications when orders marked ready
+2. **Custom Messages**: Personalize pickup notifications
+3. **Timing Control**: Set pickup time windows
+4. **Follow-Up**: Send reminders for uncollected orders
+5. **Customer Feedback**: Request reviews after pickup
 
-## Tips for Success
+### WhatsApp Customer Service
 
-### Order Management Best Practices
+#### Two-Way Communication
+- Customers can ask questions via WhatsApp
+- Staff respond through POS system interface
+- Handle special requests and modifications
+- Resolve issues and complaints
+- Provide order status updates
 
-1. **Respond Quickly**: Accept orders within 2-3 minutes
-2. **Accurate Timing**: Set realistic preparation times
-3. **Regular Updates**: Keep customers informed of delays
-4. **Quality Control**: Check orders before marking as ready
+#### Customer Management
+- Track WhatsApp customer profiles
+- Order history and preferences
+- Loyalty program integration
+- Targeted promotions and offers
+- Customer retention analytics
 
-### Customer Service Excellence
+## Dual Channel Operations
 
-1. **Professional Communication**: Use clear, friendly language
-2. **Proactive Updates**: Notify customers of any issues
-3. **Exceed Expectations**: Aim for faster than estimated times
-4. **Follow Up**: Check customer satisfaction post-delivery
+### Managing Both Order Types
 
-### Team Coordination
+#### Unified Order Queue
+- All orders (POS + WhatsApp) appear in single queue
+- Prioritize orders based on timing and type
+- Balance kitchen workload between channels
+- Track preparation times across all orders
+- Optimize staff allocation
 
-1. **Clear Roles**: Define responsibilities for each team member
-2. **Regular Training**: Keep staff updated on system features
-3. **Communication**: Use team notifications for coordination
-4. **Performance Monitoring**: Review metrics and provide feedback
+#### Channel-Specific Workflows
+- **POS Orders**: Traditional restaurant service workflow
+- **WhatsApp Orders**: Remote ordering with pickup/delivery
+- **Integrated Timing**: Coordinate preparation across channels
+- **Customer Communication**: Appropriate messaging for each channel
+
+### Performance Optimization
+
+#### Load Balancing
+- Manage peak hours across both channels
+- Set capacity limits for WhatsApp orders during busy periods
+- Dynamic pricing for demand management
+- Staff allocation optimization
+- Kitchen workflow efficiency
+
+## Reports and Analytics
+
+### Traditional POS Reports
+
+#### Daily Operations
+- Sales summary by payment method
+- Item performance and popularity
+- Staff productivity and transactions
+- Table turnover and service times
+- Cash reconciliation and till management
+
+#### Financial Reports
+- Daily, weekly, monthly revenue
+- Profit margins by item and category
+- Cost of goods sold (COGS)
+- Tax reporting and compliance
+- Payment processing fees
+
+#### Inventory Reports
+- Stock levels and movement
+- Waste tracking and analysis
+- Supplier performance
+- Cost analysis and trends
+- Reorder recommendations
+
+### WhatsApp-Enhanced Analytics
+
+#### Multi-Channel Performance
+- Revenue comparison: POS vs WhatsApp orders
+- Customer acquisition by channel
+- Order value analysis by source
+- Peak hour patterns across channels
+- Channel-specific customer behavior
+
+#### Customer Insights
+- WhatsApp customer demographics
+- Ordering patterns and preferences
+- Loyalty program effectiveness
+- Customer satisfaction scores
+- Retention and churn analysis
+
+### Business Intelligence
+
+#### Performance Dashboards
+- Real-time KPI monitoring
+- Custom report generation
+- Trend analysis and forecasting
+- Competitive benchmarking
+- Goal tracking and alerts
+
+## Customer Experience Management
+
+### Review and Feedback System
+
+#### Automated Review Collection
+- Post-order feedback requests via WhatsApp
+- In-restaurant feedback collection
+- Review aggregation and analysis
+- Response management tools
+- Reputation monitoring
+
+#### Customer Satisfaction
+- Rating trends and analysis
+- Issue identification and resolution
+- Service improvement recommendations
+- Staff performance feedback
+- Customer loyalty tracking
+
+### Loyalty and Retention
+
+#### Loyalty Program Management
+- Points-based reward systems
+- Tier-based customer benefits
+- Special promotions and offers
+- Birthday and anniversary rewards
+- Referral program tracking
+
+#### Customer Engagement
+- Personalized marketing campaigns
+- Targeted promotional offers
+- Customer preference tracking
+- Behavioral analysis and insights
+- Communication optimization
+
+## Advanced POS Features
+
+### Multi-Location Management
+- Centralized management for multiple locations
+- Location-specific reporting and analytics
+- Inventory transfer between locations
+- Staff management across locations
+- Consolidated financial reporting
+
+### Integration Capabilities
+- Accounting software integration
+- Third-party delivery platform connections
+- Supplier system integration
+- Marketing platform connections
+- Custom API integrations
+
+### Customization Options
+
+#### System Configuration
+- Custom workflows and processes
+- Branded interface and receipts
+- Role-based dashboard customization
+- Report template customization
+- Notification preferences
+
+#### Menu and Pricing
+- Dynamic pricing capabilities
+- Happy hour and promotional pricing
+- Combo meal and bundle creation
+- Modifier and add-on management
+- Seasonal menu configurations
+
+## Mobile and Remote Management
+
+### Mobile POS Capabilities
+- Tablet-based POS terminals
+- Mobile payment processing
+- Offline mode operation
+- Real-time synchronization
+- Staff mobile access
+
+### Remote Management
+- Cloud-based system access
+- Remote monitoring and alerts
+- Off-site report generation
+- Mobile staff management
+- Emergency system access
+
+## Security and Compliance
+
+### POS Security
+- PCI DSS compliance for payment processing
+- User authentication and access control
+- Transaction audit trails
+- Data encryption and protection
+- Regular security updates
+
+### Data Management
+- GDPR compliance for customer data
+- Backup and recovery systems
+- Data retention policies
+- Privacy controls and consent
+- Secure API communications
 
 ## Troubleshooting
 
-### Common Issues
+### Common POS Issues
 
-#### Orders Not Appearing
-- Check internet connection
-- Refresh the page/app
-- Verify WhatsApp integration
-- Contact support if persistent
+#### Payment Processing Problems
+- Verify payment terminal connectivity
+- Check internet connection for card processing
+- Review payment method configurations
+- Test with different cards or payment types
+- Contact payment processor if issues persist
 
-#### WhatsApp Not Working
-- Verify phone number format
-- Check message templates
-- Test with different phone
-- Review API configuration
+#### Inventory Discrepancies
+- Perform physical inventory counts
+- Review recent transactions and adjustments
+- Check for unreported waste or theft
+- Verify supplier delivery entries
+- Reconcile with purchase orders
 
-#### Slow Performance
-- Clear browser cache
-- Check internet speed
-- Close unnecessary tabs
-- Update to latest browser version
+#### System Performance Issues
+- Check internet connectivity
+- Clear system cache and temporary files
+- Update software to latest version
+- Review hardware requirements
+- Monitor system resource usage
 
-For more detailed troubleshooting, see [Troubleshooting Guide](troubleshooting.md).
+### WhatsApp Integration Issues
+
+#### Notifications Not Sending
+- Verify WhatsApp Business API connection
+- Check customer phone number format
+- Review message template compliance
+- Test with different phone numbers
+- Contact WhatsApp support if needed
+
+#### Order Synchronization Problems
+- Check internet connectivity
+- Verify API configurations
+- Review order status workflows
+- Test with sample orders
+- Contact technical support
+
+## Training and Best Practices
+
+### Staff Training
+
+#### POS System Training
+- Basic system navigation and functions
+- Order entry and payment processing
+- Inventory management procedures
+- Customer service protocols
+- Security and compliance requirements
+
+#### WhatsApp Feature Training
+- WhatsApp order processing
+- Customer communication best practices
+- Digital pager notifications
+- Two-way customer service
+- Integration with POS workflow
+
+### Best Practices
+
+#### Operational Excellence
+- Consistent order processing procedures
+- Regular inventory management
+- Staff performance monitoring
+- Customer service standards
+- Quality control processes
+
+#### Customer Service
+- Prompt order processing and communication
+- Professional WhatsApp messaging
+- Proactive issue resolution
+- Feedback collection and response
+- Continuous service improvement
 
 ## Getting Help
 
-### Support Channels
+### Support Resources
+- **Built-in Help**: Contextual help within POS system
+- **Documentation**: Comprehensive user guides and manuals
+- **Video Tutorials**: Step-by-step training videos
+- **Live Support**: Phone and WhatsApp support during business hours
+- **Community Forum**: User discussions and best practices
 
-- **Help Center**: Built-in help articles
-- **Email Support**: support@beepbite.com
-- **Live Chat**: Available during business hours
-- **Phone Support**: Available for premium plans
-
-### Resources
-
-- **Video Tutorials**: Step-by-step guides
-- **Community Forum**: User discussions and tips
-- **Feature Requests**: Suggest new features
-- **Status Page**: System status and updates
-
-### Training and Onboarding
-
-- **Free Setup Call**: Personal onboarding session
-- **Team Training**: Group training for staff
-- **Best Practices Guide**: Industry-specific tips
-- **Success Stories**: Learn from other restaurants
+### Training Services
+- **Initial Setup**: Free onboarding and system configuration
+- **Staff Training**: Group training sessions for your team
+- **Ongoing Support**: Regular check-ins and system optimization
+- **Advanced Training**: Specialized features and integrations
+- **Custom Consulting**: Business-specific optimization
 
 ---
 
-Ready to get started? Sign up for your free trial and transform your restaurant operations with BeepBite! 
+**Ready to transform your restaurant operations?** BeepBite provides everything your current POS does, plus modern WhatsApp capabilities that enhance customer experience and drive additional revenue. Start with the basics and gradually incorporate advanced features as your team becomes comfortable with the system. 

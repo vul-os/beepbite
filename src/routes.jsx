@@ -13,7 +13,6 @@ const getLoadingMessage = (pathname) => {
   if (pathname.includes('/signin')) return 'Loading sign in...';
   if (pathname.includes('/signup')) return 'Loading sign up...';
   if (pathname.includes('/home')) return 'Loading home...';
-  if (pathname.includes('/dashboard')) return 'Loading dashboard...';
   if (pathname.includes('/reports')) return 'Loading reports...';
   if (pathname.includes('/reviews')) return 'Loading reviews...';
   if (pathname.includes('/menu/ai-menu-creator')) return 'Loading AI menu creator...';
@@ -57,7 +56,6 @@ const VerifyEmail = lazyImport(() => import('./pages/auth/verify-email'));
 
 // Lazy loaded components - App pages
 const Home = lazyImport(() => import('./pages/home'));
-const Dashboard = lazyImport(() => import('./pages/dashboard'));
 const Reports = lazyImport(() => import('./pages/reports'));
 const Reviews = lazyImport(() => import('./pages/reviews'));
 const Members = lazyImport(() => import('./pages/members'));
@@ -118,11 +116,6 @@ const AppRoutes = () => {
           <Route path="/home" element={
             <Protected>
               <Home />
-            </Protected>
-          } />
-          <Route path="/dashboard" element={
-            <Protected>
-              <Dashboard />
             </Protected>
           } />
           <Route path="/reports" element={

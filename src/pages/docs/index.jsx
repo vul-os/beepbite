@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import DocsLayout from '@/components/layout/docs-layout';
+import POSInterfacePreview from '@/components/previews/pos-interface-preview';
+import WhatsAppPreview from '@/components/previews/whatsapp-preview';
+import DashboardPreview from '@/components/previews/dashboard-preview';
+import MenuManagementPreview from '@/components/previews/menu-management-preview';
 import { 
   ArrowRight, 
   Search,
@@ -17,7 +21,12 @@ import {
   Star,
   Mail,
   UserPlus,
-  MessageSquare as MessageSquareIcon
+  MessageSquare as MessageSquareIcon,
+  CreditCard,
+  Package,
+  Settings,
+  Play,
+  Eye
 } from 'lucide-react';
 
 // WhatsApp SVG Icon Component
@@ -33,23 +42,23 @@ const DocsIndex = () => {
 
   const quickActions = [
     {
-      title: "Create Your Account",
-      description: "Sign up and start in 2 minutes",
+      title: "Setup Your POS System",
+      description: "Complete installation and configuration guide",
       href: "#getting-started",
-      icon: <UserPlus className="w-6 h-6" />,
+      icon: <Settings className="w-6 h-6" />,
       color: "bg-orange-500"
     },
     {
-      title: "Configure Templates",
-      description: "Customize your notification messages",
-      href: "#templates",
-      icon: <MessageSquareIcon className="w-6 h-6" />,
+      title: "Configure Payments",
+      description: "Set up card processing and payment methods",
+      href: "#payment-setup",
+      icon: <CreditCard className="w-6 h-6" />,
       color: "bg-blue-500"
     },
     {
-      title: "Start Notifying",
-      description: "Send instant WhatsApp alerts",
-      href: "#notification-system", 
+      title: "Enable WhatsApp Features",
+      description: "Add WhatsApp ordering and digital pagers",
+      href: "#whatsapp-setup", 
       icon: <WhatsAppIcon className="w-6 h-6" />,
       color: "bg-green-500"
     }
@@ -57,41 +66,41 @@ const DocsIndex = () => {
 
   const features = [
     {
-      category: "Core Features",
+      category: "Traditional POS Features",
       items: [
-        { name: "Instant WhatsApp Notifications", icon: <WhatsAppIcon className="w-4 h-4" /> },
-        { name: "Order Ready Alerts", icon: <Clock className="w-4 h-4" /> },
-        { name: "Customer Review Collection", icon: <Star className="w-4 h-4" /> },
-        { name: "Delivery Tracking", icon: <BarChart3 className="w-4 h-4" /> }
+        { name: "Payment Processing", icon: <CreditCard className="w-4 h-4" /> },
+        { name: "Inventory Management", icon: <Package className="w-4 h-4" /> },
+        { name: "Staff Management", icon: <Users className="w-4 h-4" /> },
+        { name: "Sales Reporting", icon: <BarChart3 className="w-4 h-4" /> }
       ]
     },
     {
-      category: "Business Benefits",
+      category: "Enhanced WhatsApp Features",
       items: [
-        { name: "Faster Food Pickup", icon: <Zap className="w-4 h-4" /> },
-        { name: "Reduced Food Waste", icon: <Heart className="w-4 h-4" /> },
-        { name: "Happy Customers", icon: <Users className="w-4 h-4" /> },
-        { name: "No Cold Food Complaints", icon: <CheckCircle className="w-4 h-4" /> }
+        { name: "WhatsApp Ordering", icon: <WhatsAppIcon className="w-4 h-4" /> },
+        { name: "Digital Restaurant Pagers", icon: <Clock className="w-4 h-4" /> },
+        { name: "WhatsApp Payments", icon: <CreditCard className="w-4 h-4" /> },
+        { name: "Customer Communication", icon: <MessageSquareIcon className="w-4 h-4" /> }
       ]
     }
   ];
 
   return (
-    <DocsLayout title="BeepBite Documentation" description="Complete guide to WhatsApp notifications">
-      <div className="space-y-12 font-inter">
+    <DocsLayout title="BeepBite Documentation" description="Complete POS System with WhatsApp Integration">
+      <div className="space-y-16 font-inter">
         
         {/* Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-2 rounded-full text-sm font-medium mb-6 font-inter">
-            <WhatsAppIcon className="w-4 h-4" />
-            WhatsApp Notification Service
+            <CreditCard className="w-4 h-4" />
+            Complete POS System
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold mb-6 bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent font-inter">
-            Stop Serving Cold Food
+            Traditional POS + WhatsApp
           </h1>
-          <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8 leading-relaxed font-inter">
-            Learn how to use BeepBite's WhatsApp notification service to get hot food to customers faster 
-            and eliminate cold food complaints.
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-8 font-inter">
+            See exactly how BeepBite's complete restaurant POS system works, with interactive previews of the real interface, 
+            WhatsApp integration, and powerful analytics dashboard.
           </p>
           
           {/* Search Bar */}
@@ -106,9 +115,197 @@ const DocsIndex = () => {
           </div>
         </div>
 
+        {/* Main POS Interface Preview */}
+        <section>
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium mb-4">
+              <Eye className="w-4 h-4" />
+              Live Preview
+            </div>
+            <h2 className="text-3xl font-semibold mb-4 text-orange-800 font-inter">Your Complete POS System</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-inter">
+              Experience the actual BeepBite interface. This is exactly what you'll see when managing orders, 
+              processing payments, and running your restaurant.
+            </p>
+          </div>
+          <POSInterfacePreview className="mb-8" />
+          <div className="text-center">
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => navigate('/signup')}>
+              <Play className="mr-2 w-4 h-4" />
+              Try Live Demo
+            </Button>
+          </div>
+        </section>
+
+        {/* WhatsApp Integration Preview */}
+        <section>
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium mb-4">
+              <MessageSquareIcon className="w-4 h-4" />
+              Interactive Demo
+            </div>
+            <h2 className="text-3xl font-semibold mb-4 text-orange-800 font-inter">WhatsApp Digital Pagers in Action</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-inter">
+              Watch a real customer order flow from WhatsApp message to pickup notification. 
+              No more lost buzzers or confused customers.
+            </p>
+          </div>
+          <WhatsAppPreview className="mb-8" />
+        </section>
+
+        {/* Dashboard Analytics Preview */}
+        <section>
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium mb-4">
+              <BarChart3 className="w-4 h-4" />
+              Real-time Data
+            </div>
+            <h2 className="text-3xl font-semibold mb-4 text-orange-800 font-inter">Powerful Analytics Dashboard</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-inter">
+              Track revenue, monitor performance, and understand customer behavior with comprehensive 
+              analytics that update in real-time.
+            </p>
+          </div>
+          <DashboardPreview className="mb-8" />
+        </section>
+
+        {/* Menu Management Preview */}
+        <section>
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-medium mb-4">
+              <Package className="w-4 h-4" />
+              Menu Control
+            </div>
+            <h2 className="text-3xl font-semibold mb-4 text-orange-800 font-inter">Complete Menu Management</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-inter">
+              Manage your entire menu, track inventory, set variations, and control availability 
+              from one powerful interface.
+            </p>
+          </div>
+          <MenuManagementPreview className="mb-8" />
+        </section>
+
+        {/* Complete Ecosystem Overview */}
+        <section>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-semibold mb-4 text-orange-800 font-inter">Complete Restaurant Ecosystem</h2>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed font-inter">
+              Everything you need to run a modern restaurant, from traditional POS to cutting-edge WhatsApp integration.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8 mb-12">
+            {/* Traditional POS Features */}
+            <Card className="border border-orange-100 bg-white">
+              <CardContent className="p-8">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <CreditCard className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-orange-800 mb-2">Traditional POS Excellence</h3>
+                  <p className="text-gray-600">All the features you expect from a modern POS system</p>
+                </div>
+                
+                <div className="space-y-4">
+                  {[
+                    { icon: <CreditCard className="w-5 h-5" />, title: "Payment Processing", desc: "Card, cash, contactless, mobile wallets" },
+                    { icon: <Package className="w-5 h-5" />, title: "Inventory Management", desc: "Real-time stock tracking and alerts" },
+                    { icon: <Users className="w-5 h-5" />, title: "Staff Management", desc: "Roles, permissions, and access control" },
+                    { icon: <BarChart3 className="w-5 h-5" />, title: "Comprehensive Reports", desc: "Sales, analytics, and business insights" }
+                  ].map((feature, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600 flex-shrink-0">
+                        {feature.icon}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{feature.title}</h4>
+                        <p className="text-sm text-gray-600">{feature.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* WhatsApp Enhanced Features */}
+            <Card className="border border-green-200 bg-gradient-to-br from-green-50 to-green-100">
+              <CardContent className="p-8">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <WhatsAppIcon className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-green-800 mb-2">WhatsApp Revolution</h3>
+                  <p className="text-green-700">Next-generation customer engagement and ordering</p>
+                </div>
+                
+                <div className="space-y-4">
+                  {[
+                    { icon: <MessageSquareIcon className="w-5 h-5" />, title: "WhatsApp Ordering", desc: "Customers order directly via WhatsApp chat" },
+                    { icon: <Clock className="w-5 h-5" />, title: "Digital Pagers", desc: "Smart notifications replace traditional buzzers" },
+                    { icon: <CreditCard className="w-5 h-5" />, title: "WhatsApp Payments", desc: "Process payments through WhatsApp" },
+                    { icon: <Users className="w-5 h-5" />, title: "Customer Engagement", desc: "Build relationships through messaging" }
+                  ].map((feature, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600 flex-shrink-0">
+                        {feature.icon}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-green-900">{feature.title}</h4>
+                        <p className="text-sm text-green-700">{feature.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Integration Benefits */}
+          <Card className="bg-gradient-to-r from-orange-50 via-white to-green-50 border-2 border-orange-200">
+            <CardContent className="p-8 text-center">
+              <h3 className="text-2xl font-semibold mb-4 text-gray-900">The Power of Integration</h3>
+              <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto">
+                Unlike other solutions that bolt on WhatsApp as an afterthought, BeepBite is built from the ground up 
+                to seamlessly blend traditional POS with modern messaging capabilities.
+              </p>
+              
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white p-6 rounded-lg border border-orange-100">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Zap className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Unified Experience</h4>
+                  <p className="text-sm text-gray-600">All orders flow through one system, whether from POS or WhatsApp</p>
+                </div>
+                
+                <div className="bg-white p-6 rounded-lg border border-orange-100">
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <BarChart3 className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Complete Analytics</h4>
+                  <p className="text-sm text-gray-600">Track performance across all channels in one dashboard</p>
+                </div>
+                
+                <div className="bg-white p-6 rounded-lg border border-orange-100">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Heart className="w-6 h-6 text-green-600" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Enhanced Customer Experience</h4>
+                  <p className="text-sm text-gray-600">Customers enjoy convenience while you maintain control</p>
+                </div>
+              </div>
+              
+              <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-3 text-lg">
+                <Play className="mr-2 w-5 h-5" />
+                Experience the Complete System
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Quick Actions */}
         <section>
-          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">Quick Actions</h2>
+          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">Quick Start Guide</h2>
           <div className="grid md:grid-cols-3 gap-6">
             {quickActions.map((action, index) => (
               <Card 
@@ -146,92 +343,99 @@ const DocsIndex = () => {
 
         {/* Getting Started */}
         <section id="getting-started">
-          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">Getting Started</h2>
+          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">Setting Up Your Complete POS System</h2>
           <Card className="border border-orange-100">
             <CardContent className="p-6">
               <div className="space-y-6">
                 <div className="border-l-4 border-orange-400 pl-4">
-                  <h4 className="font-semibold text-orange-800 font-inter">1. Sign Up for BeepBite</h4>
-                  <p className="text-muted-foreground mt-1 font-inter">Create your restaurant account - no WhatsApp Business setup needed</p>
+                  <h4 className="font-semibold text-orange-800 font-inter">1. Install BeepBite as Your Main POS</h4>
+                  <p className="text-muted-foreground mt-1 font-inter">Replace your current POS system with BeepBite's complete solution</p>
                 </div>
                 <div className="border-l-4 border-orange-400 pl-4">
-                  <h4 className="font-semibold text-orange-800 font-inter">2. Add Your Restaurant Details</h4>
-                  <p className="text-muted-foreground mt-1 font-inter">Enter your restaurant name, phone number, and operating hours</p>
+                  <h4 className="font-semibold text-orange-800 font-inter">2. Configure Traditional POS Features</h4>
+                  <p className="text-muted-foreground mt-1 font-inter">Set up payments, inventory, staff management, and menu configuration</p>
                 </div>
                 <div className="border-l-4 border-orange-400 pl-4">
-                  <h4 className="font-semibold text-orange-800 font-inter">3. Configure Notification Templates</h4>
-                  <p className="text-muted-foreground mt-1 font-inter">Customize the messages customers receive when orders are ready</p>
+                  <h4 className="font-semibold text-orange-800 font-inter">3. Enable WhatsApp Integration</h4>
+                  <p className="text-muted-foreground mt-1 font-inter">Add WhatsApp ordering, payments, and digital pager notifications</p>
                 </div>
                 <div className="border-l-4 border-orange-400 pl-4">
-                  <h4 className="font-semibold text-orange-800 font-inter">4. Start Sending Notifications</h4>
-                  <p className="text-muted-foreground mt-1 font-inter">Mark orders as ready and watch WhatsApp notifications go out instantly</p>
+                  <h4 className="font-semibold text-orange-800 font-inter">4. Start Operating Dual Channels</h4>
+                  <p className="text-muted-foreground mt-1 font-inter">Handle both in-restaurant POS orders and WhatsApp remote orders</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        {/* Templates */}
-        <section id="templates">
-          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">Message Templates</h2>
+        {/* Payment Setup */}
+        <section id="payment-setup">
+          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">Payment Processing Setup</h2>
           <Card className="border border-orange-100">
             <CardContent className="p-6">
-              <h3 className="font-semibold mb-4 text-orange-700 font-inter">Default Order Ready Message</h3>
+              <h3 className="font-semibold mb-4 text-orange-700 font-inter">Traditional POS Payments</h3>
               <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-4">
-                <div className="bg-white p-4 rounded border border-orange-200 font-mono text-sm">
-                  🍽️ Hi [Customer Name]! Your order #[Order Number] is ready for pickup at [Restaurant Name]. 
-                  Please collect within 15 minutes to ensure your food stays hot and fresh. Thank you!
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="w-5 h-5 text-orange-600" />
+                    <span className="font-medium">Card Payments: Credit, debit, contactless (tap-to-pay)</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Package className="w-5 h-5 text-orange-600" />
+                    <span className="font-medium">Cash Management: Cash drawer integration and reconciliation</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Zap className="w-5 h-5 text-orange-600" />
+                    <span className="font-medium">Mobile Wallets: Apple Pay, Google Pay, Samsung Pay</span>
+                  </div>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-4 font-inter">
-                Variables like [Customer Name] and [Order Number] are automatically replaced with real data from your orders.
-              </p>
               
-              <h4 className="font-semibold mb-3 text-orange-700 font-inter">Customization Options</h4>
+              <h4 className="font-semibold mb-3 text-orange-700 font-inter">WhatsApp Payment Integration</h4>
               <ul className="text-sm text-muted-foreground space-y-2 ml-4 font-inter">
-                <li>• Change the pickup time window (5, 10, 15, or 20 minutes)</li>
-                <li>• Add your restaurant's special instructions</li>
-                <li>• Include parking or location details</li>
-                <li>• Set different messages for different order types</li>
+                <li>• Process payments via WhatsApp for remote orders</li>
+                <li>• Payment links and QR code generation</li>
+                <li>• Bank transfer integration</li>
+                <li>• Unified payment reporting across all channels</li>
               </ul>
               
               <Button className="bg-orange-500 hover:bg-orange-600 text-white mt-4 font-inter">
-                Customize Templates
+                Configure Payment Methods
               </Button>
             </CardContent>
           </Card>
         </section>
 
-        {/* Notification System */}
-        <section id="notification-system">
-          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">How Notifications Work</h2>
+        {/* WhatsApp Setup */}
+        <section id="whatsapp-setup">
+          <h2 className="text-2xl font-semibold mb-6 text-orange-800 font-inter">WhatsApp Integration Setup</h2>
           <div className="grid lg:grid-cols-2 gap-6">
             <Card className="border border-orange-100">
               <CardContent className="p-6">
                 <h3 className="font-semibold mb-4 text-orange-700 flex items-center gap-2">
                   <WhatsAppIcon className="w-5 h-5 text-green-600" />
-                  Instant Delivery
+                  Digital Restaurant Pagers
                 </h3>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
                     <div>
-                      <p className="font-medium">Under 1 Second</p>
-                      <p className="text-sm text-muted-foreground">Notifications sent instantly when you mark orders ready</p>
+                      <p className="font-medium">Replace Buzzer Systems</p>
+                      <p className="text-sm text-muted-foreground">No more lost or broken pagers</p>
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
                     <div>
-                      <p className="font-medium">Direct to WhatsApp</p>
-                      <p className="text-sm text-muted-foreground">Customers receive messages in their WhatsApp inbox</p>
+                      <p className="font-medium">Instant Notifications</p>
+                      <p className="text-sm text-muted-foreground">Customers get WhatsApp notifications when food is ready</p>
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
                     <div>
-                      <p className="font-medium">No App Required</p>
-                      <p className="text-sm text-muted-foreground">Works with any phone that has WhatsApp</p>
+                      <p className="font-medium">Professional Messages</p>
+                      <p className="text-sm text-muted-foreground">Branded pickup notifications with restaurant details</p>
                     </div>
                   </li>
                 </ul>
@@ -240,23 +444,23 @@ const DocsIndex = () => {
             
             <Card className="border border-orange-100">
               <CardContent className="p-6">
-                <h3 className="font-semibold mb-4 text-orange-700">Simple Process</h3>
+                <h3 className="font-semibold mb-4 text-orange-700">WhatsApp Ordering Process</h3>
                 <ol className="space-y-3 text-sm">
                   <li className="flex gap-3">
                     <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-medium">1</span>
-                    <span>Customer places order and provides phone number</span>
+                    <span>Customer browses menu and places order via WhatsApp</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-medium">2</span>
-                    <span>You prepare the food as normal</span>
+                    <span>Order appears in your main POS system alongside dine-in orders</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-medium">3</span>
-                    <span>Click "Mark Ready" in BeepBite dashboard</span>
+                    <span>Kitchen prepares order using same workflow as POS orders</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-medium">4</span>
-                    <span>Customer gets WhatsApp notification instantly</span>
+                    <span>Customer receives WhatsApp notification when order is ready</span>
                   </li>
                 </ol>
               </CardContent>
@@ -266,7 +470,7 @@ const DocsIndex = () => {
 
         {/* Features Overview */}
         <section>
-          <h2 className="text-2xl font-semibold mb-6 text-orange-800">What BeepBite Does</h2>
+          <h2 className="text-2xl font-semibold mb-6 text-orange-800">Complete Feature Set</h2>
           <div className="grid lg:grid-cols-2 gap-8">
             {features.map((category, idx) => (
               <Card key={idx} className="border border-orange-100">
@@ -288,28 +492,59 @@ const DocsIndex = () => {
           </div>
         </section>
 
+        {/* Key Benefits */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-6 text-orange-800">Why Choose BeepBite Over Traditional POS?</h2>
+          <Card className="border border-orange-100">
+            <CardContent className="p-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-semibold mb-3 text-orange-700">✅ Everything Your Current POS Does</h4>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Complete payment processing (card, cash, contactless)</li>
+                    <li>• Full inventory management and tracking</li>
+                    <li>• Staff management with roles and permissions</li>
+                    <li>• Comprehensive reporting and analytics</li>
+                    <li>• Menu management and pricing control</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-3 text-orange-700">➕ Plus Modern WhatsApp Features</h4>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• WhatsApp remote ordering and payments</li>
+                    <li>• Digital restaurant pagers (no more buzzers!)</li>
+                    <li>• Dual order channels in one system</li>
+                    <li>• Enhanced customer engagement</li>
+                    <li>• Additional revenue streams</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Troubleshooting */}
         <section id="troubleshooting">
-          <h2 className="text-2xl font-semibold mb-6 text-orange-800">Common Issues</h2>
+          <h2 className="text-2xl font-semibold mb-6 text-orange-800">Common Setup Issues</h2>
           <Card className="border border-orange-100">
             <CardContent className="p-6">
               <div className="space-y-4">
                 {[
                   {
-                    issue: "Notifications not sending",
-                    solution: "Check customer phone number format (+27123456789) and internet connection"
+                    issue: "Payment processing not working",
+                    solution: "Check payment processor credentials and internet connection. Verify SSL certificate is properly configured."
                   },
                   {
-                    issue: "Customers not receiving messages",
-                    solution: "Verify phone numbers are correct and customers haven't blocked business messages"
+                    issue: "Inventory not tracking properly",
+                    solution: "Ensure menu items are properly configured with inventory tracking enabled. Check for recent stock adjustments."
                   },
                   {
-                    issue: "Messages sending slowly",
-                    solution: "Check your internet connection - notifications depend on network speed"
+                    issue: "WhatsApp notifications not sending",
+                    solution: "Verify WhatsApp Business API connection and check customer phone number format (+27123456789)."
                   },
                   {
-                    issue: "Can't mark orders as ready",
-                    solution: "Refresh the page or check if you're logged in to your BeepBite account"
+                    issue: "Staff cannot access certain features",
+                    solution: "Review user roles and permissions. Ensure staff accounts have appropriate access levels configured."
                   }
                 ].map((item, idx) => (
                   <div key={idx} className="border-l-4 border-orange-300 pl-4">
@@ -325,9 +560,9 @@ const DocsIndex = () => {
         {/* CTA */}
         <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-2 border-orange-200">
           <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-semibold mb-4 text-orange-800">Ready to Stop Serving Cold Food?</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-orange-800">Ready to Upgrade Your POS System?</h2>
             <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-              Join restaurants using BeepBite to get hot food to customers faster with instant WhatsApp notifications.
+              Get all the features of your current POS system, plus modern WhatsApp capabilities that enhance customer experience and drive additional revenue.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => navigate('/signup')}>
@@ -336,7 +571,7 @@ const DocsIndex = () => {
               </Button>
               <Button variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-50">
                 <Mail className="mr-2 w-4 h-4" />
-                Get Help
+                Get Setup Help
               </Button>
             </div>
           </CardContent>

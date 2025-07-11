@@ -1,6 +1,6 @@
-# Setup Guide
+# Complete POS System Setup Guide
 
-This guide will help you set up BeepBite for your restaurant, from installation to going live with order management.
+This guide will help you install and configure BeepBite as your restaurant's complete Point of Sale (POS) system, including traditional POS features and enhanced WhatsApp capabilities.
 
 ## Prerequisites
 
@@ -10,12 +10,14 @@ This guide will help you set up BeepBite for your restaurant, from installation 
 - **npm** 8+ or **yarn** 1.22+
 - **Modern web browser** (Chrome 90+, Firefox 88+, Safari 14+)
 - **Internet connection** for real-time features
+- **POS Hardware** (optional): Cash drawer, receipt printer, kitchen display, payment terminal
 
 ### Required Accounts
 
 - **Supabase account** (for database and authentication)
 - **Firebase account** (for additional services)
-- **WhatsApp Business account** (for notifications)
+- **WhatsApp Business account** (for enhanced features)
+- **Payment processor account** (for card transactions)
 
 ## Installation
 
@@ -60,6 +62,10 @@ VITE_FIREBASE_APP_ID=your_app_id
 VITE_WHATSAPP_API_URL=your_whatsapp_api_url
 VITE_WHATSAPP_TOKEN=your_whatsapp_token
 
+# Payment Processing
+VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_key
+VITE_PAYMENT_PROCESSOR_URL=your_payment_url
+
 # App Configuration
 VITE_APP_URL=http://localhost:5173
 VITE_APP_NAME=BeepBite
@@ -79,11 +85,14 @@ VITE_APP_NAME=BeepBite
 ```
 
 The database schema includes:
-- `restaurants` - Restaurant information
-- `users` - User accounts and roles
-- `orders` - Order data
-- `reviews` - Customer reviews
-- `notifications` - Notification settings
+- `restaurants` - Restaurant and POS configuration
+- `users` - Staff accounts and roles
+- `orders` - All orders (POS + WhatsApp)
+- `inventory` - Stock management and tracking
+- `menu_items` - Menu configuration and pricing
+- `transactions` - Payment processing records
+- `reviews` - Customer feedback
+- `notifications` - WhatsApp and system alerts
 
 #### Firebase Setup
 
@@ -91,15 +100,33 @@ The database schema includes:
 2. Enable Authentication and Firestore
 3. Add your domain to authorized domains in Authentication settings
 
-### 4. WhatsApp Business API
+### 4. Payment Processing Setup
 
-#### Option A: Using WhatsApp Business API (Recommended for Production)
+#### Stripe Integration (Recommended)
+
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. Get your publishable key from the Stripe dashboard
+3. Configure webhook endpoints for payment confirmations
+4. Test payment processing in development mode
+
+#### Alternative Payment Processors
+
+BeepBite supports multiple payment processors:
+- PayPal
+- Square
+- Adyen
+- Local payment gateways
+
+### 5. WhatsApp Business API Setup
+
+#### Option A: WhatsApp Business API (Recommended for Production)
 
 1. Apply for WhatsApp Business API access
 2. Set up a webhook endpoint for receiving messages
 3. Configure your phone number for sending notifications
+4. Set up message templates for customer communications
 
-#### Option B: Using WhatsApp Web (Development Only)
+#### Option B: WhatsApp Web Integration (Development)
 
 For development, you can use a mock service or test with console logging.
 
@@ -131,49 +158,126 @@ npm run preview
 yarn preview
 ```
 
-## Configuration
+## POS System Configuration
 
 ### Restaurant Setup
 
-1. **Register your restaurant**:
-   - Sign up at `/signup`
-   - Complete restaurant profile
-   - Verify your email address
+1. **Business Registration**:
+   - Register your restaurant in the system
+   - Complete business profile with tax information
+   - Upload restaurant logo and branding
+   - Configure operating hours and service areas
 
-2. **Team Management**:
-   - Invite team members from Settings
-   - Assign roles: Owner, Manager, Staff
-   - Configure permissions
+2. **POS Terminal Configuration**:
+   - Set up payment methods (card, cash, contactless)
+   - Configure tax rates and service charges
+   - Connect hardware devices (printers, cash drawer)
+   - Test payment processing functionality
 
-3. **WhatsApp Integration**:
-   - Go to Settings > Notifications
-   - Enter your WhatsApp number
-   - Test the connection
-   - Configure notification preferences
+3. **Menu and Inventory Setup**:
+   - Import or create your menu items
+   - Set up inventory tracking for ingredients
+   - Configure pricing and modifiers
+   - Set up categories and menu organization
 
-### Customization
+### Staff Management Setup
 
-#### Branding
+1. **Create Staff Accounts**:
+   - Set up Owner, Manager, Cashier, and Kitchen Staff accounts
+   - Assign appropriate roles and permissions
+   - Configure PINs and access controls
+   - Set up shift schedules and time tracking
 
-Update branding elements in:
-- `src/components/ui/logo.jsx` - Logo component
-- `public/` - Favicon and images
-- `tailwind.config.js` - Colors and themes
+2. **Training and Onboarding**:
+   - Train staff on POS system operations
+   - Teach WhatsApp integration features
+   - Establish operational procedures
+   - Test system functionality with staff
 
-#### Notifications
+### Hardware Configuration
 
-Configure notification settings in:
-- Settings > Notifications (UI)
-- Environment variables for API endpoints
-- Database `notification_settings` table
+#### Cash Drawer Setup
+
+1. Connect cash drawer to POS terminal or printer
+2. Configure opening triggers (start of shift, cash sale)
+3. Test cash drawer functionality
+4. Set up cash management procedures
+
+#### Receipt Printer Configuration
+
+1. Install printer drivers and connect via USB/Ethernet
+2. Configure receipt templates and branding
+3. Test printing functionality
+4. Set up backup printing options
+
+#### Kitchen Display System
+
+1. Set up dedicated kitchen display screens
+2. Configure order routing and priorities
+3. Test order flow from POS to kitchen
+4. Train kitchen staff on system usage
+
+#### Payment Terminal Integration
+
+1. Connect payment terminal to POS system
+2. Configure supported payment methods
+3. Test card processing and receipts
+4. Set up fallback payment options
+
+## WhatsApp Enhanced Features Setup
+
+### WhatsApp Business Account
+
+1. **Account Creation**:
+   - Set up WhatsApp Business account
+   - Verify business information
+   - Configure business profile with hours and contact info
+   - Upload business logo and description
+
+2. **API Integration**:
+   - Connect WhatsApp Business API to BeepBite
+   - Set up webhook endpoints for message handling
+   - Configure message templates for notifications
+   - Test WhatsApp connectivity
+
+### Customer Communication Setup
+
+1. **Message Templates**:
+   - Create order confirmation templates
+   - Set up pickup notification messages
+   - Configure delay and update notifications
+   - Customize branding and tone
+
+2. **Digital Pager System**:
+   - Replace traditional buzzer systems
+   - Configure pickup notification timing
+   - Set up follow-up reminders
+   - Train staff on digital pager workflow
+
+### Remote Ordering Configuration
+
+1. **WhatsApp Menu Setup**:
+   - Configure menu for WhatsApp ordering
+   - Set availability and pricing
+   - Enable order customization options
+   - Test remote ordering workflow
+
+2. **Payment Integration**:
+   - Set up WhatsApp payment processing
+   - Configure payment confirmation system
+   - Test remote payment functionality
+   - Establish refund procedures
 
 ## Deployment
 
-### Vercel (Recommended)
+### Production Deployment
+
+#### Vercel (Recommended)
 
 1. Connect your GitHub repository to Vercel
 2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push to main branch
+3. Configure custom domain if needed
+4. Deploy automatically on push to main branch
 
 ```bash
 # Using Vercel CLI
@@ -181,56 +285,185 @@ npm i -g vercel
 vercel --prod
 ```
 
-### Netlify
+#### Netlify Alternative
 
 1. Connect your repository to Netlify
 2. Set build command: `npm run build`
 3. Set publish directory: `dist`
 4. Configure environment variables
 
-### Traditional Hosting
+#### Traditional Hosting
 
 1. Build the project: `npm run build`
 2. Upload `dist/` folder to your web server
 3. Configure web server to serve `index.html` for all routes
+4. Set up SSL certificate for secure payments
 
-## Post-Deployment Checklist
+### Production Configuration
 
-- [ ] Test user registration and login
-- [ ] Verify WhatsApp notifications work
-- [ ] Check order creation and updates
-- [ ] Test team member invitations
-- [ ] Verify analytics and reporting
-- [ ] Test on mobile devices
-- [ ] Configure backup and monitoring
+#### Security Setup
+
+1. **SSL/HTTPS Configuration**:
+   - Install SSL certificate
+   - Redirect HTTP to HTTPS
+   - Configure secure payment processing
+   - Test security protocols
+
+2. **Data Backup**:
+   - Set up automated database backups
+   - Configure backup retention policies
+   - Test backup and restore procedures
+   - Document recovery processes
+
+3. **Access Control**:
+   - Configure firewall and security rules
+   - Set up VPN access if needed
+   - Implement IP restrictions for admin access
+   - Monitor system access logs
+
+## Post-Deployment Setup
+
+### System Testing
+
+- [ ] **POS Functionality**: Test all POS operations (orders, payments, receipts)
+- [ ] **Inventory Management**: Verify stock tracking and alerts
+- [ ] **Staff Access**: Test all user roles and permissions
+- [ ] **WhatsApp Integration**: Verify message sending and receiving
+- [ ] **Payment Processing**: Test all payment methods
+- [ ] **Kitchen Display**: Verify order flow to kitchen
+- [ ] **Reporting**: Test analytics and report generation
+- [ ] **Mobile Access**: Test on tablets and mobile devices
+
+### Go-Live Checklist
+
+- [ ] Staff training completed
+- [ ] Hardware tested and operational
+- [ ] Payment processing verified
+- [ ] WhatsApp notifications working
+- [ ] Backup systems tested
+- [ ] Support contacts established
+- [ ] Operating procedures documented
+- [ ] Emergency procedures in place
+
+### Monitoring and Maintenance
+
+1. **System Monitoring**:
+   - Set up uptime monitoring
+   - Configure performance alerts
+   - Monitor payment processing
+   - Track system usage metrics
+
+2. **Regular Maintenance**:
+   - Schedule software updates
+   - Perform regular backups
+   - Review system performance
+   - Update security measures
+
+## Migration from Existing POS
+
+### Data Migration
+
+1. **Export from Current System**:
+   - Export menu items and pricing
+   - Extract customer data
+   - Export historical sales data
+   - Backup current system settings
+
+2. **Import to BeepBite**:
+   - Import menu items and categories
+   - Configure pricing and modifiers
+   - Set up inventory tracking
+   - Import customer information
+
+3. **Parallel Operation**:
+   - Run both systems temporarily
+   - Compare transaction records
+   - Train staff gradually
+   - Switch over incrementally
+
+### Hardware Transition
+
+1. **Hardware Assessment**:
+   - Evaluate existing hardware compatibility
+   - Plan hardware upgrades if needed
+   - Configure new hardware connections
+   - Test integrated systems
+
+2. **Gradual Transition**:
+   - Start with non-peak hours
+   - Train staff on new system
+   - Monitor performance closely
+   - Full switch after confidence
 
 ## Troubleshooting
 
-### Common Issues
+### Common Setup Issues
 
-1. **Build Errors**:
-   - Clear node_modules: `rm -rf node_modules && npm install`
-   - Check Node.js version: `node --version`
-
-2. **Environment Variables Not Loading**:
-   - Ensure variables start with `VITE_`
-   - Restart development server after changes
-
-3. **Database Connection Issues**:
+1. **Database Connection Problems**:
    - Verify Supabase URL and key
    - Check network connectivity
-   - Review Supabase project settings
+   - Review database permissions
+   - Test with sample data
 
-4. **WhatsApp Integration Not Working**:
+2. **Payment Processing Issues**:
+   - Verify payment processor credentials
+   - Check SSL certificate configuration
+   - Test with small transactions
+   - Review payment terminal setup
+
+3. **WhatsApp Integration Problems**:
    - Verify API credentials
    - Check webhook configuration
-   - Test with WhatsApp Business API validator
+   - Test with sample messages
+   - Review message template compliance
 
-For more issues, see [Troubleshooting Guide](troubleshooting.md).
+4. **Hardware Integration Issues**:
+   - Check hardware connections
+   - Verify driver installations
+   - Test hardware functionality
+   - Review configuration settings
+
+### Performance Optimization
+
+1. **System Performance**:
+   - Monitor response times
+   - Optimize database queries
+   - Configure caching strategies
+   - Review hardware resources
+
+2. **Network Optimization**:
+   - Test internet connection speed
+   - Configure QoS settings
+   - Set up redundant connections
+   - Monitor network stability
+
+For detailed troubleshooting, see [Troubleshooting Guide](troubleshooting.md).
 
 ## Next Steps
 
-- [User Guide](user-guide.md) - Learn how to use BeepBite
-- [Features](features.md) - Explore all available features
-- [API Documentation](api.md) - Backend integration details
-- [Development Guide](development.md) - Contributing to the project 
+After successful setup:
+
+- [User Guide](user-guide.md) - Learn to operate your complete POS system
+- [Features](features.md) - Explore all POS and WhatsApp features
+- [API Documentation](api.md) - Integration and customization details
+- [Development Guide](development.md) - Contributing to the project
+
+## Support
+
+### Setup Assistance
+
+- **Free Setup Call**: Personal onboarding session included
+- **Technical Support**: Setup assistance during business hours
+- **Documentation**: Comprehensive setup guides and videos
+- **Community Forum**: User discussions and best practices
+
+### Ongoing Support
+
+- **24/7 POS Support**: Critical system support
+- **WhatsApp Support**: Quick help via WhatsApp
+- **Email Support**: support@beepbite.com
+- **Phone Support**: +27 11 876 5432
+
+---
+
+**Ready to replace your current POS?** BeepBite provides everything your existing POS system does, plus modern WhatsApp capabilities that enhance customer experience and drive additional revenue. 
