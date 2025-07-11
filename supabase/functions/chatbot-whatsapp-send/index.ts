@@ -11,8 +11,8 @@ const corsHeaders = {
 const SYSTEM_BOT_ID = '46c4426a-9f5d-43d1-914c-d112deaf1d06'
 
 interface SendMessageRequest {
-  bite_id: string
-  order_status?: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+  order_id: string
+  order_status?: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled'
   message?: string
   whatsapp_number?: string
 }
@@ -226,58 +226,67 @@ async function saveMessage(chatId: string, direction: 'outbound', content: strin
     })
 }
 
-async function getBiteDetails(biteId: string) {
-  const { data: bite, error } = await supabase
-    .from('bites')
+async function getOrderDetails(orderId: string) {
+  const { data: order, error } = await supabase
+    .from('orders')
     .select(`
       *,
-      bistros(name),
+      locations(name),
       customers(whatsapp_number)
     `)
-    .eq('id', biteId)
+    .eq('id', orderId)
     .single()
 
   if (error) {
-    console.error('Error fetching bite details:', error)
+    console.error('Error fetching order details:', error)
     return null
   }
 
-  return bite
+  return order
 }
 
-function formatStatusMessage(bistroName: string, orderNumber: string, status: string): string {
+function formatStatusMessage(locationName: string, orderNumber: string, status: string): string {
   switch (status) {
     case 'pending':
-      return `⏳ *Order Update*\n\n📋 Order #${orderNumber}\n🏪 ${bistroName}\n\n✅ Your order has been received and is being prepared!\n\n📱 *Powered by BeepBite* 🚀`
+      return `⏳ *Order Update*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n✅ Your order has been received and is being prepared!\n\n📱 *Powered by BeepBite* 🚀`
+    case 'confirmed':
+      return `✅ *Order Confirmed*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n🔥 Your order has been confirmed and will be prepared shortly!\n\n📱 *Powered by BeepBite* 🚀`
     case 'preparing':
-      return `👨‍🍳 *Order Update*\n\n📋 Order #${orderNumber}\n🏪 ${bistroName}\n\n🔥 Your order is now being prepared! We'll notify you when it's ready.\n\n📱 *Powered by BeepBite* 🚀`
+      return `👨‍🍳 *Order Update*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n🔥 Your order is now being prepared! We'll notify you when it's ready.\n\n📱 *Powered by BeepBite* 🚀`
     case 'ready':
-      return `🔔 *Order Ready!*\n\n📋 Order #${orderNumber}\n🏪 ${bistroName}\n\n✨ Your order is ready for pickup!\n\n📱 *Powered by BeepBite* 🚀`
+      return `🔔 *Order Ready!*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n✨ Your order is ready for pickup!\n\n📱 *Powered by BeepBite* 🚀`
+    case 'out_for_delivery':
+      return `🚗 *Out for Delivery*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n🛵 Your order is on its way to you!\n\n📱 *Powered by BeepBite* 🚀`
+    case 'delivered':
+      return `📦 *Order Delivered*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n✅ Your order has been delivered!\n\n📱 *Powered by BeepBite* 🚀`
     case 'completed':
-      return `🎉🎊 *Order Completed!* 🎊🎉\n\n📋 Order #${orderNumber}\n🏪 ${bistroName}\n\n🌟 Thank you for your order! We hope you enjoyed it!\n\n💫 We'd love your feedback - type 'review' to leave a review!\n\n📱 *Powered by BeepBite* 🚀`
+      return `🎉🎊 *Order Completed!* 🎊🎉\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n🌟 Thank you for your order! We hope you enjoyed it!\n\n💫 We'd love your feedback - type 'review' to leave a review!\n\n📱 *Powered by BeepBite* 🚀`
     case 'cancelled':
-      return `❌ *Order Cancelled*\n\n📋 Order #${orderNumber}\n🏪 ${bistroName}\n\n😔 Your order has been cancelled. If you have any questions, please contact us.\n\n📱 *Powered by BeepBite* 🚀`
+      return `❌ *Order Cancelled*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n😔 Your order has been cancelled. If you have any questions, please contact us.\n\n📱 *Powered by BeepBite* 🚀`
     default:
-      return `📋 *Order Update*\n\n📋 Order #${orderNumber}\n🏪 ${bistroName}\n\n🔄 Your order status has been updated.\n\n📱 *Powered by BeepBite* 🚀`
+      return `📋 *Order Update*\n\n📋 Order #${orderNumber}\n🏪 ${locationName}\n\n🔄 Your order status has been updated.\n\n📱 *Powered by BeepBite* 🚀`
   }
 }
 
-
-
-async function updateBiteStatus(biteId: string, status: string) {
+async function updateOrderStatus(orderId: string, status: string) {
   const updateData: any = { status }
   
+  // Update order details if specific status
   if (status === 'ready') {
-    updateData.order_ready_at = new Date().toISOString()
+    // Update ready_at in order_details table
+    await supabase
+      .from('order_details')
+      .update({ ready_at: new Date().toISOString() })
+      .eq('order_id', orderId)
   }
 
   const { error } = await supabase
-    .from('bites')
+    .from('orders')
     .update(updateData)
-    .eq('id', biteId)
+    .eq('id', orderId)
 
   if (error) {
-    console.error('Error updating bite status:', error)
+    console.error('Error updating order status:', error)
     return false
   }
 
@@ -305,10 +314,10 @@ serve(async (req) => {
     console.log('Request body:', JSON.stringify(body, null, 2))
 
     // Validate required fields
-    if (!body.bite_id && !body.message) {
+    if (!body.order_id && !body.message) {
       console.log('ERROR: Missing required fields')
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: bite_id or message' }),
+        JSON.stringify({ error: 'Missing required fields: order_id or message' }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
@@ -319,25 +328,25 @@ serve(async (req) => {
     let message = ''
     let whatsappNumber = ''
     let orderNumber = ''
-    let bistroName = ''
+    let locationName = ''
 
     // If sending a custom message
     if (body.message && body.whatsapp_number) {
       message = body.message
       whatsappNumber = body.whatsapp_number
     }
-    // If sending bite status update
-    else if (body.bite_id) {
-    console.log(`Processing bite status update for bite_id: ${body.bite_id}`)
+    // If sending order status update
+    else if (body.order_id) {
+    console.log(`Processing order status update for order_id: ${body.order_id}`)
     
-    // Get bite details
-    const bite = await getBiteDetails(body.bite_id)
-    console.log('Bite details:', JSON.stringify(bite, null, 2))
+    // Get order details
+    const order = await getOrderDetails(body.order_id)
+    console.log('Order details:', JSON.stringify(order, null, 2))
     
-    if (!bite) {
-      console.log('ERROR: Bite not found')
+    if (!order) {
+      console.log('ERROR: Order not found')
       return new Response(
-        JSON.stringify({ error: 'Bite not found' }),
+        JSON.stringify({ error: 'Order not found' }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 404,
@@ -345,12 +354,12 @@ serve(async (req) => {
       )
     }
 
-      // Get WhatsApp number from request or bite
-      whatsappNumber = body.whatsapp_number || bite.customers?.whatsapp_number
-      console.log(`WhatsApp number resolved: request=${body.whatsapp_number}, bite=${bite.customers?.whatsapp_number}, final=${whatsappNumber}`)
+      // Get WhatsApp number from request or order
+      whatsappNumber = body.whatsapp_number || order.customers?.whatsapp_number
+      console.log(`WhatsApp number resolved: request=${body.whatsapp_number}, order=${order.customers?.whatsapp_number}, final=${whatsappNumber}`)
       
       if (!whatsappNumber) {
-      console.log('ERROR: WhatsApp number not found in request or bite')
+      console.log('ERROR: WhatsApp number not found in request or order')
       return new Response(
           JSON.stringify({ error: 'WhatsApp number not found' }),
         {
@@ -360,16 +369,16 @@ serve(async (req) => {
       )
     }
 
-      orderNumber = bite.order_number
-      bistroName = bite.bistros.name
-      console.log(`Bite info - Order: ${orderNumber}, Bistro: ${bistroName}`)
+      orderNumber = order.order_number
+      locationName = order.locations.name
+      console.log(`Order info - Number: ${orderNumber}, Location: ${locationName}`)
 
-      // Update bite status if provided
+      // Update order status if provided
       if (body.order_status) {
-    const statusUpdated = await updateBiteStatus(body.bite_id, body.order_status)
+    const statusUpdated = await updateOrderStatus(body.order_id, body.order_status)
     if (!statusUpdated) {
       return new Response(
-        JSON.stringify({ error: 'Failed to update bite status' }),
+        JSON.stringify({ error: 'Failed to update order status' }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500,
@@ -378,20 +387,20 @@ serve(async (req) => {
     }
 
         // Format status message
-        message = formatStatusMessage(bistroName, orderNumber, body.order_status)
+        message = formatStatusMessage(locationName, orderNumber, body.order_status)
       } else {
         // Use current status
-        message = formatStatusMessage(bistroName, orderNumber, bite.status)
+        message = formatStatusMessage(locationName, orderNumber, order.status)
       }
 
-      // Update bite with customer_id if not set
-      if (!bite.customer_id) {
+      // Update order with customer_id if not set
+      if (!order.customer_id) {
         const customer = await getOrCreateCustomer(whatsappNumber)
         if (customer) {
           await supabase
-            .from('bites')
+            .from('orders')
             .update({ customer_id: customer.id })
-            .eq('id', body.bite_id)
+            .eq('id', body.order_id)
         }
       }
     }
@@ -404,10 +413,10 @@ serve(async (req) => {
     const smartResult = await sendSmartMessage({
       whatsapp_number: whatsappNumber,
       message: message,
-      subject: `Order Update from ${bistroName}`,
-      bistro_name: bistroName,
+      subject: `Order Update from ${locationName}`,
+      location_name: locationName,
       order_number: orderNumber,
-      bite_id: body.bite_id
+      order_id: body.order_id
     })
     
     console.log('Smart message result:', smartResult)
@@ -453,11 +462,11 @@ serve(async (req) => {
         success: true,
         message: `Message sent successfully via ${smartResult.method}`,
         data: {
-          bite_id: body.bite_id,
+          order_id: body.order_id,
           order_number: orderNumber,
           status: body.order_status,
           whatsapp_number: whatsappNumber,
-          bistro_name: bistroName,
+          location_name: locationName,
           message_preview: message.substring(0, 100),
           method: smartResult.method,
           details: smartResult.details
