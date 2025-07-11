@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { sendSms } from "./sms.ts"
 import { sendEmail, sendConsentEmail as sendConsentEmailResend } from "./resend.ts"
 
 const supabase = createClient(
@@ -14,21 +13,19 @@ export interface SmartMessageRequest {
   whatsapp_number: string
   message: string
   subject?: string // For email
-  bistro_name?: string
+  location_name?: string
   order_number?: string
-  bite_id?: string
+  order_id?: string
   customer_id?: string
 }
 
 export interface SmartMessageResult {
   success: boolean
-  method: 'whatsapp' | 'email' | 'sms' | 'consent_sms' | 'none'
+  method: 'whatsapp' | 'email' | 'consent_email' | 'none'
   error?: string
   details?: {
     customer_id?: string
     email_sent?: boolean
-    sms_sent?: boolean
-    consent_sms_sent?: boolean
     whatsapp_sent?: boolean
     has_recent_activity?: boolean
     has_chats?: boolean
@@ -178,42 +175,16 @@ async function checkRecentChatActivity(customerId: string): Promise<boolean> {
   return recentMessages && recentMessages.length > 0
 }
 
-async function sendConsentSms(phoneNumber: string, bistroName: string, biteId: string): Promise<boolean> {
-  // Remove the + if present for SMS
-  const cleanNumber = phoneNumber.replace('+', '')
-  
-  // Create wa.me link with pre-filled consent message including bite ID
-  const consentMessage = `Hi there! ${bistroName} wants to send you WhatsApp notifications about your order! Please click this link: https://wa.me/27731136480?text=CONSENT-${biteId}`
-  
-  try {
-    const result = await sendSms({
-      phoneNumber: cleanNumber,
-      message: consentMessage
-    }, 'winsms')
-    
-    if (result.success) {
-      console.log('Consent SMS sent successfully to:', phoneNumber)
-      return true
-    } else {
-      console.error('Failed to send consent SMS:', result.error)
-      return false
-    }
-  } catch (error) {
-    console.error('Error sending consent SMS:', error)
-    return false
-  }
-}
-
-async function sendConsentEmail(email: string, bistroName: string, biteId: string): Promise<boolean> {
-  // Create wa.me link with pre-filled consent message including bite ID
-  const consentUrl = `https://wa.me/27731136480?text=CONSENT-${biteId}`
+async function sendConsentEmail(email: string, locationName: string, orderId: string): Promise<boolean> {
+  // Create wa.me link with pre-filled consent message including order ID
+  const consentUrl = `https://wa.me/27731136480?text=CONSENT-${orderId}`
   
   try {
     const result = await sendConsentEmailResend(
       email,
-      `Order Notification Setup - ${bistroName}`,
+      `Order Notification Setup - ${locationName}`,
       consentUrl,
-      bistroName
+      locationName
     )
     
     if (result.success) {
@@ -239,13 +210,13 @@ function cleanMessageForFallback(message: string): string {
 
 /**
  * Smart message sending that respects WhatsApp's 24-hour rule
- * Falls back to email then SMS as needed
+ * Falls back to email as needed
  */
 export async function sendSmartMessage(request: SmartMessageRequest): Promise<SmartMessageResult> {
   console.log('=== SMART MESSAGE ROUTING ===')
   console.log('Request:', JSON.stringify(request, null, 2))
 
-  const { whatsapp_number, message, subject, bistro_name, order_number, bite_id } = request
+  const { whatsapp_number, message, subject, location_name, order_number, order_id } = request
 
   // Get or create customer
   const customer = await getOrCreateCustomer(whatsapp_number)
@@ -261,20 +232,20 @@ export async function sendSmartMessage(request: SmartMessageRequest): Promise<Sm
   const hasChats = await checkCustomerHasChats(customer.id)
   console.log(`Customer ${customer.id} has chats: ${hasChats}`)
 
-  // If no chats, check email first before consent SMS
-  if (!hasChats && bistro_name && bite_id) {
-    console.log('=== NO CHATS - CHECKING EMAIL FIRST ===')
+  // If no chats, send consent email
+  if (!hasChats && location_name && order_id) {
+    console.log('=== NO CHATS - SENDING CONSENT EMAIL ===')
     
-    // Try consent email first if available
+    // Try consent email if available
     if (customer.email) {
-      console.log(`Customer has email: ${customer.email}, sending consent email instead of consent SMS`)
+      console.log(`Customer has email: ${customer.email}, sending consent email`)
       
-      const emailSent = await sendConsentEmail(customer.email, bistro_name, bite_id)
+      const emailSent = await sendConsentEmail(customer.email, location_name, order_id)
       
       if (emailSent) {
         return {
           success: true,
-          method: 'email',
+          method: 'consent_email',
           details: {
             customer_id: customer.id,
             email_sent: true,
@@ -283,22 +254,27 @@ export async function sendSmartMessage(request: SmartMessageRequest): Promise<Sm
           }
         }
       } else {
-        console.error('Consent email failed for new customer, falling back to consent SMS')
+        console.error('Consent email failed for new customer')
+        return {
+          success: false,
+          method: 'none',
+          error: 'Consent email failed and no other fallback available',
+          details: {
+            customer_id: customer.id,
+            has_chats: false
+          }
+        }
       }
-    }
-    
-    // Only send consent SMS if no email or email failed
-    console.log('=== NO EMAIL AVAILABLE - SENDING CONSENT SMS ===')
-    
-    const smsSent = await sendConsentSms(whatsapp_number, bistro_name, bite_id)
-    
-    return {
-      success: smsSent, // Return actual SMS result, not always true
-      method: 'consent_sms',
-      details: {
-        customer_id: customer.id,
-        consent_sms_sent: smsSent,
-        has_chats: false
+    } else {
+      console.log('No email available for new customer - cannot send consent')
+      return {
+        success: false,
+        method: 'none',
+        error: 'No email available for new customer consent',
+        details: {
+          customer_id: customer.id,
+          has_chats: false
+        }
       }
     }
   }
@@ -326,17 +302,17 @@ export async function sendSmartMessage(request: SmartMessageRequest): Promise<Sm
       }
     } else {
       console.error('WhatsApp failed, falling back:', whatsappResult.error)
-      // Fall through to email/SMS fallback
+      // Fall through to email fallback
     }
   }
 
-  // WhatsApp not available - try email first
+  // WhatsApp not available - try email
   console.log('=== WHATSAPP NOT AVAILABLE - CHECKING EMAIL FALLBACK ===')
   
   if (customer.email) {
     console.log(`Customer has email: ${customer.email}, sending email`)
     
-    const emailSubject = subject || (order_number ? `Order Update from ${bistro_name || 'Restaurant'}` : 'Notification')
+    const emailSubject = subject || (order_number ? `Order Update from ${location_name || 'Restaurant'}` : 'Notification')
     const cleanMessage = cleanMessageForFallback(message)
     
     const emailResult = await sendEmail({
@@ -358,45 +334,22 @@ export async function sendSmartMessage(request: SmartMessageRequest): Promise<Sm
         }
       }
     } else {
-      console.error('Email failed, falling back to SMS:', emailResult.error)
+      console.error('Email failed:', emailResult.error)
     }
   }
 
-  // Email not available or failed - send SMS
-  console.log('=== FALLBACK TO SMS ===')
+  // No communication method available
+  console.log('=== NO COMMUNICATION METHOD AVAILABLE ===')
   
-  const cleanNumber = whatsapp_number.replace('+', '')
-  const cleanMessage = cleanMessageForFallback(message)
-  
-  try {
-    const smsResult = await sendSms({
-      phoneNumber: cleanNumber,
-      message: cleanMessage
-    }, 'winsms')
-    
-    return {
-      success: true,
-      method: 'sms',
-      details: {
-        customer_id: customer.id,
-        sms_sent: smsResult.success,
-        has_recent_activity: hasRecentActivity,
-        has_chats: hasChats
-      }
-    }
-  } catch (error) {
-    console.error('SMS failed:', error)
-    
-    return {
-      success: false,
-      method: 'none',
-      error: 'All communication methods failed',
-      details: {
-        customer_id: customer.id,
-        has_recent_activity: hasRecentActivity,
-        has_chats: hasChats,
-        customer_email: customer.email
-      }
+  return {
+    success: false,
+    method: 'none',
+    error: 'All communication methods failed or unavailable',
+    details: {
+      customer_id: customer.id,
+      has_recent_activity: hasRecentActivity,
+      has_chats: hasChats,
+      customer_email: customer.email
     }
   }
 }

@@ -4,7 +4,6 @@ RETURNS TABLE (
     customer_id UUID,
     whatsapp_number TEXT,
     email TEXT,
-    display_name TEXT,
     first_name TEXT,
     last_name TEXT,
     has_chats BOOLEAN,
@@ -33,7 +32,6 @@ BEGIN
         c.id as customer_id,
         c.whatsapp_number,
         c.email,
-        c.display_name,
         c.first_name,
         c.last_name,
         -- Check if customer has any chats
@@ -55,14 +53,14 @@ BEGIN
         -- Count total orders for this customer
         COALESCE((
             SELECT COUNT(*) 
-            FROM bites b 
-            WHERE b.customer_id = c.id
+            FROM orders o 
+            WHERE o.customer_id = c.id
         ), 0)::INTEGER as total_orders,
         -- Count completed orders for this customer
         COALESCE((
             SELECT COUNT(*) 
-            FROM bites b 
-            WHERE b.customer_id = c.id AND b.status = 'completed'
+            FROM orders o 
+            WHERE o.customer_id = c.id AND o.status = 'completed'
         ), 0)::INTEGER as completed_orders
     FROM customers c
     WHERE c.whatsapp_number = normalized_number;
@@ -70,7 +68,7 @@ BEGIN
     -- If no customer found, return null row to indicate no match
     IF NOT FOUND THEN
         RETURN QUERY SELECT 
-            NULL::UUID, NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT,
+            NULL::UUID, NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT,
             FALSE, FALSE, NULL::TIMESTAMPTZ, 0::INTEGER, 0::INTEGER;
     END IF;
 END;
