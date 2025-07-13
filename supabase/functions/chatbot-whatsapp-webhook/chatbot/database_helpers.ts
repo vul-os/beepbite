@@ -15,6 +15,26 @@ export async function getOrCreateCustomer(whatsappNumber: string, displayName?: 
     .single()
     
   if (existingCustomer && !error) {
+    // If existing customer doesn't have a first_name but we have displayName, update it
+    if (!existingCustomer.first_name && displayName) {
+      console.log(`Updating customer ${existingCustomer.id} with first_name: ${displayName}`)
+      const { data: updatedCustomer, error: updateError } = await supabase
+        .from('customers')
+        .update({ 
+          first_name: displayName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingCustomer.id)
+        .select('*')
+        .single()
+        
+      if (!updateError && updatedCustomer) {
+        return updatedCustomer
+      } else {
+        console.error('Error updating customer name:', updateError)
+        return existingCustomer // Return original if update fails
+      }
+    }
     return existingCustomer
   }
   
@@ -23,7 +43,8 @@ export async function getOrCreateCustomer(whatsappNumber: string, displayName?: 
     .insert({
       whatsapp_number: normalizedNumber,
       first_name: displayName || null,
-      last_seen_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     })
     .select('*')
     .single()
@@ -570,28 +591,76 @@ export async function getCustomerAddress(customerId: string, addressId: string) 
 }
 
 export async function setDefaultAddress(customerId: string, addressId: string) {
-  try {
-    // Remove default from all addresses
-    await supabase
-      .from('customer_addresses')
-      .update({ is_default: false })
-      .eq('customer_id', customerId)
-    
-    // Set the specified address as default
-    const { error } = await supabase
-      .from('customer_addresses')
-      .update({ is_default: true })
-      .eq('customer_id', customerId)
-      .eq('id', addressId)
-      
-    if (error) {
-      console.error('Error setting default address:', error)
-      return { success: false, error: error.message }
-    }
-    
-    return { success: true }
-  } catch (error) {
+  // First, remove default from all other addresses
+  await supabase
+    .from('customer_addresses')
+    .update({ is_default: false })
+    .eq('customer_id', customerId)
+  
+  // Then set the new default
+  const { error } = await supabase
+    .from('customer_addresses')
+    .update({ is_default: true })
+    .eq('id', addressId)
+    .eq('customer_id', customerId)
+  
+  if (error) {
     console.error('Error setting default address:', error)
     return { success: false, error: 'Failed to set default address' }
   }
+  
+  return { success: true }
+}
+
+export async function getActiveOrdersCount(customerId: string): Promise<number> {
+  const { data: orders, error } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('customer_id', customerId)
+    .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'])
+  
+  if (error) {
+    console.error('Error getting active orders count:', error)
+    return 0
+  }
+  
+  return orders?.length || 0
+}
+
+export async function getCustomerProfile(customerId: string) {
+  const { data: customer, error } = await supabase
+    .from('customers')
+    .select('id, whatsapp_number, first_name, last_name, email, created_at')
+    .eq('id', customerId)
+    .single()
+    
+  if (error) {
+    console.error('Error getting customer profile:', error)
+    return null
+  }
+  
+  return customer
+}
+
+export async function updateCustomerProfile(customerId: string, updates: {
+  first_name?: string
+  last_name?: string  
+  email?: string
+}) {
+  const { data: customer, error } = await supabase
+    .from('customers')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', customerId)
+    .select('*')
+    .single()
+    
+  if (error) {
+    console.error('Error updating customer profile:', error)
+    return { success: false, error: error.message }
+  }
+  
+  return { success: true, customer }
 } 

@@ -1,6 +1,6 @@
 import { ConversationState, updateConversationState } from './conversation_state.ts'
-import { getOrCreateCustomer, getCartItems, getCartSummary, getCustomerAddresses } from './database_helpers.ts'
-import { formatMainMenu, formatOrderTypeSelection, formatNewOrderWarning, formatCartView, formatError, formatAddressManagement } from './message_formatter.ts'
+import { getOrCreateCustomer, getCartItems, getCartSummary, getCustomerAddresses, getActiveOrdersCount, getCustomerProfile } from './database_helpers.ts'
+import { formatMainMenu, formatOrderTypeSelection, formatNewOrderWarning, formatCartView, formatError, formatAddressManagement, formatProfileView } from './message_formatter.ts'
 import { handleReviewFlow } from './review_system.ts'
 
 export async function handleMainMenu(
@@ -24,8 +24,8 @@ export async function handleMainMenu(
   
   const cartCount = cartItems.length
   
-  // Get active orders count (placeholder for now)
-  const activeOrderCount = 0 // TODO: Implement active orders count
+  // Get active orders count
+  const activeOrderCount = await getActiveOrdersCount(customerId)
   
   // Get location name for cart display
   let cartLocationName = ''
@@ -249,13 +249,17 @@ async function handlePreviousOrders(chatId: string, customerId: string, state: C
 }
 
 async function handleProfile(chatId: string, customerId: string, state: ConversationState): Promise<string> {
-  // TODO: Implement profile management
-  let message = `👤 *My Profile*\n\n`
-  message += `Profile management coming soon!\n\n`
-  message += `*[1]* 🏠 Back to Main Menu\n\n`
-  message += `📱 *Powered by BeepBite.io*`
+  const profile = await getCustomerProfile(customerId)
+  if (!profile) {
+    return formatError('Unable to load profile. Please try again.')
+  }
   
-  return message
+  await updateConversationState(chatId, {
+    ...state,
+    step: 'profile_view',
+    previous_step: 'main_menu'
+  })
+  return formatProfileView(profile)
 }
 
 async function handleBilling(chatId: string, customerId: string, state: ConversationState): Promise<string> {

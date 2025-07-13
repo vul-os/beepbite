@@ -1180,11 +1180,18 @@ async function handleCheckout(chatId: string, customerId: string, messageBody: s
         
       default:
         const maxOption = isCollection ? 4 : 5
-        return formatError(`Please select a valid payment option (1-${maxOption})`)
+        const cartSummaryDefault = await getCartSummary(customerId, state.selected_location_id!)
+        const errorMessage = formatError(`Please select a valid payment option (1-${maxOption})`)
+        const checkoutMenu = formatCheckout(cartSummaryDefault, state.delivery_type)
+        return errorMessage + '\n\n' + checkoutMenu
     }
   }
   
-  return formatError('Please select a valid option (1-5)')
+  // If input is not a number, also show error with menu
+  const cartSummaryInvalid = await getCartSummary(customerId, state.selected_location_id!)
+  const errorMessageInvalid = formatError('Please select a valid option number')
+  const checkoutMenuInvalid = formatCheckout(cartSummaryInvalid, state.delivery_type)
+  return errorMessageInvalid + '\n\n' + checkoutMenuInvalid
 }
 
 async function handleTipSelection(chatId: string, customerId: string, messageBody: string, state: ConversationState): Promise<string> {

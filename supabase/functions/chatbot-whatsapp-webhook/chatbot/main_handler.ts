@@ -146,6 +146,13 @@ export async function processMessage(
           responseMessage = await handleAddressManagement(chat.id, customer.id, messageBody, state)
           break
           
+        case 'profile_view':
+        case 'profile_edit':
+        case 'profile_field_edit':
+          const { handleProfileManagement } = await import('./profile_management.ts')
+          responseMessage = await handleProfileManagement(chat.id, customer.id, messageBody, state)
+          break
+          
         default:
           // Default to main menu
           responseMessage = formatMainMenu()

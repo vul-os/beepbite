@@ -660,18 +660,93 @@ export function formatAddressAdded(address: any) {
 }
 
 export function formatLocationSuggestions(suggestions: string[]) {
-  let message = `📍 *Choose Address*\n\n`
-  message += `We found these addresses near your location:\n\n`
+  let message = `📍 *Address Suggestions*\n\n`
+  message += `We found these addresses nearby:\n\n`
   
   suggestions.forEach((suggestion, index) => {
-    if (index < 5) {
-      message += `*[${index + 1}]* ${suggestion}\n`
-    }
+    message += `*[${index + 1}]* ${suggestion}\n`
   })
   
-  message += `\n*[6]* ✍️ Type Out Address\n`
-  message += `*[7]* 🔙 Back to Address List\n`
-  message += `*[8]* 🏠 Main Menu\n\n`
+  message += `*[6]* ✏️ Type out address\n`
+  message += `*[7]* 🔙 Back to address list\n`
+  message += `*[8]* 🏠 Main menu\n\n`
+  
   message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatProfileView(customer: any) {
+  let message = `👤 *My Profile*\n\n`
+  
+  message += `*Personal Information:*\n`
+  message += `First Name: ${customer.first_name || 'Not set'}\n`
+  message += `Last Name: ${customer.last_name || 'Not set'}\n`
+  message += `Email: ${customer.email || 'Not set'}\n`
+  message += `WhatsApp: +${customer.whatsapp_number}\n\n`
+  
+  message += `*Account Details:*\n`
+  message += `Member Since: ${new Date(customer.created_at).toLocaleDateString()}\n\n`
+  
+  message += `*Options:*\n`
+  message += `*[1]* ✏️ Edit Profile\n`
+  message += `*[2]* 🏠 Back to Main Menu\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatProfileEdit(customer: any) {
+  let message = `✏️ *Edit Profile*\n\n`
+  
+  message += `*Current Information:*\n`
+  message += `First Name: ${customer.first_name || 'Not set'}\n`
+  message += `Last Name: ${customer.last_name || 'Not set'}\n`
+  message += `Email: ${customer.email || 'Not set'}\n\n`
+  
+  message += `*What would you like to edit?*\n`
+  message += `*[1]* First Name\n`
+  message += `*[2]* Last Name\n`
+  message += `*[3]* Email Address\n`
+  message += `*[4]* 🔙 Back to Profile\n`
+  message += `*[5]* 🏠 Back to Main Menu\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatFieldEdit(fieldName: string, currentValue?: string) {
+  let message = `✏️ *Edit ${fieldName}*\n\n`
+  
+  if (currentValue) {
+    message += `Current ${fieldName}: ${currentValue}\n\n`
+  } else {
+    message += `Current ${fieldName}: Not set\n\n`
+  }
+  
+  if (fieldName === 'Email Address') {
+    message += `Please enter your new email address:\n`
+    message += `(Example: yourname@email.com)\n\n`
+  } else {
+    message += `Please enter your new ${fieldName.toLowerCase()}:\n\n`
+  }
+  
+  message += `Type *cancel* to go back without saving.\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatProfileUpdated(fieldName: string, newValue: string) {
+  let message = `✅ *Profile Updated*\n\n`
+  message += `Your ${fieldName.toLowerCase()} has been updated to:\n`
+  message += `*${newValue}*\n\n`
+  message += `Returning to profile...\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
   return message
 } 

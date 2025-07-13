@@ -6,7 +6,7 @@ const supabase = createClient(
 )
 
 export interface ConversationState {
-  step: 'main_menu' | 'make_order' | 'new_order_warning' | 'order_type' | 'address_selection' | 'new_address' | 'store_selection' | 'store_search' | 'menu_display' | 'category_items' | 'item_details' | 'item_customization' | 'cart_view' | 'checkout' | 'payment' | 'tip_selection' | 'email_collection' | 'payment_method' | 'review_selection' | 'rating' | 'comment' | 'comment_write' | 'anon_selection' | 'completed' | 'address_list' | 'address_actions' | 'address_add' | 'address_added' | 'location_suggestions'
+  step: 'main_menu' | 'make_order' | 'new_order_warning' | 'order_type' | 'address_selection' | 'new_address' | 'store_selection' | 'store_search' | 'menu_display' | 'category_items' | 'item_details' | 'item_customization' | 'cart_view' | 'checkout' | 'payment' | 'tip_selection' | 'email_collection' | 'payment_method' | 'review_selection' | 'rating' | 'comment' | 'comment_write' | 'anon_selection' | 'completed' | 'address_list' | 'address_actions' | 'address_add' | 'address_added' | 'location_suggestions' | 'profile_view' | 'profile_edit' | 'profile_field_edit'
   
   // Order flow data
   delivery_type?: 'delivery' | 'collection'
@@ -42,6 +42,9 @@ export interface ConversationState {
   rating?: number
   comment?: string
   review_page?: number
+  
+  // Profile data
+  editing_field?: 'first_name' | 'last_name' | 'email'
   
   // Navigation
   previous_step?: string
