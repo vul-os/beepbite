@@ -153,6 +153,15 @@ export async function processMessage(
           responseMessage = await handleProfileManagement(chat.id, customer.id, messageBody, state)
           break
           
+        case 'billing_list':
+        case 'billing_actions':
+        case 'billing_add_email_check':
+        case 'billing_add':
+        case 'billing_added':
+          const { handleBillingManagement } = await import('./billing_management.ts')
+          responseMessage = await handleBillingManagement(chat.id, customer.id, messageBody, state)
+          break
+          
         default:
           // Default to main menu
           responseMessage = formatMainMenu()

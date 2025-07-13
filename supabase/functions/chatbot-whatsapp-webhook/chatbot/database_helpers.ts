@@ -302,11 +302,7 @@ export async function getCartSummary(customerId: string, locationId: string) {
 
 export async function getCustomerPaymentMethods(customerId: string) {
   const { data: paymentMethods, error } = await supabase
-    .from('customer_payment_authorizations')
-    .select('*')
-    .eq('customer_id', customerId)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
+    .rpc('get_customer_payment_methods', { customer_uuid: customerId })
     
   if (error) {
     console.error('Error getting customer payment methods:', error)
@@ -314,6 +310,72 @@ export async function getCustomerPaymentMethods(customerId: string) {
   }
   
   return paymentMethods || []
+}
+
+export async function deletePaymentMethod(customerId: string, paymentMethodId: string) {
+  const { data, error } = await supabase
+    .rpc('deactivate_payment_method', { 
+      customer_uuid: customerId, 
+      authorization_uuid: paymentMethodId 
+    })
+    
+  if (error) {
+    console.error('Error deleting payment method:', error)
+    return { success: false, error: error.message }
+  }
+  
+  return { success: true }
+}
+
+export async function setDefaultPaymentMethod(customerId: string, paymentMethodId: string) {
+  const { data, error } = await supabase
+    .rpc('set_default_payment_method', { 
+      customer_uuid: customerId, 
+      authorization_uuid: paymentMethodId 
+    })
+    
+  if (error) {
+    console.error('Error setting default payment method:', error)
+    return { success: false, error: error.message }
+  }
+  
+  return { success: true }
+}
+
+export async function addPaymentMethod(customerId: string, paymentData: {
+  gateway_provider: string
+  authorization_code: string
+  card_last_four?: string
+  card_type?: string
+  card_exp_month?: string
+  card_exp_year?: string
+  nickname?: string
+}) {
+  const { data: paymentMethod, error } = await supabase
+    .from('customer_payment_authorizations')
+    .insert({
+      customer_id: customerId,
+      payment_method_code: 'card', // Assuming card payment
+      gateway_provider: paymentData.gateway_provider,
+      authorization_code: paymentData.authorization_code,
+      card_last_four: paymentData.card_last_four,
+      card_type: paymentData.card_type,
+      card_exp_month: paymentData.card_exp_month,
+      card_exp_year: paymentData.card_exp_year,
+      nickname: paymentData.nickname,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .select('*')
+    .single()
+    
+  if (error) {
+    console.error('Error adding payment method:', error)
+    return { success: false, error: error.message }
+  }
+  
+  return { success: true, paymentMethod }
 }
 
 export async function getStoreInfo(locationId: string) {

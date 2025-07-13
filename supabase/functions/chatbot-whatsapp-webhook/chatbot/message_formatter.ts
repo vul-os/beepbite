@@ -749,4 +749,136 @@ export function formatProfileUpdated(fieldName: string, newValue: string) {
   message += `📱 *Powered by BeepBite.io*`
   
   return message
+}
+
+export function formatBillingManagement(paymentMethods: any[]) {
+  let message = `💳 *Payment Methods*\n\n`
+  
+  if (paymentMethods.length === 0) {
+    message += `No payment methods found.\n\n`
+    message += `*Options:*\n`
+    message += `*[1]* ➕ Add Payment Method\n`
+    message += `*[2]* 🏠 Back to Main Menu\n\n`
+  } else {
+    message += `*Your Cards:*\n\n`
+    
+    paymentMethods.forEach((method, index) => {
+      const isDefault = method.is_default ? ' (Default)' : ''
+      const cardType = method.card_type ? method.card_type.toUpperCase() : 'CARD'
+      const lastFour = method.card_last_four || '****'
+      const expiry = method.card_exp_month && method.card_exp_year ? 
+        ` • Exp: ${method.card_exp_month}/${method.card_exp_year}` : ''
+      
+      message += `*[${index + 1}]* ${cardType} ••••${lastFour}${expiry}${isDefault}\n`
+      if (method.nickname) {
+        message += `     ${method.nickname}\n`
+      }
+      message += `\n`
+    })
+    
+    const nextOption = paymentMethods.length + 1
+    message += `*Options:*\n`
+    message += `*[${nextOption}]* ➕ Add Payment Method\n`
+    message += `*[${nextOption + 1}]* 🏠 Back to Main Menu\n\n`
+  }
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatPaymentMethodActions(paymentMethod: any) {
+  const cardType = paymentMethod.card_type ? paymentMethod.card_type.toUpperCase() : 'CARD'
+  const lastFour = paymentMethod.card_last_four || '****'
+  const isDefault = paymentMethod.is_default
+  
+  let message = `💳 *${cardType} ••••${lastFour}*\n\n`
+  
+  if (paymentMethod.nickname) {
+    message += `Name: ${paymentMethod.nickname}\n`
+  }
+  
+  if (paymentMethod.card_exp_month && paymentMethod.card_exp_year) {
+    message += `Expires: ${paymentMethod.card_exp_month}/${paymentMethod.card_exp_year}\n`
+  }
+  
+  message += `Status: ${isDefault ? 'Default Card' : 'Active'}\n\n`
+  
+  message += `*Actions:*\n`
+  
+  if (!isDefault) {
+    message += `*[1]* ⭐ Set as Default\n`
+    message += `*[2]* 🗑️ Remove Card\n`
+    message += `*[3]* 🔙 Back to Payment Methods\n`
+    message += `*[4]* 🏠 Main Menu\n\n`
+  } else {
+    message += `*[1]* 🗑️ Remove Card\n`
+    message += `*[2]* 🔙 Back to Payment Methods\n`
+    message += `*[3]* 🏠 Main Menu\n\n`
+  }
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatPaymentMethodDeleted() {
+  let message = `✅ *Payment Method Removed*\n\n`
+  message += `Your payment method has been successfully removed.\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatPaymentMethodSetDefault() {
+  let message = `✅ *Default Payment Method Updated*\n\n`
+  message += `Your default payment method has been updated.\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatAddPaymentMethodEmailRequired() {
+  let message = `⚠️ *Email Required*\n\n`
+  message += `To add a payment method, you need to have an email address on your account.\n\n`
+  message += `Please add your email address first by going to Profile.\n\n`
+  
+  message += `*Options:*\n`
+  message += `*[1]* 👤 Go to Profile\n`
+  message += `*[2]* 🔙 Back to Payment Methods\n`
+  message += `*[3]* 🏠 Back to Main Menu\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatAddPaymentMethod() {
+  let message = `💳 *Add Payment Method*\n\n`
+  message += `To add a new payment method, you'll be redirected to our secure payment partner.\n\n`
+  
+  message += `*How it works:*\n`
+  message += `1. You'll receive a secure payment link\n`
+  message += `2. Enter your card details safely\n`
+  message += `3. Your card will be saved for future orders\n\n`
+  
+  message += `*Options:*\n`
+  message += `*[1]* 💳 Get Payment Link\n`
+  message += `*[2]* 🔙 Back to Payment Methods\n`
+  message += `*[3]* 🏠 Back to Main Menu\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
+}
+
+export function formatPaymentMethodAdded() {
+  let message = `✅ *Payment Method Added*\n\n`
+  message += `Your new payment method has been successfully added and is ready to use.\n\n`
+  
+  message += `📱 *Powered by BeepBite.io*`
+  
+  return message
 } 

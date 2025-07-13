@@ -6,7 +6,7 @@ const supabase = createClient(
 )
 
 export interface ConversationState {
-  step: 'main_menu' | 'make_order' | 'new_order_warning' | 'order_type' | 'address_selection' | 'new_address' | 'store_selection' | 'store_search' | 'menu_display' | 'category_items' | 'item_details' | 'item_customization' | 'cart_view' | 'checkout' | 'payment' | 'tip_selection' | 'email_collection' | 'payment_method' | 'review_selection' | 'rating' | 'comment' | 'comment_write' | 'anon_selection' | 'completed' | 'address_list' | 'address_actions' | 'address_add' | 'address_added' | 'location_suggestions' | 'profile_view' | 'profile_edit' | 'profile_field_edit'
+  step: 'main_menu' | 'make_order' | 'new_order_warning' | 'order_type' | 'address_selection' | 'new_address' | 'store_selection' | 'store_search' | 'menu_display' | 'category_items' | 'item_details' | 'item_customization' | 'cart_view' | 'checkout' | 'payment' | 'tip_selection' | 'email_collection' | 'payment_method' | 'review_selection' | 'rating' | 'comment' | 'comment_write' | 'anon_selection' | 'completed' | 'address_list' | 'address_actions' | 'address_add' | 'address_added' | 'location_suggestions' | 'profile_view' | 'profile_edit' | 'profile_field_edit' | 'billing_list' | 'billing_actions' | 'billing_add_email_check' | 'billing_add' | 'billing_added'
   
   // Order flow data
   delivery_type?: 'delivery' | 'collection'
@@ -45,6 +45,9 @@ export interface ConversationState {
   
   // Profile data
   editing_field?: 'first_name' | 'last_name' | 'email'
+  
+  // Billing data
+  selected_payment_method_id?: string
   
   // Navigation
   previous_step?: string

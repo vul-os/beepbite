@@ -1,6 +1,6 @@
 import { ConversationState, updateConversationState } from './conversation_state.ts'
-import { getOrCreateCustomer, getCartItems, getCartSummary, getCustomerAddresses, getActiveOrdersCount, getCustomerProfile } from './database_helpers.ts'
-import { formatMainMenu, formatOrderTypeSelection, formatNewOrderWarning, formatCartView, formatError, formatAddressManagement, formatProfileView } from './message_formatter.ts'
+import { getOrCreateCustomer, getCartItems, getCartSummary, getCustomerAddresses, getActiveOrdersCount, getCustomerProfile, getCustomerPaymentMethods } from './database_helpers.ts'
+import { formatMainMenu, formatOrderTypeSelection, formatNewOrderWarning, formatCartView, formatError, formatAddressManagement, formatProfileView, formatBillingManagement } from './message_formatter.ts'
 import { handleReviewFlow } from './review_system.ts'
 
 export async function handleMainMenu(
@@ -263,13 +263,14 @@ async function handleProfile(chatId: string, customerId: string, state: Conversa
 }
 
 async function handleBilling(chatId: string, customerId: string, state: ConversationState): Promise<string> {
-  // TODO: Implement billing view
-  let message = `💳 *Billing*\n\n`
-  message += `Billing information coming soon!\n\n`
-  message += `*[1]* 🏠 Back to Main Menu\n\n`
-  message += `📱 *Powered by BeepBite.io*`
+  const paymentMethods = await getCustomerPaymentMethods(customerId)
   
-  return message
+  await updateConversationState(chatId, {
+    ...state,
+    step: 'billing_list',
+    previous_step: 'main_menu'
+  })
+  return formatBillingManagement(paymentMethods)
 }
 
 async function handleAddresses(chatId: string, customerId: string, state: ConversationState): Promise<string> {
