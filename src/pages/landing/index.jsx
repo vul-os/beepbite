@@ -410,7 +410,11 @@ const LandingPage = () => {
                   </ul>
                 </div>
                 <div className="lg:order-first">
-                  <DashboardPreview className="max-w-none" />
+                  <div className="w-full overflow-hidden rounded-2xl relative">
+                    <div className="transform scale-90 sm:scale-95 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <DashboardPreview className="w-full" style={{ maxWidth: '600px' }} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -443,7 +447,11 @@ const LandingPage = () => {
                   </ul>
                 </div>
                 <div>
-                  <POSInterfacePreview className="max-w-none" />
+                  <div className="w-full overflow-hidden rounded-2xl relative">
+                    <div className="transform scale-75 sm:scale-85 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <POSInterfacePreview className="w-full" style={{ maxWidth: '900px' }} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -476,7 +484,11 @@ const LandingPage = () => {
                   </ul>
                 </div>
                 <div className="lg:order-first">
-                  <WhatsAppPreview className="max-w-none" />
+                  <div className="w-full overflow-hidden rounded-2xl relative">
+                    <div className="transform scale-85 sm:scale-90 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <WhatsAppPreview className="w-full" style={{ maxWidth: '500px' }} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -509,7 +521,11 @@ const LandingPage = () => {
                   </ul>
                 </div>
                 <div>
-                  <MenuManagementPreview className="max-w-none" />
+                  <div className="w-full overflow-hidden rounded-2xl relative">
+                    <div className="transform scale-80 sm:scale-90 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <MenuManagementPreview className="w-full" style={{ maxWidth: '650px' }} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
