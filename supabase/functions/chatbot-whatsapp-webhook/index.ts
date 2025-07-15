@@ -1,31 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { sendSmartMessage, canUseWhatsApp } from "../utility/communication.ts"
-import {
-  sendWhatsAppMessage,
-  getOrCreateCustomer,
-  getOrCreateChat,
-  saveMessage,
-  updateChatState,
-  getUnreviewedBites,
-  getIncompleteBites,
-  getRecentBitesByWhatsApp,
-  sendRecentBiteUpdates,
-  sendBiteStatusMessage,
-  formatWelcomeMessage,
-  formatBitesForReview,
-  formatRatingRequest,
-  formatCommentRequest,
-  formatCommentWriteRequest,
-  formatAnonSelectionMessage,
-  formatThankYouMessage,
-  saveReview,
-  sendConsentConfirmation,
-  handleMessage,
-  handleConsentMessage,
-  ConversationState,
-  SYSTEM_BOT_ID
-} from "./chatbot.ts"
+import { processMessage } from "./chatbot/main_handler.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,29 +25,14 @@ interface WhatsAppWebhookMessage {
     text?: {
       body: string
     }
+    location?: {
+      latitude: number
+      longitude: number
+      name?: string
+      address?: string
+    }
     type: string
   }>
-}
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-)
-
-async function getBotFromPhoneNumber(phoneNumberId: string) {
-  const { data: bot, error } = await supabase
-    .from('bots')
-    .select('*')
-    .eq('whatsapp_phone_number_id', phoneNumberId)
-    .eq('is_active', true)
-    .single()
-
-  if (error) {
-    console.error('Error fetching bot:', error)
-    return null
-  }
-
-  return bot
 }
 
 serve(async (req) => {
@@ -114,31 +73,42 @@ serve(async (req) => {
             const webhookData: WhatsAppWebhookMessage = change.value
             
             for (const message of webhookData.messages) {
+              const phoneNumberId = webhookData.metadata.phone_number_id
+              const from = message.from
+              const messageId = message.id
+              const displayName = webhookData.contacts?.[0]?.profile?.name
+              
+              let messageBody = ''
+              let messageType = message.type
+              
               if (message.type === 'text' && message.text?.body) {
-                const phoneNumberId = webhookData.metadata.phone_number_id
-                const from = message.from
-                const messageId = message.id
-                const messageBody = message.text.body
-                const displayName = webhookData.contacts?.[0]?.profile?.name
-                
+                messageBody = message.text.body
+              } else if (message.type === 'location' && message.location) {
+                // Format location data as a special message
+                messageBody = `LOCATION:${message.location.latitude},${message.location.longitude}`
+                if (message.location.name) {
+                  messageBody += `:${message.location.name}`
+                }
+                if (message.location.address) {
+                  messageBody += `:${message.location.address}`
+                }
+              }
+              
+              if (messageBody) {
                 console.log('Processing message:', {
                   from,
                   messageBody,
+                  messageType,
                   phoneNumberId,
                   displayName
                 })
                 
-                await handleMessage(phoneNumberId, from, messageId, messageBody, displayName)
+                await processMessage(phoneNumberId, from, messageId, messageBody, displayName)
               }
             }
           }
         }
       }
-    }
-
-    // Handle bite status updates (called from other functions)
-    if (body.type === 'bite_status_update' && body.bite_id) {
-      await sendBiteStatusMessage(body.bite_id)
     }
 
     return new Response('OK', { status: 200 })

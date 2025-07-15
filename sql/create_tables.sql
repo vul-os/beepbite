@@ -582,3 +582,54 @@ CREATE TABLE reviews (
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(order_id)
 );
+
+-- ======================
+-- ALTER STATEMENTS
+-- ======================
+
+-- Add bot_active column to chats table
+ALTER TABLE chats ADD COLUMN bot_active boolean DEFAULT true;
+
+-- Add last_seen_at column to customers table  
+ALTER TABLE customers ADD COLUMN last_seen_at timestamptz;
+
+-- ======================
+-- UTILITY FUNCTIONS
+-- ======================
+
+-- Function to convert cents to decimal for display
+CREATE OR REPLACE FUNCTION cents_to_decimal(cents_amount numeric)
+RETURNS decimal(10,2) AS $$
+BEGIN
+    RETURN (cents_amount::decimal / 100);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Function to convert decimal to cents for storage
+CREATE OR REPLACE FUNCTION decimal_to_cents(decimal_amount decimal)
+RETURNS bigint AS $$
+BEGIN
+    RETURN (decimal_amount * 100)::bigint;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
+-- ======================
+-- REMOVE BOT LOCATION DEPENDENCY
+-- Make bots global instead of location-specific
+-- ======================
+
+-- Remove location_id constraint and column from bots table
+ALTER TABLE bots DROP CONSTRAINT IF EXISTS bots_location_id_fkey;
+ALTER TABLE bots DROP COLUMN IF EXISTS location_id;
+
+-- Make location_id in chats table nullable since chat can exist without location context initially
+ALTER TABLE chats ALTER COLUMN location_id DROP NOT NULL;
+
+-- Update chat indexes to work without location requirement
+DROP INDEX IF EXISTS idx_chats_location_status;
+CREATE INDEX idx_chats_location_status ON chats(location_id, status) WHERE location_id IS NOT NULL;
+
+-- Comments for clarity
+COMMENT ON TABLE bots IS 'Global WhatsApp bots - one bot serves all locations';
+COMMENT ON COLUMN chats.location_id IS 'Optional location context - set when customer starts ordering from specific location'; 

@@ -22,69 +22,6 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
-async function sendWhatsAppMessage(to: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const whatsappToken = Deno.env.get('WHATSAPP_API_TOKEN')
-  const whatsappBaseUrl = Deno.env.get('WHATSAPP_API_BASE_URL') || 'https://graph.facebook.com/v18.0'
-  
-  if (!whatsappToken) {
-    console.error('WhatsApp token not configured')
-    return { success: false, error: 'WhatsApp token not configured' }
-  }
-
-  // Get bot phone number ID
-  const { data: bot, error: botError } = await supabase
-    .from('bots')
-    .select('whatsapp_phone_number_id')
-    .eq('id', SYSTEM_BOT_ID)
-    .single()
-
-  if (botError || !bot) {
-    console.error('Bot not found:', botError)
-    return { success: false, error: 'System bot not configured' }
-  }
-
-  const phoneNumberId = bot.whatsapp_phone_number_id
-
-  try {
-    const response = await fetch(`${whatsappBaseUrl}/${phoneNumberId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'text',
-        text: {
-          body: message
-        }
-      }),
-    })
-
-    const result = await response.json()
-    
-    if (!response.ok) {
-      console.error('WhatsApp message error:', result)
-      return { 
-        success: false, 
-        error: result.error?.message || 'WhatsApp API error' 
-      }
-    }
-
-    return { 
-      success: true, 
-      messageId: result.messages?.[0]?.id 
-    }
-  } catch (error) {
-    console.error('WhatsApp send error:', error)
-    return { 
-      success: false, 
-      error: error.message 
-    }
-  }
-}
-
 async function getOrCreateCustomer(whatsappNumber: string) {
   // Check if customer exists
   const { data: existingCustomer, error: fetchError } = await supabase
@@ -126,53 +63,7 @@ async function getOrCreateCustomer(whatsappNumber: string) {
   return newCustomer
 }
 
-async function checkCustomerHasChats(customerId: string): Promise<boolean> {
-  const { data: chats, error } = await supabase
-    .from('chats')
-    .select('id')
-    .eq('customer_id', customerId)
-    .limit(1)
-
-  if (error) {
-    console.error('Error checking customer chats:', error)
-    return false
-  }
-
-  const hasChats = chats && chats.length > 0
-  console.log(`Customer ${customerId} has chats: ${hasChats}`)
-  
-  return hasChats
-}
-
-async function checkRecentChatActivity(customerId: string): Promise<boolean> {
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  
-  const { data: recentMessages, error } = await supabase
-    .from('messages')
-    .select(`
-      id,
-      chats!inner(
-        customer_id
-      )
-    `)
-    .eq('chats.customer_id', customerId)
-    .gte('created_at', twentyFourHoursAgo)
-    .limit(1)
-
-  if (error) {
-    console.error('Error checking recent chat activity:', error)
-    return false
-  }
-
-  const hasRecentActivity = recentMessages && recentMessages.length > 0
-  console.log(`Customer ${customerId} has recent chat activity (24h): ${hasRecentActivity}`)
-  
-  return hasRecentActivity
-}
-
-
-
-async function getOrCreateChat(customerId: string) {
+async function getOrCreateChat(customerId: string, locationId?: string) {
   // Check if active chat exists for this customer with our bot
   const { data: existingChat, error: fetchError } = await supabase
     .from('chats')
@@ -188,6 +79,17 @@ async function getOrCreateChat(customerId: string) {
   }
 
   if (existingChat) {
+    // Update location_id if provided and different
+    if (locationId && existingChat.location_id !== locationId) {
+      const { error: updateError } = await supabase
+        .from('chats')
+        .update({ location_id: locationId })
+        .eq('id', existingChat.id)
+        
+      if (updateError) {
+        console.error('Error updating chat location:', updateError)
+      }
+    }
     return existingChat
   }
 
@@ -197,6 +99,7 @@ async function getOrCreateChat(customerId: string) {
     .insert({
       bot_id: SYSTEM_BOT_ID,
       customer_id: customerId,
+      location_id: locationId || null, // Can be null initially
       status: 'active',
       conversation_state: { step: 'welcome' },
       bot_active: true,
@@ -329,11 +232,14 @@ serve(async (req) => {
     let whatsappNumber = ''
     let orderNumber = ''
     let locationName = ''
+    let locationId = ''
 
     // If sending a custom message
     if (body.message && body.whatsapp_number) {
       message = body.message
       whatsappNumber = body.whatsapp_number
+      // For custom messages, we don't have a specific location context
+      // We'll need to handle this case differently in getOrCreateChat
     }
     // If sending order status update
     else if (body.order_id) {
@@ -371,6 +277,7 @@ serve(async (req) => {
 
       orderNumber = order.order_number
       locationName = order.locations.name
+      locationId = order.location_id
       console.log(`Order info - Number: ${orderNumber}, Location: ${locationName}`)
 
       // Update order status if provided
@@ -436,9 +343,9 @@ serve(async (req) => {
     }
 
     // Handle database updates for WhatsApp messages
-    if (smartResult.method === 'whatsapp' && smartResult.details?.customer_id) {
-      // Get or create chat for WhatsApp messages only
-      const chat = await getOrCreateChat(smartResult.details.customer_id)
+    if (smartResult.method === 'whatsapp' && smartResult.details?.customer_id && locationId) {
+      // Get or create chat for WhatsApp messages only (requires location context)
+      const chat = await getOrCreateChat(smartResult.details.customer_id, locationId)
       if (chat) {
         // Save message to database
         await saveMessage(chat.id, 'outbound', message)

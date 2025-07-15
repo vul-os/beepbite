@@ -62,10 +62,22 @@ Shows totals etc, tax, delivery fees
 2) Back
 3) Cancel order (have an are you sure step) 
 
---> When you click pay
-Generate payment link
+--> When you click pay 
+Ask for tip ammount in rands, have 3 options 5, 15, 30% and rand value, 4 skip
 
-Thank you, once you have paid, we will message you. 
+If customer does not have email address,
+them to pay via card, they need to set an email address, 
+type out email address detect @ or 1) Back to go back to payment options 
+set customer email to this email 
+
+check if any authorizations, if so, show 5 most recent cards as options, 6) New Card 
+
+Generate payment link paystack
+tell them to pay via link,
+1) Change payment option
+2) Cancel order
+
+Tell them if they have paid, via link, they will be notified here and we will proceeed with order. 
 
 
 
