@@ -8,8 +8,8 @@ import ScrollToTop from '@/components/ui/scroll-to-top';
 // Import preview components
 import DashboardPreview from '@/components/previews/dashboard-preview';
 import MenuManagementPreview from '@/components/previews/menu-management-preview';
-import POSInterfacePreview from '@/components/previews/pos-interface-preview';
 import WhatsAppPreview from '@/components/previews/whatsapp-preview';
+import POSInterfacePreview from '@/components/previews/pos-interface-preview';
 import { 
   Bell, 
   Smartphone, 
@@ -411,82 +411,8 @@ const LandingPage = () => {
                 </div>
                 <div className="lg:order-first">
                   <div className="w-full overflow-hidden rounded-2xl relative">
-                    <div className="transform scale-90 sm:scale-95 lg:scale-100 origin-top-left transition-transform duration-300">
-                      <DashboardPreview className="w-full" style={{ maxWidth: '600px' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* POS Interface Preview */}
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Utensils className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900">Complete POS Interface</h3>
-                  </div>
-                  <p className="text-lg text-gray-600 leading-relaxed">
-                    Full-featured point of sale system with order management, menu browsing, and cart functionality. 
-                    Handle both walk-in customers and WhatsApp orders from one unified interface.
-                  </p>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Unified order management for all channels
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Quick menu item selection and search
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Real-time order status tracking
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <div className="w-full overflow-hidden rounded-2xl relative">
-                    <div className="transform scale-75 sm:scale-85 lg:scale-100 origin-top-left transition-transform duration-300">
-                      <POSInterfacePreview className="w-full" style={{ maxWidth: '900px' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* WhatsApp Integration Preview */}
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <MessageSquare className="w-5 h-5 text-green-600" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900">WhatsApp Digital Pagers</h3>
-                  </div>
-                  <p className="text-lg text-gray-600 leading-relaxed">
-                    Replace traditional buzzer systems with smart WhatsApp notifications. Customers can order 
-                    directly through WhatsApp and receive automatic pickup notifications when their food is ready.
-                  </p>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Direct WhatsApp ordering and payment
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Automatic order ready notifications
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Professional branded messaging
-                    </li>
-                  </ul>
-                </div>
-                <div className="lg:order-first">
-                  <div className="w-full overflow-hidden rounded-2xl relative">
-                    <div className="transform scale-85 sm:scale-90 lg:scale-100 origin-top-left transition-transform duration-300">
-                      <WhatsAppPreview className="w-full" style={{ maxWidth: '500px' }} />
+                    <div className="transform scale-95 md:scale-100 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <DashboardPreview className="w-full" style={{ maxWidth: '650px' }} />
                     </div>
                   </div>
                 </div>
@@ -522,8 +448,82 @@ const LandingPage = () => {
                 </div>
                 <div>
                   <div className="w-full overflow-hidden rounded-2xl relative">
-                    <div className="transform scale-80 sm:scale-90 lg:scale-100 origin-top-left transition-transform duration-300">
-                      <MenuManagementPreview className="w-full" style={{ maxWidth: '650px' }} />
+                    <div className="transform scale-90 md:scale-95 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <MenuManagementPreview className="w-full" style={{ maxWidth: '700px' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* POS Interface Preview */}
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <Utensils className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900">Complete POS Interface</h3>
+                  </div>
+                  <p className="text-lg text-gray-600 leading-relaxed">
+                    Full-featured point of sale system with order management, menu browsing, and cart functionality. 
+                    Handle both walk-in customers and WhatsApp orders from one unified interface.
+                  </p>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Unified order management for all channels
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Quick menu item selection and search
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Real-time order status tracking
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="w-full overflow-hidden rounded-2xl relative">
+                    <div className="transform scale-95 md:scale-100 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <POSInterfacePreview className="w-full" style={{ maxWidth: '550px' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* WhatsApp Integration Preview */}
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <MessageSquare className="w-5 h-5 text-green-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900">WhatsApp Digital Pagers</h3>
+                  </div>
+                  <p className="text-lg text-gray-600 leading-relaxed">
+                    Replace traditional buzzer systems with smart WhatsApp notifications. Customers can order 
+                    directly through WhatsApp and receive automatic pickup notifications when their food is ready.
+                  </p>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Direct WhatsApp ordering and payment
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Automatic order ready notifications
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Professional branded messaging
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:order-first">
+                  <div className="w-full overflow-hidden rounded-2xl relative">
+                    <div className="transform scale-95 md:scale-100 lg:scale-100 origin-top-left transition-transform duration-300">
+                      <WhatsAppPreview className="w-full" style={{ maxWidth: '550px' }} />
                     </div>
                   </div>
                 </div>

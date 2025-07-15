@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import DocsLayout from '@/components/layout/docs-layout';
-import POSInterfacePreview from '@/components/previews/pos-interface-preview';
 import WhatsAppPreview from '@/components/previews/whatsapp-preview';
 import DashboardPreview from '@/components/previews/dashboard-preview';
 import MenuManagementPreview from '@/components/previews/menu-management-preview';
@@ -122,13 +121,13 @@ const DocsIndex = () => {
               <Eye className="w-4 h-4" />
               Live Preview
             </div>
-            <h2 className="text-3xl font-semibold mb-4 text-orange-800 font-inter">Your Complete POS System</h2>
+            <h2 className="text-3xl font-semibold mb-4 text-orange-800 font-inter">Real-time Analytics Dashboard</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-inter">
-              Experience the actual BeepBite interface. This is exactly what you'll see when managing orders, 
-              processing payments, and running your restaurant.
+              Monitor your restaurant's performance with comprehensive analytics. Track revenue, orders, 
+              customer data, and channel performance across both traditional POS and WhatsApp orders.
             </p>
           </div>
-          <POSInterfacePreview className="mb-8" />
+          <DashboardPreview className="mb-8" />
           <div className="text-center">
             <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => navigate('/signup')}>
               <Play className="mr-2 w-4 h-4" />

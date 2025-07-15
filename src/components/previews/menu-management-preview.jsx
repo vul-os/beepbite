@@ -220,10 +220,10 @@ const MenuManagementPreview = ({ className }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
-      <div className="h-[450px] flex flex-col w-full min-w-0">
+      <div className="h-[520px] flex flex-col w-full min-w-0">
         {/* Header */}
         <motion.div 
-          className="bg-white border-b border-gray-200 p-4"
+          className="bg-white border-b border-gray-200 p-4 flex-shrink-0"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -268,12 +268,12 @@ const MenuManagementPreview = ({ className }) => {
         </motion.div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          <Tabs value={activeTab} className="h-full">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <Tabs value={activeTab} className="h-full flex flex-col">
             {/* Inventory Tab */}
-            <TabsContent value="inventory" className="h-full m-0 p-4 space-y-4">
+            <TabsContent value="inventory" className="flex-1 min-h-0 m-0 p-4 flex flex-col space-y-4">
               {/* Search and Filters */}
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-shrink-0">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
@@ -294,9 +294,9 @@ const MenuManagementPreview = ({ className }) => {
               </div>
 
               {/* Items Grid */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
                 <motion.div 
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-2"
                   layout
                 >
                   <AnimatePresence>
@@ -389,124 +389,126 @@ const MenuManagementPreview = ({ className }) => {
             </TabsContent>
 
             {/* Analytics Tab */}
-            <TabsContent value="analytics" className="h-full m-0 p-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">Revenue Today</p>
-                          <p className="text-xl font-bold text-green-600">R{totalRevenue.toFixed(2)}</p>
-                        </div>
-                        <DollarSign className="w-8 h-8 text-green-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-100">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">Items Sold</p>
-                          <p className="text-xl font-bold text-blue-600">{totalItemsSold}</p>
-                        </div>
-                        <Utensils className="w-8 h-8 text-blue-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-100">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">Avg Margin</p>
-                          <p className="text-xl font-bold text-purple-600">
-                            {(menuItems.reduce((sum, item) => sum + item.margin, 0) / menuItems.length).toFixed(1)}%
-                          </p>
-                        </div>
-                        <TrendingUp className="w-8 h-8 text-purple-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-100">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">Top Item</p>
-                          <p className="text-sm font-bold text-orange-600">
-                            {menuItems.sort((a, b) => b.sold_today - a.sold_today)[0]?.name || 'N/A'}
-                          </p>
-                        </div>
-                        <Star className="w-8 h-8 text-orange-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              </div>
-
-              {/* Top Performers */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Top Performing Items</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {menuItems
-                    .sort((a, b) => b.sold_today - a.sold_today)
-                    .slice(0, 5)
-                    .map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs font-bold text-purple-600">
-                            {index + 1}
-                          </div>
-                          <span className="text-lg">{item.image}</span>
+            <TabsContent value="analytics" className="flex-1 min-h-0 m-0 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-sm">{item.name}</p>
-                            <p className="text-xs text-gray-600">Margin: {item.margin.toFixed(1)}%</p>
+                            <p className="text-sm text-gray-600">Revenue Today</p>
+                            <p className="text-xl font-bold text-green-600">R{totalRevenue.toFixed(2)}</p>
                           </div>
+                          <DollarSign className="w-8 h-8 text-green-600" />
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-sm">{item.sold_today} sold</p>
-                          <p className="text-xs text-gray-600">R{(item.price * item.sold_today).toFixed(2)}</p>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">Items Sold</p>
+                            <p className="text-xl font-bold text-blue-600">{totalItemsSold}</p>
+                          </div>
+                          <Utensils className="w-8 h-8 text-blue-600" />
                         </div>
-                      </motion.div>
-                    ))}
-                </CardContent>
-              </Card>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">Avg Margin</p>
+                            <p className="text-xl font-bold text-purple-600">
+                              {(menuItems.reduce((sum, item) => sum + item.margin, 0) / menuItems.length).toFixed(1)}%
+                            </p>
+                          </div>
+                          <TrendingUp className="w-8 h-8 text-purple-600" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">Top Item</p>
+                            <p className="text-sm font-bold text-orange-600">
+                              {menuItems.sort((a, b) => b.sold_today - a.sold_today)[0]?.name || 'N/A'}
+                            </p>
+                          </div>
+                          <Star className="w-8 h-8 text-orange-600" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </div>
+
+                {/* Top Performers */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Top Performing Items</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {menuItems
+                      .sort((a, b) => b.sold_today - a.sold_today)
+                      .slice(0, 5)
+                      .map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs font-bold text-purple-600">
+                              {index + 1}
+                            </div>
+                            <span className="text-lg">{item.image}</span>
+                            <div>
+                              <p className="font-medium text-sm">{item.name}</p>
+                              <p className="text-xs text-gray-600">Margin: {item.margin.toFixed(1)}%</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-sm">{item.sold_today} sold</p>
+                            <p className="text-xs text-gray-600">R{(item.price * item.sold_today).toFixed(2)}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Alerts Tab */}
-            <TabsContent value="alerts" className="h-full m-0 p-4 space-y-4">
+            <TabsContent value="alerts" className="flex-1 min-h-0 m-0 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
               <div className="space-y-3">
                 {/* Stock Updates */}
                 <Card className="border-0 shadow-lg">
