@@ -94,6 +94,12 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
     
     try {
+      // For now, assume setup is completed to avoid errors
+      // TODO: Implement proper setup check when backend is ready
+      setOrganizationSetupCompleted(true);
+      return true;
+
+      /* Commented out until backend function is available
       const { data, error } = await supabase.rpc('check_organization_setup_completed', {
         p_organization_id: organizationId
       });
@@ -106,6 +112,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       
       setOrganizationSetupCompleted(data);
       return data;
+      */
     } catch (error) {
       console.error('Error checking organization setup completion:', error);
       setOrganizationSetupCompleted(true);
@@ -267,12 +274,11 @@ export function AuthProvider({ children, onNavigate, pathname }) {
         setHasLoadedLocations(false);
         setHasLoadedInvites(false);
         
-        // Only navigate to search on manual sign-in, not on session restoration
-        // We can distinguish this by checking if we're not currently on a protected route
-        if (event === 'SIGNED_IN' && onNavigate && pathname && (pathname === '/signin' || pathname === '/signup' || pathname === '/')) {
+        // Redirect to landing page after successful sign in
+        if (event === 'SIGNED_IN' && onNavigate && pathname && (pathname === '/signin' || pathname === '/signup')) {
           // Small delay to ensure user state is properly set
           setTimeout(() => {
-            onNavigate('/dashboard');
+            onNavigate('/');
           }, 100);
         }
       }
