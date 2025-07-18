@@ -347,13 +347,13 @@ const Categories = () => {
     <div className="space-y-6 mt-6">
       <div className="space-y-2">
         <label className="text-sm font-semibold text-gray-700 block">
-          Category Name <span className="text-red-500">*</span>
+          Category Name <span className="text-orange-500">*</span>
         </label>
         <Input
           placeholder="Enter category name"
           value={formData.name}
           onChange={(e) => handleInputChange('name', e.target.value)}
-          className="w-full h-12 text-base border-gray-200 focus:border-orange-300 focus:ring-orange-200 rounded-xl"
+          className="w-full h-12 text-base border-gray-200 focus:border-orange-500 focus:ring-orange-200 rounded-xl"
           required
         />
       </div>
@@ -367,7 +367,7 @@ const Categories = () => {
           value={formData.description}
           onChange={(e) => handleInputChange('description', e.target.value)}
           rows={4}
-          className="w-full text-base border-gray-200 focus:border-orange-300 focus:ring-orange-200 rounded-xl resize-none"
+          className="w-full text-base border-gray-200 focus:border-orange-500 focus:ring-orange-200 rounded-xl resize-none"
         />
       </div>
       
@@ -377,7 +377,7 @@ const Categories = () => {
             Parent Category
           </label>
           <Select value={formData.parent_id || 'none'} onValueChange={(value) => handleInputChange('parent_id', value)}>
-            <SelectTrigger className="h-12 text-base border-gray-200 focus:border-orange-300 focus:ring-orange-200 rounded-xl">
+            <SelectTrigger className="h-12 text-base border-gray-200 focus:border-orange-500 focus:ring-orange-200 rounded-xl">
               <SelectValue placeholder="Select parent category (optional)" />
             </SelectTrigger>
             <SelectContent>
@@ -406,12 +406,12 @@ const Categories = () => {
             placeholder="0"
             value={formData.sort_order}
             onChange={(e) => handleInputChange('sort_order', e.target.value)}
-            className="w-full h-12 text-base border-gray-200 focus:border-orange-300 focus:ring-orange-200 rounded-xl"
+            className="w-full h-12 text-base border-gray-200 focus:border-orange-500 focus:ring-orange-200 rounded-xl"
           />
         </div>
       </div>
       
-      <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+      <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-xl">
         <input
           type="checkbox"
           id="is_active"
@@ -434,9 +434,9 @@ const Categories = () => {
     const isInlineEditing = editingInline?.id === category.id;
 
     return (
-      <div className={cn("space-y-3", isSubcategory && "ml-8")}>
-        <Card className="group border-2 hover:shadow-xl transition-all duration-300 border-gray-200 hover:border-orange-200 bg-white">
-          <CardContent className="p-6">
+      <div className={cn("space-y-3", isSubcategory && "ml-6")}>
+        <Card className="group border border-gray-100 hover:border-orange-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden">
+          <CardContent className="p-5">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4 flex-1">
                 {/* Expand/Collapse Button */}
@@ -445,29 +445,29 @@ const Categories = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleExpanded(category.id)}
-                    className="p-2 h-10 w-10 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-all duration-200"
+                    className="p-2 h-9 w-9 rounded-full hover:bg-orange-50 hover:text-orange-500 transition-all duration-200"
                   >
                     {isExpanded ? (
-                      <ChevronDown className="w-5 h-5" />
+                      <ChevronDown className="w-4 h-4" />
                     ) : (
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-4 h-4" />
                     )}
                   </Button>
                 )}
                 
-                <div className="flex items-center gap-4 flex-1">
+                <div className="flex items-start gap-4 flex-1 min-w-0">
                   <div className={cn(
-                    "w-14 h-14 rounded-xl flex items-center justify-center shadow-sm",
+                    "w-10 h-10 rounded-full flex items-center justify-center",
                     isSubcategory 
-                      ? "bg-gradient-to-br from-blue-100 to-blue-200" 
-                      : "bg-gradient-to-br from-orange-100 to-orange-200"
+                      ? "bg-orange-50" 
+                      : "bg-gradient-to-br from-orange-500 to-orange-600"
                   )}>
                     {isSubcategory ? (
-                      <Tag className="w-7 h-7 text-blue-600" />
+                      <Tag className="w-5 h-5 text-orange-500" />
                     ) : hasSubcategories ? (
-                      <FolderOpen className="w-7 h-7 text-orange-600" />
+                      <FolderOpen className="w-5 h-5 text-white" />
                     ) : (
-                      <Folder className="w-7 h-7 text-orange-600" />
+                      <Folder className="w-5 h-5 text-white" />
                     )}
                   </div>
                   
@@ -477,19 +477,19 @@ const Categories = () => {
                         <Input
                           value={editingInline.name}
                           onChange={(e) => setEditingInline(prev => ({ ...prev, name: e.target.value }))}
-                          className="text-lg font-semibold border-orange-300 focus:border-orange-400 focus:ring-orange-200 rounded-xl"
+                          className="text-base font-medium border-gray-200 focus:border-orange-500 focus:ring-orange-200 rounded-full"
                         />
                         <Textarea
                           value={editingInline.description}
                           onChange={(e) => setEditingInline(prev => ({ ...prev, description: e.target.value }))}
-                          className="text-sm border-orange-300 focus:border-orange-400 focus:ring-orange-200 rounded-xl resize-none"
+                          className="text-sm border-gray-200 focus:border-orange-500 focus:ring-orange-200 rounded-xl resize-none"
                           rows={2}
                         />
                         <div className="flex gap-2">
                           <Button
                             size="sm"
                             onClick={saveInlineEdit}
-                            className="bg-green-500 hover:bg-green-600 text-white rounded-xl"
+                            className="bg-gradient-to-br from-orange-500 to-orange-600 text-white hover:shadow-md rounded-full px-4"
                           >
                             <Save className="w-4 h-4 mr-2" />
                             Save
@@ -498,7 +498,7 @@ const Categories = () => {
                             size="sm"
                             variant="outline"
                             onClick={cancelInlineEdit}
-                            className="border-gray-300 hover:bg-gray-50 rounded-xl"
+                            className="border-gray-200 hover:bg-gray-50 rounded-full px-4"
                           >
                             <X className="w-4 h-4 mr-2" />
                             Cancel
@@ -507,49 +507,47 @@ const Categories = () => {
                       </div>
                     ) : (
                       <>
-                        <h3 className="font-bold text-gray-900 text-xl truncate mb-2 group-hover:text-orange-600 transition-colors">
-                          {category.name}
-                        </h3>
+                        <div className="flex items-center gap-3 mb-1.5">
+                          <h3 className="font-medium text-gray-900 text-base truncate group-hover:text-orange-600 transition-colors">
+                            {category.name}
+                          </h3>
+                          <Badge 
+                            variant="outline"
+                            className={cn(
+                              "text-xs font-medium px-2 py-0.5 rounded-full",
+                              category.is_active 
+                                ? "bg-orange-50 text-orange-700 border-orange-200"
+                                : "bg-gray-100 text-gray-700 border-gray-200"
+                            )}
+                          >
+                            {category.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                        
                         {category.description && (
-                          <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                          <p className="text-sm text-gray-500 mb-3 line-clamp-2">
                             {category.description}
                           </p>
                         )}
                         
-                        <div className="flex items-center gap-3 mb-3">
-                          <Badge 
-                            variant="outline"
-                            className={cn(
-                              "text-xs font-semibold px-3 py-1 rounded-lg",
-                              category.is_active 
-                                ? "bg-green-50 text-green-700 border-green-200"
-                                : "bg-red-50 text-red-700 border-red-200"
-                            )}
-                          >
-                            {category.is_active ? (
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                            ) : (
-                              <XCircle className="w-3 h-3 mr-1" />
-                            )}
-                            {category.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatDistanceToNow(new Date(category.created_at), { addSuffix: true })}
+                          </div>
                           
-                          <Badge variant="outline" className="text-xs font-medium px-3 py-1 rounded-lg bg-gray-50">
+                          <div className="flex items-center gap-1.5">
+                            <Settings className="w-3.5 h-3.5" />
                             Order: {category.sort_order}
-                          </Badge>
+                          </div>
                           
                           {hasSubcategories && (
-                            <Badge variant="outline" className="text-xs font-medium px-3 py-1 rounded-lg bg-blue-50 text-blue-700 border-blue-200">
-                              <FolderPlus className="w-3 h-3 mr-1" />
+                            <div className="flex items-center gap-1.5">
+                              <FolderPlus className="w-3.5 h-3.5" />
                               {subcategories.length} subcategories
-                            </Badge>
+                            </div>
                           )}
                         </div>
-                        
-                        <p className="text-xs text-gray-500 font-medium">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          Created {formatDistanceToNow(new Date(category.created_at), { addSuffix: true })}
-                        </p>
                       </>
                     )}
                   </div>
@@ -558,15 +556,15 @@ const Categories = () => {
               
               {/* Action Buttons */}
               {!isInlineEditing && (
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-1 ml-4">
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => updateSortOrder(category.id, category.sort_order - 1)}
                     disabled={isLoading}
-                    className="p-2 h-8 w-8 rounded-xl hover:bg-gray-100"
+                    className="p-2 h-8 w-8 rounded-full hover:bg-orange-50 hover:text-orange-500"
                   >
-                    <ArrowUp className="w-3 h-3" />
+                    <ArrowUp className="w-3.5 h-3.5" />
                   </Button>
                   
                   <Button
@@ -574,9 +572,9 @@ const Categories = () => {
                     variant="ghost"
                     onClick={() => updateSortOrder(category.id, category.sort_order + 1)}
                     disabled={isLoading}
-                    className="p-2 h-8 w-8 rounded-xl hover:bg-gray-100"
+                    className="p-2 h-8 w-8 rounded-full hover:bg-orange-50 hover:text-orange-500"
                   >
-                    <ArrowDown className="w-3 h-3" />
+                    <ArrowDown className="w-3.5 h-3.5" />
                   </Button>
                   
                   <DropdownMenu>
@@ -584,22 +582,22 @@ const Categories = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-10 w-10 p-0 rounded-xl hover:bg-gray-100 group/menu"
+                        className="h-8 w-8 p-0 rounded-full hover:bg-orange-50 group/menu"
                       >
-                        <MoreHorizontal className="w-5 h-5 text-gray-400 group-hover/menu:text-gray-600" />
+                        <MoreHorizontal className="w-4 h-4 text-gray-400 group-hover/menu:text-orange-500" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem
                         onClick={() => handleInlineEdit(category)}
-                        className="flex items-center gap-2 text-blue-600 hover:bg-blue-50"
+                        className="flex items-center gap-2 text-orange-600 hover:bg-orange-50"
                       >
                         <Edit className="w-4 h-4" />
                         Quick Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => openEditModal(category)}
-                        className="flex items-center gap-2 text-indigo-600 hover:bg-indigo-50"
+                        className="flex items-center gap-2 text-orange-600 hover:bg-orange-50"
                       >
                         <Settings className="w-4 h-4" />
                         Full Edit
@@ -610,8 +608,8 @@ const Categories = () => {
                         className={cn(
                           "flex items-center gap-2",
                           category.is_active
-                            ? "text-orange-600 hover:bg-orange-50"
-                            : "text-green-600 hover:bg-green-50"
+                            ? "text-gray-600 hover:bg-gray-50"
+                            : "text-orange-600 hover:bg-orange-50"
                         )}
                       >
                         {category.is_active ? (
@@ -644,7 +642,7 @@ const Categories = () => {
         
         {/* Subcategories */}
         {hasSubcategories && isExpanded && (
-          <div className="space-y-3">
+          <div className="space-y-3 pl-4 border-l-2 border-orange-100">
             {subcategories.map(subcategory => (
               <CategoryCard 
                 key={subcategory.id} 
@@ -659,118 +657,112 @@ const Categories = () => {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl beepbite-gradient flex items-center justify-center shadow-lg">
-                <Folder className="w-7 h-7 text-white" />
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+      {/* Header Section */}
+      <div className="relative">
+        <div className="flex flex-col gap-8">
+          {/* Title and Description */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-3 bg-orange-50/50 px-4 py-2 rounded-full">
+                <Folder className="w-5 h-5 text-orange-500" />
+                <span className="text-sm font-medium text-orange-700">Menu Categories</span>
               </div>
-              Categories
-            </h1>
-            <p className="text-lg text-gray-600 mt-2">
-              Organize your menu items with categories for {activeLocation?.name}
-            </p>
+              <h1 className="text-4xl font-bold text-gray-900">
+                Categories
+              </h1>
+              <p className="text-lg text-gray-500">
+                Organize your menu items for {activeLocation?.name}
+              </p>
+            </div>
+            
+            {/* Desktop Add Button */}
+            <div className="hidden sm:block">
+              <Button 
+                onClick={() => {
+                  resetForm();
+                  setIsAddModalOpen(true);
+                }}
+                className="bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-full px-8 h-12 font-medium"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                New Category
+              </Button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative max-w-2xl">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 text-gray-400" />
+            </div>
+            <Input
+              placeholder="Search categories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-12 h-12 text-base font-medium border-gray-200 focus:border-orange-500 focus:ring-orange-200 rounded-full shadow-sm w-full bg-white/50 backdrop-blur-sm"
+            />
           </div>
         </div>
-
-        {/* Search Bar */}
-        <div className="relative max-w-2xl">
-          <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-          <Input
-            placeholder="Search categories..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-14 h-14 text-lg font-medium border-gray-200 focus:border-orange-300 focus:ring-orange-200 rounded-xl shadow-sm"
-          />
-        </div>
       </div>
 
-      {/* FAB - Add Category Button */}
-      <Button
-        onClick={() => {
-          resetForm();
-          setIsAddModalOpen(true);
-        }}
-        className="fixed bottom-8 right-8 w-16 h-16 rounded-full beepbite-gradient text-white shadow-2xl hover:shadow-3xl hover:scale-110 transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
-        size="lg"
-      >
-        <Plus className="w-8 h-8" />
-      </Button>
-
-      {/* Desktop Add Button */}
-      <div className="hidden sm:flex justify-end">
-        <Button 
-          onClick={() => {
-            resetForm();
-            setIsAddModalOpen(true);
-          }}
-          className="beepbite-gradient text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 rounded-xl px-6 py-3 font-semibold"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add Category
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-2 border-gray-200 hover:border-orange-200 hover:shadow-xl transition-all duration-300 rounded-xl">
+        <Card className="border border-gray-100 hover:border-orange-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-4xl font-bold text-gray-900 mb-1">{categories.length}</p>
-                <p className="text-sm text-gray-600 font-medium">Total Categories</p>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
+                <Folder className="w-6 h-6 text-orange-500" />
               </div>
-              <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center shadow-sm">
-                <Folder className="w-7 h-7 text-gray-600" />
+              <div>
+                <p className="text-3xl font-bold text-gray-900">{categories.length}</p>
+                <p className="text-sm text-gray-500 font-medium">Total Categories</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="border-2 border-gray-200 hover:border-orange-200 hover:shadow-xl transition-all duration-300 rounded-xl">
+        <Card className="border border-gray-100 hover:border-orange-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-4xl font-bold text-orange-600 mb-1">{mainCategories.length}</p>
-                <p className="text-sm text-gray-600 font-medium">Main Categories</p>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
+                <FolderOpen className="w-6 h-6 text-orange-500" />
               </div>
-              <div className="w-14 h-14 rounded-xl bg-orange-100 flex items-center justify-center shadow-sm">
-                <FolderOpen className="w-7 h-7 text-orange-600" />
+              <div>
+                <p className="text-3xl font-bold text-orange-500">{mainCategories.length}</p>
+                <p className="text-sm text-gray-500 font-medium">Main Categories</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="border-2 border-gray-200 hover:border-blue-200 hover:shadow-xl transition-all duration-300 rounded-xl">
+        <Card className="border border-gray-100 hover:border-orange-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
+                <Tag className="w-6 h-6 text-orange-500" />
+              </div>
               <div>
-                <p className="text-4xl font-bold text-blue-600 mb-1">
+                <p className="text-3xl font-bold text-orange-500">
                   {categories.filter(cat => cat.parent_id).length}
                 </p>
-                <p className="text-sm text-gray-600 font-medium">Subcategories</p>
-              </div>
-              <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center shadow-sm">
-                <Tag className="w-7 h-7 text-blue-600" />
+                <p className="text-sm text-gray-500 font-medium">Subcategories</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="border-2 border-gray-200 hover:border-green-200 hover:shadow-xl transition-all duration-300 rounded-xl">
+        <Card className="border border-gray-100 hover:border-orange-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-orange-500" />
+              </div>
               <div>
-                <p className="text-4xl font-bold text-green-600 mb-1">
+                <p className="text-3xl font-bold text-orange-500">
                   {categories.filter(cat => cat.is_active).length}
                 </p>
-                <p className="text-sm text-gray-600 font-medium">Active</p>
-              </div>
-              <div className="w-14 h-14 rounded-xl bg-green-100 flex items-center justify-center shadow-sm">
-                <CheckCircle className="w-7 h-7 text-green-600" />
+                <p className="text-sm text-gray-500 font-medium">Active</p>
               </div>
             </div>
           </CardContent>
@@ -780,7 +772,7 @@ const Categories = () => {
       {/* Categories List */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">All Categories</h2>
+          <h2 className="text-xl font-semibold text-gray-900">All Categories</h2>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Settings className="w-4 h-4" />
             <span>Use arrows to reorder</span>
@@ -788,15 +780,15 @@ const Categories = () => {
         </div>
         
         {filteredMainCategories.length === 0 ? (
-          <Card className="border-2 border-gray-200 rounded-xl">
+          <Card className="border border-gray-100 rounded-2xl overflow-hidden">
             <CardContent className="p-12 text-center">
-              <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-6">
-                <Folder className="w-10 h-10 text-gray-400" />
+              <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-6">
+                <Folder className="w-8 h-8 text-orange-500" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 {searchTerm ? 'No categories found' : 'No categories yet'}
               </h3>
-              <p className="text-gray-600 mb-8 text-lg">
+              <p className="text-gray-500 mb-8">
                 {searchTerm 
                   ? 'Try adjusting your search terms' 
                   : 'Create categories to organize your menu items'
@@ -808,7 +800,7 @@ const Categories = () => {
                     resetForm();
                     setIsAddModalOpen(true);
                   }}
-                  className="beepbite-gradient text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 rounded-xl px-8 py-3 font-semibold"
+                  className="bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-full px-8 py-3 font-medium"
                 >
                   <Plus className="w-5 h-5 mr-2" />
                   Create First Category
@@ -817,7 +809,7 @@ const Categories = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {filteredMainCategories.map((category) => (
               <CategoryCard key={category.id} category={category} />
             ))}
@@ -825,28 +817,44 @@ const Categories = () => {
         )}
       </div>
 
+      {/* Mobile FAB */}
+      <Button
+        onClick={() => {
+          resetForm();
+          setIsAddModalOpen(true);
+        }}
+        className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
+        size="icon"
+      >
+        <Plus className="w-6 h-6" />
+      </Button>
+
       {/* Add Category Dialog */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="max-w-3xl rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-2xl font-bold">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Plus className="w-5 h-5 text-orange-600" />
-              </div>
-              Add New Category
-            </DialogTitle>
-            <DialogDescription className="text-base">
-              Create a new category for organizing menu items in {activeLocation?.name}.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
+                <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-orange-500" />
+                </div>
+                Add New Category
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Create a new category for organizing menu items in {activeLocation?.name}.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
           
-          <CategoryForm />
+          <div className="p-6">
+            <CategoryForm />
+          </div>
           
-          <div className="flex gap-4 pt-6">
+          <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end">
             <Button 
               variant="outline" 
               onClick={() => setIsAddModalOpen(false)}
-              className="flex-1 h-12 text-base font-semibold rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+              className="h-10 px-4 font-medium rounded-full border border-gray-200 hover:border-gray-300 hover:bg-white"
               disabled={saving}
             >
               Cancel
@@ -854,12 +862,12 @@ const Categories = () => {
             <Button 
               onClick={addCategory}
               disabled={saving}
-              className="flex-1 h-12 text-base font-semibold beepbite-gradient text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 rounded-xl"
+              className="h-10 px-4 font-medium bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-full"
             >
               {saving ? (
-                <Clock className="w-5 h-5 mr-2 animate-spin" />
+                <Clock className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <Plus className="w-5 h-5 mr-2" />
+                <Plus className="w-4 h-4 mr-2" />
               )}
               Add Category
             </Button>
@@ -869,26 +877,30 @@ const Categories = () => {
 
       {/* Edit Category Dialog */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-3xl rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-2xl font-bold">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Edit className="w-5 h-5 text-blue-600" />
-              </div>
-              Edit Category
-            </DialogTitle>
-            <DialogDescription className="text-base">
-              Update category information for "{editingCategory?.name}".
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
+                <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                  <Edit className="w-5 h-5 text-orange-500" />
+                </div>
+                Edit Category
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Update category information for "{editingCategory?.name}".
+              </DialogDescription>
+            </DialogHeader>
+          </div>
           
-          <CategoryForm isEdit={true} />
+          <div className="p-6">
+            <CategoryForm isEdit={true} />
+          </div>
           
-          <div className="flex gap-4 pt-6">
+          <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end">
             <Button 
               variant="outline" 
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1 h-12 text-base font-semibold rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+              className="h-10 px-4 font-medium rounded-full border border-gray-200 hover:border-gray-300 hover:bg-white"
               disabled={saving}
             >
               Cancel
@@ -896,12 +908,12 @@ const Categories = () => {
             <Button 
               onClick={editCategory}
               disabled={saving}
-              className="flex-1 h-12 text-base font-semibold bg-blue-500 hover:bg-blue-600 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 rounded-xl"
+              className="h-10 px-4 font-medium bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-full"
             >
               {saving ? (
-                <Clock className="w-5 h-5 mr-2 animate-spin" />
+                <Clock className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <Edit className="w-5 h-5 mr-2" />
+                <Edit className="w-4 h-4 mr-2" />
               )}
               Update Category
             </Button>
