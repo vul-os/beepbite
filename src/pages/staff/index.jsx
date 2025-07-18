@@ -679,12 +679,19 @@ const Staff = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList>
-            <TabsTrigger value="staff" className="flex items-center gap-2">
+          <TabsList className="border-b border-orange-100 bg-transparent">
+            <TabsTrigger 
+              value="staff" 
+              className="flex items-center gap-2 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 data-[state=active]:border-orange-500"
+            >
               <Users className="w-4 h-4" />
               Staff List
             </TabsTrigger>
-            <TabsTrigger value="attendance" className="flex items-center gap-2" onClick={() => fetchTimeEntries(selectedStaffId)}>
+            <TabsTrigger 
+              value="attendance" 
+              className="flex items-center gap-2 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 data-[state=active]:border-orange-500"
+              onClick={() => fetchTimeEntries(selectedStaffId)}
+            >
               <Timer className="w-4 h-4" />
               Time & Attendance
             </TabsTrigger>
@@ -693,12 +700,12 @@ const Staff = () => {
           <TabsContent value="staff" className="space-y-6">
             {/* Search Bar */}
             <div className="relative max-w-2xl">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-400 w-5 h-5" />
               <Input
                 placeholder="Search staff by name, email, or employee ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 text-base font-medium border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                className="pl-12 h-12 text-base font-medium border-orange-200 focus:border-orange-300 focus:ring-orange-200 bg-white"
               />
             </div>
 
@@ -708,7 +715,7 @@ const Staff = () => {
                 resetForm();
                 setIsAddModalOpen(true);
               }}
-              className="fixed bottom-6 right-6 w-14 h-14 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
+              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-xl hover:shadow-2xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
               size="lg"
             >
               <UserPlus className="w-6 h-6" />
@@ -721,7 +728,7 @@ const Staff = () => {
                   resetForm();
                   setIsAddModalOpen(true);
                 }}
-                className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add Staff Member
@@ -730,61 +737,61 @@ const Staff = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="border-gray-200 hover:border-orange-200 transition-colors">
+              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-3xl font-bold text-gray-900">{staff.length}</p>
                       <p className="text-sm text-gray-600 mt-1">Total Staff</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <Users className="w-6 h-6 text-gray-600" />
+                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
+                      <Users className="w-6 h-6 text-orange-500" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="border-gray-200 hover:border-green-200 transition-colors">
+              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-green-600">
+                      <p className="text-3xl font-bold text-orange-600">
                         {staff.filter(s => s.is_active).length}
                       </p>
                       <p className="text-sm text-gray-600 mt-1">Active</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
+                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-orange-500" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="border-gray-200 hover:border-red-200 transition-colors">
+              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-red-600">
+                      <p className="text-3xl font-bold text-orange-600">
                         {staff.filter(s => !s.is_active).length}
                       </p>
                       <p className="text-sm text-gray-600 mt-1">Inactive</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                      <XCircle className="w-6 h-6 text-red-600" />
+                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
+                      <XCircle className="w-6 h-6 text-orange-500" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="border-gray-200 hover:border-orange-200 transition-colors">
+              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-lg font-semibold text-gray-900 truncate">{activeLocation?.name}</p>
                       <p className="text-sm text-gray-600 mt-1">Current Location</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-orange-600" />
+                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
+                      <MapPin className="w-6 h-6 text-orange-500" />
                     </div>
                   </div>
                 </CardContent>
@@ -796,10 +803,10 @@ const Staff = () => {
               <h2 className="text-xl font-semibold text-gray-900">Staff Members</h2>
               
               {filteredStaff.length === 0 ? (
-                <Card className="border-gray-200">
+                <Card className="border-orange-100 bg-white">
                   <CardContent className="p-12 text-center">
-                    <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                      <Users className="w-8 h-8 text-gray-400" />
+                    <div className="w-16 h-16 rounded-lg bg-orange-50 flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-8 h-8 text-orange-400" />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
                       {searchTerm ? 'No staff found' : 'No staff members yet'}
@@ -816,7 +823,7 @@ const Staff = () => {
                           resetForm();
                           setIsAddModalOpen(true);
                         }}
-                        className="bg-orange-500 hover:bg-orange-600 text-white"
+                        className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                       >
                         <UserPlus className="w-4 h-4 mr-2" />
                         Add First Staff Member
@@ -830,13 +837,13 @@ const Staff = () => {
                     const isLoading = actionLoading === staffMember.id;
                     
                     return (
-                      <Card key={staffMember.id} className="border-gray-200 hover:border-orange-200 hover:shadow-md transition-all duration-200">
+                      <Card key={staffMember.id} className="border-orange-100 hover:border-orange-200 hover:shadow-md transition-all duration-200 bg-white">
                         <CardContent className="p-6">
                           <div className="space-y-4">
                             {/* Staff Info */}
                             <div className="flex items-start gap-4">
-                              <Avatar className="h-14 w-14 border-2 border-gray-100">
-                                <AvatarFallback className="bg-gray-100 text-gray-700 font-semibold text-lg">
+                              <Avatar className="h-14 w-14 border-2 border-orange-100">
+                                <AvatarFallback className="bg-orange-50 text-orange-700 font-semibold text-lg">
                                   {getInitials(staffMember.first_name, staffMember.last_name)}
                                 </AvatarFallback>
                               </Avatar>
@@ -850,7 +857,7 @@ const Staff = () => {
                                 </p>
                                 
                                 {staffMember.employee_id && (
-                                  <p className="text-xs text-gray-500 mb-2">
+                                  <p className="text-xs text-gray-600 mb-2">
                                     ID: {staffMember.employee_id}
                                   </p>
                                 )}
@@ -858,7 +865,7 @@ const Staff = () => {
                                 <div className="flex items-center gap-2 mb-2">
                                   <Badge 
                                     variant="outline" 
-                                    className={cn("text-xs font-medium", getRoleColor(staffMember.role))}
+                                    className={cn("text-xs font-medium bg-orange-50 text-orange-700 border-orange-200")}
                                   >
                                     <span className="flex items-center gap-1.5">
                                       {getRoleIcon(staffMember.role)}
@@ -871,8 +878,8 @@ const Staff = () => {
                                     className={cn(
                                       "text-xs font-medium",
                                       staffMember.is_active 
-                                        ? "bg-green-50 text-green-700 border-green-200"
-                                        : "bg-red-50 text-red-700 border-red-200"
+                                        ? "bg-orange-50 text-orange-700 border-orange-200"
+                                        : "bg-orange-50 text-orange-700 border-orange-200 opacity-75"
                                     )}
                                   >
                                     {staffMember.is_active ? 'Active' : 'Inactive'}
@@ -880,26 +887,26 @@ const Staff = () => {
                                 </div>
                                 
                                 {staffMember.hire_date && (
-                                  <p className="text-xs text-gray-500 mb-2">
+                                  <p className="text-xs text-gray-600 mb-2">
                                     Hired: {format(new Date(staffMember.hire_date), 'MMM dd, yyyy')}
                                   </p>
                                 )}
                                 
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-gray-600">
                                   Added {formatDistanceToNow(new Date(staffMember.created_at), { addSuffix: true })}
                                 </p>
                               </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="space-y-2 pt-4 border-t border-gray-100">
+                            <div className="space-y-2 pt-4 border-t border-orange-100">
                               <div className="grid grid-cols-2 gap-2">
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => openEditModal(staffMember)}
                                   disabled={isLoading}
-                                  className="text-xs hover:bg-blue-50 border-blue-200 text-blue-700"
+                                  className="text-xs hover:bg-orange-50 border-orange-200 text-orange-700"
                                 >
                                   <Edit className="w-3 h-3 mr-1" />
                                   Edit
@@ -913,8 +920,8 @@ const Staff = () => {
                                   className={cn(
                                     "text-xs",
                                     staffMember.is_active
-                                      ? "hover:bg-red-50 border-red-200 text-red-700"
-                                      : "hover:bg-green-50 border-green-200 text-green-700"
+                                      ? "hover:bg-orange-50 border-orange-200 text-orange-700"
+                                      : "hover:bg-orange-50 border-orange-200 text-orange-700"
                                   )}
                                 >
                                   {staffMember.is_active ? (
@@ -936,7 +943,7 @@ const Staff = () => {
                                 variant="outline"
                                 onClick={() => deleteStaff(staffMember.id, `${staffMember.first_name} ${staffMember.last_name}`)}
                                 disabled={isLoading}
-                                className="w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                className="w-full text-xs text-orange-700 hover:text-orange-800 hover:bg-orange-50 border-orange-200"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
                                 Delete
@@ -965,7 +972,7 @@ const Staff = () => {
                       fetchTimeEntries(value === 'all' ? null : value);
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-orange-200 focus:ring-orange-200 focus:border-orange-300">
                       <SelectValue placeholder="Filter by staff member" />
                     </SelectTrigger>
                     <SelectContent>
@@ -987,13 +994,13 @@ const Staff = () => {
                   const isLoading = actionLoading === member.id;
                   
                   return (
-                    <Card key={member.id} className="border-gray-200 hover:border-orange-200 hover:shadow-md transition-all duration-200">
+                    <Card key={member.id} className="border-orange-100 hover:border-orange-200 hover:shadow-md transition-all duration-200 bg-white">
                       <CardContent className="p-6">
                         <div className="space-y-4">
                           {/* Staff Info */}
                           <div className="flex items-start gap-4">
-                            <Avatar className="h-14 w-14 border-2 border-gray-100">
-                              <AvatarFallback className="bg-gray-100 text-gray-700 font-semibold text-lg">
+                            <Avatar className="h-14 w-14 border-2 border-orange-100">
+                              <AvatarFallback className="bg-orange-50 text-orange-700 font-semibold text-lg">
                                 {getInitials(member.first_name, member.last_name)}
                               </AvatarFallback>
                             </Avatar>
@@ -1006,7 +1013,7 @@ const Staff = () => {
                               {getStatusBadge(status)}
                               
                               {member.employee_id && (
-                                <p className="text-xs text-gray-500 mt-2">
+                                <p className="text-xs text-gray-600 mt-2">
                                   ID: {member.employee_id}
                                 </p>
                               )}
@@ -1014,13 +1021,13 @@ const Staff = () => {
                           </div>
 
                           {/* Time Entry Actions */}
-                          <div className="grid grid-cols-2 gap-2 pt-4 border-t border-gray-100">
+                          <div className="grid grid-cols-2 gap-2 pt-4 border-t border-orange-100">
                             {status === 'out' && (
                               <Button
                                 size="sm"
                                 onClick={() => handleTimeEntry(member.id, 'clock_in')}
                                 disabled={isLoading}
-                                className="text-xs bg-green-500 hover:bg-green-600 text-white"
+                                className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
                               >
                                 <PlayCircle className="w-3 h-3 mr-1" />
                                 Clock In
@@ -1033,7 +1040,7 @@ const Staff = () => {
                                   size="sm"
                                   onClick={() => handleTimeEntry(member.id, 'break_start')}
                                   disabled={isLoading}
-                                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
                                 >
                                   <Coffee className="w-3 h-3 mr-1" />
                                   Start Break
@@ -1043,7 +1050,7 @@ const Staff = () => {
                                   size="sm"
                                   onClick={() => handleTimeEntry(member.id, 'clock_out')}
                                   disabled={isLoading}
-                                  className="text-xs bg-red-500 hover:bg-red-600 text-white"
+                                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
                                 >
                                   <StopCircle className="w-3 h-3 mr-1" />
                                   Clock Out
@@ -1056,7 +1063,7 @@ const Staff = () => {
                                 size="sm"
                                 onClick={() => handleTimeEntry(member.id, 'break_end')}
                                 disabled={isLoading}
-                                className="text-xs bg-green-500 hover:bg-green-600 text-white"
+                                className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
                               >
                                 <ArrowLeftCircle className="w-3 h-3 mr-1" />
                                 End Break
@@ -1077,20 +1084,20 @@ const Staff = () => {
                 {loadingTimeEntries ? (
                   <div className="space-y-4">
                     {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                      <div key={i} className="h-16 bg-orange-50 rounded-lg animate-pulse" />
                     ))}
                   </div>
                 ) : timeEntries.length === 0 ? (
-                  <Card className="border-gray-200">
+                  <Card className="border-orange-100 bg-white">
                     <CardContent className="p-6 text-center">
-                      <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <Clock className="w-12 h-12 text-orange-400 mx-auto mb-4" />
                       <p className="text-gray-600">No time entries found</p>
                     </CardContent>
                   </Card>
                 ) : (
                   <div className="space-y-4">
                     {timeEntries.map((entry) => (
-                      <Card key={entry.id} className="border-gray-200">
+                      <Card key={entry.id} className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
@@ -1105,8 +1112,8 @@ const Staff = () => {
                               variant="outline"
                               className={cn(
                                 "capitalize",
-                                entry.entry_type === 'clock_in' && "bg-green-50 text-green-700 border-green-200",
-                                entry.entry_type === 'clock_out' && "bg-red-50 text-red-700 border-red-200",
+                                entry.entry_type === 'clock_in' && "bg-orange-50 text-orange-700 border-orange-200",
+                                entry.entry_type === 'clock_out' && "bg-orange-50 text-orange-700 border-orange-200",
                                 entry.entry_type.includes('break') && "bg-orange-50 text-orange-700 border-orange-200"
                               )}
                             >
@@ -1126,7 +1133,7 @@ const Staff = () => {
 
       {/* Add Staff Dialog */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-orange-500" />
@@ -1143,7 +1150,7 @@ const Staff = () => {
             <Button 
               variant="outline" 
               onClick={() => setIsAddModalOpen(false)}
-              className="flex-1"
+              className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
               disabled={saving}
             >
               Cancel
@@ -1151,7 +1158,7 @@ const Staff = () => {
             <Button 
               onClick={addStaff}
               disabled={saving}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -1166,10 +1173,10 @@ const Staff = () => {
 
       {/* Edit Staff Dialog */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-blue-500" />
+              <Edit className="w-5 h-5 text-orange-500" />
               Edit Staff Member
             </DialogTitle>
             <DialogDescription>
@@ -1183,7 +1190,7 @@ const Staff = () => {
             <Button 
               variant="outline" 
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1"
+              className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
               disabled={saving}
             >
               Cancel
@@ -1191,7 +1198,7 @@ const Staff = () => {
             <Button 
               onClick={editStaff}
               disabled={saving}
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
