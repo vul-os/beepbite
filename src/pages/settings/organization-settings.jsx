@@ -156,7 +156,7 @@ const OrganizationSettings = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <Building2 className="w-8 h-8 text-blue-500" />
+              <Building2 className="w-8 h-8 text-orange-500" />
               Organization Settings
             </h1>
             <p className="text-gray-600 mt-1">
@@ -184,10 +184,10 @@ const OrganizationSettings = () => {
       </div>
 
       {/* Current Organization Info */}
-      <Card className="border-gray-200 bg-blue-50 border-blue-200">
+      <Card className="border-orange-200 bg-orange-50">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center">
               <Building2 className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
@@ -202,7 +202,7 @@ const OrganizationSettings = () => {
       <Button
         onClick={saveOrganizationSettings}
         disabled={saving}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
         size="lg"
       >
         {saving ? (
@@ -217,7 +217,7 @@ const OrganizationSettings = () => {
         <Button 
           onClick={saveOrganizationSettings}
           disabled={saving}
-          className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
         >
           {saving ? (
             <>
@@ -235,17 +235,17 @@ const OrganizationSettings = () => {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-gray-100">
+        <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-black/5">
           <TabsTrigger 
             value="organization" 
-            className="flex items-center gap-2 text-xs sm:text-sm p-3"
+            className="flex items-center gap-2 text-xs sm:text-sm p-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
           >
             <Building2 className="w-4 h-4" />
             <span>Organization</span>
           </TabsTrigger>
           <TabsTrigger 
             value="locations" 
-            className="flex items-center gap-2 text-xs sm:text-sm p-3"
+            className="flex items-center gap-2 text-xs sm:text-sm p-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
           >
             <MapPin className="w-4 h-4" />
             <span>Locations</span>
@@ -257,7 +257,7 @@ const OrganizationSettings = () => {
           <Card className="border-gray-200">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-blue-500" />
+                <Building2 className="w-5 h-5 text-orange-500" />
                 Organization Information
               </CardTitle>
             </CardHeader>
@@ -270,7 +270,7 @@ const OrganizationSettings = () => {
                   placeholder="Your Organization Name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="w-full"
+                  className="w-full focus:ring-orange-500 focus:border-orange-500"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -278,7 +278,7 @@ const OrganizationSettings = () => {
                 </p>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-black/5 rounded-lg">
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700">Organization Status</h4>
                   <p className="text-xs text-gray-500 mt-1">
@@ -291,7 +291,7 @@ const OrganizationSettings = () => {
                     id="is_active"
                     checked={formData.is_active}
                     onChange={(e) => handleInputChange('is_active', e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
                   />
                   <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
                     Organization Active
@@ -299,22 +299,22 @@ const OrganizationSettings = () => {
                 </div>
               </div>
 
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
                 <div className="mb-3">
-                  <p className="text-sm font-semibold text-blue-800 mb-1">
+                  <p className="text-sm font-semibold text-orange-800 mb-1">
                     🏢 Organization Summary:
                   </p>
-                  <p className="text-xs text-blue-700">
+                  <p className="text-xs text-orange-700">
                     Status: {formData.is_active ? 'Active' : 'Inactive'} | 
                     Locations: {locations.length} | 
                     Active Locations: {locations.filter(l => l.is_active).length}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-blue-800 mb-1">
+                  <p className="text-sm font-semibold text-orange-800 mb-1">
                     💡 Tips:
                   </p>
-                  <p className="text-xs text-blue-700">
+                  <p className="text-xs text-orange-700">
                     • Inactive organizations won't be accessible by users<br />
                     • Organization name is visible to all members<br />
                     • You can manage individual locations in the Locations tab
@@ -353,7 +353,7 @@ const OrganizationSettings = () => {
                     {locations.map((location) => (
                       <div
                         key={location.id}
-                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-orange-50 transition-colors duration-200"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
@@ -367,13 +367,13 @@ const OrganizationSettings = () => {
                                 {location.is_active ? "Active" : "Inactive"}
                               </Badge>
                               {location.accepts_delivery && (
-                                <Badge variant="outline">Delivery</Badge>
+                                <Badge variant="outline" className="border-orange-200 text-orange-700">Delivery</Badge>
                               )}
                               {location.accepts_pickup && (
-                                <Badge variant="outline">Pickup</Badge>
+                                <Badge variant="outline" className="border-orange-200 text-orange-700">Pickup</Badge>
                               )}
                               {location.whatsapp_number && (
-                                <Badge variant="outline">WhatsApp</Badge>
+                                <Badge variant="outline" className="border-orange-200 text-orange-700">WhatsApp</Badge>
                               )}
                             </div>
                           </div>
@@ -383,6 +383,7 @@ const OrganizationSettings = () => {
                             size="sm" 
                             variant="outline"
                             onClick={() => navigate(`/settings/location/${location.id}`)}
+                            className="border-orange-200 text-orange-700 hover:bg-orange-50"
                           >
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
@@ -400,11 +401,11 @@ const OrganizationSettings = () => {
                     <p className="text-sm text-gray-500">Total Locations</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">{locations.filter(l => l.is_active).length}</p>
+                    <p className="text-2xl font-bold text-orange-600">{locations.filter(l => l.is_active).length}</p>
                     <p className="text-sm text-gray-500">Active</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">{locations.filter(l => l.accepts_delivery).length}</p>
+                    <p className="text-2xl font-bold text-orange-600">{locations.filter(l => l.accepts_delivery).length}</p>
                     <p className="text-sm text-gray-500">With Delivery</p>
                   </div>
                   <div className="text-center">
