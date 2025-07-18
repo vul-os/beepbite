@@ -47,19 +47,19 @@ const POSSection = ({
 
       {/* Categories Row */}
       <div className="p-3 bg-white border-b border-orange-200">
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
           <Button
             variant={selectedCategory === 'all' ? 'default' : 'outline'}
             onClick={() => setSelectedCategory('all')}
             className={cn(
-              "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
+              "flex items-center justify-center h-9 px-3 rounded-full font-medium transition-all text-sm w-full min-w-0",
               selectedCategory === 'all'
                 ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
                 : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
             )}
           >
-            <Filter className="w-3 h-3 mr-2" />
-            All Items
+            <Filter className="w-3 h-3 flex-shrink-0 mr-1.5" />
+            <span className="truncate">All Items</span>
           </Button>
           {categories.map((category) => (
             <Button
@@ -67,13 +67,13 @@ const POSSection = ({
               variant={selectedCategory === category.id ? 'default' : 'outline'}
               onClick={() => setSelectedCategory(category.id)}
               className={cn(
-                "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
+                "flex items-center justify-center h-9 px-3 rounded-full font-medium transition-all text-sm w-full min-w-0",
                 selectedCategory === category.id
                   ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
                   : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
               )}
             >
-              {category.name}
+              <span className="truncate" title={category.name}>{category.name}</span>
             </Button>
           ))}
         </div>
