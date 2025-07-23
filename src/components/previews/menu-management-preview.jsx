@@ -220,7 +220,7 @@ const MenuManagementPreview = ({ className }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
-      <div className="h-[520px] flex flex-col w-full min-w-0">
+      <div className="h-[520px] flex flex-col w-full">
         {/* Header */}
         <motion.div 
           className="bg-white border-b border-gray-200 p-4 flex-shrink-0"
@@ -268,130 +268,133 @@ const MenuManagementPreview = ({ className }) => {
         </motion.div>
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 overflow-hidden bg-white">
           <Tabs value={activeTab} className="h-full flex flex-col">
             {/* Inventory Tab */}
-            <TabsContent value="inventory" className="flex-1 min-h-0 m-0 p-4 flex flex-col space-y-4">
-              {/* Search and Filters */}
-              <div className="flex gap-3 flex-shrink-0">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search menu items..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
+            <TabsContent value="inventory" className="flex-1 overflow-hidden p-4">
+              <div className="h-full flex flex-col gap-4">
+                {/* Search and Filters */}
+                <div className="flex gap-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search menu items..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filter
+                  </Button>
+                  <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Item
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
-                </Button>
-                <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Item
-                </Button>
-              </div>
 
-              {/* Items Grid */}
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
-                <motion.div 
-                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-2"
-                  layout
-                >
-                  <AnimatePresence>
-                    {filteredItems.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        layout
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                        whileHover={{ y: -2 }}
-                      >
-                        <Card className="border border-gray-200 hover:border-purple-300 transition-all duration-200 hover:shadow-lg">
-                          <CardContent className="p-3">
-                            <div className="space-y-3">
-                              {/* Header */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xl">{item.image}</span>
-                                  <div className="min-w-0">
-                                    <h4 className="font-semibold text-sm truncate">{item.name}</h4>
-                                    <p className="text-xs text-gray-600">{item.category}</p>
-                                  </div>
-                                </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => startEditing(item)}
-                                >
-                                  <Edit className="w-3 h-3" />
-                                </Button>
-                              </div>
-
-                              {/* Stock Level */}
-                              <div className="space-y-2">
+                {/* Items Grid */}
+                <div className="flex-1 overflow-y-auto">
+                  <motion.div 
+                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-4"
+                    layout
+                  >
+                    <AnimatePresence>
+                      {filteredItems.map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.2, delay: index * 0.05 }}
+                          whileHover={{ y: -2 }}
+                        >
+                          <Card className="border border-gray-200 hover:border-purple-300 transition-all duration-200 hover:shadow-lg">
+                            <CardContent className="p-3">
+                              <div className="space-y-3">
+                                {/* Header */}
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-600">Stock Level</span>
-                                  <Badge className={cn("text-xs", getStatusColor(item.status))}>
-                                    {getStatusIcon(item.status)}
-                                    <span className="ml-1">{item.stock}</span>
-                                  </Badge>
-                                </div>
-                                
-                                <div className="flex items-center gap-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => updateStock(item.id, -1)}
-                                    disabled={item.stock === 0}
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </Button>
-                                  <div className="flex-1 text-center">
-                                    <motion.span 
-                                      key={item.stock}
-                                      initial={{ scale: 1.2, color: "#10b981" }}
-                                      animate={{ scale: 1, color: "#374151" }}
-                                      className="font-medium text-sm"
-                                    >
-                                      {item.stock}
-                                    </motion.span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl">{item.image}</span>
+                                    <div className="min-w-0">
+                                      <h4 className="font-semibold text-sm truncate">{item.name}</h4>
+                                      <p className="text-xs text-gray-600">{item.category}</p>
+                                    </div>
                                   </div>
                                   <Button 
-                                    variant="outline" 
+                                    variant="ghost" 
                                     size="sm" 
                                     className="h-6 w-6 p-0"
-                                    onClick={() => updateStock(item.id, 1)}
+                                    onClick={() => startEditing(item)}
                                   >
-                                    <Plus className="w-3 h-3" />
+                                    <Edit className="w-3 h-3" />
                                   </Button>
                                 </div>
-                              </div>
 
-                              {/* Price and Sales */}
-                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-600">Price: <span className="font-medium text-purple-600">R{item.price.toFixed(2)}</span></span>
-                                <span className="text-gray-600">Sold: <span className="font-medium">{item.sold_today}</span></span>
+                                {/* Stock Level */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">Stock Level</span>
+                                    <Badge className={cn("text-xs", getStatusColor(item.status))}>
+                                      {getStatusIcon(item.status)}
+                                      <span className="ml-1">{item.stock}</span>
+                                    </Badge>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => updateStock(item.id, -1)}
+                                      disabled={item.stock === 0}
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </Button>
+                                    <div className="flex-1 text-center">
+                                      <motion.span 
+                                        key={item.stock}
+                                        initial={{ scale: 1.2, color: "#10b981" }}
+                                        animate={{ scale: 1, color: "#374151" }}
+                                        className="font-medium text-sm"
+                                      >
+                                        {item.stock}
+                                      </motion.span>
+                                    </div>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => updateStock(item.id, 1)}
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Price and Sales */}
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-600">Price: <span className="font-medium text-purple-600">R{item.price.toFixed(2)}</span></span>
+                                  <span className="text-gray-600">Sold: <span className="font-medium">{item.sold_today}</span></span>
+                                </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </motion.div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
+                </div>
               </div>
             </TabsContent>
 
             {/* Analytics Tab */}
-            <TabsContent value="analytics" className="flex-1 min-h-0 m-0 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <TabsContent value="analytics" className="flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto px-4 py-3">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -470,11 +473,11 @@ const MenuManagementPreview = ({ className }) => {
                 </div>
 
                 {/* Top Performers */}
-                <Card className="border-0 shadow-lg">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Top Performing Items</CardTitle>
+                <Card className="border border-gray-100 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium">Top Performing Items</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent>
                     {menuItems
                       .sort((a, b) => b.sold_today - a.sold_today)
                       .slice(0, 5)
@@ -484,21 +487,21 @@ const MenuManagementPreview = ({ className }) => {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                          className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg mb-2 last:mb-0"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs font-bold text-purple-600">
+                            <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs font-medium text-purple-600">
                               {index + 1}
                             </div>
                             <span className="text-lg">{item.image}</span>
                             <div>
                               <p className="font-medium text-sm">{item.name}</p>
-                              <p className="text-xs text-gray-600">Margin: {item.margin.toFixed(1)}%</p>
+                              <p className="text-xs text-gray-500">Margin: {item.margin.toFixed(1)}%</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-sm">{item.sold_today} sold</p>
-                            <p className="text-xs text-gray-600">R{(item.price * item.sold_today).toFixed(2)}</p>
+                            <p className="font-medium text-sm">{item.sold_today} sold</p>
+                            <p className="text-xs text-gray-500">R{(item.price * item.sold_today).toFixed(2)}</p>
                           </div>
                         </motion.div>
                       ))}
@@ -508,17 +511,17 @@ const MenuManagementPreview = ({ className }) => {
             </TabsContent>
 
             {/* Alerts Tab */}
-            <TabsContent value="alerts" className="flex-1 min-h-0 m-0 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
-              <div className="space-y-3">
+            <TabsContent value="alerts" className="flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto px-4 py-3">
                 {/* Stock Updates */}
-                <Card className="border-0 shadow-lg">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
+                <Card className="mb-4 border border-gray-100 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
                       <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
                       Recent Stock Changes
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent>
                     <AnimatePresence>
                       {stockUpdates.map((update) => (
                         <motion.div
@@ -526,7 +529,7 @@ const MenuManagementPreview = ({ className }) => {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 20 }}
-                          className="flex items-center justify-between p-2 bg-orange-50 rounded-lg border border-orange-200"
+                          className="flex items-center justify-between p-2 bg-orange-50 rounded-lg border border-orange-100 mb-2 last:mb-0"
                         >
                           <div className="flex items-center gap-2">
                             {update.change > 0 ? (
@@ -544,20 +547,20 @@ const MenuManagementPreview = ({ className }) => {
                       ))}
                     </AnimatePresence>
                     {stockUpdates.length === 0 && (
-                      <p className="text-center text-gray-500 py-4 text-sm">No recent stock changes</p>
+                      <p className="text-center text-gray-500 py-3 text-sm">No recent stock changes</p>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Low Stock Alerts */}
-                <Card className="border-0 shadow-lg">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2 text-red-600">
-                      <AlertTriangle className="w-5 h-5" />
+                <Card className="border border-gray-100 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-4 h-4" />
                       Stock Alerts
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent>
                     {lowStockItems.map((item, index) => (
                       <motion.div
                         key={item.id}
