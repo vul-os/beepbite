@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,9 @@ import {
   Search,
   Utensils,
   Filter,
-  X
+  X,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,41 @@ const POSSection = ({
   isOrdersExpanded,
   addToCart
 }) => {
+  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
+  const [showExpandButton, setShowExpandButton] = useState(false);
+  const categoriesContainerRef = useRef(null);
+  const allCategoriesRef = useRef(null);
+
+  // Check if categories overflow and need expand/collapse functionality
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (categoriesContainerRef.current && allCategoriesRef.current) {
+        // Create a temporary container to measure the full height
+        const tempContainer = allCategoriesRef.current.cloneNode(true);
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.visibility = 'hidden';
+        tempContainer.style.height = 'auto';
+        tempContainer.style.maxHeight = 'none';
+        document.body.appendChild(tempContainer);
+        
+        const fullHeight = tempContainer.scrollHeight;
+        document.body.removeChild(tempContainer);
+        
+        // Calculate approximate height for 2 lines (button height + gap + padding)
+        const buttonHeight = 36; // h-9 = 36px
+        const gap = 8; // gap-2 = 8px
+        const twoLinesHeight = (buttonHeight * 2) + gap;
+        
+        setShowExpandButton(fullHeight > twoLinesHeight);
+      }
+    };
+
+    checkOverflow();
+    // Re-check when categories change or window resizes
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [categories]);
+
   return (
     <>
       {/* Top Search Bar */}
@@ -45,37 +82,74 @@ const POSSection = ({
         </div>
       </div>
 
-      {/* Categories Row */}
+      {/* Categories Section - Multiline with Expand/Collapse */}
       <div className="p-3 bg-white border-b border-orange-200">
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          <Button
-            variant={selectedCategory === 'all' ? 'default' : 'outline'}
-            onClick={() => setSelectedCategory('all')}
+        <div className="relative">
+          <div 
+            ref={categoriesContainerRef}
             className={cn(
-              "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
-              selectedCategory === 'all'
-                ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
-                : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
+              "overflow-hidden transition-all duration-300 ease-in-out",
+              !isCategoriesExpanded && showExpandButton ? "max-h-20" : "max-h-none"
             )}
           >
-            <Filter className="w-3 h-3 mr-2" />
-            All Items
-          </Button>
-          {categories.map((category) => (
-            <Button
-              key={category.id}
-              variant={selectedCategory === category.id ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory(category.id)}
-              className={cn(
-                "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
-                selectedCategory === category.id
-                  ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
-                  : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
-              )}
+            <div 
+              ref={allCategoriesRef}
+              className="flex flex-wrap gap-2"
             >
-              {category.name}
-            </Button>
-          ))}
+              <Button
+                variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                onClick={() => setSelectedCategory('all')}
+                className={cn(
+                  "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
+                  selectedCategory === 'all'
+                    ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
+                    : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
+                )}
+              >
+                <Filter className="w-3 h-3 mr-2" />
+                All Items
+              </Button>
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? 'default' : 'outline'}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={cn(
+                    "whitespace-nowrap flex-shrink-0 h-9 px-4 rounded-full font-medium transition-all text-sm",
+                    selectedCategory === category.id
+                      ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
+                      : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
+                  )}
+                >
+                  {category.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Expand/Collapse Button */}
+          {showExpandButton && (
+            <div className="flex justify-center mt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 h-8 px-3 rounded-full text-xs"
+              >
+                {isCategoriesExpanded ? (
+                  <>
+                    <ChevronUp className="w-3 h-3 mr-1" />
+                    Show Less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3 h-3 mr-1" />
+                    Show More
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -85,11 +159,14 @@ const POSSection = ({
           <div className={cn(
             "grid gap-4",
             isOrdersExpanded 
-              ? "grid-cols-1 xl:grid-cols-2" 
-              : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+              ? "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" 
+              : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4"
           )}>
             {[...Array(isOrdersExpanded ? 8 : 24)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse"></div>
+              <div key={i} className={cn(
+                "bg-gray-200 rounded-xl animate-pulse",
+                isOrdersExpanded ? "h-64" : "h-44"
+              )}></div>
             ))}
           </div>
         ) : filteredItems.length === 0 ? (
@@ -104,8 +181,8 @@ const POSSection = ({
           <div className={cn(
             "grid gap-4",
             isOrdersExpanded 
-              ? "grid-cols-1 xl:grid-cols-2" 
-              : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+              ? "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" 
+              : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4"
           )}>
             {filteredItems.map((item) => (
               <Card
@@ -114,50 +191,51 @@ const POSSection = ({
                 onClick={() => addToCart(item)}
               >
                 <CardContent className={cn(
-                  "p-4 flex flex-col justify-between",
-                  isOrdersExpanded ? "h-40" : "h-32"
+                  "flex flex-col justify-between",
+                  isOrdersExpanded ? "p-6 h-64" : "p-5 h-44"
                 )}>
                   <div className="flex-1 min-h-0">
                     <h3 className={cn(
-                      "font-bold text-gray-900 mb-1 leading-tight overflow-hidden text-ellipsis whitespace-nowrap",
-                      isOrdersExpanded ? "text-base" : "text-sm"
+                      "font-bold text-gray-900 mb-2 leading-tight",
+                      isOrdersExpanded ? "text-xl line-clamp-3" : "text-base line-clamp-2"
                     )}>
-                      {item.name.length > (isOrdersExpanded ? 25 : 20) 
-                        ? item.name.substring(0, isOrdersExpanded ? 25 : 20) + '...'
-                        : item.name
-                      }
+                      {item.name}
                     </h3>
                     
                     {item.description && (
                       <p className={cn(
-                        "text-gray-600 mb-1 overflow-hidden text-ellipsis whitespace-nowrap",
-                        isOrdersExpanded ? "text-sm" : "text-xs"
+                        "text-gray-600 mb-2 leading-relaxed",
+                        isOrdersExpanded ? "text-base line-clamp-4" : "text-sm line-clamp-2"
                       )}>
-                        {item.description.length > (isOrdersExpanded ? 50 : 35) 
-                          ? item.description.substring(0, isOrdersExpanded ? 50 : 35) + '...'
-                          : item.description
-                        }
+                        {item.description}
                       </p>
                     )}
 
-                    {/* Show variations preview - more compact */}
+                    {/* Show variations preview */}
                     {item.item_variations && item.item_variations.length > 0 && (
-                      <div className="text-xs text-gray-500">
-                        {item.item_variations.slice(0, isOrdersExpanded ? 2 : 1).map((variation, index) => (
+                      <div className={cn(
+                        "text-xs text-gray-500",
+                        isOrdersExpanded ? "mb-3" : "mb-2"
+                      )}>
+                        <span className="font-medium">Variations: </span>
+                        {item.item_variations.slice(0, isOrdersExpanded ? 3 : 2).map((variation, index) => (
                           <span key={variation.id}>
                             {variation.name}
-                            {index < Math.min(item.item_variations.length, isOrdersExpanded ? 2 : 1) - 1 && ', '}
+                            {index < Math.min(item.item_variations.length, isOrdersExpanded ? 3 : 2) - 1 && ', '}
                           </span>
                         ))}
-                        {item.item_variations.length > (isOrdersExpanded ? 2 : 1) && '...'}
+                        {item.item_variations.length > (isOrdersExpanded ? 3 : 2) && '...'}
                       </div>
                     )}
                   </div>
                   
-                  <div className="flex justify-between items-center mt-auto pt-2">
+                  <div className={cn(
+                    "flex justify-between items-center mt-auto",
+                    isOrdersExpanded ? "pt-4" : "pt-3"
+                  )}>
                     <span className={cn(
                       "font-bold text-orange-600",
-                      isOrdersExpanded ? "text-lg" : "text-base"
+                      isOrdersExpanded ? "text-2xl" : "text-lg"
                     )}>
                       R{parseFloat(item.price || 0).toFixed(2)}
                     </span>
@@ -165,15 +243,15 @@ const POSSection = ({
                     <Button
                       size="sm"
                       className={cn(
-                        "bg-orange-500 hover:bg-orange-600 text-white p-0 rounded-full flex-shrink-0",
-                        isOrdersExpanded ? "h-8 w-8" : "h-7 w-7"
+                        "bg-orange-500 hover:bg-orange-600 text-white p-0 rounded-full flex-shrink-0 shadow-md hover:shadow-lg transition-all",
+                        isOrdersExpanded ? "h-12 w-12" : "h-9 w-9"
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
                         addToCart(item);
                       }}
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className={cn(isOrdersExpanded ? "w-5 h-5" : "w-3.5 h-3.5")} />
                     </Button>
                   </div>
                 </CardContent>

@@ -543,15 +543,7 @@ CREATE TABLE stock_movements (
     created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Recipe ingredients (links menu items to inventory)
-CREATE TABLE recipe_ingredients (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    item_id uuid REFERENCES items(id) ON DELETE CASCADE NOT NULL,
-    inventory_item_id uuid REFERENCES inventory_items(id) ON DELETE CASCADE NOT NULL,
-    quantity_needed decimal(10,3) NOT NULL, -- Amount needed per menu item
-    created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-    UNIQUE(item_id, inventory_item_id)
-);
+
 
 -- ======================
 -- TAX CALCULATIONS & COMPLIANCE

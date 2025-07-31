@@ -30,7 +30,7 @@ DROP INDEX IF EXISTS unique_order_number_per_day_simplified;
 -- Drop tables with foreign keys first
 DROP TABLE IF EXISTS reviews CASCADE;
 DROP TABLE IF EXISTS tax_rates CASCADE;
-DROP TABLE IF EXISTS recipe_ingredients CASCADE;
+
 DROP TABLE IF EXISTS stock_movements CASCADE;
 DROP TABLE IF EXISTS inventory_items CASCADE;
 DROP TABLE IF EXISTS messages CASCADE;
@@ -81,7 +81,7 @@ DROP TABLE IF EXISTS profiles CASCADE;
 --     'item_variation_options', 'delivery_drivers', 'driver_locations', 'orders', 'order_details',
 --     'order_financial_details', 'driver_ratings', 'order_items', 'order_item_variations',
 --     'driver_earnings', 'notifications', 'bots', 'chats', 'messages',
---     'inventory_items', 'stock_movements', 'recipe_ingredients', 'tax_rates', 'reviews'
+--     'inventory_items', 'stock_movements', 'tax_rates', 'reviews'
 -- );
 
 -- Check for remaining functions
