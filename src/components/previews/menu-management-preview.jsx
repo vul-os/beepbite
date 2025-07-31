@@ -1,297 +1,660 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  EyeOff,
   Package,
-  DollarSign,
-  ChefHat,
-  Clock,
+  Edit,
+  Plus,
+  Minus,
   Search,
-  Filter
+  Filter,
+  BarChart3,
+  AlertTriangle,
+  CheckCircle,
+  Star,
+  Utensils,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Eye,
+  Save,
+  X,
+  Settings
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const MenuManagementPreview = ({ className }) => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('inventory');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingItem, setEditingItem] = useState(null);
+  const [animationPhase, setAnimationPhase] = useState(0);
+  const [stockUpdates, setStockUpdates] = useState([]);
 
-  const sampleCategories = [
-    { id: 'all', name: 'All Items', count: 24 },
-    { id: 'burgers', name: 'Burgers', count: 8 },
-    { id: 'mains', name: 'Mains', count: 6 },
-    { id: 'sides', name: 'Sides', count: 5 },
-    { id: 'drinks', name: 'Drinks', count: 5 }
-  ];
-
-  const sampleMenuItems = [
-    {
-      id: 1,
-      name: "Chicken Burger",
-      category: "Burgers",
-      price: 45.00,
-      description: "Grilled chicken breast with lettuce, tomato, and mayo",
-      is_available: true,
-      prep_time: 15,
-      variations: ['Small', 'Large'],
-      inventory_count: 25
+  // Dynamic menu items with changing stock levels
+  const [menuItems, setMenuItems] = useState([
+    { 
+      id: 1, 
+      name: "Chicken Burger", 
+      price: 45.00, 
+      category: "Burgers", 
+      stock: 25, 
+      status: "available", 
+      sold_today: 18,
+      cost: 25.00,
+      margin: 44.4,
+      popularity: 92,
+      image: "🍔"
     },
-    {
-      id: 2,
-      name: "Beef Burger",
-      category: "Burgers",
-      price: 55.00,
-      description: "Juicy beef patty with cheese, lettuce, and tomato",
-      is_available: true,
-      prep_time: 18,
-      variations: ['Regular', 'Double'],
-      inventory_count: 18
+    { 
+      id: 2, 
+      name: "Beef Burger", 
+      price: 55.00, 
+      category: "Burgers", 
+      stock: 8, 
+      status: "low_stock", 
+      sold_today: 12,
+      cost: 30.00,
+      margin: 45.5,
+      popularity: 87,
+      image: "🍔"
     },
-    {
-      id: 3,
-      name: "Margherita Pizza",
-      category: "Mains",
-      price: 75.00,
-      description: "Classic pizza with tomato sauce and mozzarella",
-      is_available: false,
-      prep_time: 25,
-      variations: ['Small', 'Medium', 'Large'],
-      inventory_count: 0
+    { 
+      id: 3, 
+      name: "Fries (Large)", 
+      price: 25.00, 
+      category: "Sides", 
+      stock: 45, 
+      status: "available", 
+      sold_today: 34,
+      cost: 8.50,
+      margin: 66.0,
+      popularity: 95,
+      image: "🍟"
     },
-    {
-      id: 4,
-      name: "Fries (Large)",
-      category: "Sides",
-      price: 25.00,
-      description: "Crispy golden potato fries",
-      is_available: true,
-      prep_time: 8,
-      variations: [],
-      inventory_count: 45
+    { 
+      id: 4, 
+      name: "Steak", 
+      price: 95.00, 
+      category: "Mains", 
+      stock: 3, 
+      status: "critical", 
+      sold_today: 7,
+      cost: 65.00,
+      margin: 31.6,
+      popularity: 78,
+      image: "🥩"
     },
-    {
-      id: 5,
-      name: "Coca Cola",
-      category: "Drinks",
-      price: 15.00,
-      description: "330ml chilled can",
-      is_available: true,
-      prep_time: 2,
-      variations: ['Can', 'Bottle'],
-      inventory_count: 67
+    { 
+      id: 5, 
+      name: "Coca Cola", 
+      price: 15.00, 
+      category: "Drinks", 
+      stock: 67, 
+      status: "available", 
+      sold_today: 28,
+      cost: 6.00,
+      margin: 60.0,
+      popularity: 88,
+      image: "🥤"
     },
-    {
-      id: 6,
-      name: "Caesar Salad",
-      category: "Mains",
-      price: 38.00,
-      description: "Fresh romaine lettuce with caesar dressing and croutons",
-      is_available: true,
-      prep_time: 12,
-      variations: ['Regular', 'Large'],
-      inventory_count: 12
+    { 
+      id: 6, 
+      name: "Coffee", 
+      price: 18.00, 
+      category: "Drinks", 
+      stock: 0, 
+      status: "out_of_stock", 
+      sold_today: 0,
+      cost: 5.50,
+      margin: 69.4,
+      popularity: 72,
+      image: "☕"
     }
+  ]);
+
+  const categories = [
+    { id: 'all', name: 'All Items', count: menuItems.length },
+    { id: 'burgers', name: 'Burgers', count: menuItems.filter(i => i.category === 'Burgers').length },
+    { id: 'mains', name: 'Mains', count: menuItems.filter(i => i.category === 'Mains').length },
+    { id: 'sides', name: 'Sides', count: menuItems.filter(i => i.category === 'Sides').length },
+    { id: 'drinks', name: 'Drinks', count: menuItems.filter(i => i.category === 'Drinks').length }
   ];
 
-  const filteredItems = sampleMenuItems.filter(item => {
-    const matchesCategory = selectedCategory === 'all' || item.category.toLowerCase() === selectedCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Simulate stock updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimationPhase((prev) => (prev + 1) % 3);
+      
+      // Simulate random stock changes
+      const randomItem = Math.floor(Math.random() * menuItems.length);
+      const change = Math.random() > 0.5 ? 1 : -1;
+      
+      setMenuItems(prev => prev.map((item, index) => {
+        if (index === randomItem && item.stock > 0) {
+          const newStock = Math.max(0, item.stock + change);
+          const newStatus = newStock === 0 ? 'out_of_stock' : 
+                          newStock < 10 ? 'critical' :
+                          newStock < 20 ? 'low_stock' : 'available';
+          
+          // Add to stock updates log
+          setStockUpdates(prev => [{
+            id: Date.now(),
+            item: item.name,
+            change: change,
+            newStock: newStock,
+            time: new Date().toLocaleTimeString()
+          }, ...prev.slice(0, 4)]);
+          
+          return { ...item, stock: newStock, status: newStatus };
+        }
+        return item;
+      }));
+    }, 4000);
 
-  const getStockStatus = (count) => {
-    if (count === 0) return { label: 'Out of Stock', color: 'bg-red-100 text-red-800 border-red-200' };
-    if (count < 10) return { label: 'Low Stock', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-    return { label: 'In Stock', color: 'bg-green-100 text-green-800 border-green-200' };
+    return () => clearInterval(interval);
+  }, [menuItems.length]);
+
+  const filteredItems = menuItems.filter(item => 
+    searchQuery === '' || item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'available': return 'bg-green-100 text-green-800 border-green-200';
+      case 'low_stock': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'critical': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'out_of_stock': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'available': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'low_stock': return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
+      case 'critical': return <AlertTriangle className="w-4 h-4 text-orange-600" />;
+      case 'out_of_stock': return <X className="w-4 h-4 text-red-600" />;
+      default: return <Package className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
+  const updateStock = (id, change) => {
+    setMenuItems(prev => prev.map(item => {
+      if (item.id === id) {
+        const newStock = Math.max(0, item.stock + change);
+        const newStatus = newStock === 0 ? 'out_of_stock' : 
+                        newStock < 10 ? 'critical' :
+                        newStock < 20 ? 'low_stock' : 'available';
+        return { ...item, stock: newStock, status: newStatus };
+      }
+      return item;
+    }));
+  };
+
+  const startEditing = (item) => {
+    setEditingItem({ ...item });
+  };
+
+  const saveEdit = () => {
+    setMenuItems(prev => prev.map(item => 
+      item.id === editingItem.id ? editingItem : item
+    ));
+    setEditingItem(null);
+  };
+
+  const lowStockItems = menuItems.filter(item => 
+    item.status === 'critical' || item.status === 'low_stock' || item.status === 'out_of_stock'
+  );
+
+  const totalRevenue = menuItems.reduce((sum, item) => sum + (item.price * item.sold_today), 0);
+  const totalItemsSold = menuItems.reduce((sum, item) => sum + item.sold_today, 0);
+
   return (
-    <div className={cn("bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl overflow-hidden border border-orange-200", className)}>
-      <div className="bg-white p-4 sm:p-6 border-b border-orange-200">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div>
-            <h3 className="text-lg sm:text-xl font-semibold text-orange-800">Menu Management</h3>
-            <p className="text-xs sm:text-sm text-gray-600">Manage your restaurant's menu items and inventory</p>
+    <motion.div 
+      className={cn("bg-gradient-to-br from-purple-50 to-indigo-100 rounded-2xl overflow-hidden border border-purple-200 shadow-2xl w-full max-w-full", className)}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+    >
+      <div className="h-[520px] flex flex-col w-full">
+        {/* Header */}
+        <motion.div 
+          className="bg-white border-b border-gray-200 p-4 flex-shrink-0"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Package className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Menu Management</h3>
+                <p className="text-sm text-gray-500">Real-time inventory and menu control</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Badge className="bg-green-100 text-green-800">
+                {menuItems.filter(i => i.status === 'available').length} Available
+              </Badge>
+              <Badge className="bg-red-100 text-red-800">
+                {lowStockItems.length} Low Stock
+              </Badge>
+            </div>
           </div>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm h-7 sm:h-9 px-3 sm:px-4">
-            <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-            Add Item
-          </Button>
-        </div>
 
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4 sm:mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
-            <Input
-              placeholder="Search menu items..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 sm:pl-10 border-2 border-orange-200 focus:border-orange-400 h-8 sm:h-10 text-xs sm:text-sm"
-            />
-          </div>
-          <div className="flex gap-1 sm:gap-2 overflow-x-auto">
-            {sampleCategories.slice(0, 4).map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory(category.id)}
-                className={cn(
-                  "whitespace-nowrap flex-shrink-0 text-xs h-7 sm:h-8 px-2 sm:px-3",
-                  selectedCategory === category.id
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "border-orange-200 text-orange-700 hover:bg-orange-50"
-                )}
-              >
-                {category.name} ({category.count})
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+            <TabsList className="grid w-full grid-cols-3 bg-gray-100">
+              <TabsTrigger value="inventory" className="text-sm">
+                <Package className="w-4 h-4 mr-2" />
+                Inventory
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="text-sm">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="alerts" className="text-sm">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Alerts ({lowStockItems.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </motion.div>
 
-      {/* Menu Items Grid */}
-      <div className="p-3 sm:p-6">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {filteredItems.slice(0, 6).map((item) => {
-            const stockStatus = getStockStatus(item.inventory_count);
-            
-            return (
-              <Card
-                key={item.id}
-                className={cn(
-                  "border-2 transition-all duration-200 hover:shadow-lg",
-                  item.is_available 
-                    ? "border-orange-200 hover:border-orange-400" 
-                    : "border-gray-200 opacity-75"
-                )}
-              >
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-center justify-between mb-2 sm:mb-3">
-                    <Badge variant="outline" className="text-xs">
-                      {item.category}
-                    </Badge>
-                    <div className="flex items-center gap-1">
-                      {item.is_available ? (
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />
-                      ) : (
-                        <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
-                      )}
-                    </div>
+        {/* Content */}
+        <div className="flex-1 overflow-hidden bg-white">
+          <Tabs value={activeTab} className="h-full flex flex-col">
+            {/* Inventory Tab */}
+            <TabsContent value="inventory" className="flex-1 overflow-hidden p-4">
+              <div className="h-full flex flex-col gap-4">
+                {/* Search and Filters */}
+                <div className="flex gap-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search menu items..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filter
+                  </Button>
+                  <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Item
+                  </Button>
+                </div>
 
-                  <h4 className="font-bold text-sm sm:text-base text-gray-900 mb-2 truncate">{item.name}</h4>
-                  
-                  <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
-                    {item.description}
-                  </p>
+                {/* Items Grid */}
+                <div className="flex-1 overflow-y-auto">
+                  <motion.div 
+                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-4"
+                    layout
+                  >
+                    <AnimatePresence>
+                      {filteredItems.map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.2, delay: index * 0.05 }}
+                          whileHover={{ y: -2 }}
+                        >
+                          <Card className="border border-gray-200 hover:border-purple-300 transition-all duration-200 hover:shadow-lg">
+                            <CardContent className="p-3">
+                              <div className="space-y-3">
+                                {/* Header */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl">{item.image}</span>
+                                    <div className="min-w-0">
+                                      <h4 className="font-semibold text-sm truncate">{item.name}</h4>
+                                      <p className="text-xs text-gray-600">{item.category}</p>
+                                    </div>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => startEditing(item)}
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                </div>
 
-                  <div className="space-y-1 sm:space-y-2 mb-3 sm:mb-4">
-                    <div className="flex items-center justify-between text-xs sm:text-sm">
-                      <span className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3 text-orange-500" />
-                        <span className="font-semibold text-orange-600">R{item.price.toFixed(2)}</span>
-                      </span>
-                      <span className="flex items-center gap-1 text-gray-500">
-                        <Clock className="w-3 h-3" />
-                        {item.prep_time}min
-                      </span>
-                    </div>
+                                {/* Stock Level */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">Stock Level</span>
+                                    <Badge className={cn("text-xs", getStatusColor(item.status))}>
+                                      {getStatusIcon(item.status)}
+                                      <span className="ml-1">{item.stock}</span>
+                                    </Badge>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => updateStock(item.id, -1)}
+                                      disabled={item.stock === 0}
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </Button>
+                                    <div className="flex-1 text-center">
+                                      <motion.span 
+                                        key={item.stock}
+                                        initial={{ scale: 1.2, color: "#10b981" }}
+                                        animate={{ scale: 1, color: "#374151" }}
+                                        className="font-medium text-sm"
+                                      >
+                                        {item.stock}
+                                      </motion.span>
+                                    </div>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => updateStock(item.id, 1)}
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
 
-                    <div className="flex items-center justify-between text-xs sm:text-sm">
-                      <span className="flex items-center gap-1 text-gray-500">
-                        <Package className="w-3 h-3" />
-                        Stock: {item.inventory_count}
-                      </span>
-                      <Badge className={cn("text-xs px-1 sm:px-2 py-1", stockStatus.color)}>
-                        {stockStatus.label}
-                      </Badge>
-                    </div>
+                                {/* Price and Sales */}
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-600">Price: <span className="font-medium text-purple-600">R{item.price.toFixed(2)}</span></span>
+                                  <span className="text-gray-600">Sold: <span className="font-medium">{item.sold_today}</span></span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
+                </div>
+              </div>
+            </TabsContent>
 
-                    {item.variations.length > 0 && (
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Variations:</span> {item.variations.join(', ')}
+            {/* Analytics Tab */}
+            <TabsContent value="analytics" className="flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto px-4 py-3">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">Revenue Today</p>
+                            <p className="text-xl font-bold text-green-600">R{totalRevenue.toFixed(2)}</p>
+                          </div>
+                          <DollarSign className="w-8 h-8 text-green-600" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">Items Sold</p>
+                            <p className="text-xl font-bold text-blue-600">{totalItemsSold}</p>
+                          </div>
+                          <Utensils className="w-8 h-8 text-blue-600" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">Avg Margin</p>
+                            <p className="text-xl font-bold text-purple-600">
+                              {(menuItems.reduce((sum, item) => sum + item.margin, 0) / menuItems.length).toFixed(1)}%
+                            </p>
+                          </div>
+                          <TrendingUp className="w-8 h-8 text-purple-600" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-100">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">Top Item</p>
+                            <p className="text-sm font-bold text-orange-600">
+                              {menuItems.sort((a, b) => b.sold_today - a.sold_today)[0]?.name || 'N/A'}
+                            </p>
+                          </div>
+                          <Star className="w-8 h-8 text-orange-600" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </div>
+
+                {/* Top Performers */}
+                <Card className="border border-gray-100 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium">Top Performing Items</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {menuItems
+                      .sort((a, b) => b.sold_today - a.sold_today)
+                      .slice(0, 5)
+                      .map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg mb-2 last:mb-0"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs font-medium text-purple-600">
+                              {index + 1}
+                            </div>
+                            <span className="text-lg">{item.image}</span>
+                            <div>
+                              <p className="font-medium text-sm">{item.name}</p>
+                              <p className="text-xs text-gray-500">Margin: {item.margin.toFixed(1)}%</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-sm">{item.sold_today} sold</p>
+                            <p className="text-xs text-gray-500">R{(item.price * item.sold_today).toFixed(2)}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* Alerts Tab */}
+            <TabsContent value="alerts" className="flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto px-4 py-3">
+                {/* Stock Updates */}
+                <Card className="mb-4 border border-gray-100 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                      <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                      Recent Stock Changes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AnimatePresence>
+                      {stockUpdates.map((update) => (
+                        <motion.div
+                          key={update.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          className="flex items-center justify-between p-2 bg-orange-50 rounded-lg border border-orange-100 mb-2 last:mb-0"
+                        >
+                          <div className="flex items-center gap-2">
+                            {update.change > 0 ? (
+                              <TrendingUp className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <TrendingDown className="w-4 h-4 text-red-600" />
+                            )}
+                            <span className="text-sm font-medium">{update.item}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold">Stock: {update.newStock}</p>
+                            <p className="text-xs text-gray-600">{update.time}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                    {stockUpdates.length === 0 && (
+                      <p className="text-center text-gray-500 py-3 text-sm">No recent stock changes</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Low Stock Alerts */}
+                <Card className="border border-gray-100 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-4 h-4" />
+                      Stock Alerts
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {lowStockItems.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200"
+                      >
+                        <div className="flex items-center gap-3">
+                          {getStatusIcon(item.status)}
+                          <span className="text-lg">{item.image}</span>
+                          <div>
+                            <p className="font-medium text-sm">{item.name}</p>
+                            <p className="text-xs text-gray-600">{item.category}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={cn("text-xs", getStatusColor(item.status))}>
+                            {item.stock} left
+                          </Badge>
+                          <p className="text-xs text-gray-600 mt-1">Needs restock</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                    {lowStockItems.length === 0 && (
+                      <div className="text-center py-8">
+                        <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-2" />
+                        <p className="text-green-600 font-medium">All items well stocked!</p>
+                        <p className="text-sm text-gray-600">No alerts at this time</p>
                       </div>
                     )}
-                  </div>
-
-                  <div className="flex gap-1 sm:gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50 h-7 sm:h-8 text-xs"
-                    >
-                      <Edit className="w-3 h-3 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-200 text-red-600 hover:bg-red-50 h-7 sm:h-8 px-2 sm:px-3"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {filteredItems.length === 0 && (
-          <div className="text-center py-8 sm:py-12">
-            <ChefHat className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No items found</h3>
-            <p className="text-sm text-gray-500">
-              {searchTerm ? 'Try a different search term' : 'No items in this category'}
-            </p>
-          </div>
-        )}
+        {/* Edit Modal */}
+        <AnimatePresence>
+          {editingItem && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-xl p-6 w-full max-w-md"
+              >
+                <h3 className="text-lg font-semibold mb-4">Edit Menu Item</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Name</label>
+                    <Input
+                      value={editingItem.name}
+                      onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Price</label>
+                    <Input
+                      type="number"
+                      value={editingItem.price}
+                      onChange={(e) => setEditingItem({ ...editingItem, price: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Stock</label>
+                    <Input
+                      type="number"
+                      value={editingItem.stock}
+                      onChange={(e) => setEditingItem({ ...editingItem, stock: parseInt(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-6">
+                  <Button onClick={saveEdit} className="flex-1 bg-purple-500 hover:bg-purple-600">
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditingItem(null)} className="flex-1">
+                    Cancel
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-
-      {/* Quick Stats */}
-      <div className="bg-white border-t border-orange-200 p-4 sm:p-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="text-center">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900">24</p>
-            <p className="text-xs sm:text-sm text-gray-600">Total Items</p>
-          </div>
-          <div className="text-center">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900">21</p>
-            <p className="text-xs sm:text-sm text-gray-600">Available</p>
-          </div>
-          <div className="text-center">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900">3</p>
-            <p className="text-xs sm:text-sm text-gray-600">Low Stock</p>
-          </div>
-          <div className="text-center">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <EyeOff className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900">1</p>
-            <p className="text-xs sm:text-sm text-gray-600">Out of Stock</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    </motion.div>
   );
 };
 

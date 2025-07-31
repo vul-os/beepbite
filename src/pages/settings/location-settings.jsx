@@ -212,7 +212,7 @@ const LocationSettings = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/settings/organization')}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-orange-600"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
                 Back to Organization
@@ -247,7 +247,7 @@ const LocationSettings = () => {
       </div>
 
       {/* Current Location Info */}
-      <Card className="border-gray-200 bg-orange-50 border-orange-200">
+      <Card className="border-orange-200 bg-orange-50">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center">
@@ -265,7 +265,7 @@ const LocationSettings = () => {
       <Button
         onClick={saveLocationSettings}
         disabled={saving}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
         size="lg"
       >
         {saving ? (
@@ -280,7 +280,7 @@ const LocationSettings = () => {
         <Button 
           onClick={saveLocationSettings}
           disabled={saving}
-          className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
         >
           {saving ? (
             <>
@@ -298,24 +298,24 @@ const LocationSettings = () => {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-gray-100">
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-black/5">
           <TabsTrigger 
             value="details" 
-            className="flex items-center gap-2 text-xs sm:text-sm p-3"
+            className="flex items-center gap-2 text-xs sm:text-sm p-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
           >
             <MapPin className="w-4 h-4" />
             <span>Details</span>
           </TabsTrigger>
           <TabsTrigger 
             value="delivery" 
-            className="flex items-center gap-2 text-xs sm:text-sm p-3"
+            className="flex items-center gap-2 text-xs sm:text-sm p-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
           >
             <Truck className="w-4 h-4" />
             <span>Delivery</span>
           </TabsTrigger>
           <TabsTrigger 
             value="status" 
-            className="flex items-center gap-2 text-xs sm:text-sm p-3"
+            className="flex items-center gap-2 text-xs sm:text-sm p-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
           >
             <SettingsIcon className="w-4 h-4" />
             <span>Status</span>
@@ -341,7 +341,7 @@ const LocationSettings = () => {
                     placeholder="Main Branch, Downtown Location, etc."
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                     required
                   />
                 </div>
@@ -355,7 +355,7 @@ const LocationSettings = () => {
                     placeholder="+27 82 123 4567"
                     value={formData.whatsapp_number}
                     onChange={(e) => handleInputChange('whatsapp_number', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
               </div>
@@ -369,7 +369,7 @@ const LocationSettings = () => {
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   rows={3}
-                  className="w-full"
+                  className="w-full focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
               
@@ -382,7 +382,7 @@ const LocationSettings = () => {
                   value={formData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   rows={3}
-                  className="w-full"
+                  className="w-full focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
@@ -397,7 +397,7 @@ const LocationSettings = () => {
                     placeholder="-26.2041"
                     value={formData.latitude}
                     onChange={(e) => handleInputChange('latitude', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
                 
@@ -411,7 +411,7 @@ const LocationSettings = () => {
                     placeholder="28.0473"
                     value={formData.longitude}
                     onChange={(e) => handleInputChange('longitude', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
               </div>
@@ -424,7 +424,7 @@ const LocationSettings = () => {
           <Card className="border-gray-200">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Truck className="w-5 h-5 text-blue-500" />
+                <Truck className="w-5 h-5 text-orange-500" />
                 Delivery Settings
               </CardTitle>
             </CardHeader>
@@ -441,7 +441,7 @@ const LocationSettings = () => {
                     placeholder="25.00"
                     value={formData.delivery_fee}
                     onChange={(e) => handleInputChange('delivery_fee', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Standard delivery fee charged to customers
@@ -459,7 +459,7 @@ const LocationSettings = () => {
                     placeholder="150.00"
                     value={formData.free_delivery_threshold}
                     onChange={(e) => handleInputChange('free_delivery_threshold', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Minimum order amount for free delivery
@@ -479,7 +479,7 @@ const LocationSettings = () => {
                     placeholder="10.0"
                     value={formData.max_delivery_distance_km}
                     onChange={(e) => handleInputChange('max_delivery_distance_km', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Maximum distance for delivery orders
@@ -496,7 +496,7 @@ const LocationSettings = () => {
                     placeholder="30"
                     value={formData.estimated_prep_time}
                     onChange={(e) => handleInputChange('estimated_prep_time', e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-orange-500 focus:border-orange-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Average time to prepare orders
@@ -511,7 +511,7 @@ const LocationSettings = () => {
                     id="accepts_delivery"
                     checked={formData.accepts_delivery}
                     onChange={(e) => handleInputChange('accepts_delivery', e.target.checked)}
-                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
                   />
                   <label htmlFor="accepts_delivery" className="text-sm font-medium text-gray-700">
                     Accept Delivery Orders
@@ -524,7 +524,7 @@ const LocationSettings = () => {
                     id="accepts_pickup"
                     checked={formData.accepts_pickup}
                     onChange={(e) => handleInputChange('accepts_pickup', e.target.checked)}
-                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
                   />
                   <label htmlFor="accepts_pickup" className="text-sm font-medium text-gray-700">
                     Accept Pickup Orders
@@ -540,12 +540,12 @@ const LocationSettings = () => {
           <Card className="border-gray-200">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <SettingsIcon className="w-5 h-5 text-purple-500" />
+                <SettingsIcon className="w-5 h-5 text-orange-500" />
                 Location Status
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-black/5 rounded-lg">
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700">Location Status</h4>
                   <p className="text-xs text-gray-500 mt-1">
@@ -558,7 +558,7 @@ const LocationSettings = () => {
                     id="is_active"
                     checked={formData.is_active}
                     onChange={(e) => handleInputChange('is_active', e.target.checked)}
-                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
                   />
                   <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
                     Location Active

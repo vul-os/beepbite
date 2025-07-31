@@ -5,6 +5,31 @@
 @tailwind utilities;
 
 @layer base {
+  /* Custom Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border) / 0.7);
+    border-radius: 100vh;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--beepbite-border-medium) / 0.9);
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border) / 0.7) transparent;
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 10%; /* Primary Text: Rich black for readability */

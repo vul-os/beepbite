@@ -129,7 +129,7 @@ const Reports = () => {
   };
 
   const getTrendColor = (direction) => {
-    return direction === 'up' ? 'text-green-600' : 'text-red-600';
+    return direction === 'up' ? 'text-orange-600' : 'text-gray-600';
   };
 
   const getTrendIcon = (direction) => {
@@ -208,10 +208,10 @@ const Reports = () => {
     return (
       <div className="w-full max-w-none">
         <div className="space-y-6 p-4 sm:p-6">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
+          <div className="h-8 bg-orange-100 rounded w-48 animate-pulse"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
+              <div key={i} className="h-32 bg-orange-50 rounded animate-pulse"></div>
             ))}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -243,7 +243,7 @@ const Reports = () => {
   const insights = generateInsights();
 
   return (
-    <div className="w-full max-w-none overflow-x-hidden">
+    <div className="w-full max-w-none overflow-x-hidden bg-white">
       <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
         {/* Header */}
         <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -251,12 +251,12 @@ const Reports = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">Reports & Analytics</h1>
             <p className="text-sm sm:text-base text-gray-600 break-words">Track your restaurant's performance and response times</p>
             {error && (
-              <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md">
+              <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
                 ⚠️ Using limited data: {error}
               </div>
             )}
             {loading && (
-              <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
+              <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
                 📊 Loading analytics data...
               </div>
             )}
@@ -264,7 +264,7 @@ const Reports = () => {
           
           <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:items-center gap-2 sm:gap-3 shrink-0">
             <Select value={useCustomRange ? 'custom' : timeRange} onValueChange={handleTimeRangeChange}>
-              <SelectTrigger className="w-full sm:w-40">
+              <SelectTrigger className="w-full sm:w-40 border-orange-200 focus:ring-orange-500">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -285,7 +285,7 @@ const Reports = () => {
               />
             )}
             
-            <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto whitespace-nowrap">
+            <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto whitespace-nowrap border-orange-200 text-orange-600 hover:bg-orange-50">
               <Download className="w-4 h-4 shrink-0" />
               <span className="text-sm sm:text-base">Export</span>
             </Button>
@@ -294,7 +294,7 @@ const Reports = () => {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardContent className="p-3 sm:p-4 lg:p-6">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -312,14 +312,14 @@ const Reports = () => {
                     <span className="truncate">{analyticsData.averageResponseTime.trend}</span>
                   </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardContent className="p-3 sm:p-4 lg:p-6">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -339,7 +339,7 @@ const Reports = () => {
             </CardContent>
           </Card>
 
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardContent className="p-3 sm:p-4 lg:p-6">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -366,14 +366,14 @@ const Reports = () => {
                     <span className="truncate">{analyticsData.averageRating.trend}</span>
                   </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-yellow-100 rounded-lg flex items-center justify-center shrink-0">
-                  <Star className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-yellow-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
+                  <Star className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardContent className="p-3 sm:p-4 lg:p-6">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -386,8 +386,8 @@ const Reports = () => {
                     <span className="truncate">{analyticsData.completionRate.trend}</span>
                   </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
@@ -397,14 +397,15 @@ const Reports = () => {
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Response Time Trend Line Chart */}
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <LineChart className="w-4 sm:w-5 h-4 sm:h-5 shrink-0" />
+                <LineChart className="w-4 sm:w-5 h-4 sm:h-5 shrink-0 text-orange-600" />
                 <span className="truncate">Response Time Trends</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-2 sm:p-4 lg:p-6">
+              {/* Update chart colors */}
               <div className="w-full h-56 sm:h-64 lg:h-80 min-w-0">
                 {analyticsData.responseTimeTrend && analyticsData.responseTimeTrend.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -426,7 +427,7 @@ const Reports = () => {
                       <Tooltip 
                         contentStyle={{
                           backgroundColor: '#fff',
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid #fdba74',
                           borderRadius: '6px',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                           fontSize: '12px'
@@ -436,10 +437,10 @@ const Reports = () => {
                       <Line 
                         type="monotone" 
                         dataKey="avgResponse" 
-                        stroke="#3b82f6" 
+                        stroke="#f97316" 
                         strokeWidth={2}
-                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
-                        activeDot={{ r: 5, fill: '#1d4ed8' }}
+                        dot={{ fill: '#f97316', strokeWidth: 2, r: 3 }}
+                        activeDot={{ r: 5, fill: '#ea580c' }}
                       />
                     </ReLineChart>
                   </ResponsiveContainer>
@@ -453,10 +454,10 @@ const Reports = () => {
           </Card>
 
           {/* Order Status Distribution Pie Chart */}
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <PieChart className="w-4 sm:w-5 h-4 sm:h-5 shrink-0" />
+                <PieChart className="w-4 sm:w-5 h-4 sm:h-5 shrink-0 text-orange-600" />
                 <span className="truncate">Order Status Distribution</span>
               </CardTitle>
             </CardHeader>
@@ -478,13 +479,21 @@ const Reports = () => {
                         style={{ fontSize: '10px' }}
                       >
                         {analyticsData.orderStatusDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={[
+                              '#f97316', // orange-500
+                              '#fb923c', // orange-400
+                              '#fdba74', // orange-300
+                              '#fed7aa'  // orange-200
+                            ][index % 4]} 
+                          />
                         ))}
                       </Pie>
                       <Tooltip 
                         contentStyle={{
                           backgroundColor: '#fff',
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid #fdba74',
                           borderRadius: '6px',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                           fontSize: '12px'
@@ -503,10 +512,10 @@ const Reports = () => {
           </Card>
 
           {/* Orders by Hour Bar Chart */}
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <BarChart3 className="w-4 sm:w-5 h-4 sm:h-5 shrink-0" />
+                <BarChart3 className="w-4 sm:w-5 h-4 sm:h-5 shrink-0 text-orange-600" />
                 <span className="truncate">Orders by Hour</span>
               </CardTitle>
             </CardHeader>
@@ -532,7 +541,7 @@ const Reports = () => {
                       <Tooltip 
                         contentStyle={{
                           backgroundColor: '#fff',
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid #fdba74',
                           borderRadius: '6px',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                           fontSize: '12px'
@@ -541,7 +550,7 @@ const Reports = () => {
                       />
                       <Bar 
                         dataKey="orders" 
-                        fill="#10b981"
+                        fill="#f59e0b"
                         radius={[2, 2, 0, 0]}
                       />
                     </BarChart>
@@ -556,10 +565,10 @@ const Reports = () => {
           </Card>
 
           {/* Weekly Order Volume Area Chart */}
-          <Card className="min-w-0">
+          <Card className="min-w-0 border-orange-100">
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 shrink-0" />
+                <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 shrink-0 text-orange-600" />
                 <span className="truncate">Weekly Order Volume</span>
               </CardTitle>
             </CardHeader>
@@ -585,7 +594,7 @@ const Reports = () => {
                       <Tooltip 
                         contentStyle={{
                           backgroundColor: '#fff',
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid #fdba74',
                           borderRadius: '6px',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                           fontSize: '12px'
@@ -601,8 +610,8 @@ const Reports = () => {
                       />
                       <defs>
                         <linearGradient id="orderGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1}/>
+                          <stop offset="5%" stopColor="#fb923c" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#fb923c" stopOpacity={0.1}/>
                         </linearGradient>
                       </defs>
                     </AreaChart>
@@ -618,10 +627,10 @@ const Reports = () => {
         </div>
 
         {/* Orders vs Response Time Correlation */}
-        <Card className="min-w-0">
+        <Card className="min-w-0 border-orange-100">
           <CardHeader className="pb-3 sm:pb-4">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <BarChart3 className="w-4 sm:w-5 h-4 sm:h-5 shrink-0" />
+              <BarChart3 className="w-4 sm:w-5 h-4 sm:h-5 shrink-0 text-orange-600" />
               <span className="truncate">Orders vs Response Time by Hour</span>
             </CardTitle>
           </CardHeader>
@@ -657,7 +666,7 @@ const Reports = () => {
                     <Tooltip 
                       contentStyle={{
                         backgroundColor: '#fff',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid #fdba74',
                         borderRadius: '6px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                         fontSize: '12px'
@@ -681,9 +690,9 @@ const Reports = () => {
                       yAxisId="right"
                       type="monotone" 
                       dataKey="avgTimeMinutes" 
-                      stroke="#ef4444" 
+                      stroke="#ea580c" 
                       strokeWidth={3}
-                      dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
+                      dot={{ fill: '#ea580c', strokeWidth: 2, r: 4 }}
                       name="Avg Response Time"
                     />
                   </ComposedChart>
@@ -698,10 +707,10 @@ const Reports = () => {
         </Card>
 
         {/* Recent Orders with Response Times */}
-        <Card className="min-w-0">
+        <Card className="min-w-0 border-orange-100">
           <CardHeader className="pb-3 sm:pb-4">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <MessageSquare className="w-4 sm:w-5 h-4 sm:h-5 shrink-0" />
+              <MessageSquare className="w-4 sm:w-5 h-4 sm:h-5 shrink-0 text-orange-600" />
               <span className="truncate">Recent Order Response Times</span>
             </CardTitle>
           </CardHeader>
@@ -709,15 +718,15 @@ const Reports = () => {
             <div className="space-y-3 sm:space-y-4">
               {analyticsData.recentOrders && analyticsData.recentOrders.length > 0 ? (
                 analyticsData.recentOrders.map((order) => (
-                  <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 border rounded-lg min-w-0">
+                  <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 border-orange-100 rounded-lg min-w-0 hover:bg-orange-50 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
                       <div className="font-medium text-sm sm:text-base truncate">
                         Order #{order.order_number}
                       </div>
                       <Badge className={`w-fit ${
-                        order.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                        order.status === 'ready' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'preparing' ? 'bg-yellow-100 text-yellow-800' :
+                        order.status === 'completed' ? 'bg-orange-100 text-orange-800' : 
+                        order.status === 'ready' ? 'bg-orange-50 text-orange-600' :
+                        order.status === 'preparing' ? 'bg-orange-100 text-orange-700' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {order.status}
@@ -728,7 +737,7 @@ const Reports = () => {
                       <div className="truncate">
                         Created: {order.created_at ? formatDistanceToNow(new Date(order.created_at), { addSuffix: true }) : 'Unknown'}
                       </div>
-                      <div className="font-medium text-gray-900 truncate">
+                      <div className="font-medium text-orange-600 truncate">
                         Response: {order.response_time || 'No response'}
                       </div>
                     </div>
@@ -744,7 +753,7 @@ const Reports = () => {
         </Card>
 
         {/* Performance Insights */}
-        <Card className="min-w-0">
+        <Card className="min-w-0 border-orange-100">
           <CardHeader className="pb-3 sm:pb-4">
             <CardTitle className="text-base sm:text-lg">Performance Insights</CardTitle>
           </CardHeader>

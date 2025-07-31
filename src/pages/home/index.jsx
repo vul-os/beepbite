@@ -22,6 +22,7 @@ import OrdersSection from './components/orders-section';
 import CartSection from './components/cart-section';
 import POSSection from './components/pos-section';
 import OrderModals from './components/order-modal';
+import { cn } from '@/lib/utils';
 
 const Home = () => {
   const { activeOrganization, activeLocation } = useAuth();
@@ -705,15 +706,26 @@ const Home = () => {
     );
   }
 
-  const sidebarWidth = isOrdersExpanded ? '70%' : '30%';
-  const mainWidth = isOrdersExpanded ? '30%' : '70%';
-
   return (
     <div className="fixed inset-0 top-16 bg-gradient-to-br from-orange-50 to-orange-100 flex overflow-hidden">
+      {/* Mobile View Toggle Button */}
+      <Button
+        onClick={() => setIsOrdersExpanded(!isOrdersExpanded)}
+        className="md:hidden fixed bottom-4 right-4 z-50 bg-white border-2 border-orange-300 text-orange-600 hover:bg-orange-50 h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
+        size="sm"
+      >
+        {isOrdersExpanded ? <PanelRightOpen className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+      </Button>
+
       {/* Left Sidebar - Orders & Cart */}
       <div 
-        className="bg-white border-r border-orange-200 flex flex-col shadow-lg transition-all duration-300 ease-in-out"
-        style={{ width: sidebarWidth }}
+        className={cn(
+          "bg-white border-r border-orange-200 flex flex-col shadow-lg transition-all duration-300 ease-in-out",
+          "fixed md:relative",
+          isOrdersExpanded 
+            ? "inset-0 w-full md:w-[45%] lg:w-[35%]" 
+            : "md:w-[30%] -translate-x-full md:translate-x-0 w-full"
+        )}
       >
         {/* Header with Tabs */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
@@ -791,11 +803,11 @@ const Home = () => {
         </Tabs>
       </div>
 
-      {/* Toggle Button */}
-      <div className="relative">
+      {/* Desktop Toggle Button */}
+      <div className="hidden md:block relative z-10">
         <Button
           onClick={() => setIsOrdersExpanded(!isOrdersExpanded)}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 bg-white border-2 border-orange-300 text-orange-600 hover:bg-orange-50 h-12 w-12 rounded-full shadow-lg"
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white border-2 border-orange-300 text-orange-600 hover:bg-orange-50 h-12 w-12 rounded-full shadow-lg"
           size="sm"
         >
           {isOrdersExpanded ? <PanelRightOpen className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
@@ -804,8 +816,13 @@ const Home = () => {
 
       {/* Main POS Area */}
       <div 
-        className="flex flex-col min-w-0 transition-all duration-300 ease-in-out"
-        style={{ width: mainWidth }}
+        className={cn(
+          "flex flex-col min-w-0 transition-all duration-300 ease-in-out",
+          "fixed md:relative",
+          !isOrdersExpanded 
+            ? "inset-0 w-full" 
+            : "md:flex-1 translate-x-full md:translate-x-0 w-full"
+        )}
       >
         <POSSection
           searchTerm={searchTerm}

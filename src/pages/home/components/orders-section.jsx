@@ -672,35 +672,36 @@ const OrdersSection = ({
             {filteredOrders.map((order) => (
               <Card key={order.id} className="border border-orange-200 hover:border-orange-300 transition-colors hover:shadow-md">
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900 text-lg">#{order.order_number}</h4>
-                      <p className="text-sm text-gray-600 mt-1 flex items-center">
-                        <PhoneCall className="w-4 h-4 mr-2" />
-                        {order.customers?.whatsapp_number || 'No phone'}
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-bold text-gray-900 text-lg truncate">#{order.order_number}</h4>
+                        <Badge className={cn("text-xs font-medium px-2 py-1 flex-shrink-0", getStatusColor(order.status))}>
+                          {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 flex items-center gap-2 mb-1 truncate">
+                        <PhoneCall className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{order.customers?.whatsapp_number || 'No phone'}</span>
                       </p>
                       {order.customers?.first_name && (
-                        <p className="text-sm text-gray-700 font-medium mt-1">
+                        <p className="text-sm text-gray-700 font-medium truncate">
                           {order.customers.first_name} {order.customers.last_name}
                         </p>
                       )}
+                      <p className="text-sm text-gray-500 flex items-center gap-2 mt-2">
+                        <Timer className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}</span>
+                      </p>
                     </div>
-                    <Badge className={cn("text-xs font-medium px-2 py-1", getStatusColor(order.status))}>
-                      {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
-                    </Badge>
                   </div>
-                  
-                  <p className="text-sm text-gray-500 flex items-center mb-3">
-                    <Timer className="w-4 h-4 mr-2" />
-                    {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
-                  </p>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mt-4">
                     {getNextStatus(order.status) && (
                       <Button
                         size="sm"
                         onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                        className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-8 text-sm"
+                        className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-8 text-sm truncate"
                       >
                         {getStatusLabelShort(getNextStatus(order.status))}
                       </Button>
@@ -709,7 +710,7 @@ const OrdersSection = ({
                       size="sm"
                       variant="outline"
                       onClick={() => handleEditOrder(order)}
-                      className="h-8 px-3 border-orange-200 hover:bg-orange-50"
+                      className="h-8 w-8 p-0 flex-shrink-0 border-orange-200 hover:bg-orange-50"
                     >
                       <Edit className="w-3 h-3" />
                     </Button>
@@ -717,7 +718,7 @@ const OrdersSection = ({
                       size="sm"
                       variant="outline"
                       onClick={() => handleViewDetails(order)}
-                      className="h-8 px-3 border-orange-200 hover:bg-orange-50"
+                      className="h-8 w-8 p-0 flex-shrink-0 border-orange-200 hover:bg-orange-50"
                     >
                       <Eye className="w-3 h-3" />
                     </Button>

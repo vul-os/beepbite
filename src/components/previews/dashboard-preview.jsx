@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,9 @@ import {
   Package,
   Calendar,
   Filter,
-  Download
+  Download,
+  Wifi,
+  Activity
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -26,345 +29,405 @@ const WhatsAppIcon = ({ className = "w-4 h-4" }) => (
 );
 
 const DashboardPreview = ({ className }) => {
-  const [animateValues, setAnimateValues] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [animationPhase, setAnimationPhase] = useState(0);
+  const [metrics, setMetrics] = useState({
+    revenue: 0,
+    orders: 0,
+    customers: 0,
+    avgOrder: 0
+  });
 
+  // Dynamic data that cycles through different scenarios
+  const scenarios = [
+    {
+      revenue: 15247.50,
+      orders: 342,
+      customers: 198,
+      avgOrder: 44.60,
+      recentOrders: [
+        { id: 'ORD001', customer: 'Maria G.', total: 85.50, status: 'completed', type: 'whatsapp', time: '14:30' },
+        { id: 'ORD002', customer: 'Walk-in', total: 42.00, status: 'preparing', type: 'pos', time: '14:25' },
+        { id: 'ORD003', customer: 'John D.', total: 67.25, status: 'ready', type: 'whatsapp', time: '14:20' }
+      ]
+    },
+    {
+      revenue: 16890.75,
+      orders: 378,
+      customers: 215,
+      avgOrder: 47.20,
+      recentOrders: [
+        { id: 'ORD004', customer: 'Sarah L.', total: 95.00, status: 'confirmed', type: 'whatsapp', time: '14:45' },
+        { id: 'ORD005', customer: 'Table 3', total: 135.50, status: 'preparing', type: 'pos', time: '14:42' },
+        { id: 'ORD006', customer: 'Mike K.', total: 28.75, status: 'completed', type: 'whatsapp', time: '14:38' }
+      ]
+    },
+    {
+      revenue: 18234.25,
+      orders: 401,
+      customers: 239,
+      avgOrder: 45.80,
+      recentOrders: [
+        { id: 'ORD007', customer: 'Lisa P.', total: 78.50, status: 'ready', type: 'whatsapp', time: '15:10' },
+        { id: 'ORD008', customer: 'Drive-thru', total: 156.00, status: 'completed', type: 'pos', time: '15:05' },
+        { id: 'ORD009', customer: 'David M.', total: 89.25, status: 'preparing', type: 'whatsapp', time: '15:02' }
+      ]
+    }
+  ];
+
+  // Cycle through scenarios
   useEffect(() => {
-    // Animate counters on mount
-    setTimeout(() => setAnimateValues(true), 500);
+    const interval = setInterval(() => {
+      setAnimationPhase((prev) => (prev + 1) % scenarios.length);
+    }, 4000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Sample analytics data
-  const analyticsData = {
-    revenue: {
-      total: 15247.50,
-      change: +12.3,
-      trend: 'up'
-    },
-    orders: {
-      total: 342,
-      change: +8.7,
-      trend: 'up'
-    },
-    customers: {
-      total: 198,
-      change: +15.2,
-      trend: 'up'
-    },
-    avgOrder: {
-      total: 44.60,
-      change: -2.1,
-      trend: 'down'
-    }
-  };
+  // Animate metrics
+  useEffect(() => {
+    const targetMetrics = scenarios[animationPhase];
+    const duration = 1000;
+    const steps = 30;
+    const interval = duration / steps;
 
-  const recentOrders = [
-    {
-      id: 'ORD001',
-      customer: '+27123456789',
-      total: 85.50,
-      status: 'completed',
-      type: 'whatsapp',
-      time: '14:30'
-    },
-    {
-      id: 'ORD002',
-      customer: 'Walk-in',
-      total: 42.00,
-      status: 'completed',
-      type: 'pos',
-      time: '14:25'
-    },
-    {
-      id: 'ORD003',
-      customer: '+27987654321',
-      total: 127.25,
-      status: 'preparing',
-      type: 'whatsapp',
-      time: '14:20'
-    },
-    {
-      id: 'ORD004',
-      customer: 'Table 5',
-      total: 95.00,
-      status: 'ready',
-      type: 'pos',
-      time: '14:15'
-    }
-  ];
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      const progress = step / steps;
+      
+      setMetrics({
+        revenue: Math.floor(targetMetrics.revenue * progress),
+        orders: Math.floor(targetMetrics.orders * progress),
+        customers: Math.floor(targetMetrics.customers * progress),
+        avgOrder: Math.floor(targetMetrics.avgOrder * progress * 100) / 100
+      });
 
-  const topItems = [
-    { name: 'Chicken Burger', sold: 45, revenue: 2025.00 },
-    { name: 'Pizza Margherita', sold: 32, revenue: 2400.00 },
-    { name: 'Fries (Large)', sold: 67, revenue: 1675.00 },
-    { name: 'Coca Cola', sold: 89, revenue: 1335.00 }
-  ];
+      if (step >= steps) {
+        setMetrics(targetMetrics);
+        clearInterval(timer);
+      }
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, [animationPhase]);
+
+  // Update time
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentScenario = scenarios[animationPhase];
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'preparing': return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'ready': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'confirmed': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const AnimatedNumber = ({ value, prefix = "", suffix = "" }) => {
-    const [displayValue, setDisplayValue] = useState(0);
-
-    useEffect(() => {
-      if (animateValues) {
-        let start = 0;
-        const increment = value / 30;
-        const timer = setInterval(() => {
-          start += increment;
-          if (start >= value) {
-            setDisplayValue(value);
-            clearInterval(timer);
-          } else {
-            setDisplayValue(Math.floor(start));
-          }
-        }, 50);
-        return () => clearInterval(timer);
-      }
-    }, [animateValues, value]);
-
-    return (
-      <span>
-        {prefix}{typeof value === 'number' && value % 1 !== 0 ? displayValue.toFixed(2) : displayValue}{suffix}
-      </span>
-    );
-  };
-
   return (
-    <div className={cn("bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 sm:p-6 border border-orange-200", className)}>
-      <div className="space-y-4 sm:space-y-6">
+    <motion.div 
+      className={cn("bg-gradient-to-br from-slate-50 to-gray-100 rounded-2xl p-4 border border-gray-200 shadow-2xl w-full max-w-full overflow-hidden", className)}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+    >
+      <div className="space-y-4 w-full min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg sm:text-xl font-semibold text-orange-800">Analytics Dashboard</h3>
-            <p className="text-xs sm:text-sm text-gray-600">Real-time insights for your restaurant</p>
+        <motion.div 
+          className="flex items-center justify-between"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+              <div className="w-2 h-2 rounded-full bg-yellow-400 opacity-60"></div>
+              <div className="w-2 h-2 rounded-full bg-red-400 opacity-40"></div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">BeepBite Analytics</h3>
+              <p className="text-xs text-gray-500 flex items-center gap-2">
+                <Activity className="w-3 h-3 text-green-500" />
+                Live Dashboard • {currentTime.toLocaleTimeString()}
+              </p>
+            </div>
           </div>
-          <div className="flex gap-1 sm:gap-2">
-            <Button variant="outline" size="sm" className="border-orange-200 text-orange-600 hover:bg-orange-50 text-xs h-6 sm:h-8 px-2 sm:px-3">
-              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              <span className="hidden sm:inline">Today</span>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" className="border-gray-300 text-gray-600 hover:bg-gray-50 text-xs px-2 py-1 h-7">
+              <Calendar className="w-3 h-3 mr-1" />
+              Today
             </Button>
-            <Button variant="outline" size="sm" className="border-orange-200 text-orange-600 hover:bg-orange-50 text-xs h-6 sm:h-8 px-2 sm:px-3">
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              <span className="hidden sm:inline">Export</span>
+            <Button variant="outline" size="sm" className="border-gray-300 text-gray-600 hover:bg-gray-50 text-xs px-2 py-1 h-7">
+              <Download className="w-3 h-3 mr-1" />
+              Export
             </Button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          <Card className="border-orange-200 bg-white">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600">Revenue</p>
-                  <p className="text-lg sm:text-xl font-bold text-gray-900">
-                    <AnimatedNumber value={analyticsData.revenue.total} prefix="R" />
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-green-500" />
-                    <span className="text-xs text-green-600">+{analyticsData.revenue.change}%</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <motion.div
+            key={`revenue-${animationPhase}`}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Total Revenue</p>
+                    <motion.p 
+                      className="text-lg font-bold text-gray-900"
+                      key={metrics.revenue}
+                    >
+                      R{metrics.revenue.toLocaleString()}
+                    </motion.p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="w-3 h-3 text-green-500" />
+                      <span className="text-xs text-green-600 font-medium">+12.3%</span>
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-4 h-4 text-green-600" />
                   </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-orange-200 bg-white">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600">Orders</p>
-                  <p className="text-lg sm:text-xl font-bold text-gray-900">
-                    <AnimatedNumber value={analyticsData.orders.total} />
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-green-500" />
-                    <span className="text-xs text-green-600">+{analyticsData.orders.change}%</span>
+          <motion.div
+            key={`orders-${animationPhase}`}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-100">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Total Orders</p>
+                    <motion.p 
+                      className="text-lg font-bold text-gray-900"
+                      key={metrics.orders}
+                    >
+                      {metrics.orders.toLocaleString()}
+                    </motion.p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="w-3 h-3 text-blue-500" />
+                      <span className="text-xs text-blue-600 font-medium">+8.7%</span>
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <ShoppingCart className="w-4 h-4 text-blue-600" />
                   </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-orange-200 bg-white">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600">Customers</p>
-                  <p className="text-lg sm:text-xl font-bold text-gray-900">
-                    <AnimatedNumber value={analyticsData.customers.total} />
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-green-500" />
-                    <span className="text-xs text-green-600">+{analyticsData.customers.change}%</span>
+          <motion.div
+            key={`customers-${animationPhase}`}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-100">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Customers</p>
+                    <motion.p 
+                      className="text-lg font-bold text-gray-900"
+                      key={metrics.customers}
+                    >
+                      {metrics.customers.toLocaleString()}
+                    </motion.p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="w-3 h-3 text-purple-500" />
+                      <span className="text-xs text-purple-600 font-medium">+15.2%</span>
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Users className="w-4 h-4 text-purple-600" />
                   </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-orange-200 bg-white">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600">Avg Order</p>
-                  <p className="text-lg sm:text-xl font-bold text-gray-900">
-                    <AnimatedNumber value={analyticsData.avgOrder.total} prefix="R" />
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingDown className="w-3 h-3 text-red-500" />
-                    <span className="text-xs text-red-600">{analyticsData.avgOrder.change}%</span>
+          <motion.div
+            key={`avg-${animationPhase}`}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+          >
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-100">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Avg Order</p>
+                    <motion.p 
+                      className="text-lg font-bold text-gray-900"
+                      key={metrics.avgOrder}
+                    >
+                      R{metrics.avgOrder.toFixed(2)}
+                    </motion.p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingDown className="w-3 h-3 text-orange-500" />
+                      <span className="text-xs text-orange-600 font-medium">-2.1%</span>
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <BarChart3 className="w-4 h-4 text-orange-600" />
                   </div>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-          {/* Recent Orders */}
-          <Card className="border-orange-200 bg-white">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="text-sm sm:text-lg flex items-center gap-2">
-                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
-                Recent Orders
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* Live Orders */}
+          <Card className="border-0 shadow-lg bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                Live Orders
+                <Badge className="ml-auto bg-green-100 text-green-800 text-xs">
+                  {currentScenario.recentOrders.length} active
+                </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="space-y-1 sm:space-y-2 px-3 sm:px-4 pb-3 sm:pb-4">
-                {recentOrders.slice(0, 3).map((order) => (
-                  <div key={order.id} className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+            <CardContent className="space-y-2">
+              <AnimatePresence mode="wait">
+                {currentScenario.recentOrders.map((order, index) => (
+                  <motion.div
+                    key={`${animationPhase}-${order.id}`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-white rounded-lg shadow-sm flex items-center justify-center">
                         {order.type === 'whatsapp' ? (
-                          <WhatsAppIcon className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                          <WhatsAppIcon className="w-3 h-3 text-green-600" />
                         ) : (
-                          <Package className="w-3 h-3 sm:w-4 sm:h-4 text-orange-600" />
+                          <Package className="w-3 h-3 text-orange-600" />
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-xs sm:text-sm">{order.id}</p>
-                        <p className="text-xs text-gray-600 truncate max-w-[100px] sm:max-w-none">{order.customer}</p>
+                        <p className="font-semibold text-xs text-gray-900">{order.id}</p>
+                        <p className="text-xs text-gray-600">{order.customer}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-xs sm:text-sm">R{order.total.toFixed(2)}</p>
-                      <div className="flex items-center gap-1 sm:gap-2">
-                        <Badge className={cn("text-xs px-1 sm:px-2 py-1", getStatusColor(order.status))}>
+                      <p className="font-bold text-xs text-gray-900">R{order.total.toFixed(2)}</p>
+                      <div className="flex items-center gap-1">
+                        <Badge className={cn("text-xs", getStatusColor(order.status))}>
                           {order.status}
                         </Badge>
-                        <span className="text-xs text-gray-500">{order.time}</span>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </AnimatePresence>
             </CardContent>
           </Card>
 
-          {/* Top Items */}
-          <Card className="border-orange-200 bg-white">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="text-sm sm:text-lg flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
-                Top Selling Items
+          {/* Channel Performance */}
+          <Card className="border-0 shadow-lg bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-orange-500" />
+                Channel Performance
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 sm:space-y-3">
-              {topItems.slice(0, 3).map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-orange-100 rounded-full flex items-center justify-center text-xs font-bold text-orange-600">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{item.name}</p>
-                      <p className="text-xs text-gray-600">{item.sold} sold</p>
-                    </div>
+            <CardContent className="space-y-3">
+              <motion.div 
+                className="relative p-2 bg-gradient-to-r from-green-50 to-emerald-100 rounded-lg"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <WhatsAppIcon className="w-4 h-4 text-green-600" />
+                    <span className="font-semibold text-xs text-gray-900">WhatsApp</span>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-xs sm:text-sm text-orange-600">R{item.revenue.toFixed(2)}</p>
-                    <div className="w-12 sm:w-16 h-1 bg-gray-200 rounded-full mt-1">
-                      <div 
-                        className="h-1 bg-orange-500 rounded-full transition-all duration-1000"
-                        style={{ 
-                          width: animateValues ? `${(item.revenue / 2400) * 100}%` : '0%' 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
+                  <span className="text-sm font-bold text-green-600">
+                    {Math.floor(metrics.orders * 0.46)}
+                  </span>
                 </div>
-              ))}
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>46% of orders</span>
+                  <span>R{Math.floor(metrics.revenue * 0.45).toLocaleString()}</span>
+                </div>
+                <div className="w-full h-1 bg-green-200 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-green-500 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: "46%" }}
+                    transition={{ duration: 1, delay: 0.5 }}
+                  />
+                </div>
+              </motion.div>
+
+              <motion.div 
+                className="relative p-2 bg-gradient-to-r from-orange-50 to-amber-100 rounded-lg"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-orange-600" />
+                    <span className="font-semibold text-xs text-gray-900">POS</span>
+                  </div>
+                  <span className="text-sm font-bold text-orange-600">
+                    {Math.floor(metrics.orders * 0.54)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>54% of orders</span>
+                  <span>R{Math.floor(metrics.revenue * 0.55).toLocaleString()}</span>
+                </div>
+                <div className="w-full h-1 bg-orange-200 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-orange-500 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: "54%" }}
+                    transition={{ duration: 1, delay: 0.7 }}
+                  />
+                </div>
+              </motion.div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Channel Performance */}
-        <Card className="border-orange-200 bg-white">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-sm sm:text-lg flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
-              Order Channels Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <WhatsAppIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                </div>
-                <h4 className="font-semibold text-xs sm:text-sm text-green-800">WhatsApp Orders</h4>
-                <p className="text-lg sm:text-2xl font-bold text-green-600 mt-1">
-                  <AnimatedNumber value={156} />
-                </p>
-                <p className="text-xs sm:text-sm text-green-600">R6,847.20 revenue</p>
-                <div className="w-full h-2 bg-green-200 rounded-full mt-2">
-                  <div 
-                    className="h-2 bg-green-500 rounded-full transition-all duration-1000"
-                    style={{ width: animateValues ? '46%' : '0%' }}
-                  ></div>
-                </div>
-              </div>
-
-              <div className="text-center p-3 sm:p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Package className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
-                </div>
-                <h4 className="font-semibold text-xs sm:text-sm text-orange-800">POS Orders</h4>
-                <p className="text-lg sm:text-2xl font-bold text-orange-600 mt-1">
-                  <AnimatedNumber value={186} />
-                </p>
-                <p className="text-xs sm:text-sm text-orange-600">R8,400.30 revenue</p>
-                <div className="w-full h-2 bg-orange-200 rounded-full mt-2">
-                  <div 
-                    className="h-2 bg-orange-500 rounded-full transition-all duration-1000"
-                    style={{ width: animateValues ? '54%' : '0%' }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Progress Indicators */}
+        <div className="flex justify-center">
+          <div className="flex gap-1">
+            {scenarios.map((_, index) => (
+              <motion.div
+                key={index}
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full transition-colors",
+                  index === animationPhase ? "bg-orange-500" : "bg-gray-300"
+                )}
+                whileHover={{ scale: 1.2 }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
