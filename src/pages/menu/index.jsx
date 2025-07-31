@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
   UtensilsCrossed, 
   Search, 
@@ -554,279 +552,6 @@ const Menu = () => {
     
     return matchesSearch && matchesCategory && matchesRecipeType && matchesComplexity && matchesItemUsage;
   });
-
-  // Update the sortItems function
-  const sortItems = (items) => {
-    return [...items].sort((a, b) => {
-      const { field, direction } = sortBy;
-      const multiplier = direction === 'asc' ? 1 : -1;
-      
-      switch (field) {
-        case 'name':
-          return multiplier * a.name.localeCompare(b.name);
-        
-        case 'price':
-          return multiplier * (a.price - b.price);
-        
-        case 'current_stock':
-          const stockA = a.track_inventory ? a.current_stock : Infinity;
-          const stockB = b.track_inventory ? b.current_stock : Infinity;
-          return multiplier * (stockA - stockB);
-        
-        case 'updated_at':
-          return multiplier * (new Date(a.updated_at) - new Date(b.updated_at));
-        
-        default:
-          return 0;
-      }
-    });
-  };
-
-  // Filter items
-  const getFilteredItems = () => {
-    return filteredItems.filter(item => {
-      // Tab filters
-      if (activeTab === 'active' && !item.is_active) return false;
-      if (activeTab === 'hidden' && item.is_active) return false;
-      if (activeTab === 'tracked' && !item.track_inventory) return false;
-
-      // Quick filters
-      if (quickFilters.includes('low_stock') && 
-          (!item.track_inventory || item.current_stock > item.low_stock_threshold)) return false;
-      if (quickFilters.includes('active') && !item.is_active) return false;
-      if (quickFilters.includes('hidden') && item.is_active) return false;
-      if (quickFilters.includes('tracked') && !item.track_inventory) return false;
-      if (quickFilters.includes('budget') && item.price > 20) return false;
-      if (quickFilters.includes('premium') && item.price <= 50) return false;
-
-      // Price range filter
-      if (priceRange.min && item.price < parseFloat(priceRange.min)) return false;
-      if (priceRange.max && item.price > parseFloat(priceRange.max)) return false;
-
-      // Selected categories filter
-      if (selectedCategories.length > 0 && !selectedCategories.includes(item.category_id)) return false;
-
-      return true;
-    });
-  };
-
-  const ItemCard = ({ item, viewMode }) => {
-    const stockLevel = item.track_inventory 
-      ? (item.current_stock / item.low_stock_threshold) * 100 
-      : null;
-    
-    const getStockColor = (level) => {
-      if (level <= 25) return 'bg-red-500';
-      if (level <= 50) return 'bg-yellow-500';
-      return 'bg-green-500';
-    };
-
-    const getPriceRange = (price) => {
-      if (price <= 20) return { color: 'bg-green-100 text-green-700', label: 'Budget' };
-      if (price <= 50) return { color: 'bg-blue-100 text-blue-700', label: 'Standard' };
-      return { color: 'bg-purple-100 text-purple-700', label: 'Premium' };
-    };
-
-    return (
-      <Card 
-        className={cn(
-          "group border-gray-100 hover:border-orange-200 transition-all duration-300 hover:shadow-lg",
-          viewMode === 'list' && "overflow-hidden"
-        )}
-      >
-        <CardContent className={cn(
-          "p-3 sm:p-6",
-          viewMode === 'list' && "flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6"
-        )}>
-          <div className={cn(
-            "space-y-3 sm:space-y-4 w-full",
-            viewMode === 'list' && "flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6"
-          )}>
-            {/* Status Badges */}
-            <div className={cn(
-              "flex items-center justify-between flex-wrap gap-2",
-              viewMode === 'list' && "w-full sm:w-48"
-            )}>
-              <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                <Badge 
-                  className={cn(
-                    "px-1.5 sm:px-2 py-0.5 text-xs font-medium",
-                    item.is_active 
-                      ? "bg-orange-100 text-orange-700" 
-                      : "bg-gray-100 text-gray-700"
-                  )}
-                >
-                  {item.is_active ? "Active" : "Hidden"}
-                </Badge>
-                <Badge 
-                  className={cn(
-                    "px-1.5 sm:px-2 py-0.5 text-xs font-medium",
-                    getPriceRange(item.price).color
-                  )}
-                >
-                  {getPriceRange(item.price).label}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-1 flex-wrap">
-                {item.track_inventory && (
-                  <Badge className="px-1.5 sm:px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700">
-                    Tracked
-                  </Badge>
-                )}
-                <Badge className="px-1.5 sm:px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700">
-                  {getCategoryName(item.category_id)}
-                </Badge>
-              </div>
-            </div>
-            
-            {/* Item Details */}
-            <div className={cn(
-              "w-full",
-              viewMode === 'list' && "flex-1"
-            )}>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-orange-600 transition-colors line-clamp-1">
-                  {item.name}
-                </h3>
-                {item.track_inventory && item.current_stock <= item.low_stock_threshold && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Low stock: {item.current_stock} items remaining
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
-                {item.description || "No description provided"}
-              </p>
-              
-              {/* Stock Level Indicator */}
-              {item.track_inventory && (
-                <div className="mt-2">
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                    <span>Stock Level</span>
-                    <span>{item.current_stock} items</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className={cn(
-                        "h-full transition-all duration-500",
-                        getStockColor(stockLevel)
-                      )}
-                      style={{ width: `${Math.min(stockLevel, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Price & Stats */}
-            <div className={cn(
-              "flex items-center justify-between pt-2 border-t border-gray-100",
-              viewMode === 'list' && "w-full sm:w-64 border-t sm:border-t-0 pt-2 sm:pt-0"
-            )}>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-600">Price</p>
-                  <p className="text-base sm:text-lg font-semibold text-orange-600">
-                    R{item.price}
-                  </p>
-                </div>
-                {item.cost_price && (
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Margin</p>
-                    <p className="text-base sm:text-lg font-semibold text-orange-600">
-                      {calculateProfitMargin(item.price, item.cost_price)}%
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="text-right">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Prep Time</p>
-                <p className="text-base sm:text-lg font-semibold text-gray-900">
-                  {item.preparation_time} min
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className={cn(
-              "grid grid-cols-3 gap-1 sm:gap-2 pt-2 sm:pt-4 border-t border-gray-100",
-              viewMode === 'list' && "w-full sm:w-48 pt-2 sm:pt-0 border-t sm:border-t-0"
-            )}>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openEditModal(item)}
-                disabled={actionLoading === item.id}
-                className="text-xs hover:bg-orange-50 border-orange-200 text-gray-700 hover:text-gray-900 px-1 sm:px-2"
-              >
-                <Edit className="w-3 h-3 mr-1" />
-                <span className="hidden xs:inline">Edit</span>
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => toggleItemStatus(item.id, item.is_active)}
-                disabled={actionLoading === item.id}
-                className="text-xs hover:bg-orange-50 border-orange-200 text-gray-700 px-1 sm:px-2"
-              >
-                {item.is_active ? (
-                  <>
-                    <EyeOff className="w-3 h-3 mr-1" />
-                    <span className="hidden xs:inline">Hide</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-3 h-3 mr-1" />
-                    <span className="hidden xs:inline">Show</span>
-                  </>
-                )}
-              </Button>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const newItem = { ...item };
-                        delete newItem.id;
-                        setFormData(newItem);
-                        setIsAddModalOpen(true);
-                      }}
-                      className="text-xs hover:bg-orange-50 border-orange-200 text-gray-700 px-1 sm:px-2"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Duplicate Item</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => deleteItem(item.id, item.name)}
-                disabled={actionLoading === item.id}
-                className="col-span-3 text-xs text-gray-700 hover:text-red-600 hover:bg-red-50 border-orange-200"
-              >
-                <Trash2 className="w-3 h-3 mr-1" />
-                <span className="hidden xs:inline">Delete</span>
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   if (!activeLocation) {
     return (
@@ -1451,10 +1176,10 @@ const Menu = () => {
 
       {/* Add Item Dialog */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-3xl mx-2 sm:mx-4">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-orange-600">
-              <Plus className="w-5 h-5" />
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-orange-500" />
               Add New Menu Item
             </DialogTitle>
             <DialogDescription>
@@ -1468,7 +1193,7 @@ const Menu = () => {
             <Button 
               variant="outline" 
               onClick={() => setIsAddModalOpen(false)}
-              className="flex-1 border-gray-200 hover:bg-gray-50"
+              className="flex-1"
               disabled={saving}
             >
               Cancel
@@ -1476,7 +1201,7 @@ const Menu = () => {
             <Button 
               onClick={addItem}
               disabled={saving}
-              className="flex-1 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-gray-900 font-medium shadow-md hover:shadow-lg transition-all duration-300"
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -1491,10 +1216,10 @@ const Menu = () => {
 
       {/* Edit Item Dialog */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-3xl mx-2 sm:mx-4">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-orange-600">
-              <Edit className="w-5 h-5" />
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5 text-blue-500" />
               Edit Menu Item
             </DialogTitle>
             <DialogDescription>
@@ -1508,7 +1233,7 @@ const Menu = () => {
             <Button 
               variant="outline" 
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1 border-gray-200 hover:bg-gray-50"
+              className="flex-1"
               disabled={saving}
             >
               Cancel
@@ -1516,7 +1241,7 @@ const Menu = () => {
             <Button 
               onClick={editItem}
               disabled={saving}
-              className="flex-1 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-gray-900 font-medium shadow-md hover:shadow-lg transition-all duration-300"
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
