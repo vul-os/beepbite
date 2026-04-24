@@ -1,278 +1,310 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { VisuallyHidden } from "@/components/ui/visually-hidden";
-import { 
-  Book, 
-  FileText, 
-  Shield, 
-  Cookie, 
-  HelpCircle, 
-  Menu,
-  ArrowLeft,
+import React, { useState, useMemo } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import {
+  Book,
+  FileText,
+  Shield,
+  Cookie,
+  HelpCircle,
+  Menu as MenuIcon,
   Zap,
   MessageSquare,
-  Settings,
   ExternalLink,
-  User
+  User,
+  Search,
+  Compass,
+  Utensils,
+  CreditCard,
+  ChevronRight,
+  Home,
+  X,
+  ArrowLeft,
 } from 'lucide-react';
-import Logo from '@/components/ui/logo';
 
-// WhatsApp SVG Icon Component
-const WhatsAppIcon = ({ className = "w-4 h-4" }) => (
+const WhatsAppIcon = ({ className = 'w-4 h-4' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.465 3.488"/>
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.465 3.488" />
   </svg>
 );
 
-const DocsLayout = ({ children, title, description }) => {
+// ----- Single source of truth for the docs nav -----
+// Order matters: it drives prev/next.
+export const DOCS_NAV = [
+  {
+    title: 'Getting Started',
+    items: [
+      { title: 'Documentation home', href: '/docs', icon: Compass, summary: 'Overview and quick links' },
+      { title: 'Quick start guide', href: '/docs/getting-started', icon: Zap, summary: 'From sign-up to first order' },
+    ],
+  },
+  {
+    title: 'Restaurant Operations',
+    items: [
+      { title: 'POS overview', href: '/docs/pos-overview', icon: CreditCard, summary: 'Use the point-of-sale interface' },
+      { title: 'Menu management', href: '/docs/menu-management', icon: Utensils, summary: 'Add items, categories, modifiers' },
+      { title: 'WhatsApp setup', href: '/docs/whatsapp-setup', icon: WhatsAppIcon, summary: 'Connect WhatsApp Business API' },
+    ],
+  },
+  {
+    title: 'Account & Settings',
+    items: [
+      { title: 'Custom avatar URLs', href: '/docs/custom-avatar-url', icon: User, summary: 'Use a custom profile image' },
+    ],
+  },
+  {
+    title: 'Legal',
+    items: [
+      { title: 'Privacy Policy', href: '/docs/privacy', icon: Shield, summary: 'How we handle your data' },
+      { title: 'Terms of Service', href: '/docs/terms', icon: FileText, summary: 'Terms of using BeepBite' },
+      { title: 'Cookie Policy', href: '/docs/cookies', icon: Cookie, summary: 'Cookies and tracking' },
+    ],
+  },
+  {
+    title: 'Support',
+    items: [
+      { title: 'Troubleshooting', href: '/docs#troubleshooting', icon: HelpCircle, summary: 'Common issues and fixes' },
+      { title: 'Contact support', href: 'mailto:support@beepbite.io', icon: ExternalLink, external: true, summary: 'Email our team' },
+    ],
+  },
+];
+
+// Flatten nav, filtering out external + anchor links — used for prev/next.
+const flatRoutes = DOCS_NAV.flatMap((section) =>
+  section.items.filter((it) => !it.external && !it.href.includes('#')),
+);
+
+export const usePrevNext = (pathname) => {
+  const idx = flatRoutes.findIndex((it) => it.href === pathname);
+  if (idx === -1) return { prev: null, next: null };
+  return {
+    prev: idx > 0 ? flatRoutes[idx - 1] : null,
+    next: idx < flatRoutes.length - 1 ? flatRoutes[idx + 1] : null,
+  };
+};
+
+const Sidebar = ({ pathname, onItemClick = () => {} }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [query, setQuery] = useState('');
 
-  const navigation = [
-    {
-      title: "Getting Started",
-      items: [
-        {
-          title: "Documentation Home",
-          href: "/docs",
-          icon: <Book className="w-4 h-4" />,
-          active: location.pathname === "/docs"
-        },
-        {
-          title: "Quick Setup",
-          href: "/docs#getting-started",
-          icon: <Zap className="w-4 h-4" />,
-          active: false
-        },
-        {
-          title: "Message Templates",
-          href: "/docs#templates",
-          icon: <MessageSquare className="w-4 h-4" />,
-          active: false
-        }
-      ]
-    },
-    {
-      title: "Features",
-      items: [
-        {
-          title: "Notification System",
-          href: "/docs#notification-system",
-          icon: <WhatsAppIcon className="w-4 h-4" />,
-          active: false
-        },
-        {
-          title: "Settings & Config",
-          href: "/docs#configuration",
-          icon: <Settings className="w-4 h-4" />,
-          active: false
-        }
-      ]
-    },
-    {
-      title: "Legal & Policies",
-      items: [
-        {
-          title: "Privacy Policy",
-          href: "/docs/privacy",
-          icon: <Shield className="w-4 h-4" />,
-          active: location.pathname === "/docs/privacy"
-        },
-        {
-          title: "Terms of Service",
-          href: "/docs/terms",
-          icon: <FileText className="w-4 h-4" />,
-          active: location.pathname === "/docs/terms"
-        },
-        {
-          title: "Cookie Policy",
-          href: "/docs/cookies",
-          icon: <Cookie className="w-4 h-4" />,
-          active: location.pathname === "/docs/cookies"
-        }
-      ]
-    },
-    {
-      title: "Support",
-      items: [
-        {
-          title: "Custom Avatar URLs",
-          href: "/docs/custom-avatar-url",
-          icon: <User className="w-4 h-4" />,
-          active: location.pathname === "/docs/custom-avatar-url"
-        },
-        {
-          title: "Troubleshooting",
-          href: "/docs#troubleshooting",
-          icon: <HelpCircle className="w-4 h-4" />,
-          active: false
-        },
-        {
-          title: "Contact Support",
-          href: "mailto:support@beepbite.io",
-          icon: <ExternalLink className="w-4 h-4" />,
-          active: false,
-          external: true
-        }
-      ]
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return DOCS_NAV;
+    return DOCS_NAV.map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (it) =>
+          it.title.toLowerCase().includes(q) || (it.summary && it.summary.toLowerCase().includes(q)),
+      ),
+    })).filter((section) => section.items.length > 0);
+  }, [query]);
+
+  const handleClick = (item) => (e) => {
+    if (item.external) return;
+    if (item.href.includes('#')) {
+      e.preventDefault();
+      const [path, hash] = item.href.split('#');
+      if (pathname !== path) {
+        navigate(path);
+        setTimeout(() => {
+          const el = document.getElementById(hash);
+          el?.scrollIntoView({ behavior: 'smooth' });
+        }, 80);
+      } else {
+        const el = document.getElementById(hash);
+        el?.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-  ];
-
-  const NavigationContent = ({ onItemClick = () => {} }) => (
-    <nav className="space-y-6 font-inter">
-      {navigation.map((section, sectionIdx) => (
-        <div key={sectionIdx}>
-          <h3 className="text-sm font-semibold text-orange-800 uppercase tracking-wider mb-3 font-inter">
-            {section.title}
-          </h3>
-          <ul className="space-y-1">
-            {section.items.map((item, itemIdx) => (
-              <li key={itemIdx}>
-                {item.external ? (
-                  <a
-                    href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-orange-50 hover:text-orange-700 font-inter ${
-                      item.active 
-                        ? 'bg-orange-100 text-orange-700 font-medium border border-orange-200' 
-                        : 'text-gray-600'
-                    }`}
-                    onClick={onItemClick}
-                  >
-                    {item.icon}
-                    {item.title}
-                  </a>
-                ) : (
-                  <button
-                    onClick={() => {
-                      if (item.href.includes('#')) {
-                        navigate('/docs');
-                        setTimeout(() => {
-                          const element = document.getElementById(item.href.split('#')[1]);
-                          if (element) {
-                            element.scrollIntoView({ behavior: 'smooth' });
-                          }
-                        }, 100);
-                      } else {
-                        navigate(item.href);
-                      }
-                      onItemClick();
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-orange-50 hover:text-orange-700 font-inter ${
-                      item.active 
-                        ? 'bg-orange-100 text-orange-700 font-medium border border-orange-200' 
-                        : 'text-gray-600'
-                    }`}
-                  >
-                    {item.icon}
-                    {item.title}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </nav>
-  );
+    onItemClick();
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50/30 via-white to-orange-50/20 font-inter">
-      {/* Mobile Header */}
-      <div className="lg:hidden border-b border-orange-100 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="flex items-center justify-between p-3">
-          <div className="flex items-center gap-3">
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="lg:hidden p-2">
-                  <Menu className="w-4 h-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-80 p-0">
-                <VisuallyHidden>
-                  <SheetTitle>Documentation Navigation</SheetTitle>
-                </VisuallyHidden>
-                <div className="p-4 border-b border-orange-100">
-                  <Logo variant="minimal" />
-                  <p className="text-xs text-muted-foreground mt-1 font-inter">Documentation</p>
-                </div>
-                <div className="p-4">
-                  <NavigationContent onItemClick={() => setMobileMenuOpen(false)} />
-                </div>
-              </SheetContent>
-            </Sheet>
-            <div className="min-w-0">
-              <h1 className="font-medium text-orange-800 text-sm truncate font-inter">{title || "Documentation"}</h1>
-              {description && (
-                <p className="text-xs text-muted-foreground truncate font-inter">{description}</p>
-              )}
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => navigate('/')}
-            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-2 text-xs font-inter"
-          >
-            <ArrowLeft className="w-3 h-3 mr-1" />
-            Home
-          </Button>
+    <div className="flex flex-col h-full bg-white">
+      <div className="px-4 sm:px-5 pt-5 pb-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search docs..."
+            className="pl-8 h-9 text-sm border-gray-200 focus-visible:ring-orange-300"
+          />
         </div>
       </div>
 
-      <div className="flex">
-        {/* Desktop Sidebar */}
-        <div className="hidden lg:flex lg:w-80 lg:flex-col lg:fixed lg:inset-y-0 lg:top-16">
-          <div className="flex flex-col flex-grow bg-white border-r border-orange-100 overflow-y-auto h-[calc(100vh-4rem)]">
-            {/* Header */}
-            <div className="flex-shrink-0 p-6 border-b border-orange-100">
-              <p className="text-sm text-muted-foreground mt-2 font-inter">Complete documentation for BeepBite</p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/')}
-                className="mt-4 text-orange-600 border-orange-200 hover:bg-orange-50 font-inter"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
+      <nav className="flex-1 overflow-y-auto px-2 sm:px-3 pb-6 space-y-5">
+        {filtered.length === 0 && (
+          <div className="px-3 py-6 text-sm text-gray-500 text-center">No matches for "{query}".</div>
+        )}
+        {filtered.map((section) => (
+          <div key={section.title}>
+            <div className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+              {section.title}
             </div>
-            
-            {/* Navigation */}
-            <div className="flex-1 p-6 overflow-y-auto">
-              <NavigationContent />
-            </div>
-
-            {/* Footer */}
-            <div className="flex-shrink-0 p-6 border-t border-orange-100 bg-orange-50/50">
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-2 font-inter">Need help?</p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => window.open('mailto:support@beepbite.io')}
-                  className="text-orange-600 border-orange-200 hover:bg-orange-100 font-inter"
-                >
-                  Contact Support
-                </Button>
-              </div>
-            </div>
+            <ul className="space-y-0.5">
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                const className = `group flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors ${
+                  isActive
+                    ? 'bg-orange-50 text-orange-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`;
+                const inner = (
+                  <>
+                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-orange-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                    <span className="truncate">{item.title}</span>
+                    {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                  </>
+                );
+                if (item.external) {
+                  return (
+                    <li key={item.href}>
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={className}
+                        onClick={onItemClick}
+                      >
+                        {inner}
+                      </a>
+                    </li>
+                  );
+                }
+                return (
+                  <li key={item.href}>
+                    <Link to={item.href} onClick={handleClick(item)} className={className}>
+                      {inner}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-        </div>
+        ))}
+      </nav>
 
-        {/* Main Content */}
-        <div className="lg:pl-80 flex-1">
-          <main className="py-8 lg:py-16">
-            <div className="max-w-4xl mx-auto px-4 lg:px-8 font-inter">
-              {children}
-            </div>
-          </main>
-        </div>
+      <div className="border-t border-gray-100 p-4 bg-gray-50/60">
+        <div className="text-xs text-gray-500 mb-2">Need help?</div>
+        <a
+          href="mailto:support@beepbite.io"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700"
+        >
+          Contact support
+          <ChevronRight className="w-3.5 h-3.5" />
+        </a>
       </div>
     </div>
   );
 };
 
-export default DocsLayout; 
+const Breadcrumbs = ({ title }) => (
+  <nav aria-label="Breadcrumb" className="text-sm text-gray-500 mb-6 flex items-center gap-1.5 flex-wrap">
+    <Link to="/" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors">
+      <Home className="w-3.5 h-3.5" />
+      Home
+    </Link>
+    <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+    <Link to="/docs" className="hover:text-orange-600 transition-colors">
+      Docs
+    </Link>
+    {title && (
+      <>
+        <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+        <span className="text-gray-700 font-medium truncate max-w-[200px] sm:max-w-none">{title}</span>
+      </>
+    )}
+  </nav>
+);
+
+const DocsLayout = ({ children, title, description, hideSidebar = false }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+
+  const isHome = location.pathname === '/docs';
+
+  return (
+    <div className="bg-white text-gray-900">
+      <div className="lg:flex">
+        {/* ===== Sidebar (desktop) ===== */}
+        {!hideSidebar && (
+          <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0 border-r border-gray-200 bg-white sticky top-16 self-start h-[calc(100vh-4rem)]">
+            <div className="h-full flex flex-col">
+              <div className="px-5 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-orange-600">BeepBite</div>
+                  <div className="text-base font-bold text-gray-900">Documentation</div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/')}
+                  className="text-xs text-gray-500 hover:text-gray-900 px-2"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                  Site
+                </Button>
+              </div>
+              <Sidebar pathname={location.pathname} />
+            </div>
+          </aside>
+        )}
+
+        {/* ===== Mobile top bar ===== */}
+        <div className="lg:hidden sticky top-16 z-30 bg-white/90 backdrop-blur border-b border-gray-100">
+          <div className="flex items-center gap-3 px-4 py-2.5">
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="px-2.5 h-9 border-gray-200">
+                  <MenuIcon className="w-4 h-4" />
+                  <span className="text-xs ml-1.5">Docs menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80 p-0">
+                <VisuallyHidden>
+                  <SheetTitle>Documentation navigation</SheetTitle>
+                </VisuallyHidden>
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-orange-600">BeepBite</div>
+                    <div className="text-base font-bold text-gray-900">Documentation</div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setOpen(false)} className="px-2">
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <Sidebar pathname={location.pathname} onItemClick={() => setOpen(false)} />
+              </SheetContent>
+            </Sheet>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] uppercase tracking-wider text-orange-600 font-semibold leading-tight">
+                {isHome ? 'Documentation' : 'Guide'}
+              </div>
+              <div className="text-sm font-bold text-gray-900 truncate">{title || 'Docs'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Main ===== */}
+        <main className="flex-1 min-w-0">
+          {/* Subtle decorative banner on docs home */}
+          {isHome && (
+            <div className="absolute inset-x-0 top-16 h-64 -z-10 bg-gradient-to-b from-orange-50/60 to-transparent" />
+          )}
+
+          <div className={`mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-12 ${isHome ? 'max-w-6xl' : 'max-w-3xl xl:max-w-4xl'}`}>
+            {!isHome && <Breadcrumbs title={title} />}
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default DocsLayout;

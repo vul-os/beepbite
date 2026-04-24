@@ -1,7 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// const supabaseUrl = 'https://gxwpvpqatisvkpgpstst.supabase.co';
-const supabaseUrl = 'https://afbfotxelguficwfagnu.supabase.co';
-const supabaseKey = '***REMOVED-SUPABASE-ANON-KEY***'
-
-export let supabase = createClient(supabaseUrl, supabaseKey);
+// Compatibility shim — the real client lives in src/lib/api-client.js and
+// talks to the Go backend.
+export { supabase, api } from '@/lib/api-client';
+export { default } from '@/lib/api-client';

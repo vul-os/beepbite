@@ -24,6 +24,10 @@ const getLoadingMessage = (pathname) => {
   if (pathname.includes('/docs/terms')) return 'Loading terms of service...';
   if (pathname.includes('/docs/cookies')) return 'Loading cookie policy...';
   if (pathname.includes('/docs/custom-avatar-url')) return 'Loading avatar guide...';
+  if (pathname.includes('/docs/getting-started')) return 'Loading quick start...';
+  if (pathname.includes('/docs/pos-overview')) return 'Loading POS guide...';
+  if (pathname.includes('/docs/menu-management')) return 'Loading menu guide...';
+  if (pathname.includes('/docs/whatsapp-setup')) return 'Loading WhatsApp guide...';
   if (pathname.includes('/docs')) return 'Loading documentation...';
   if (pathname === '/') return 'Loading homepage...';
   return 'Loading...';
@@ -53,6 +57,7 @@ const SignUp = lazyImport(() => import('./pages/auth/signup'));
 const ForgotPassword = lazyImport(() => import('./pages/auth/forgot-password'));
 const UpdatePassword = lazyImport(() => import('./pages/auth/update-password'));
 const VerifyEmail = lazyImport(() => import('./pages/auth/verify-email'));
+const OAuthCallback = lazyImport(() => import('./pages/auth/oauth-callback'));
 
 // Lazy loaded components - App pages
 const Home = lazyImport(() => import('./pages/home'));
@@ -75,6 +80,10 @@ const DocsPrivacyPolicy = lazyImport(() => import('./pages/docs/privacy-policy')
 const DocsTermsOfService = lazyImport(() => import('./pages/docs/terms-of-service'));
 const DocsCookiesPolicy = lazyImport(() => import('./pages/docs/cookies-policy'));
 const DocsCustomAvatarUrl = lazyImport(() => import('./pages/docs/custom-avatar-url'));
+const DocsGettingStarted = lazyImport(() => import('./pages/docs/getting-started'));
+const DocsPosOverview = lazyImport(() => import('./pages/docs/pos-overview'));
+const DocsMenuManagement = lazyImport(() => import('./pages/docs/menu-management'));
+const DocsWhatsAppSetup = lazyImport(() => import('./pages/docs/whatsapp-setup'));
 
 // Other pages
 const NotFound = lazyImport(() => import('./pages/not-found'));
@@ -94,6 +103,7 @@ const AppRoutes = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/update-password" element={<UpdatePassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/auth/callback" element={<OAuthCallback />} />
         </Route>
 
         {/* Public routes with main layout */}
@@ -104,7 +114,11 @@ const AppRoutes = () => {
           <Route path="/docs/terms" element={<DocsTermsOfService />} />
           <Route path="/docs/cookies" element={<DocsCookiesPolicy />} />
           <Route path="/docs/custom-avatar-url" element={<DocsCustomAvatarUrl />} />
-          
+          <Route path="/docs/getting-started" element={<DocsGettingStarted />} />
+          <Route path="/docs/pos-overview" element={<DocsPosOverview />} />
+          <Route path="/docs/menu-management" element={<DocsMenuManagement />} />
+          <Route path="/docs/whatsapp-setup" element={<DocsWhatsAppSetup />} />
+
           {/* Legacy redirects for old legal routes */}
           <Route path="/privacy" element={<DocsPrivacyPolicy />} />
           <Route path="/terms" element={<DocsTermsOfService />} />

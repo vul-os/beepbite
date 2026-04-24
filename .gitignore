@@ -4,4 +4,18 @@ node_modules
 
 dist
 
+billingmodel/results/
+billingmodel/__pycache__/
+
 .firebase
+
+# Env files — commit only the .example siblings
+.env
+.env.dev
+.env.main
+.env.local
+.env.*.local
+
+# Go build artifacts
+backend/bin/
+backend/tmp/

@@ -383,9 +383,9 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       setHasLoadedInvites(true);
       return;
     }
-    
+
     try {
-      const { data, error } = await supabase.rpc('check_invites');
+      const { data, error } = await supabase.rpc('check_invites', { p_user_id: user.id });
       
       if (error) {
         console.error('Error fetching invites:', error);
@@ -410,7 +410,8 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       }
 
       const { data, error } = await supabase.rpc('respond_invitation', {
-        p_organization_id: currentInvite.organization_id,
+        p_user_id: user.id,
+        p_invite_id: currentInvite.invite_id,
         p_accept: true
       });
 
@@ -439,7 +440,8 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       }
 
       const { data, error } = await supabase.rpc('respond_invitation', {
-        p_organization_id: currentInvite.organization_id,
+        p_user_id: user.id,
+        p_invite_id: currentInvite.invite_id,
         p_accept: false
       });
 

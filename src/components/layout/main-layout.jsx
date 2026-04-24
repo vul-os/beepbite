@@ -11,6 +11,8 @@ const MainLayout = () => {
   const isMobile = useMediaQuery({ maxWidth: 640 });
   const location = useLocation();
   const isLandingPage = location.pathname === '/';
+  const isDocsPage = location.pathname === '/docs' || location.pathname.startsWith('/docs/');
+  const isFullBleed = isLandingPage || isDocsPage;
   const { user, activeBistro, bistroSetupCompleted, loading } = useAuth();
   const [isSetupPopupOpen, setIsSetupPopupOpen] = useState(false);
 
@@ -44,7 +46,7 @@ const MainLayout = () => {
       <TopBar />
       
       <div className={`flex flex-1 ${isLandingPage ? '' : `mt-16`}`}>
-        {isLandingPage ? (
+        {isFullBleed ? (
           <main className="flex-1 min-w-0">
             <Outlet />
           </main>

@@ -1,133 +1,110 @@
-# BeepBite - Complete Restaurant POS System
+# BeepBite
 
-<div align="center">
-  
-![BeepBite Logo](public/logo.svg)
+Restaurant point-of-sale with a WhatsApp-first ordering channel. Built for the South African market.
 
-**Complete POS + WhatsApp Integration**
+Competitive bar: Toast, Square for Restaurants, Lightspeed, TouchBistro, Lavu. See [ROADMAP.md](ROADMAP.md) for the current gap analysis and status.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.0-646CFF.svg)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC.svg)](https://tailwindcss.com/)
+## Architecture
 
-</div>
+Monorepo with three independently deployable pieces:
 
-## 🚀 Overview
-
-BeepBite is a **complete restaurant Point of Sale (POS) system** that includes all traditional POS features restaurants need daily, enhanced with WhatsApp ordering, payments, and digital customer notifications. Replace your current POS system with one that handles both in-restaurant operations and modern customer engagement.
-
-## ✨ Key Features
-
-### 🏪 Complete POS System
-- **💳 Full Payment Processing** - Card payments, cash, contactless transactions
-- **📦 Inventory Management** - Stock tracking, low inventory alerts, supplier management
-- **👥 Staff Management** - Employee roles, permissions, time tracking, performance metrics
-- **📋 Menu Management** - Items, categories, pricing, modifiers, availability control
-- **📊 Comprehensive Reporting** - Sales reports, financial analytics, tax reporting
-
-### 📱 Enhanced WhatsApp Features
-- **🛒 WhatsApp Ordering** - Accept orders directly through WhatsApp
-- **💸 WhatsApp Payments** - Process payments via WhatsApp for remote orders
-- **🔔 Digital Restaurant Pagers** - Replace buzzer systems with WhatsApp notifications
-- **📞 Customer Communication** - Order status updates, pickup notifications
-
-### 🎯 Dual Order Channels
-- **🏪 Traditional POS Orders** - Dine-in and walk-in customers through POS terminal
-- **📱 WhatsApp Remote Orders** - Customers order and pay remotely via WhatsApp
-- **🔄 Unified Management** - Both order types managed in one system
-
-### 📈 Advanced Analytics
-- **📊 Traditional POS Analytics** - Sales tracking, peak hours, item performance
-- **💬 WhatsApp Order Analytics** - Remote order patterns, customer engagement metrics
-- **🎯 Customer Insights** - Order history, preferences, loyalty tracking
-
-## 🏃‍♂️ Quick Start
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-- Modern web browser
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/beepbite-mono.git
-cd beepbite-mono
-
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env.local
-# Edit .env.local with your configuration
-
-# Start development server
-npm run dev
+```
+beepbite-mono/
+├── backend/              Go HTTP API (replaces Supabase)
+│   ├── cmd/server/       chi router, entrypoint
+│   ├── cmd/migrate/      migrations CLI
+│   ├── migrations/       numbered .sql files, applied in order
+│   └── internal/
+│       ├── auth/         email JWT + rotating refresh + Google OAuth
+│       ├── staffauth/    POS username/password + PIN login
+│       ├── chatbot/      WhatsApp webhook state machine
+│       ├── handlers/     data (REST), aimenu, cashdrawer, promotions,
+│       │                 paymentwebhooks, whatsappsend, whatsappwebhook
+│       ├── integrations/ paystack, stripe, whatsapp, mapbox, resend
+│       ├── db/           pgx pool
+│       └── config/       env loader
+├── src/                  React 19 + Vite + Tailwind + shadcn/ui
+│   ├── lib/api-client.js Thin supabase-js-shaped client on fetch
+│   ├── pages/            Dashboard, menu, orders, staff, auth…
+│   └── services/         Domain helpers
+├── docs/                 Public docs
+└── ROADMAP.md            Competitive-gap roadmap (source of truth)
 ```
 
-Visit `http://localhost:5173` to see the application.
+The frontend used to call Supabase directly; it now hits the Go backend through
+`src/lib/api-client.js`, which exposes the same `.from()` / `.rpc()` / `.auth.*`
+surface so callsites didn't need to change.
 
-## 📚 Documentation
+## Tech stack
 
-- **[Setup Guide](docs/setup.md)** - Complete POS system installation and configuration
-- **[User Guide](docs/user-guide.md)** - How to use all POS and WhatsApp features
-- **[Features](docs/features.md)** - Complete feature documentation
-- **[API Documentation](docs/api.md)** - Backend API reference
-- **[Development Guide](docs/development.md)** - Contributing and development setup
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **Backend**: Go 1.25, chi router, pgx v5, Postgres 15+
+- **Frontend**: React 19, Vite, Tailwind CSS, Radix UI / shadcn/ui
+- **Integrations**: WhatsApp Cloud API, Paystack, Stripe, Mapbox, Resend, OpenAI (menu creator)
+- **Auth**: JWT HS256 access tokens (15 min) + opaque sha-256-hashed rotating refresh tokens (30 days)
 
-## 🛠️ Tech Stack
+## Quick start
 
-- **Frontend**: React 19, Vite, Tailwind CSS
-- **UI Components**: Radix UI, shadcn/ui
-- **Backend**: Supabase, Firebase
-- **POS Integration**: Modern payment processing
-- **WhatsApp**: WhatsApp Business API
-- **Charts**: Recharts
-- **Animation**: Framer Motion
+```bash
+# 1. Postgres
+createdb beepbite
 
-## 🌟 Getting Started
+# 2. Env vars — copy and fill in DATABASE_URL, JWT_SECRET,
+#    Google OAuth creds, WhatsApp tokens, payment keys, etc.
+cp .env.example .env
 
-1. **Replace your POS** - Install BeepBite as your main restaurant POS system
-2. **Setup traditional features** - Configure inventory, staff, menu, and payments
-3. **Enable WhatsApp integration** - Add WhatsApp ordering and digital notifications
-4. **Start operating** - Handle both in-restaurant and remote orders in one system
+# 3. Run migrations
+cd backend
+go run ./cmd/migrate --env=local --up
+#   --reset drops and re-applies; --down just drops.
 
-## 🆚 Why Choose BeepBite Over Traditional POS?
+# 4. Backend
+go run ./cmd/server --env=local
 
-- **✅ Everything your current POS does** - All standard restaurant POS features
-- **➕ Plus WhatsApp capabilities** - Remote ordering, payments, digital pagers
-- **🔄 Dual order channels** - In-restaurant AND remote orders
-- **📱 Modern customer engagement** - No more lost buzzer pagers
-- **💰 Better ROI** - Traditional POS features + enhanced revenue streams
+# 5. Frontend
+cd ..
+npm install
+npm run dev        # http://localhost:5173
+# npm run build -- --mode=dev    # dev bundle
+# npm run build -- --mode=main   # prod bundle
+```
 
-## 📖 Learn More
+## What's built vs what's pending
 
-- [Live Demo](https://beepbite-demo.vercel.app)
-- [Documentation](docs/)
-- [API Reference](docs/api.md)
-- [Support](mailto:support@beepbite.com)
+See [ROADMAP.md](ROADMAP.md) for the live list. Today the schema and Go handlers
+cover: staff auth (password + PIN), tables / dine-in, KDS, cash drawer, voids /
+comps with manager approval, promotions + coupon engine, suppliers &
+purchasing, gift cards / store credit / house accounts, menu scheduling / 86
+list, audit log, idempotency keys, and reporting views.
 
-## 🤝 Contributing
+Notable gaps still open: tip pooling, staff pay rates, delivery zones,
+frontend POS login screen, analytics dashboard rewire, and finishing the
+WhatsApp webhook chatbot port.
 
-We welcome contributions! Please see our [Development Guide](docs/development.md) for details on how to get started.
+## Key design notes
 
-## 📄 License
+- **RLS is off.** The backend trusts JWT identity; the frontend is responsible
+  for including `organization_id` / `location_id` in filter predicates. This is
+  a conscious simplification — revisit when tighter enforcement is needed.
+- **Data REST layer** is allowlisted (`backend/internal/handlers/data/allowlist.go`).
+  Unknown tables / RPCs return 404.
+- **Embedded joins** resolve one level deep (what the app uses). Deeper nesting
+  would require a PostgREST-equivalent.
+- **Money is cents (bigint).** Everything new uses int64 cents. A few legacy
+  tables still use `decimal(10,2)` — conversion helpers live alongside the
+  engines that need them.
+- **Staff vs member auth** share a JWT secret, disambiguated by audience claim.
+  Splitting into a dedicated `STAFF_JWT_SECRET` is blocked on key-rotation
+  tooling.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Documentation
 
-## 📞 Support
+- [Setup](docs/setup.md)
+- [User guide](docs/user-guide.md)
+- [Features](docs/features.md)
+- [API](docs/api.md)
+- [Development](docs/development.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
-- **Email**: support@beepbite.com
-- **WhatsApp**: +27 11 876 5432
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/beepbite-mono/issues)
+## License
 
----
-
-<div align="center">
-  <p>Complete POS System • Enhanced with WhatsApp • Built for Modern Restaurants</p>
-</div>
+MIT — see [LICENSE](LICENSE).
