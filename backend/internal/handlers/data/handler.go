@@ -7,6 +7,7 @@ package data
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,46 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// formatUUIDBytes renders pgx's default uuid representation ([16]byte) as the
+// canonical 8-4-4-4-12 hyphenated hex string. Without this, JSON marshalling
+// emits `[91, 142, ...]` integer arrays — which the frontend then can't use
+// as a UUID in follow-up inserts (e.g. organization_id in locations).
+func formatUUIDBytes(b [16]byte) string {
+	h := hex.EncodeToString(b[:]) // 32 chars
+	var dst [36]byte
+	copy(dst[0:8], h[0:8])
+	dst[8] = '-'
+	copy(dst[9:13], h[8:12])
+	dst[13] = '-'
+	copy(dst[14:18], h[12:16])
+	dst[18] = '-'
+	copy(dst[19:23], h[16:20])
+	dst[23] = '-'
+	copy(dst[24:36], h[20:32])
+	return string(dst[:])
+}
+
+// entityIDFromRow extracts the "id" field (as a string) from the first
+// returned row. Used to populate audit_log.entity_id. Returns "" when the
+// row has no "id" key or the value is not a string/fmt.Stringer.
+func entityIDFromRow(rows []map[string]any) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	v, ok := rows[0]["id"]
+	if !ok || v == nil {
+		return ""
+	}
+	switch s := v.(type) {
+	case string:
+		return s
+	case fmt.Stringer:
+		return s.String()
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 
 type Handler struct {
 	pool *pgxpool.Pool
@@ -80,13 +121,20 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		sb.WriteString(where)
 	}
 
-	for _, ord := range q["order"] {
-		col, dir := parseOrder(ord)
-		if col == "" {
-			writeErr(w, http.StatusBadRequest, "invalid order")
-			return
+	orderClauses := q["order"]
+	if len(orderClauses) > 0 {
+		sb.WriteString(" ORDER BY ")
+		for i, ord := range orderClauses {
+			col, dir := parseOrder(ord)
+			if col == "" {
+				writeErr(w, http.StatusBadRequest, "invalid order")
+				return
+			}
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(sb, "%s %s", quoteIdent(col), dir)
 		}
-		fmt.Fprintf(sb, " ORDER BY %s %s", quoteIdent(col), dir)
 	}
 
 	if l := q.Get("limit"); l != "" {
@@ -172,14 +220,32 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 	}
 	sb.WriteString(" RETURNING *")
 
-	dbRows, err := h.pool.Query(r.Context(), sb.String(), args...)
+	ctx := r.Context()
+	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	dbRows, err := tx.Query(ctx, sb.String(), args...)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	defer dbRows.Close()
 	out, err := rowsToMaps(dbRows)
+	dbRows.Close()
 	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := auditMutation(ctx, tx, table, opInsert, entityIDFromRow(out), nil, nil); err != nil {
+		writeErr(w, http.StatusInternalServerError, "audit: "+err.Error())
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -239,14 +305,33 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	sb.WriteString(whereShifted)
 	sb.WriteString(" RETURNING *")
 
-	rows, err := h.pool.Query(r.Context(), sb.String(), args...)
+	ctx := r.Context()
+	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	rows, err := tx.Query(ctx, sb.String(), args...)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	defer rows.Close()
 	out, err := rowsToMaps(rows)
+	rows.Close()
 	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// after_state carries the changed fields so the audit log captures what was set.
+	if err := auditMutation(ctx, tx, table, opUpdate, entityIDFromRow(out), nil, changes); err != nil {
+		writeErr(w, http.StatusInternalServerError, "audit: "+err.Error())
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -271,9 +356,37 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "delete requires at least one filter")
 		return
 	}
-	_, err = h.pool.Exec(r.Context(), fmt.Sprintf("DELETE FROM %s WHERE %s", quoteIdent(table), where), args...)
+	ctx := r.Context()
+
+	// Use RETURNING * so we can capture the entity ID for the audit row.
+	deleteSql := fmt.Sprintf("DELETE FROM %s WHERE %s RETURNING *", quoteIdent(table), where)
+
+	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	delRows, err := tx.Query(ctx, deleteSql, args...)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	deleted, err := rowsToMaps(delRows)
+	delRows.Close()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := auditMutation(ctx, tx, table, opDelete, entityIDFromRow(deleted), nil, nil); err != nil {
+		writeErr(w, http.StatusInternalServerError, "audit: "+err.Error())
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -411,7 +524,12 @@ func rowsToMaps(rows pgx.Rows) ([]map[string]any, error) {
 		}
 		m := make(map[string]any, len(fields))
 		for i, f := range fields {
-			m[string(f.Name)] = vals[i]
+			switch v := vals[i].(type) {
+			case [16]byte:
+				m[string(f.Name)] = formatUUIDBytes(v)
+			default:
+				m[string(f.Name)] = v
+			}
 		}
 		out = append(out, m)
 	}

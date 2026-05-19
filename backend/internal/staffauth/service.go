@@ -190,6 +190,42 @@ func (s *Service) SetPassword(ctx context.Context, resetTokenRaw, newPassword st
 	return s.store.ConsumePasswordReset(ctx, row.ID, row.StaffID, string(hash))
 }
 
+// ErrPINInvalid is returned when the PIN does not meet length/digit constraints.
+var ErrPINInvalid = errors.New("pin must be 4–6 digits")
+
+// ManagerSetPIN lets an org manager/owner set a new PIN for a staff member
+// without needing the current PIN. The caller's user ID is used for the org
+// membership check inside the store.
+func (s *Service) ManagerSetPIN(ctx context.Context, staffID, callerUserID, pin string) error {
+	if len(pin) < 4 || len(pin) > 6 {
+		return ErrPINInvalid
+	}
+	for _, ch := range pin {
+		if ch < '0' || ch > '9' {
+			return ErrPINInvalid
+		}
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.store.SetPinHash(ctx, staffID, callerUserID, string(hash))
+}
+
+// ManagerSetPassword lets an org manager/owner set a new password for a staff
+// member directly (no reset token required). Sets must_change_password = true
+// so the staff member is forced to rotate on next login.
+func (s *Service) ManagerSetPassword(ctx context.Context, staffID, callerUserID, newPassword string) error {
+	if len(newPassword) < minPasswordLength {
+		return ErrPasswordTooShort
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.store.SetPasswordHashByManager(ctx, staffID, callerUserID, string(hash))
+}
+
 // SignInWithPIN mirrors SignIn but checks pin_hash. The failed-attempt
 // counter is shared with password login — five strikes across either
 // credential lock the account — so a brute force on the 4-digit PIN can't

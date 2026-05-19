@@ -13,6 +13,61 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
+// Pick a food emoji for an item. Tries name keywords first, then falls back
+// to the item's category name. A new keyword takes a few seconds to add —
+// extend the list as new menu items appear.
+const ITEM_EMOJI_KEYWORDS = [
+  { match: /burger|patty|cheeseburger/i, emoji: '🍔' },
+  { match: /pizza/i, emoji: '🍕' },
+  { match: /fries|chips/i, emoji: '🍟' },
+  { match: /onion ring/i, emoji: '🧅' },
+  { match: /sweet potato/i, emoji: '🍠' },
+  { match: /chicken|wing|nugget/i, emoji: '🍗' },
+  { match: /salad|veggie|lettuce/i, emoji: '🥗' },
+  { match: /hot dog|sausage/i, emoji: '🌭' },
+  { match: /taco/i, emoji: '🌮' },
+  { match: /burrito|wrap/i, emoji: '🌯' },
+  { match: /sushi|roll/i, emoji: '🍣' },
+  { match: /noodle|ramen|pasta/i, emoji: '🍜' },
+  { match: /rice/i, emoji: '🍚' },
+  { match: /coke|cola|pepsi|soda|sprite|fanta/i, emoji: '🥤' },
+  { match: /water/i, emoji: '💧' },
+  { match: /coffee|espresso|latte|cappuccino/i, emoji: '☕' },
+  { match: /tea/i, emoji: '🍵' },
+  { match: /beer|lager|stout/i, emoji: '🍺' },
+  { match: /wine/i, emoji: '🍷' },
+  { match: /juice/i, emoji: '🧃' },
+  { match: /milkshake|shake/i, emoji: '🥛' },
+  { match: /ice cream|gelato|sundae/i, emoji: '🍨' },
+  { match: /brownie|cake|cupcake/i, emoji: '🍰' },
+  { match: /donut|doughnut/i, emoji: '🍩' },
+  { match: /cookie|biscuit/i, emoji: '🍪' },
+  { match: /chocolate/i, emoji: '🍫' },
+  { match: /fruit|apple/i, emoji: '🍎' },
+];
+const CATEGORY_EMOJI = {
+  burgers: '🍔',
+  sides: '🍟',
+  drinks: '🥤',
+  desserts: '🍰',
+  pizza: '🍕',
+  salads: '🥗',
+  chicken: '🍗',
+  breakfast: '🍳',
+  seafood: '🦐',
+  coffee: '☕',
+  alcohol: '🍺',
+};
+function emojiForItem(item) {
+  const name = item?.name || '';
+  for (const { match, emoji } of ITEM_EMOJI_KEYWORDS) {
+    if (match.test(name)) return emoji;
+  }
+  const cat = (item?.categories?.name || '').toLowerCase().trim();
+  if (CATEGORY_EMOJI[cat]) return CATEGORY_EMOJI[cat];
+  return '🍽️';
+}
+
 const POSSection = ({
   searchTerm,
   setSearchTerm,
@@ -150,72 +205,92 @@ const POSSection = ({
             {filteredItems.map((item) => (
               <Card
                 key={item.id}
-                className="border-2 border-orange-200 hover:border-orange-400 transition-all duration-200 hover:shadow-lg cursor-pointer transform hover:scale-105"
+                className="group relative overflow-hidden border border-gray-200/80 bg-white rounded-2xl shadow-sm hover:shadow-xl hover:border-orange-300 cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1"
                 onClick={() => addToCart(item)}
               >
                 <CardContent className={cn(
-                  "flex flex-col justify-between",
-                  isOrdersExpanded ? "p-6 h-64" : "p-5 h-44"
+                  "flex flex-col p-0",
+                  isOrdersExpanded ? "h-72" : "h-52"
                 )}>
-                  <div className="flex-1 min-h-0">
-                    <h3 className={cn(
-                      "font-bold text-gray-900 mb-2 leading-tight",
-                      isOrdersExpanded ? "text-xl line-clamp-3" : "text-base line-clamp-2"
-                    )}>
-                      {item.name}
-                    </h3>
-                    
-                    {item.description && (
-                      <p className={cn(
-                        "text-gray-600 mb-2 leading-relaxed",
-                        isOrdersExpanded ? "text-base line-clamp-4" : "text-sm line-clamp-2"
-                      )}>
-                        {item.description}
-                      </p>
+                  {/* Emoji "image" tile — soft warm gradient backdrop */}
+                  <div
+                    className={cn(
+                      "relative flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60",
+                      isOrdersExpanded ? "h-32" : "h-20"
                     )}
-
-                    {/* Show variations preview */}
-                    {item.item_variations && item.item_variations.length > 0 && (
-                      <div className={cn(
-                        "text-xs text-gray-500",
-                        isOrdersExpanded ? "mb-3" : "mb-2"
-                      )}>
-                        <span className="font-medium">Variations: </span>
-                        {item.item_variations.slice(0, isOrdersExpanded ? 3 : 2).map((variation, index) => (
-                          <span key={variation.id}>
-                            {variation.name}
-                            {index < Math.min(item.item_variations.length, isOrdersExpanded ? 3 : 2) - 1 && ', '}
-                          </span>
-                        ))}
-                        {item.item_variations.length > (isOrdersExpanded ? 3 : 2) && '...'}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className={cn(
-                    "flex justify-between items-center mt-auto",
-                    isOrdersExpanded ? "pt-4" : "pt-3"
-                  )}>
-                    <span className={cn(
-                      "font-bold text-orange-600",
-                      isOrdersExpanded ? "text-2xl" : "text-lg"
-                    )}>
-                      R{parseFloat(item.price || 0).toFixed(2)}
-                    </span>
-                    
-                    <Button
-                      size="sm"
+                  >
+                    <span
                       className={cn(
-                        "bg-orange-500 hover:bg-orange-600 text-white p-0 rounded-full flex-shrink-0 shadow-md hover:shadow-lg transition-all",
-                        isOrdersExpanded ? "h-12 w-12" : "h-9 w-9"
+                        "leading-none select-none transition-transform duration-300 ease-out group-hover:scale-110 group-hover:-rotate-3",
+                        isOrdersExpanded ? "text-6xl" : "text-4xl"
                       )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(item);
-                      }}
+                      aria-hidden="true"
                     >
-                      <Plus className={cn(isOrdersExpanded ? "w-5 h-5" : "w-3.5 h-3.5")} />
-                    </Button>
+                      {emojiForItem(item)}
+                    </span>
+                  </div>
+
+                  {/* Body */}
+                  <div className={cn(
+                    "flex flex-col flex-1 min-h-0",
+                    isOrdersExpanded ? "px-5 pt-4 pb-4" : "px-3.5 pt-3 pb-3"
+                  )}>
+                    <div className="flex-1 min-h-0">
+                      <h3 className={cn(
+                        "font-semibold text-gray-900 leading-snug tracking-tight",
+                        isOrdersExpanded ? "text-lg line-clamp-2" : "text-sm line-clamp-2"
+                      )}>
+                        {item.name}
+                      </h3>
+
+                      {item.description && (
+                        <p className={cn(
+                          "text-gray-500 leading-relaxed mt-1",
+                          isOrdersExpanded ? "text-sm line-clamp-2" : "text-xs line-clamp-1"
+                        )}>
+                          {item.description}
+                        </p>
+                      )}
+
+                      {item.item_variations && item.item_variations.length > 0 && (
+                        <p className={cn(
+                          "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-orange-700/80 bg-orange-50 px-1.5 py-0.5 rounded-full",
+                          isOrdersExpanded && "text-xs px-2 py-0.5"
+                        )}>
+                          {item.item_variations.length} option{item.item_variations.length === 1 ? '' : 's'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Price + add — locked to bottom */}
+                    <div className={cn(
+                      "flex justify-between items-center mt-2 pt-2 border-t border-gray-100"
+                    )}>
+                      <div className="flex flex-col leading-none">
+                        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Price</span>
+                        <span className={cn(
+                          "font-bold text-gray-900 tabular-nums",
+                          isOrdersExpanded ? "text-xl" : "text-base"
+                        )}>
+                          R{parseFloat(item.price || 0).toFixed(2)}
+                        </span>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        aria-label={`Add ${item.name} to cart`}
+                        className={cn(
+                          "bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white p-0 rounded-full flex-shrink-0 shadow-sm hover:shadow-md transition-all duration-200 group-hover:scale-110",
+                          isOrdersExpanded ? "h-11 w-11" : "h-8 w-8"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(item);
+                        }}
+                      >
+                        <Plus className={cn(isOrdersExpanded ? "w-5 h-5" : "w-4 h-4")} strokeWidth={2.5} />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

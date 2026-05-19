@@ -68,9 +68,11 @@ const SignUpPage = () => {
       setIsLoading(true);
       try {
         await signUp(formData.email, formData.password);
-        // Store email in localStorage for verify-email page
-        localStorage.setItem('pendingVerificationEmail', formData.email);
-        navigate('/verify-email');
+        // signUp() calls the Go backend which issues tokens immediately —
+        // there is no email-verification gate. The SIGNED_IN event fired inside
+        // signUp() will trigger handleAuthStateChange which navigates to /home
+        // via its 100ms setTimeout. We do NOT navigate ourselves here; doing so
+        // would race with (and potentially override) that redirect.
       } catch (error) {
         setErrors(prev => ({
           ...prev,

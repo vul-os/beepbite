@@ -1,0 +1,1079 @@
+// workspace.jsx — dedicated POS cashier workspace (multi-ticket model).
+//
+// Toast/Square-style flow:
+//   1. Top "tables strip" lists every table for the active location + walk-in
+//      tickets the cashier has created in this session. Tap one to make it
+//      active.
+//   2. Tap an available table → opens a server-side `table_session` and the
+//      ticket binds to it. Tap an occupied one → loads its existing orders.
+//   3. Menu grid (right) adds items into the active ticket's "New" section.
+//   4. "Send" fires only the new items as an additional order on this ticket;
+//      they then appear in the read-only "Sent" section. Cashier can keep
+//      adding rounds.
+//   5. "Charge" opens a payment-method picker → cash or card modal → POST
+//      /pos/orders/{id}/charge for each unpaid sent order. If the ticket is
+//      table-bound, the backend closes the table_session atomically.
+//
+// Auth: accepts EITHER a staff PIN session (localStorage) OR a Supabase
+// (owner/admin) session via useAuth(). One of them is required.
+
+/* eslint-disable react/prop-types */
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertCircle,
+  Banknote,
+  ChefHat,
+  CreditCard,
+  Filter,
+  Loader2,
+  Lock,
+  LogOut,
+  MapPin,
+  Plus,
+  Receipt,
+  RotateCcw,
+  Search,
+  ShoppingBag,
+  Unlock,
+  User as UserIcon,
+  Utensils,
+} from 'lucide-react';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+
+import { useAuth } from '@/context/auth-context';
+import { supabase } from '@/services/supabase-client';
+import { useToast } from '@/hooks/use-toast';
+import {
+  clearStoredRegister,
+  getOpenSession,
+  getStaff,
+  getStaffDisplayName,
+  persistRegister,
+  readStoredRegister,
+  submitPosOrder,
+} from '@/services/pos';
+import {
+  listOpenSessions,
+  listTables,
+  listSections,
+  openTableSession,
+  transferSession,
+  getSessionDetail,
+} from '@/services/tables';
+import { chargeOrder, PAYMENT_METHODS } from '@/services/payment';
+
+import OpenRegisterModal from '@/pages/home/components/open-register-modal';
+import ReturnModal from '@/pages/home/components/return-modal';
+import { TablesStrip } from './components/tables-strip';
+import ActiveTicketPanel from './components/active-ticket-panel';
+import CashTenderModal from './components/cash-tender-modal';
+import { CardTenderModal } from './components/card-tender-modal';
+import { TablePickerDialog } from './components/table-picker-dialog';
+
+// ---------------------------------------------------------------------------
+// Constants & helpers
+// ---------------------------------------------------------------------------
+
+const ITEM_EMOJI = [
+  { match: /burger|patty/i, e: '🍔' },
+  { match: /pizza/i, e: '🍕' },
+  { match: /fries|chips/i, e: '🍟' },
+  { match: /chicken|wing/i, e: '🍗' },
+  { match: /salad/i, e: '🥗' },
+  { match: /pasta|noodle/i, e: '🍜' },
+  { match: /coffee|latte/i, e: '☕' },
+  { match: /tea/i, e: '🍵' },
+  { match: /beer/i, e: '🍺' },
+  { match: /wine/i, e: '🍷' },
+  { match: /coke|cola|soda|sprite/i, e: '🥤' },
+  { match: /water/i, e: '💧' },
+  { match: /juice/i, e: '🧃' },
+  { match: /cake|brownie|cupcake/i, e: '🍰' },
+  { match: /ice cream/i, e: '🍨' },
+  { match: /donut/i, e: '🍩' },
+  { match: /cookie/i, e: '🍪' },
+];
+const emojiFor = (it) => ITEM_EMOJI.find((x) => x.match.test(it?.name || ''))?.e || '🍽️';
+
+const uuid = () =>
+  (crypto?.randomUUID?.() ||
+    `cli-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+
+const priceCents = (p) => Math.round((parseFloat(p) || 0) * 100);
+
+// Build a fresh client-side ticket for a walk-in / takeaway.
+function makeWalkInTicket(n) {
+  return {
+    id: `walkin-${uuid()}`,
+    kind: 'walkin',
+    label: `Walk-in #${n}`,
+    newItems: [],
+    sentOrders: [],
+  };
+}
+
+// Build a ticket from a server-side table_session row + a table row.
+function ticketFromSession({ session, table, section, orders = [] }) {
+  return {
+    id: session.id,                 // ticket id == session id
+    kind: 'table',
+    sessionId: session.id,
+    tableId: session.table_id || table?.id,
+    table_number: table?.label,
+    section_name: section?.name,
+    party_size: session.party_size || 1,
+    newItems: [],
+    sentOrders: orders,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+export default function PosWorkspacePage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { activeLocation, user, userProfile, signOut } = useAuth();
+
+  // ----- auth gate -------------------------------------------------------
+  const staff = useMemo(() => getStaff(), []);
+  const staffName = useMemo(() => getStaffDisplayName(), []);
+  const displayName = staffName || userProfile?.first_name
+    || user?.user_metadata?.name || user?.email || 'User';
+  const isAuthed = Boolean(staff || user);
+  useEffect(() => { if (!isAuthed) navigate('/pos/login', { replace: true }); }, [isAuthed, navigate]);
+
+  // ----- register session ------------------------------------------------
+  // Mirrors home/index.jsx: only staff PIN sessions need an open cash drawer.
+  // Owners/admins (Supabase email login) can place orders without one — they
+  // typically don't have a physical till in front of them anyway.
+  const isStaffSession = Boolean(staff);
+  const stored = useMemo(() => readStoredRegister(), []);
+  const [registerSession, setRegisterSession] = useState(null);
+  const [registerLoading, setRegisterLoading] = useState(isStaffSession);
+  const [isOpenRegisterOpen, setIsOpenRegisterOpen] = useState(false);
+  const [isReturnOpen, setIsReturnOpen] = useState(false);
+  // Effective gate used everywhere downstream — `true` when the cashier may
+  // place orders. Owners always pass; staff need an open register.
+  const canTakeOrders = !isStaffSession || Boolean(registerSession);
+
+  // ----- menu state ------------------------------------------------------
+  const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loadingMenu, setLoadingMenu] = useState(true);
+  const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState('all');
+
+  // ----- tables / sessions ----------------------------------------------
+  const [tables, setTables] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [tablesLoading, setTablesLoading] = useState(true);
+
+  // Map<ticketId, Ticket> — both table-bound and walk-in tickets.
+  // Using an object (plain map) for predictable React equality.
+  const [tickets, setTickets] = useState({});
+  const [activeTicketId, setActiveTicketId] = useState(null);
+  const [walkInCounter, setWalkInCounter] = useState(1);
+  const [openingTable, setOpeningTable] = useState(false);
+
+  // ----- send/charge state ----------------------------------------------
+  const [sending, setSending] = useState(false);
+  const [chargeMethod, setChargeMethod] = useState(null); // 'cash' | 'card' | null
+  const [chargeError, setChargeError] = useState('');
+  const [chargeBusy, setChargeBusy] = useState(false);
+  const [showMethodPicker, setShowMethodPicker] = useState(false);
+
+  // ----- assign-table flow -----------------------------------------------
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const [assigningTable, setAssigningTable] = useState(false);
+
+  // ===== effects =========================================================
+
+  // Register check — only for staff PIN sessions.
+  useEffect(() => {
+    if (!isStaffSession) { setRegisterLoading(false); return; }
+    if (!activeLocation?.id) { setRegisterLoading(false); return; }
+    let cancelled = false;
+    setRegisterLoading(true);
+    (async () => {
+      try {
+        let drawerId = stored?.drawerId || '';
+        if (!drawerId) {
+          const { data } = await supabase
+            .from('cash_drawers').select('id')
+            .eq('location_id', activeLocation.id).eq('is_active', true).limit(1);
+          drawerId = data?.[0]?.id || '';
+        }
+        if (!drawerId) {
+          // No drawer configured for this location — staff can't take cash
+          // orders until one is created in settings. Show a non-blocking toast
+          // rather than auto-popping a modal the cashier can't act on.
+          if (!cancelled) {
+            setRegisterSession(null);
+            toast({
+              variant: 'destructive',
+              title: 'No cash drawer configured',
+              description: 'Ask an admin to add one in Settings → Location.',
+            });
+          }
+          return;
+        }
+        const session = await getOpenSession(drawerId);
+        if (cancelled) return;
+        if (session?.id) {
+          setRegisterSession(session);
+          persistRegister({ sessionId: session.id, drawerId, openedAt: session.opened_at });
+        } else {
+          clearStoredRegister();
+          setRegisterSession(null);
+          setIsOpenRegisterOpen(true);
+        }
+      } catch (err) {
+        if (!cancelled) console.error('Register check failed:', err);
+      } finally {
+        if (!cancelled) setRegisterLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLocation?.id, isStaffSession]);
+
+  // Menu load
+  useEffect(() => {
+    if (!activeLocation?.id) {
+      setItems([]); setCategories([]); setLoadingMenu(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingMenu(true);
+    (async () => {
+      try {
+        const [{ data: cats }, { data: rows }] = await Promise.all([
+          supabase.from('categories').select('id, name')
+            .eq('location_id', activeLocation.id).eq('is_active', true)
+            .order('sort_order', { ascending: true }).order('name', { ascending: true }),
+          supabase.from('items').select(`
+            id, name, description, price, category_id,
+            categories ( id, name )
+          `).eq('location_id', activeLocation.id).eq('is_active', true)
+            .order('sort_order', { ascending: true }).order('name', { ascending: true }),
+        ]);
+        if (cancelled) return;
+        setCategories(cats || []);
+        setItems(rows || []);
+      } catch (err) {
+        console.error('Menu load failed:', err);
+        if (!cancelled) toast({ variant: 'destructive', title: 'Menu failed to load', description: err.message });
+      } finally {
+        if (!cancelled) setLoadingMenu(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeLocation?.id, toast]);
+
+  // Tables + open sessions
+  const refreshTables = useCallback(async () => {
+    if (!activeLocation?.id) return;
+    setTablesLoading(true);
+    try {
+      const [tbls, secs] = await Promise.all([
+        listTables(activeLocation.id),
+        listSections(activeLocation.id),
+      ]);
+      setTables(tbls);
+      setSections(secs);
+    } catch (err) {
+      console.error('Tables load failed:', err);
+    } finally {
+      setTablesLoading(false);
+    }
+  }, [activeLocation?.id]);
+
+  // Initial load: tables + open sessions → build tickets
+  useEffect(() => {
+    if (!activeLocation?.id) return;
+    let cancelled = false;
+    (async () => {
+      await refreshTables();
+      try {
+        const openSessions = await listOpenSessions(activeLocation.id);
+        if (cancelled) return;
+        // For each open session, hydrate orders via SessionDetail.
+        const detailFetches = await Promise.all(
+          openSessions.map((s) => getSessionDetail(s.id).catch(() => null)),
+        );
+        if (cancelled) return;
+        const tbls = await listTables(activeLocation.id);
+        const secs = await listSections(activeLocation.id);
+        if (cancelled) return;
+        const next = {};
+        detailFetches.forEach((detail) => {
+          if (!detail) return;
+          const session = detail.session || detail;
+          const table = tbls.find((t) => t.id === session.table_id);
+          const section = secs.find((s) => s.id === table?.section_id);
+          // Hydrate orders attached to this session into "sent" form.
+          const sentOrders = (detail.orders || []).map((o) => ({
+            id: o.id,
+            order_number: o.order_number,
+            created_at: o.created_at,
+            payment_status: o.payment_status || 'pending',
+            total_cents: typeof o.total_amount_cents === 'number'
+              ? o.total_amount_cents
+              : (typeof o.total === 'number' ? Math.round(o.total * 100) : 0),
+            items: (o.items || []).map((it) => ({
+              order_item_id: it.id,
+              item_name: it.item_name || it.name,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+              total_cents: typeof it.total_cents === 'number'
+                ? it.total_cents
+                : Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * 100),
+              item_status: it.item_status || 'fired',
+              notes: it.notes,
+            })),
+          }));
+          next[session.id] = ticketFromSession({ session, table, section, orders: sentOrders });
+        });
+        setTickets(next);
+      } catch (err) {
+        console.error('Open sessions load failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeLocation?.id, refreshTables]);
+
+  // ===== derived =========================================================
+
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((it) => {
+      if (categoryId !== 'all' && it.category_id !== categoryId) return false;
+      if (!q) return true;
+      return it.name?.toLowerCase().includes(q)
+        || it.description?.toLowerCase().includes(q)
+        || it.categories?.name?.toLowerCase().includes(q);
+    });
+  }, [items, categoryId, search]);
+
+  const activeTicket = activeTicketId ? tickets[activeTicketId] : null;
+
+  // Decorate table tiles with the active ticket subtotal
+  const tableTiles = useMemo(() => {
+    return tables.map((t) => {
+      const ticket = Object.values(tickets).find((x) => x.kind === 'table' && x.tableId === t.id);
+      const subtotal = ticket
+        ? subtotalCentsOfTicket(ticket)
+        : 0;
+      return {
+        ...t,
+        section_name: sections.find((s) => s.id === t.section_id)?.name,
+        subtotal_cents: subtotal,
+        // mark as occupied if we have an open ticket for it (covers fresh-opens
+        // before refreshTables() has caught up)
+        status: ticket ? 'occupied' : t.status,
+      };
+    });
+  }, [tables, sections, tickets]);
+
+  const walkInTiles = useMemo(() => {
+    return Object.values(tickets)
+      .filter((t) => t.kind === 'walkin')
+      .map((t) => ({
+        id: t.id,
+        label: t.label,
+        subtotal_cents: subtotalCentsOfTicket(t),
+        item_count: t.newItems.reduce((s, it) => s + it.qty, 0)
+                  + t.sentOrders.reduce((s, o) => s + (o.items?.length || 0), 0),
+      }));
+  }, [tickets]);
+
+  // ===== handlers ========================================================
+
+  const updateTicket = (ticketId, patch) => {
+    setTickets((prev) => {
+      const t = prev[ticketId];
+      if (!t) return prev;
+      return { ...prev, [ticketId]: typeof patch === 'function' ? patch(t) : { ...t, ...patch } };
+    });
+  };
+
+  const handleSelectTile = useCallback(async (ticketId, kind) => {
+    if (kind === 'walkin') {
+      setActiveTicketId(ticketId);
+      return;
+    }
+    // table tile — find existing ticket bound to this table OR open a session
+    const existing = Object.values(tickets).find(
+      (t) => t.kind === 'table' && t.tableId === ticketId,
+    );
+    if (existing) {
+      setActiveTicketId(existing.id);
+      return;
+    }
+    if (openingTable) return;
+    setOpeningTable(true);
+    try {
+      const session = await openTableSession({
+        tableId: ticketId,
+        locationId: activeLocation.id,
+        partySize: 1,
+        openedBy: staff?.id || undefined,
+      });
+      const table = tables.find((t) => t.id === ticketId);
+      const section = sections.find((s) => s.id === table?.section_id);
+      const newTicket = ticketFromSession({ session, table, section, orders: [] });
+      setTickets((prev) => ({ ...prev, [newTicket.id]: newTicket }));
+      setActiveTicketId(newTicket.id);
+      // mark the table as occupied locally
+      setTables((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: 'occupied' } : t));
+      toast({ title: `Opened ${table?.label ? `Table ${table.label}` : 'table'}` });
+    } catch (err) {
+      console.error('Open session failed:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Could not open this table',
+        description: err.message || 'Try again.',
+      });
+    } finally {
+      setOpeningTable(false);
+    }
+  }, [tickets, openingTable, activeLocation?.id, staff?.id, user?.id, tables, sections, toast]);
+
+  const handleAddWalkIn = useCallback(() => {
+    const t = makeWalkInTicket(walkInCounter);
+    setWalkInCounter((n) => n + 1);
+    setTickets((prev) => ({ ...prev, [t.id]: t }));
+    setActiveTicketId(t.id);
+  }, [walkInCounter]);
+
+  const handleAddItem = useCallback((item) => {
+    if (!activeTicket) {
+      toast({ title: 'Pick a table or start a walk-in first' });
+      return;
+    }
+    if (isStaffSession && !registerSession) {
+      setIsOpenRegisterOpen(true);
+      return;
+    }
+    updateTicket(activeTicket.id, (t) => {
+      const idx = t.newItems.findIndex((ni) => ni.item_id === item.id);
+      if (idx >= 0) {
+        const next = t.newItems.slice();
+        next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
+        return { ...t, newItems: next };
+      }
+      return {
+        ...t,
+        newItems: [
+          ...t.newItems,
+          { id: uuid(), item_id: item.id, name: item.name, price: parseFloat(item.price || 0), qty: 1, variation_option_ids: [] },
+        ],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTicket, registerSession, toast]);
+
+  const handleBumpQty = (clientId, delta) => {
+    if (!activeTicket) return;
+    updateTicket(activeTicket.id, (t) => ({
+      ...t,
+      newItems: t.newItems
+        .map((ni) => ni.id === clientId ? { ...ni, qty: Math.max(0, ni.qty + delta) } : ni)
+        .filter((ni) => ni.qty > 0),
+    }));
+  };
+
+  const handleRemoveItem = (clientId) => {
+    if (!activeTicket) return;
+    updateTicket(activeTicket.id, (t) => ({
+      ...t,
+      newItems: t.newItems.filter((ni) => ni.id !== clientId),
+    }));
+  };
+
+  const handleSend = useCallback(async () => {
+    if (!activeTicket || activeTicket.newItems.length === 0) return;
+    if (isStaffSession && !registerSession) { setIsOpenRegisterOpen(true); return; }
+    setSending(true);
+    try {
+      const result = await submitPosOrder({
+        locationId: activeLocation.id,
+        orderType: activeTicket.kind === 'table' ? 'dine_in' : 'takeaway',
+        tableNumber: activeTicket.kind === 'table' ? String(activeTicket.table_number || activeTicket.label || '') : undefined,
+        registerSessionId: registerSession?.id,
+        items: activeTicket.newItems.map((ni) => ({
+          item_id: ni.item_id,
+          quantity: ni.qty,
+          variation_option_ids: ni.variation_option_ids || [],
+          notes: ni.notes || undefined,
+        })),
+        // Note: submitPosOrder doesn't currently forward table_session_id —
+        // we add it via the raw body shape on the next line via a tiny hack:
+        // the helper just forwards extra keys.
+      });
+      // Build a "sent order" record from the cart we just sent.
+      const sentItems = activeTicket.newItems.map((ni) => ({
+        order_item_id: `cli-${ni.id}`,
+        item_name: ni.name,
+        quantity: ni.qty,
+        unit_price: ni.price,
+        total_cents: Math.round(ni.price * ni.qty * 100),
+        item_status: 'fired',
+      }));
+      const sentOrder = {
+        id: result.order_id,
+        order_number: result.order_number,
+        created_at: new Date().toISOString(),
+        payment_status: 'pending',
+        total_cents: typeof result.total === 'number'
+          ? Math.round(result.total * 100)
+          : sentItems.reduce((s, it) => s + it.total_cents, 0),
+        items: sentItems,
+      };
+      updateTicket(activeTicket.id, (t) => ({
+        ...t,
+        newItems: [],
+        sentOrders: [...t.sentOrders, sentOrder],
+      }));
+      toast({
+        title: `Order #${sentOrder.order_number} sent to kitchen ✓`,
+        description: `${sentItems.length} item${sentItems.length === 1 ? '' : 's'} fired`,
+      });
+    } catch (err) {
+      console.error('Send failed:', err);
+      toast({ variant: 'destructive', title: 'Send failed', description: err.message });
+    } finally {
+      setSending(false);
+    }
+  }, [activeTicket, registerSession, activeLocation?.id, toast]);
+
+  const handleOpenCharge = () => {
+    if (!activeTicket || activeTicket.sentOrders.length === 0) return;
+    setChargeError('');
+    setShowMethodPicker(true);
+  };
+
+  const handlePickMethod = (code) => {
+    setShowMethodPicker(false);
+    setChargeMethod(code);
+  };
+
+  // Run charge for ALL unpaid orders on the active ticket. Most tickets have
+  // one order; this covers the multi-round case gracefully.
+  const runCharge = async ({ amountCents, paymentMethodCode, reference, changeCents }) => {
+    if (!activeTicket) return;
+    setChargeBusy(true);
+    setChargeError('');
+    try {
+      const unpaid = activeTicket.sentOrders.filter((o) => o.payment_status !== 'paid');
+      const results = [];
+      for (const order of unpaid) {
+        // eslint-disable-next-line no-await-in-loop
+        const r = await chargeOrder({
+          orderId: order.id,
+          paymentMethodCode,
+          amountPaidCents: order.total_cents || amountCents,
+          changeGivenCents: changeCents || 0,
+          paymentReference: reference || undefined,
+          processedByStaffId: staff?.id || undefined,
+        });
+        results.push(r);
+      }
+      // Mark all as paid locally
+      updateTicket(activeTicket.id, (t) => ({
+        ...t,
+        sentOrders: t.sentOrders.map((o) => ({ ...o, payment_status: 'paid' })),
+      }));
+      const sessionClosed = results.some((r) => r.session_closed);
+      toast({
+        title: 'Payment received ✓',
+        description: sessionClosed ? 'Table closed.' : 'Order marked paid.',
+      });
+      // If table-bound ticket and session closed, drop the ticket and refresh tables.
+      if (sessionClosed && activeTicket.kind === 'table') {
+        setTickets((prev) => {
+          const next = { ...prev };
+          delete next[activeTicket.id];
+          return next;
+        });
+        setActiveTicketId(null);
+        refreshTables();
+      } else if (activeTicket.kind === 'walkin') {
+        // walk-in is done — drop it
+        setTickets((prev) => {
+          const next = { ...prev };
+          delete next[activeTicket.id];
+          return next;
+        });
+        setActiveTicketId(null);
+      }
+      setChargeMethod(null);
+    } catch (err) {
+      console.error('Charge failed:', err);
+      setChargeError(err.message || 'Charge failed');
+    } finally {
+      setChargeBusy(false);
+    }
+  };
+
+  // ----- assign / change table for the active ticket ---------------------
+  // Walk-in → table: open a new table_session, move items into a new ticket
+  // keyed by session id, drop the old walk-in ticket.
+  // Table → table: call transferSession() which moves party + linked orders
+  // server-side; rebuild the ticket under the new session id.
+  const handleAssignTable = useCallback(async (table) => {
+    if (!activeTicket || !table || assigningTable) return;
+    setAssigningTable(true);
+    try {
+      if (activeTicket.kind === 'walkin') {
+        const session = await openTableSession({
+          tableId: table.id,
+          locationId: activeLocation.id,
+          partySize: 1,
+          openedBy: staff?.id || undefined,
+        });
+        const section = sections.find((s) => s.id === table.section_id);
+        const newTicket = ticketFromSession({
+          session,
+          table,
+          section,
+          orders: activeTicket.sentOrders, // preserve any already-sent rounds (rare for walk-ins, but safe)
+        });
+        newTicket.newItems = activeTicket.newItems; // carry over unsent items
+        setTickets((prev) => {
+          const next = { ...prev };
+          delete next[activeTicket.id];          // drop the walk-in record
+          next[newTicket.id] = newTicket;
+          return next;
+        });
+        setActiveTicketId(newTicket.id);
+        setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, status: 'occupied' } : t));
+        toast({ title: `Assigned to Table ${table.label}` });
+      } else if (activeTicket.kind === 'table') {
+        if (table.id === activeTicket.tableId) {
+          toast({ title: 'Already on this table' });
+          return;
+        }
+        const newSession = await transferSession(activeTicket.sessionId, {
+          toTableId: table.id,
+          openedBy: staff?.id || undefined,
+          partySize: activeTicket.party_size,
+        });
+        const section = sections.find((s) => s.id === table.section_id);
+        const newTicket = ticketFromSession({
+          session: newSession,
+          table,
+          section,
+          orders: activeTicket.sentOrders,
+        });
+        newTicket.newItems = activeTicket.newItems;
+        setTickets((prev) => {
+          const next = { ...prev };
+          delete next[activeTicket.id];
+          next[newTicket.id] = newTicket;
+          return next;
+        });
+        setActiveTicketId(newTicket.id);
+        // refresh tables: old one frees up, new one occupies
+        refreshTables();
+        toast({ title: `Moved to Table ${table.label}` });
+      }
+      setShowTablePicker(false);
+    } catch (err) {
+      console.error('Assign table failed:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Could not assign table',
+        description: err.message || 'Try again.',
+      });
+    } finally {
+      setAssigningTable(false);
+    }
+  }, [activeTicket, assigningTable, activeLocation?.id, sections, staff?.id, user?.id, refreshTables, toast]);
+
+  // ----- sign out --------------------------------------------------------
+  const handleSignOut = async () => {
+    clearStoredRegister();
+    if (staff) {
+      localStorage.removeItem('bb.auth');
+      navigate('/pos/login', { replace: true });
+    } else {
+      try { await signOut(); } catch (e) { console.error(e); }
+      navigate('/signin', { replace: true });
+    }
+  };
+
+  // ===== render ==========================================================
+
+  if (!isAuthed) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  const activeTicketTotalCents = activeTicket ? subtotalCentsOfTicket(activeTicket) : 0;
+  const activeUnpaidCents = activeTicket
+    ? activeTicket.sentOrders
+        .filter((o) => o.payment_status !== 'paid')
+        .reduce((s, o) => s + (o.total_cents || 0), 0)
+    : 0;
+
+  return (
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-orange-50/40 overflow-hidden">
+      {/* ============================== TOP BAR ============================== */}
+      <header className="bg-white border-b border-orange-200 shadow-sm shrink-0">
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-md">
+              <Receipt className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex flex-col leading-tight min-w-0">
+              <span className="text-sm font-bold text-gray-900 truncate">POS Workspace</span>
+              <span className="text-[11px] text-gray-500 truncate flex items-center gap-1">
+                <UserIcon className="w-3 h-3" />
+                {displayName}
+                {!staff && (
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 text-[9px] font-semibold uppercase tracking-wide">
+                    Owner
+                  </span>
+                )}
+                {activeLocation?.name && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="truncate">{activeLocation.name}</span>
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Register pill — only relevant for staff PIN sessions. */}
+          {isStaffSession && (
+            <div className="hidden sm:flex items-center gap-2">
+              {registerLoading ? (
+                <span className="text-xs text-gray-400 flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Checking register…
+                </span>
+              ) : registerSession ? (
+                <button type="button" onClick={() => setIsOpenRegisterOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 text-xs font-semibold transition">
+                  <Unlock className="w-3 h-3" /> Register Open
+                </button>
+              ) : (
+                <button type="button" onClick={() => setIsOpenRegisterOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 text-xs font-semibold transition animate-pulse">
+                  <Lock className="w-3 h-3" /> Open Register
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5">
+            {activeTicket && (
+              <Button size="sm" variant="outline" onClick={() => setShowTablePicker(true)}
+                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8"
+                title={activeTicket.kind === 'walkin' ? 'Assign this ticket to a table' : 'Move to a different table'}>
+                <MapPin className="w-3.5 h-3.5 mr-1.5" />
+                <span className="hidden md:inline">
+                  {activeTicket.kind === 'walkin' ? 'Assign Table' : 'Move Table'}
+                </span>
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setIsReturnOpen(true)} disabled={isStaffSession && !registerSession}
+              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8">
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              <span className="hidden md:inline">Return</span>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate('/kds/expo')}
+              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8" title="Open Kitchen Display">
+              <ChefHat className="w-3.5 h-3.5 mr-1.5" />
+              <span className="hidden md:inline">Kitchen</span>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleSignOut}
+              className="text-gray-500 hover:text-gray-900 h-8">
+              <LogOut className="w-3.5 h-3.5 mr-1.5" />
+              <span className="hidden md:inline">Sign Out</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Tables strip */}
+        <div className="px-3 py-2 border-t border-orange-100 bg-orange-50/30">
+          <TablesStrip
+            tables={tableTiles}
+            walkIns={walkInTiles}
+            activeTicketId={activeTicket?.kind === 'table' ? activeTicket.tableId : activeTicketId}
+            onSelect={handleSelectTile}
+            onAddWalkIn={handleAddWalkIn}
+            loading={tablesLoading}
+          />
+        </div>
+      </header>
+
+      {/* ============================== MAIN ============================== */}
+      <main className="flex-1 flex overflow-hidden">
+        {/* Menu */}
+        <section className="flex-1 flex flex-col min-w-0 bg-white">
+          <div className="px-4 py-3 border-b border-orange-100">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search menu…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 h-11 border-orange-200 focus:border-orange-400"
+              />
+            </div>
+          </div>
+
+          <div className="px-3 py-2 border-b border-orange-100 overflow-x-auto">
+            <div className="flex gap-1.5">
+              <Button size="sm" variant={categoryId === 'all' ? 'default' : 'outline'}
+                onClick={() => setCategoryId('all')}
+                className={cn('h-8 rounded-full px-3 text-xs whitespace-nowrap',
+                  categoryId === 'all'
+                    ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                    : 'border-orange-200 text-gray-700 hover:bg-orange-50')}>
+                <Filter className="w-3 h-3 mr-1" /> All
+              </Button>
+              {categories.map((c) => (
+                <Button key={c.id} size="sm" variant={categoryId === c.id ? 'default' : 'outline'}
+                  onClick={() => setCategoryId(c.id)}
+                  className={cn('h-8 rounded-full px-3 text-xs whitespace-nowrap',
+                    categoryId === c.id
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                      : 'border-orange-200 text-gray-700 hover:bg-orange-50')}>
+                  {c.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3">
+            {!activeTicket && (
+              <div className="mb-4 rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-orange-500 mb-3 text-center">
+                  How will the customer be ordering?
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Eat-in */}
+                  <button
+                    type="button"
+                    onClick={() => setShowTablePicker(true)}
+                    className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-green-200 bg-white hover:bg-green-50 hover:border-green-400 transition-all shadow-sm"
+                  >
+                    <Utensils className="w-9 h-9 text-green-600" />
+                    <span className="text-base font-bold text-gray-900">Eat-in</span>
+                    <span className="text-[11px] text-gray-500">Select a table</span>
+                  </button>
+                  {/* Takeaway */}
+                  <button
+                    type="button"
+                    onClick={handleAddWalkIn}
+                    className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 transition-all shadow-sm"
+                  >
+                    <ShoppingBag className="w-9 h-9 text-orange-500" />
+                    <span className="text-base font-bold text-gray-900">Takeaway</span>
+                    <span className="text-[11px] text-gray-500">Walk-in / counter</span>
+                  </button>
+                </div>
+              </div>
+            )}
+            {loadingMenu ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="h-40 rounded-xl bg-gray-100 animate-pulse" />
+                ))}
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <Search className="w-10 h-10 mb-2 opacity-40" />
+                <p className="text-sm">No items match your search.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                {filteredItems.map((it) => (
+                  <button
+                    key={it.id}
+                    type="button"
+                    onClick={() => handleAddItem(it)}
+                    disabled={!activeTicket || !canTakeOrders}
+                    className={cn(
+                      'group relative flex flex-col rounded-xl bg-white border border-gray-200 overflow-hidden text-left',
+                      'shadow-sm hover:shadow-lg hover:border-orange-300 hover:-translate-y-0.5 transition-all duration-200',
+                      'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-sm',
+                    )}
+                  >
+                    <div className="h-20 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60">
+                      <span className="text-4xl group-hover:scale-110 transition-transform">{emojiFor(it)}</span>
+                    </div>
+                    <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
+                      <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{it.name}</h3>
+                      <div className="flex items-end justify-between mt-2">
+                        <span className="text-base font-bold text-gray-900 tabular-nums">
+                          R{parseFloat(it.price || 0).toFixed(2)}
+                        </span>
+                        <span className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center shadow group-hover:scale-110 transition">
+                          <Plus className="w-4 h-4" strokeWidth={2.5} />
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Active ticket */}
+        <ActiveTicketPanel
+          ticket={activeTicket}
+          newItems={activeTicket?.newItems || []}
+          sentOrders={activeTicket?.sentOrders || []}
+          onBumpQty={handleBumpQty}
+          onRemoveItem={handleRemoveItem}
+          onSend={handleSend}
+          onCharge={handleOpenCharge}
+          sending={sending}
+        />
+      </main>
+
+      {/* ============================== MODALS ============================== */}
+      <OpenRegisterModal
+        open={isOpenRegisterOpen}
+        onOpenChange={setIsOpenRegisterOpen}
+        locationId={activeLocation?.id || ''}
+        onOpened={({ session }) => {
+          setRegisterSession(session);
+          setIsOpenRegisterOpen(false);
+          toast({ title: 'Register opened', description: 'You can now take orders.' });
+        }}
+      />
+      <ReturnModal
+        open={isReturnOpen}
+        onOpenChange={setIsReturnOpen}
+        locationId={activeLocation?.id || ''}
+        onSuccess={() => toast({ title: 'Return processed' })}
+      />
+
+      {/* Charge — method picker */}
+      <Dialog open={showMethodPicker} onOpenChange={setShowMethodPicker}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>How is the customer paying?</DialogTitle>
+            <DialogDescription>
+              Total due: <span className="font-bold tabular-nums text-gray-900">R{(activeUnpaidCents / 100).toFixed(2)}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <button
+              type="button"
+              onClick={() => handlePickMethod('cash')}
+              className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 hover:border-green-400 transition"
+            >
+              <Banknote className="w-8 h-8 text-green-600" />
+              <span className="text-base font-bold text-gray-900">Cash</span>
+              <span className="text-[11px] text-gray-500">Numpad + change calc</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePickMethod('card_in_person')}
+              className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition"
+            >
+              <CreditCard className="w-8 h-8 text-blue-600" />
+              <span className="text-base font-bold text-gray-900">Card</span>
+              <span className="text-[11px] text-gray-500">External terminal</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Charge — cash modal */}
+      <CashTenderModal
+        open={chargeMethod === 'cash'}
+        onOpenChange={(o) => { if (!o) setChargeMethod(null); }}
+        amountDueCents={activeUnpaidCents}
+        submitting={chargeBusy}
+        errorMessage={chargeError}
+        onConfirm={({ tenderedCents, changeCents }) => {
+          runCharge({
+            amountCents: tenderedCents,
+            paymentMethodCode: 'cash',
+            changeCents,
+          });
+        }}
+      />
+
+      {/* Assign / move table picker — also used by the eat-in order-type selector
+          when there is no active ticket yet. In that case we open a new table session
+          directly via handleSelectTile instead of reassigning an existing ticket. */}
+      <TablePickerDialog
+        open={showTablePicker}
+        onOpenChange={setShowTablePicker}
+        tables={tableTiles}
+        sections={sections}
+        loading={tablesLoading || assigningTable}
+        onSelect={(table) => {
+          if (activeTicket) {
+            handleAssignTable(table);
+          } else {
+            setShowTablePicker(false);
+            handleSelectTile(table.id, 'table');
+          }
+        }}
+      />
+
+      {/* Charge — card modal */}
+      <CardTenderModal
+        open={chargeMethod === 'card_in_person'}
+        onOpenChange={(o) => { if (!o) setChargeMethod(null); }}
+        amountDueCents={activeUnpaidCents}
+        submitting={chargeBusy}
+        errorMessage={chargeError}
+        onConfirm={({ amountCents, reference }) => {
+          runCharge({
+            amountCents,
+            paymentMethodCode: 'card_in_person',
+            reference,
+          });
+        }}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers used in render that aren't worth hooks
+// ---------------------------------------------------------------------------
+
+function subtotalCentsOfTicket(t) {
+  if (!t) return 0;
+  const newC = t.newItems.reduce(
+    (sum, ni) => sum + Math.round((parseFloat(ni.price) || 0) * (ni.qty || 0) * 100),
+    0,
+  );
+  const sentC = t.sentOrders.reduce((s, o) => {
+    if (typeof o.total_cents === 'number') return s + o.total_cents;
+    return s + (o.items || []).reduce((lc, it) => {
+      if (typeof it.total_cents === 'number') return lc + it.total_cents;
+      return lc + Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * 100);
+    }, 0);
+  }, 0);
+  return newC + sentC;
+}

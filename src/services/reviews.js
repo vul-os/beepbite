@@ -1,102 +1,129 @@
-import { supabase } from '../services/supabase-client';
+import { api } from '../lib/api-client.js';
+import { subDays, format } from 'date-fns';
 
 /**
- * Reviews service to fetch real data for reviews dashboard
+ * Reviews service — reads from the `reviews` table via the REST data layer.
+ *
+ * Schema (migration 2 — init_schema):
+ *   reviews(id, order_id, rating, comment, created_at)
+ *   orders(id, location_id, customer_id, order_number, created_at, …)
+ *   customers(id, first_name, last_name, whatsapp_number, …)
+ *
+ * NOTE: reviews has no reply/replied_at or location_id columns.
+ *   – reply / replied_at features are marked TODO below.
+ *   – Scoping by location is done by joining through orders.
  */
 class ReviewsService {
   constructor() {
-    this.defaultBistroId = null;
+    this._locationId = null;
   }
 
-  /**
-   * Get the user's bistro ID from their profile
-   */
-  async getUserBistroId() {
-    if (this.defaultBistroId) {
-      return this.defaultBistroId;
-    }
+  // ------------------------------------------------------------------
+  // Location resolution  (mirrors analytics.js pattern)
+  // ------------------------------------------------------------------
+
+  async getLocationId() {
+    if (this._locationId) return this._locationId;
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user?.id) {
-        throw new Error('No authenticated user');
+      const stored = localStorage.getItem('activeLocation');
+      if (stored) {
+        const loc = JSON.parse(stored);
+        if (loc?.id) {
+          this._locationId = loc.id;
+          return this._locationId;
+        }
       }
+    } catch (_) { /* ignore parse errors */ }
 
-      // Get the user's bistro from bistro_members
-      const { data: membership, error } = await supabase
-        .from('bistro_members')
-        .select('bistro_id')
-        .eq('profile_id', user.user.id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching user bistro:', error);
-        return null;
-      }
-
-      this.defaultBistroId = membership?.bistro_id;
-      return this.defaultBistroId;
-    } catch (error) {
-      console.error('Error getting user bistro ID:', error);
-      return null;
+    const { data, error } = await api.request('GET', '/data/locations?limit=1');
+    if (!error && Array.isArray(data) && data.length > 0) {
+      this._locationId = data[0].id;
+      return this._locationId;
     }
+
+    return null;
   }
 
-  /**
-   * Get comprehensive reviews data for the reviews page
-   */
-  async getReviewsData(timeRange = '30d', limit = 50, activeBistroId = null) {
+  setLocationId(locationId) {
+    this._locationId = locationId;
+  }
+
+  // ------------------------------------------------------------------
+  // Period → date range helper
+  // ------------------------------------------------------------------
+
+  _periodToRange(period) {
+    const to = new Date();
+    let days = 30;
+    if (period === '1d')  days = 1;
+    else if (period === '7d')  days = 7;
+    else if (period === '90d') days = 90;
+    else if (period === 'all') return null; // no date filter
+    return { from: subDays(to, days - 1), to };
+  }
+
+  // ------------------------------------------------------------------
+  // Main entry point — mirrors old getReviewsData(timeRange, limit, activeBistroId)
+  // The third arg (activeBistroId) is ignored; location is resolved from
+  // localStorage / API (same as analytics.js).
+  // ------------------------------------------------------------------
+
+  async getReviewsData(timeRange = '30d', limit = 50 /*, _activeBistroId */) {
     try {
-      const bistroId = activeBistroId || await this.getUserBistroId();
-      if (!bistroId) {
-        throw new Error('No bistro found for user');
+      const locationId = await this.getLocationId();
+      if (!locationId) throw new Error('No location found for user');
+
+      const range = this._periodToRange(timeRange);
+
+      // 1. Fetch orders scoped to this location (we only need id, customer_id, order_number).
+      //    We use these to map review → order → customer.
+      let ordersUrl = `/data/orders?eq=location_id,${locationId}&select=id,customer_id,order_number`;
+      if (range) {
+        ordersUrl += `&gte=created_at,${format(range.from, "yyyy-MM-dd")}&lte=created_at,${format(range.to, "yyyy-MM-dd")}`;
       }
 
-      // Execute all review queries in parallel
-      const [
-        reviewsResult,
-        summaryResult,
-        distributionResult,
-        trendsResult
-      ] = await Promise.all([
-        supabase.rpc('get_reviews_analytics', { 
-          p_bistro_id: bistroId, 
-          p_period: timeRange, 
-          p_limit: limit 
-        }),
-        supabase.rpc('get_reviews_summary', { 
-          p_bistro_id: bistroId, 
-          p_period: timeRange 
-        }),
-        supabase.rpc('get_reviews_rating_distribution', { 
-          p_bistro_id: bistroId, 
-          p_period: timeRange 
-        }),
-        supabase.rpc('get_review_trends', { 
-          p_bistro_id: bistroId, 
-          p_period: timeRange 
-        })
-      ]);
+      const ordersRes = await api.request('GET', ordersUrl);
+      if (ordersRes.error) throw ordersRes.error;
+      const orders = ordersRes.data || [];
 
-      // Check for errors
-      if (reviewsResult.error) throw reviewsResult.error;
-      if (summaryResult.error) throw summaryResult.error;
-      if (distributionResult.error) throw distributionResult.error;
-      if (trendsResult.error) throw trendsResult.error;
+      if (orders.length === 0) {
+        return this._emptyResult(timeRange);
+      }
 
-      const reviews = reviewsResult.data || [];
-      const summary = summaryResult.data[0] || {};
-      const distribution = distributionResult.data || [];
-      const trends = trendsResult.data || [];
+      const orderIds = orders.map(o => o.id);
+      const orderById = new Map(orders.map(o => [o.id, o]));
 
-      // Transform the data to match the expected format
-      return this.transformReviewsData({
-        reviews,
-        summary,
-        distribution,
-        trends,
-        timeRange
-      });
+      // 2. Fetch reviews for those order IDs.
+      //    The `in` param format is: in=order_id,id1,id2,...
+      const inParam = ['order_id', ...orderIds].join(',');
+      let reviewsUrl = `/data/reviews?in=${encodeURIComponent(inParam)}&order=created_at.desc&limit=${limit}`;
+
+      const reviewsRes = await api.request('GET', reviewsUrl);
+      if (reviewsRes.error) throw reviewsRes.error;
+      const rawReviews = reviewsRes.data || [];
+
+      // 3. Collect unique customer IDs and fetch customer names.
+      const customerIds = [...new Set(
+        rawReviews
+          .map(r => orderById.get(r.order_id)?.customer_id)
+          .filter(Boolean)
+      )];
+
+      let customerById = new Map();
+      if (customerIds.length > 0) {
+        const custParam = ['id', ...customerIds].join(',');
+        const custRes = await api.request(
+          'GET',
+          `/data/customers?in=${encodeURIComponent(custParam)}&select=id,first_name,last_name,whatsapp_number`
+        );
+        if (!custRes.error && Array.isArray(custRes.data)) {
+          custRes.data.forEach(c => customerById.set(c.id, c));
+        }
+      }
+
+      // 4. Stitch everything together.
+      return this._transform(rawReviews, orderById, customerById, timeRange);
 
     } catch (error) {
       console.error('Error fetching reviews data:', error);
@@ -104,175 +131,159 @@ class ReviewsService {
     }
   }
 
-  /**
-   * Transform raw database data into the format expected by the UI
-   */
-  transformReviewsData({ reviews, summary, distribution, trends, timeRange }) {
-    // Transform reviews data
-    const transformedReviews = reviews.map(review => ({
-      id: review.review_id,
-      order_number: review.order_number,
-      customer_name: review.customer_name,
-      customer_whatsapp: review.customer_whatsapp,
-      rating: review.rating,
-      comment: review.comment,
-      created_at: review.review_created_at,
-      has_reply: false, // TODO: Implement reply functionality
-      reply: null, // TODO: Implement reply functionality
-      verified: true, // All reviews from WhatsApp are verified
-      anonymous: review.anonymous,
-      bite_id: review.bite_id,
-      bistro_name: review.bistro_name
-    }));
+  // ------------------------------------------------------------------
+  // Transform raw rows into the shape the UI expects
+  // ------------------------------------------------------------------
 
-    // Transform rating distribution
-    const ratingStats = {
-      average: Number(summary.average_rating) || 0,
-      distribution: distribution.map(stat => ({
-        rating: stat.rating,
-        count: Number(stat.count),
-        percentage: Number(stat.percentage)
-      }))
-    };
+  _transform(rawReviews, orderById, customerById, timeRange) {
+    const reviews = rawReviews.map(r => {
+      const order    = orderById.get(r.order_id) || {};
+      const customer = customerById.get(order.customer_id) || {};
+      const firstName = customer.first_name || '';
+      const lastName  = customer.last_name  || '';
+      const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Anonymous';
 
-    // Transform trends data
-    const reviewTrends = trends.map(trend => ({
-      date: trend.day_name,
-      count: Number(trend.review_count),
-      avgRating: Number(trend.avg_rating),
-      highRatings: Number(trend.high_ratings),
-      lowRatings: Number(trend.low_ratings)
-    }));
+      return {
+        id:               r.id,
+        order_number:     order.order_number || null,
+        customer_name:    customerName,
+        customer_whatsapp: customer.whatsapp_number || null,
+        rating:           r.rating,
+        comment:          r.comment || '',
+        created_at:       r.created_at,
+        has_reply:        !!r.reply,
+        reply:            r.reply || null,
+        replied_at:       r.replied_at || null,
+        verified:         true, // all reviews from WhatsApp are verified
+        // TODO: requires new column — reviews table has no anonymous column
+        anonymous:        false,
+      };
+    });
+
+    // Rating distribution (1–10)
+    const total = reviews.length;
+    const avg   = total > 0
+      ? (reviews.reduce((s, r) => s + r.rating, 0) / total)
+      : 0;
+
+    const distribution = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(rating => {
+      const count = reviews.filter(r => r.rating === rating).length;
+      return {
+        rating,
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+      };
+    });
+
+    // Trends: group by date
+    const trendMap = new Map();
+    for (const r of reviews) {
+      const day = r.created_at ? r.created_at.slice(0, 10) : 'unknown';
+      const cur = trendMap.get(day) || { count: 0, ratingSum: 0, high: 0, low: 0 };
+      cur.count++;
+      cur.ratingSum += r.rating;
+      if (r.rating >= 8) cur.high++;
+      else if (r.rating <= 5) cur.low++;
+      trendMap.set(day, cur);
+    }
+    const trends = [...trendMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, v]) => ({
+        date:        day,
+        count:       v.count,
+        avgRating:   v.count > 0 ? Math.round((v.ratingSum / v.count) * 10) / 10 : 0,
+        highRatings: v.high,
+        lowRatings:  v.low,
+      }));
 
     return {
-      reviews: transformedReviews,
+      reviews,
       summary: {
-        totalReviews: Number(summary.total_reviews) || 0,
-        averageRating: Number(summary.average_rating) || 0,
-        anonymousReviews: Number(summary.anonymous_reviews) || 0,
-        publicReviews: Number(summary.public_reviews) || 0,
-        reviewsWithComments: Number(summary.reviews_with_comments) || 0,
-        periodStart: summary.period_start,
-        periodEnd: summary.period_end
+        totalReviews:         total,
+        averageRating:        Math.round(avg * 10) / 10,
+        // TODO: requires new column — reviews table has no anonymous column
+        anonymousReviews:     0,
+        publicReviews:        total,
+        reviewsWithComments:  reviews.filter(r => r.comment).length,
+        periodStart:          null,
+        periodEnd:            null,
       },
-      ratingStats,
-      trends: reviewTrends,
-      timeRange
+      ratingStats: {
+        average:      Math.round(avg * 10) / 10,
+        distribution,
+      },
+      trends,
+      timeRange,
     };
   }
 
-  /**
-   * Get reviews analytics using direct bistro ID (for auth context)
-   */
-  async getReviewsAnalytics(bistroId, timeRange = '30d', limit = 50) {
-    try {
-      if (!bistroId) {
-        throw new Error('No bistro ID provided');
-      }
-
-      const { data, error } = await supabase.rpc('get_reviews_analytics', {
-        p_bistro_id: bistroId,
-        p_period: timeRange,
-        p_limit: limit
-      });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching reviews analytics:', error);
-      throw error;
-    }
+  _emptyResult(timeRange) {
+    return {
+      reviews: [],
+      summary: {
+        totalReviews: 0,
+        averageRating: 0,
+        anonymousReviews: 0,
+        publicReviews: 0,
+        reviewsWithComments: 0,
+        periodStart: null,
+        periodEnd: null,
+      },
+      ratingStats: {
+        average: 0,
+        distribution: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(rating => ({
+          rating, count: 0, percentage: 0,
+        })),
+      },
+      trends: [],
+      timeRange,
+    };
   }
 
-  /**
-   * Get reviews summary
-   */
-  async getReviewsSummary(bistroId, timeRange = '30d') {
-    try {
-      if (!bistroId) {
-        throw new Error('No bistro ID provided');
-      }
+  // ------------------------------------------------------------------
+  // Individual helpers kept for any direct callers
+  // (previously called deleted RPCs; now delegate to getReviewsData)
+  // ------------------------------------------------------------------
 
-      const { data, error } = await supabase.rpc('get_reviews_summary', {
-        p_bistro_id: bistroId,
-        p_period: timeRange
-      });
-
-      if (error) throw error;
-      return data[0] || {};
-    } catch (error) {
-      console.error('Error fetching reviews summary:', error);
-      throw error;
-    }
+  async getReviewsAnalytics(/* bistroId */ _id, timeRange = '30d', limit = 50) {
+    const result = await this.getReviewsData(timeRange, limit);
+    return result.reviews;
   }
 
-  /**
-   * Get rating distribution
-   */
-  async getRatingDistribution(bistroId, timeRange = '30d') {
-    try {
-      if (!bistroId) {
-        throw new Error('No bistro ID provided');
-      }
-
-      const { data, error } = await supabase.rpc('get_reviews_rating_distribution', {
-        p_bistro_id: bistroId,
-        p_period: timeRange
-      });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching rating distribution:', error);
-      throw error;
-    }
+  async getReviewsSummary(/* bistroId */ _id, timeRange = '30d') {
+    const result = await this.getReviewsData(timeRange, 200);
+    return result.summary;
   }
 
-  /**
-   * Get recent reviews (for dashboard widgets)
-   */
-  async getRecentReviews(bistroId, limit = 5) {
-    try {
-      if (!bistroId) {
-        throw new Error('No bistro ID provided');
-      }
-
-      const { data, error } = await supabase.rpc('get_recent_reviews', {
-        p_bistro_id: bistroId,
-        p_limit: limit
-      });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching recent reviews:', error);
-      throw error;
-    }
+  async getRatingDistribution(/* bistroId */ _id, timeRange = '30d') {
+    const result = await this.getReviewsData(timeRange, 200);
+    return result.ratingStats.distribution;
   }
 
-  /**
-   * Get review trends
-   */
-  async getReviewTrends(bistroId, timeRange = '30d') {
-    try {
-      if (!bistroId) {
-        throw new Error('No bistro ID provided');
-      }
+  async getRecentReviews(/* bistroId */ _id, limit = 5) {
+    const result = await this.getReviewsData('all', limit);
+    return result.reviews.slice(0, limit);
+  }
 
-      const { data, error } = await supabase.rpc('get_review_trends', {
-        p_bistro_id: bistroId,
-        p_period: timeRange
-      });
+  async getReviewTrends(/* bistroId */ _id, timeRange = '30d') {
+    const result = await this.getReviewsData(timeRange, 200);
+    return result.trends;
+  }
 
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching review trends:', error);
-      throw error;
-    }
+  // ------------------------------------------------------------------
+  // Save / update a reply for a single review
+  // ------------------------------------------------------------------
+
+  async saveReviewReply(reviewId, replyText) {
+    const { data, error } = await api.request(
+      'PATCH',
+      `/data/reviews?eq=id,${reviewId}`,
+      { body: { reply: replyText, replied_at: new Date().toISOString() } },
+    );
+    if (error) throw error;
+    return data;
   }
 }
 
-// Create and export a single instance
 const reviewsService = new ReviewsService();
-export default reviewsService; 
+export default reviewsService;

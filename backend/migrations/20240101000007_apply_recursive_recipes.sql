@@ -63,32 +63,43 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     WITH RECURSIVE item_tree AS (
-        SELECT 
-            ir.child_item_id,
-            i.name,
-            ir.quantity_needed,
-            ir.unit,
-            current_level as depth,
-            (ir.quantity_needed * COALESCE(ir.cost_per_unit, i.cost_price, 0)) as cost
+        -- Base case: direct children — all columns explicitly aliased to match
+        -- the RETURNS TABLE signature so the recursive case can reference them.
+        SELECT
+            ir.child_item_id                                                               AS component_item_id,
+            i.name                                                                         AS component_name,
+            ir.quantity_needed::decimal(10,3)                                              AS total_quantity,
+            ir.unit                                                                        AS unit,
+            current_level                                                                  AS level_depth,
+            (ir.quantity_needed * COALESCE(ir.cost_per_unit, i.cost_price, 0))::decimal(10,2) AS cost_contribution
         FROM item_recipes ir
         JOIN items i ON ir.child_item_id = i.id
         WHERE ir.parent_item_id = item_uuid
-        
+
         UNION ALL
-        
-        SELECT 
-            ir.child_item_id,
-            i.name,
-            it.total_quantity * ir.quantity_needed,
-            ir.unit,
-            it.depth + 1,
-            (it.total_quantity * ir.quantity_needed * COALESCE(ir.cost_per_unit, i.cost_price, 0))
+
+        -- Recursive case: children of children
+        SELECT
+            ir.child_item_id                                                               AS component_item_id,
+            i.name                                                                         AS component_name,
+            (it.total_quantity * ir.quantity_needed)::decimal(10,3)                        AS total_quantity,
+            ir.unit                                                                        AS unit,
+            (it.level_depth + 1)                                                           AS level_depth,
+            (it.total_quantity * ir.quantity_needed * COALESCE(ir.cost_per_unit, i.cost_price, 0))::decimal(10,2) AS cost_contribution
         FROM item_tree it
         JOIN item_recipes ir ON it.component_item_id = ir.parent_item_id
         JOIN items i ON ir.child_item_id = i.id
-        WHERE it.depth < 10
+        WHERE it.level_depth < 10
     )
-    SELECT * FROM item_tree ORDER BY depth, component_name;
+    SELECT
+        it.component_item_id,
+        it.component_name,
+        it.total_quantity,
+        it.unit,
+        it.level_depth,
+        it.cost_contribution
+    FROM item_tree it
+    ORDER BY it.level_depth, it.component_name;
 END;
 $$ LANGUAGE plpgsql;
 

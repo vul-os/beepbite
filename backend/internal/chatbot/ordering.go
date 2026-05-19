@@ -964,14 +964,14 @@ func (s *Service) handlePaymentMethod(ctx context.Context, chatID, customerID, m
 			newState.PaymentAuthorizationID = selectedMethod.ID
 			newState.PreviousStep = "payment_method"
 			s.updateConversationState(ctx, chatID, newState)
-			return s.processPayment(ctx, chatID, customerID, state)
+			return s.processPayment(ctx, chatID, customerID, newState)
 		} else if selectedNumber == len(paymentMethods)+1 {
 			newState := state
 			newState.Step = "payment"
 			newState.PaymentAuthorizationID = ""
 			newState.PreviousStep = "payment_method"
 			s.updateConversationState(ctx, chatID, newState)
-			return s.processPayment(ctx, chatID, customerID, state)
+			return s.processPayment(ctx, chatID, customerID, newState)
 		} else if selectedNumber == len(paymentMethods)+2 {
 			cartSummary := s.getCartSummary(ctx, customerID, state.SelectedLocationID)
 			newState := state

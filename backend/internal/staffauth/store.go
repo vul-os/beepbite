@@ -216,6 +216,65 @@ func nullString(s string) any {
 	return s
 }
 
+// SetPinHash overwrites pin_hash for a staff row, enforcing that the row
+// belongs to an org where the calling user has a manager/owner role. Returns
+// ErrStaffNotFound when no such row exists or the org membership check fails
+// (treated identically to prevent enumeration).
+func (s *Store) SetPinHash(ctx context.Context, staffID, callerUserID, newHash string) error {
+	ct, err := s.pool.Exec(ctx, `
+UPDATE staff
+SET pin_hash    = $1,
+    updated_at  = now()
+WHERE id = $2
+  AND location_id IN (
+      SELECT l.id
+      FROM   locations l
+      JOIN   organization_members om
+             ON om.organization_id = l.organization_id
+            AND om.profile_id      = $3
+            AND om.role IN ('owner', 'manager')
+  )
+`, newHash, staffID, callerUserID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrStaffNotFound
+	}
+	return nil
+}
+
+// SetPasswordHashByManager overwrites password_hash and forces a must_change_password
+// flag (set true so the staff member is required to change it on next login).
+// Same org-membership guard as SetPinHash.
+func (s *Store) SetPasswordHashByManager(ctx context.Context, staffID, callerUserID, newHash string) error {
+	ct, err := s.pool.Exec(ctx, `
+UPDATE staff
+SET password_hash        = $1,
+    password_set_at      = now(),
+    must_change_password = true,
+    failed_login_attempts = 0,
+    locked_until         = NULL,
+    updated_at           = now()
+WHERE id = $2
+  AND location_id IN (
+      SELECT l.id
+      FROM   locations l
+      JOIN   organization_members om
+             ON om.organization_id = l.organization_id
+            AND om.profile_id      = $3
+            AND om.role IN ('owner', 'manager')
+  )
+`, newHash, staffID, callerUserID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrStaffNotFound
+	}
+	return nil
+}
+
 // --- Password reset tokens ---
 
 // ResetTokenRow is the subset of staff_password_reset_tokens the password-set

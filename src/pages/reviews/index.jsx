@@ -40,7 +40,7 @@ import { useAuth } from '@/context/auth-context';
 import reviewsService from '@/services/reviews';
 
 const Reviews = () => {
-  const { user, activeBistro } = useAuth();
+  const { user, activeLocation } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [reviewsData, setReviewsData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,15 +51,17 @@ const Reviews = () => {
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [replySaving, setReplySaving] = useState(false);
+  const [replyError, setReplyError] = useState(null);
 
   useEffect(() => {
-    if (activeBistro) {
+    if (activeLocation) {
       fetchReviews();
     }
-  }, [activeBistro, timeRange]);
+  }, [activeLocation, timeRange]);
 
   const fetchReviews = async () => {
-    if (!activeBistro?.id) {
+    if (!activeLocation?.id) {
       setLoading(false);
       return;
     }
@@ -67,8 +69,10 @@ const Reviews = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching reviews data for bistro:', activeBistro.id, 'period:', timeRange);
-      const data = await reviewsService.getReviewsData(timeRange, 100, activeBistro.id);
+      console.log('Fetching reviews data for location:', activeLocation.id, 'period:', timeRange);
+      // Push the active location into the service so it doesn't have to re-resolve it.
+      reviewsService.setLocationId(activeLocation.id);
+      const data = await reviewsService.getReviewsData(timeRange, 100);
       console.log('Reviews data received:', data);
       
       setReviewsData(data);
@@ -100,33 +104,32 @@ const Reviews = () => {
   };
 
   const handleReply = async (reviewId) => {
+    setReplySaving(true);
+    setReplyError(null);
     try {
-      // TODO: Implement actual reply functionality
-      // This could involve:
-      // 1. Storing the reply in a new table (review_replies)
-      // 2. Sending the reply via WhatsApp
-      // 3. Updating the UI to show the reply
-      
-      console.log('Replying to review:', reviewId, 'with text:', replyText);
-      
-      // For now, just update local state
-      setReviews(prev => prev.map(review => 
-        review.id === reviewId 
-          ? { ...review, has_reply: true, reply: replyText }
+      await reviewsService.saveReviewReply(reviewId, replyText);
+
+      setReviews(prev => prev.map(review =>
+        review.id === reviewId
+          ? { ...review, has_reply: true, reply: replyText, replied_at: new Date().toISOString() }
           : review
       ));
-      
+
       setIsReplyModalOpen(false);
       setReplyText('');
       setSelectedReview(null);
     } catch (error) {
       console.error('Error replying to review:', error);
+      setReplyError('Failed to save reply. Please try again.');
+    } finally {
+      setReplySaving(false);
     }
   };
 
   const openReplyModal = (review) => {
     setSelectedReview(review);
-    setReplyText('');
+    setReplyText(review.reply || '');
+    setReplyError(null);
     setIsReplyModalOpen(true);
   };
 
@@ -192,8 +195,8 @@ const Reviews = () => {
     );
   }
 
-  // Show message when no bistro is selected
-  if (!activeBistro) {
+  // Show message when no location is selected
+  if (!activeLocation) {
     return (
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col space-y-3 sm:space-y-4">
@@ -520,21 +523,27 @@ const Reviews = () => {
                 />
               </div>
 
+              {/* Error */}
+              {replyError && (
+                <p className="text-sm text-red-600">{replyError}</p>
+              )}
+
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button
                   variant="outline"
                   onClick={() => setIsReplyModalOpen(false)}
+                  disabled={replySaving}
                   className="flex-1"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={() => handleReply(selectedReview.id)}
-                  disabled={!replyText.trim()}
+                  disabled={!replyText.trim() || replySaving}
                   className="flex-1 beepbite-gradient text-white"
                 >
-                  Send Reply
+                  {replySaving ? 'Saving...' : 'Send Reply'}
                 </Button>
               </div>
             </div>

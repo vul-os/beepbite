@@ -230,7 +230,7 @@ CREATE INDEX idx_bot_menu_sessions_menu_level ON bot_menu_sessions(current_menu_
 
 -- Core WhatsApp performance indexes
 CREATE INDEX idx_chats_customer_bot ON chats(customer_id, bot_id);
-CREATE INDEX idx_chats_location_status ON chats(location_id, status);
+CREATE INDEX IF NOT EXISTS idx_chats_location_status ON chats(location_id, status);
 CREATE INDEX idx_messages_chat_direction ON messages(chat_id, direction);
 CREATE INDEX idx_messages_whatsapp_id ON messages(whatsapp_message_id);
 CREATE INDEX idx_customers_whatsapp ON customers(whatsapp_number);

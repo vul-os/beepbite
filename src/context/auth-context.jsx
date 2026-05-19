@@ -68,7 +68,8 @@ export function AuthProvider({ children, onNavigate, pathname }) {
   const [hasLoadedLocations, setHasLoadedLocations] = useState(false);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [hasLoadedInvites, setHasLoadedInvites] = useState(false);
-  const [organizationSetupCompleted, setOrganizationSetupCompleted] = useState(true); // Default to true to avoid popup until checked
+  // needsOnboarding: true only after orgs have finished loading and the user has none
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   // Helper function to update active organization with localStorage
   const updateActiveOrganization = useCallback((organization) => {
@@ -85,40 +86,6 @@ export function AuthProvider({ children, onNavigate, pathname }) {
   const getOrganizationBySlug = useCallback((slug) => {
     return organizations.find(organization => organization.slug === slug);
   }, [organizations]);
-
-  // Function to check if organization setup is completed
-  const checkOrganizationSetupCompleted = useCallback(async (organizationId) => {
-    if (!organizationId) {
-      setOrganizationSetupCompleted(true);
-      return true;
-    }
-    
-    try {
-      // For now, assume setup is completed to avoid errors
-      // TODO: Implement proper setup check when backend is ready
-      setOrganizationSetupCompleted(true);
-      return true;
-
-      /* Commented out until backend function is available
-      const { data, error } = await supabase.rpc('check_organization_setup_completed', {
-        p_organization_id: organizationId
-      });
-      
-      if (error) {
-        console.error('Error checking organization setup completion:', error);
-        setOrganizationSetupCompleted(true); // Default to true on error to avoid popup spam
-        return true;
-      }
-      
-      setOrganizationSetupCompleted(data);
-      return data;
-      */
-    } catch (error) {
-      console.error('Error checking organization setup completion:', error);
-      setOrganizationSetupCompleted(true);
-      return true;
-    }
-  }, []);
 
   const fetchUserProfile = useCallback(async () => {
     if (!user?.id) {
@@ -148,31 +115,56 @@ export function AuthProvider({ children, onNavigate, pathname }) {
 
   const fetchOrganizations = useCallback(async () => {
     if (!user) {
-      setHasLoadedOrganizations(true);
+      // Do NOT flip hasLoadedOrganizations true here — that would cause the
+      // user-state-change useEffect to skip the real fetch once user resolves.
+      setOrganizations([]);
+      setNeedsOnboarding(false);
       return;
     }
-    
-    try {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select(`
-          *
-        `)
-        .eq('is_active', true);
 
-      if (error) throw error;
-      setOrganizations(data || []);
-      
-      // Set active organization from localStorage or default to first organization
+    try {
+      // Fetch only the organisations this user is a member of.
+      // The Go data layer has no RLS, so we drive tenancy from the client:
+      //   1. Get the membership rows for this profile.
+      //   2. If there are none, the user has no orgs — trigger onboarding.
+      //   3. Otherwise IN-query only those org IDs.
+      const { data: memberRows, error: memberError } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('profile_id', user.id);
+
+      if (memberError) throw memberError;
+
+      const orgIds = (memberRows || []).map((m) => m.organization_id).filter(Boolean);
+
+      let orgs = [];
+      if (orgIds.length > 0) {
+        const { data: orgRows, error: orgError } = await supabase
+          .from('organizations')
+          .select('*')
+          .in('id', orgIds)
+          .eq('is_active', true);
+        if (orgError) throw orgError;
+        orgs = orgRows || [];
+      }
+      setOrganizations(orgs);
+      // Trigger onboarding popup when user has no organisations.
+      setNeedsOnboarding(orgs.length === 0);
+
       const storedOrganization = getStoredActiveOrganization();
-      if (storedOrganization && data?.find(o => o.id === storedOrganization.id)) {
+      if (storedOrganization && orgs.find((o) => o.id === storedOrganization.id)) {
         updateActiveOrganization(storedOrganization);
-      } else if (data && data.length > 0) {
-        // Always set first organization if no valid stored one exists
-        updateActiveOrganization(data[0]);
+      } else if (orgs.length > 0) {
+        updateActiveOrganization(orgs[0]);
+      } else {
+        updateActiveOrganization(null);
       }
     } catch (error) {
       console.error('Error fetching organizations:', error);
+      // On error treat as no orgs so onboarding still surfaces — better UX
+      // than the user staring at a topbar with no popup and no recovery path.
+      setOrganizations([]);
+      setNeedsOnboarding(true);
     } finally {
       setHasLoadedOrganizations(true);
     }
@@ -274,11 +266,19 @@ export function AuthProvider({ children, onNavigate, pathname }) {
         setHasLoadedLocations(false);
         setHasLoadedInvites(false);
         
-        // Redirect to landing page after successful sign in
-        if (event === 'SIGNED_IN' && onNavigate && pathname && (pathname === '/signin' || pathname === '/signup')) {
-          // Small delay to ensure user state is properly set
+        // Redirect to dashboard after successful sign in. /home is the
+        // authenticated landing; / is the marketing landing page.
+        if (
+          event === 'SIGNED_IN' &&
+          onNavigate &&
+          pathname &&
+          (pathname === '/signin' ||
+            pathname === '/signup' ||
+            pathname === '/auth/callback' ||
+            pathname === '/verify-email')
+        ) {
           setTimeout(() => {
-            onNavigate('/');
+            onNavigate('/home');
           }, 100);
         }
       }
@@ -293,7 +293,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       setHasLoadedLocations(true);
       setPendingInvites([]);
       setHasLoadedInvites(true);
-      setOrganizationSetupCompleted(true); // Reset setup state on signout
+      setNeedsOnboarding(false); // Reset onboarding state on signout
       
       // Clear localStorage on signout
       setStoredActiveOrganization(null);
@@ -528,13 +528,6 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [user, hasLoadedInvites, fetchInvites]);
 
-  // Check organization setup completion when activeOrganization changes
-  useEffect(() => {
-    if (activeOrganization) {
-      checkOrganizationSetupCompleted(activeOrganization.id);
-    }
-  }, [activeOrganization, checkOrganizationSetupCompleted]);
-
   // Add token refresh function
   const refreshToken = async () => {
     console.log("Attempting to refresh token...");
@@ -591,9 +584,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     pendingInvites,
     hasLoadedInvites,
     setHasLoadedInvites,
-    organizationSetupCompleted,
-    setOrganizationSetupCompleted,
-    checkOrganizationSetupCompleted,
+    needsOnboarding,
     switchOrganization,
     switchOrganizationBySlug,
     switchLocation,
@@ -623,8 +614,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     hasLoadedLocations,
     pendingInvites,
     hasLoadedInvites,
-    organizationSetupCompleted,
-    checkOrganizationSetupCompleted,
+    needsOnboarding,
     switchOrganization,
     switchOrganizationBySlug,
     switchLocation,

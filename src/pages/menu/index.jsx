@@ -84,6 +84,7 @@ import { formatDistanceToNow } from 'date-fns';
 import RecipeBuilder from './recipe-builder';
 import RecipeBreakdown from './recipe-breakdown';
 import CostAnalysis from './cost-analysis';
+import PrepStepsEditor from './prep-steps-editor';
 
 const Menu = () => {
   const { activeLocation } = useAuth();
@@ -1254,28 +1255,51 @@ const Menu = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Recipe Builder Modal */}
+      {/* Recipe & Prep Steps Modal — two tabs: Ingredients (recipe tree) + Prep Steps (cook instructions) */}
       <Dialog open={isRecipeBuilderOpen} onOpenChange={setIsRecipeBuilderOpen}>
         <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <TreePine className="h-5 w-5" />
-              Recipe Builder
+              <TreePine className="h-5 w-5 text-orange-500" />
+              Recipe — {buildingRecipe?.name || 'Item'}
             </DialogTitle>
             <DialogDescription>
-              Manage recipe components and their recursive relationships.
+              Define what goes into this item (ingredients) and how the kitchen makes it (prep steps).
+              Both feed straight onto the Kitchen Display when an order fires.
             </DialogDescription>
           </DialogHeader>
-          
-          <RecipeBuilder
-            item={buildingRecipe}
-            availableItems={availableItems}
-            onClose={() => setIsRecipeBuilderOpen(false)}
-            onSave={() => {
-              fetchData();
-              setIsRecipeBuilderOpen(false);
-            }}
-          />
+
+          <Tabs defaultValue="ingredients" className="mt-2">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="ingredients">Ingredients</TabsTrigger>
+              <TabsTrigger value="prep">Prep Steps</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="ingredients" className="mt-3">
+              <RecipeBuilder
+                item={buildingRecipe}
+                availableItems={availableItems}
+                onClose={() => setIsRecipeBuilderOpen(false)}
+                onSave={() => {
+                  fetchData();
+                  // Don't auto-close — user may want to switch to Prep Steps tab next.
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="prep" className="mt-3">
+              <PrepStepsEditor
+                itemId={buildingRecipe?.id || null}
+                onSaved={() => fetchData()}
+              />
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end pt-3 border-t mt-3">
+            <Button variant="outline" onClick={() => setIsRecipeBuilderOpen(false)}>
+              Done
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

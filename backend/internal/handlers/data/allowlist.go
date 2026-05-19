@@ -32,6 +32,7 @@ var allTables = map[string]ops{
 	"delivery_drivers":          {Select: true, Insert: true, Update: true, Delete: true},
 	"driver_locations":          {Select: true, Insert: true},
 	"orders":                    {Select: true, Insert: true, Update: true},
+	"order_payments":            {Select: true, Insert: true, Update: true},
 	"order_details":             {Select: true, Insert: true, Update: true},
 	"order_financial_details":   {Select: true, Insert: true, Update: true},
 	"order_items":               {Select: true, Insert: true, Update: true},
@@ -47,6 +48,7 @@ var allTables = map[string]ops{
 	"tax_rates":                 {Select: true, Insert: true, Update: true, Delete: true},
 	"reviews":                   {Select: true, Insert: true, Update: true},
 	"item_recipes":              {Select: true, Insert: true, Update: true, Delete: true},
+	"item_prep_steps":           {Select: true, Insert: true, Update: true, Delete: true},
 	"recipe_breakdown":          {Select: true}, // view
 	"recipe_summary":            {Select: true}, // view
 

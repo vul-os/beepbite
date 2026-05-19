@@ -9,11 +9,11 @@
 -- Credentials on staff. Username is scoped per-location so "john" can exist
 -- at two branches without collision. Hash is bcrypt, matching auth_users.
 ALTER TABLE staff
-    ADD COLUMN username text,
-    ADD COLUMN password_hash text,
-    ADD COLUMN last_login_at timestamptz,
-    ADD COLUMN password_set_at timestamptz,
-    ADD COLUMN must_change_password boolean NOT NULL DEFAULT false;
+    ADD COLUMN IF NOT EXISTS username text,
+    ADD COLUMN IF NOT EXISTS password_hash text,
+    ADD COLUMN IF NOT EXISTS last_login_at timestamptz,
+    ADD COLUMN IF NOT EXISTS password_set_at timestamptz,
+    ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false;
 
 -- Case-insensitive unique per location. NULL usernames are allowed (legacy
 -- staff rows without login — e.g. kitchen staff managed externally).
@@ -56,10 +56,10 @@ CREATE INDEX idx_staff_password_reset_tokens_staff ON staff_password_reset_token
 -- let a cashier tap a 4-6 digit PIN to clock in/punch an order). Stored as
 -- bcrypt hash like the password. NULL = PIN login disabled for that staff.
 ALTER TABLE staff
-    ADD COLUMN pin_hash text;
+    ADD COLUMN IF NOT EXISTS pin_hash text;
 
 -- Rate-limit / lockout tracking. Populated by the Go handler on failed
 -- attempts; cleared on success. locked_until prevents retries until now().
 ALTER TABLE staff
-    ADD COLUMN failed_login_attempts integer NOT NULL DEFAULT 0,
-    ADD COLUMN locked_until timestamptz;
+    ADD COLUMN IF NOT EXISTS failed_login_attempts integer NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS locked_until timestamptz;

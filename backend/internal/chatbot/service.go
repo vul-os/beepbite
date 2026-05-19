@@ -1,3 +1,8 @@
+// Package chatbot implements the BeepBite WhatsApp chatbot. It is the single
+// point of entry for all inbound WhatsApp messages: it maintains per-chat
+// conversation state in Postgres, routes each message to the correct
+// sub-handler (ordering, review, address/billing/profile management), and
+// sends responses via the whatsapp integration client.
 package chatbot
 
 import (

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/beepbite/backend/internal/auth"
 )
 
 type Handler struct {
@@ -33,6 +35,27 @@ func (h *Handler) Mount(r chi.Router) {
 			r.Use(RequireStaff(h.svc))
 			r.Get("/me", h.me)
 		})
+	})
+}
+
+// MountManagerRoutes attaches the manager-only staff credential endpoints to
+// an already-authenticated chi.Router (one that already has auth.Middleware
+// applied). Call this inside the authenticated group in main.go:
+//
+//	r.Group(func(r chi.Router) {
+//	    r.Use(auth.Middleware(svc))
+//	    staffAuthH.MountManagerRoutes(r)
+//	    ...
+//	})
+//
+// Resulting paths (relative to whatever prefix the group sits under):
+//
+//	POST /staff/{id}/set-pin
+//	POST /staff/{id}/manager-set-password
+func (h *Handler) MountManagerRoutes(r chi.Router) {
+	r.Route("/staff/{id}", func(r chi.Router) {
+		r.Post("/set-pin", h.managerSetPIN)
+		r.Post("/manager-set-password", h.managerSetPassword)
 	})
 }
 
@@ -234,6 +257,79 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, toStaffDTO(user))
+}
+
+// managerSetPIN handles POST /staff/{id}/set-pin.
+// Requires an authenticated org member (manager or owner) — the org-scope
+// check is enforced in the store via an organization_members JOIN.
+func (h *Handler) managerSetPIN(w http.ResponseWriter, r *http.Request) {
+	staffID := chi.URLParam(r, "id")
+	claims, ok := auth.ClaimsFrom(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+	var req struct {
+		PIN string `json:"pin"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.PIN == "" {
+		writeErr(w, http.StatusBadRequest, "pin required")
+		return
+	}
+	if err := h.svc.ManagerSetPIN(r.Context(), staffID, claims.UserID, req.PIN); err != nil {
+		switch {
+		case errors.Is(err, ErrPINInvalid):
+			writeErr(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, ErrStaffNotFound):
+			writeErr(w, http.StatusNotFound, "staff not found or access denied")
+		default:
+			log.Printf("manager set-pin: %v", err)
+			writeErr(w, http.StatusInternalServerError, "set pin failed")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// managerSetPassword handles POST /staff/{id}/manager-set-password.
+// Sets must_change_password = true so the staff member must rotate the
+// password on their next login (matches the must_change_password flag checked
+// by the /auth/staff/login handler).
+func (h *Handler) managerSetPassword(w http.ResponseWriter, r *http.Request) {
+	staffID := chi.URLParam(r, "id")
+	claims, ok := auth.ClaimsFrom(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.Password == "" {
+		writeErr(w, http.StatusBadRequest, "password required")
+		return
+	}
+	if err := h.svc.ManagerSetPassword(r.Context(), staffID, claims.UserID, req.Password); err != nil {
+		switch {
+		case errors.Is(err, ErrPasswordTooShort):
+			writeErr(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, ErrStaffNotFound):
+			writeErr(w, http.StatusNotFound, "staff not found or access denied")
+		default:
+			log.Printf("manager set-password: %v", err)
+			writeErr(w, http.StatusInternalServerError, "set password failed")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- JSON helpers ---

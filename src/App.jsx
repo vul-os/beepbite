@@ -5,22 +5,24 @@ import AppRoutes from './routes';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
 import usePageTracking from './hooks/usePageTracking';
+import OnboardingPopup from '@/components/setup/onboarding-popup';
 
 // Wrapper component that provides navigation functionality
 const AuthWrapper = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Track page views automatically
   usePageTracking();
 
   return (
-    <AuthProvider 
-      onNavigate={(path) => navigate(path, { replace: true })} 
+    <AuthProvider
+      onNavigate={(path) => navigate(path, { replace: true })}
       pathname={location.pathname}
     >
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <AppRoutes />
+        <OnboardingPopup />
         <Toaster />
       </ThemeProvider>
     </AuthProvider>

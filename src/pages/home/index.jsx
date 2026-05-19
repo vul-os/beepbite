@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { 
+import {
   Clock,
   ShoppingCart,
   PanelLeftOpen,
   PanelRightOpen,
-  AlertCircle
+  AlertCircle,
+  Unlock,
+  Lock,
+  User as UserIcon
 } from 'lucide-react';
 import {
   Tabs,
@@ -16,18 +19,50 @@ import {
 } from "@/components/ui/tabs";
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
+import { useToast } from '@/hooks/use-toast';
 
 // Import the new components
 import OrdersSection from './components/orders-section';
 import CartSection from './components/cart-section';
 import POSSection from './components/pos-section';
 import OrderModals from './components/order-modal';
+import OpenRegisterModal from './components/open-register-modal';
+import ReturnModal from './components/return-modal';
 import { cn } from '@/lib/utils';
+import {
+  getOpenSession,
+  getStaffDisplayName,
+  getStaff,
+  readStoredRegister,
+  persistRegister,
+  clearStoredRegister,
+  submitPosOrder,
+} from '@/services/pos';
 
 const Home = () => {
   const { activeOrganization, activeLocation } = useAuth();
   const navigate = useNavigate();
-  
+  const { toast } = useToast();
+
+  // ---- POS cashier state ------------------------------------------------
+  // Register session is required before the cashier can place orders.
+  // We hydrate from localStorage and then verify with the backend.
+  const stored = useMemo(() => readStoredRegister(), []);
+  const [registerSession, setRegisterSession] = useState(null);
+  const [registerDrawerId, setRegisterDrawerId] = useState(stored?.drawerId || '');
+  const [registerOpenedAt, setRegisterOpenedAt] = useState(stored?.openedAt || null);
+  const [registerLoading, setRegisterLoading] = useState(true);
+  const [isOpenRegisterOpen, setIsOpenRegisterOpen] = useState(false);
+  const [isReturnOpen, setIsReturnOpen] = useState(false);
+
+  // Order placement state
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [placeOrderError, setPlaceOrderError] = useState('');
+  const [lastPlacedOrderNumber, setLastPlacedOrderNumber] = useState(null);
+
+  const staffDisplayName = useMemo(() => getStaffDisplayName(), []);
+  const isStaffSession = useMemo(() => Boolean(getStaff()), []);
+
   // Layout state
   const [isOrdersExpanded, setIsOrdersExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('orders');
@@ -206,6 +241,146 @@ const Home = () => {
     fetchOrders();
     fetchMenuData();
   }, [fetchOrders, fetchMenuData]);
+
+  // ---- Register-session verification --------------------------------------
+  // Only matters for staff-PIN sessions; admin/dashboard users skip the gate.
+  useEffect(() => {
+    if (!isStaffSession) {
+      setRegisterLoading(false);
+      return;
+    }
+    if (!activeLocation?.id) {
+      setRegisterLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRegisterLoading(true);
+
+    (async () => {
+      try {
+        // If we have a stored drawer id, ping that drawer for an open session.
+        // Otherwise, list active drawers for the location and ping the first one.
+        let drawerId = stored?.drawerId || '';
+        if (!drawerId) {
+          const { data } = await supabase
+            .from('cash_drawers')
+            .select('id')
+            .eq('location_id', activeLocation.id)
+            .eq('is_active', true)
+            .limit(1);
+          drawerId = data?.[0]?.id || '';
+        }
+        if (!drawerId) {
+          if (!cancelled) {
+            setRegisterSession(null);
+            setIsOpenRegisterOpen(true);
+          }
+          return;
+        }
+        const session = await getOpenSession(drawerId);
+        if (cancelled) return;
+        if (session?.id) {
+          setRegisterSession(session);
+          setRegisterDrawerId(drawerId);
+          setRegisterOpenedAt(session.opened_at || stored?.openedAt || null);
+          persistRegister({
+            sessionId: session.id,
+            drawerId,
+            openedAt: session.opened_at,
+          });
+        } else {
+          // Stored session is stale — clear & prompt.
+          clearStoredRegister();
+          setRegisterSession(null);
+          setIsOpenRegisterOpen(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Register session check failed:', err);
+          // Be lenient: open the modal so the cashier can try opening one.
+          setIsOpenRegisterOpen(true);
+        }
+      } finally {
+        if (!cancelled) setRegisterLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+    // We intentionally only depend on the active location and staff session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLocation?.id, isStaffSession]);
+
+  const handleRegisterOpened = useCallback(({ session, drawerId }) => {
+    setRegisterSession(session);
+    setRegisterDrawerId(drawerId);
+    setRegisterOpenedAt(session?.opened_at || new Date().toISOString());
+    toast({
+      title: 'Register opened',
+      description: `Opening float counted. You can now take orders.`,
+    });
+  }, [toast]);
+
+  // ---- POS checkout — POST /pos/orders -----------------------------------
+  const handlePlaceOrder = useCallback(async () => {
+    setPlaceOrderError('');
+    if (!activeLocation?.id) {
+      setPlaceOrderError('No active location selected');
+      return;
+    }
+    if (cart.length === 0) {
+      setPlaceOrderError('Cart is empty');
+      return;
+    }
+    if (!registerSession?.id) {
+      setPlaceOrderError('Open the register before placing orders');
+      setIsOpenRegisterOpen(true);
+      return;
+    }
+
+    setPlacingOrder(true);
+    try {
+      const payload = {
+        locationId: activeLocation.id,
+        orderType: 'dine_in',
+        registerSessionId: registerSession.id,
+        items: cart.map((ci) => ({
+          item_id: ci.id,
+          // Backend stores quantity as integer; fractional cart qty rounds up
+          // so a 1.5 sandwich becomes 2 to avoid losing inventory.
+          quantity: Math.max(1, Math.ceil(parseFloat(ci.quantity) || 1)),
+          variation_option_ids: ci.selectedVariations
+            ? Object.values(ci.selectedVariations).filter(Boolean)
+            : [],
+          notes: ci.notes || undefined,
+        })),
+      };
+      const result = await submitPosOrder(payload);
+      const orderNumber = result?.order_number || result?.id || '?';
+      setLastPlacedOrderNumber(orderNumber);
+      toast({
+        title: `Order #${orderNumber} sent to kitchen ✓`,
+        description: result?.total
+          ? `Total R${parseFloat(result.total).toFixed(2)}`
+          : 'Cart cleared.',
+      });
+      clearCart();
+      fetchOrders();
+      // Hide the success banner after a moment.
+      setTimeout(() => setLastPlacedOrderNumber(null), 4000);
+    } catch (err) {
+      console.error('Place order failed:', err);
+      setPlaceOrderError(err.message || 'Failed to place order');
+      toast({
+        variant: 'destructive',
+        title: 'Order failed',
+        description: err.message || 'Could not place order. Please try again.',
+      });
+    } finally {
+      setPlacingOrder(false);
+    }
+    // clearCart is stable, defined below — using deps that change matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLocation?.id, cart, registerSession?.id, toast]);
 
   // Filter orders based on search term
   const filteredOrders = useMemo(() => {
@@ -727,6 +902,33 @@ const Home = () => {
             : "md:w-[30%] -translate-x-full md:translate-x-0 w-full"
         )}
       >
+        {/* Staff status strip (only for staff-PIN sessions) */}
+        {isStaffSession && (
+          <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-orange-100 text-xs">
+            <div className="flex items-center gap-1.5 text-gray-700 font-medium truncate">
+              <UserIcon className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+              <span className="truncate">{staffDisplayName || 'Staff'}</span>
+            </div>
+            {registerLoading ? (
+              <span className="text-gray-400">Checking register…</span>
+            ) : registerSession ? (
+              <span className="inline-flex items-center gap-1 text-green-700 font-medium">
+                <Unlock className="w-3 h-3" />
+                Register Open
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsOpenRegisterOpen(true)}
+                className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-medium"
+              >
+                <Lock className="w-3 h-3" />
+                Register Closed
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Header with Tabs */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -798,6 +1000,14 @@ const Home = () => {
               cartTotal={cartTotal}
               clearCart={clearCart}
               setIsCreateOrderOpen={setIsCreateOrderOpen}
+              // POS cashier wiring — only active when a staff session is logged in.
+              registerSession={isStaffSession ? registerSession : null}
+              registerOpenedAt={registerOpenedAt}
+              onPlaceOrder={isStaffSession ? handlePlaceOrder : undefined}
+              onProcessReturn={isStaffSession ? () => setIsReturnOpen(true) : undefined}
+              placingOrder={placingOrder}
+              placeOrderError={placeOrderError}
+              lastPlacedOrderNumber={lastPlacedOrderNumber}
             />
           </TabsContent>
         </Tabs>
@@ -885,6 +1095,24 @@ const Home = () => {
         setFractionalQtyValue={setFractionalQtyValue}
         saveFractionalQty={saveFractionalQty}
       />
+
+      {/* POS cashier modals — only mounted for staff-PIN sessions */}
+      {isStaffSession && (
+        <>
+          <OpenRegisterModal
+            open={isOpenRegisterOpen}
+            onOpenChange={setIsOpenRegisterOpen}
+            locationId={activeLocation?.id}
+            onOpened={handleRegisterOpened}
+          />
+          <ReturnModal
+            open={isReturnOpen}
+            onOpenChange={setIsReturnOpen}
+            locationId={activeLocation?.id}
+            onSuccess={() => fetchOrders()}
+          />
+        </>
+      )}
     </div>
   );
 };

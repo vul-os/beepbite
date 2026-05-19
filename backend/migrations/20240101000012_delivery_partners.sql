@@ -250,11 +250,11 @@ CREATE TABLE delivery_partner_webhook_events (
     partner_order_id text,
     order_id uuid REFERENCES orders(id) ON DELETE SET NULL,
     
-    created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-    
-    INDEX(partner_id, event_type, created_at),
-    INDEX(processing_status, created_at)
+    created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+-- Note: equivalent indexes are created further down at lines ~770 alongside the
+-- other delivery_partner_webhook_events indexes. The MySQL-style inline INDEX()
+-- syntax above was invalid in Postgres and has been removed.
 
 -- Menu sync jobs
 CREATE TABLE delivery_partner_menu_sync_jobs (

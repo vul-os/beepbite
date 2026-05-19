@@ -19,7 +19,9 @@ import {
   Building2,
   Check,
   Store,
-  Folder
+  Folder,
+  Receipt,
+  MonitorPlay
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -103,6 +105,18 @@ const TopBar = () => {
       description: 'Main home'
     },
     {
+      name: 'POS',
+      path: '/pos/workspace',
+      icon: Receipt,
+      description: 'Cashier workspace'
+    },
+    {
+      name: 'Kitchen',
+      path: '/kds/expo',
+      icon: ChefHat,
+      description: 'Kitchen Display'
+    },
+    {
       name: 'Reviews',
       path: '/reviews',
       icon: MessageSquare,
@@ -112,6 +126,23 @@ const TopBar = () => {
 
   // Side navigation items (organized by category) - Original structure
   const sideNavigationSections = [
+    {
+      title: 'Front of House',
+      items: [
+        {
+          name: 'POS Workspace',
+          path: '/pos/workspace',
+          icon: Receipt,
+          description: 'Take orders & open the register'
+        },
+        {
+          name: 'Kitchen Display',
+          path: '/kds/expo',
+          icon: MonitorPlay,
+          description: 'Live tickets, ingredients & prep steps'
+        }
+      ]
+    },
     {
       title: 'Operations',
       items: [

@@ -319,6 +319,21 @@ VALUES ($1, 'close', $2, $3, $4)
 		return nil, err
 	}
 
+	// Audit: write cash_drawer.closed row with over/short delta in after_state.
+	if _, err := tx.Exec(ctx, `
+INSERT INTO audit_log
+    (actor_type, actor_id, action, entity_type, entity_id, after_state)
+VALUES
+    ('staff', $1, 'cash_drawer.closed', 'cash_drawer_session', $2,
+     jsonb_build_object(
+         'declared_closing_cents', $3::bigint,
+         'expected_closing_cents', $4::bigint,
+         'over_short_cents',       $5::bigint
+     ))
+`, nullStr(closedBy), sessionID, declaredClosingCents, expected, overShort); err != nil {
+		return nil, err
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}

@@ -227,6 +227,9 @@ func discoverRegions(prefix string) []string {
 		if !strings.HasPrefix(k, prefix) || !strings.HasSuffix(k, suffix) {
 			continue
 		}
+		if len(k) <= len(prefix)+len(suffix) {
+			continue
+		}
 		region := k[len(prefix) : len(k)-len(suffix)]
 		if region == "" {
 			continue

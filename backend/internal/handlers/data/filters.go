@@ -30,16 +30,22 @@ func quoteIdent(name string) string {
 //
 // Supported operators:
 //
-//	eq=col,val     => col = $n
-//	neq=col,val    => col <> $n
-//	gt=col,val     => col > $n
-//	gte=col,val    => col >= $n
-//	lt=col,val     => col < $n
-//	lte=col,val    => col <= $n
-//	like=col,val   => col LIKE $n
-//	ilike=col,val  => col ILIKE $n
-//	in=col,v1,v2   => col = ANY($n)
-//	is=col,null    => col IS NULL / col IS NOT NULL (for "not.null")
+//	eq=col,val          => col = $n
+//	neq=col,val         => col <> $n
+//	gt=col,val          => col > $n
+//	gte=col,val         => col >= $n
+//	lt=col,val          => col < $n
+//	lte=col,val         => col <= $n
+//	like=col,val        => col LIKE $n
+//	ilike=col,val       => col ILIKE $n
+//	in=col,v1,v2        => col = ANY($n)
+//	is=col,null         => col IS NULL / col IS NOT NULL (for "not.null")
+//	or=col.eq.val,col.is.null  => (col = $n OR col IS NULL)
+//
+// The `or` param accepts a comma-separated list of supabase-js-style terms
+// (col.op.val or col.is.null / col.is.not.null) and wraps them in a single
+// OR-group: (term1 OR term2 ...). Multiple `or` params each produce an
+// independent OR-group that is AND-ed with the rest of the WHERE clause.
 //
 // offset is the number of $N placeholders already used by a preceding SET
 // clause; ignore for pure-SELECT.
@@ -128,6 +134,84 @@ func buildWhere(q url.Values, offset int) (string, []any, error) {
 			preds = append(preds, fmt.Sprintf("%s IS FALSE", quoteIdent(col)))
 		default:
 			return "", nil, errors.New("invalid is value")
+		}
+	}
+
+	// or=col.eq.val,col.is.null  =>  (col = $n OR col IS NULL)
+	// Each `or` query param produces one OR-group AND-ed with everything else.
+	for _, v := range q["or"] {
+		terms := strings.Split(v, ",")
+		var orParts []string
+		for _, term := range terms {
+			term = strings.TrimSpace(term)
+			if term == "" {
+				continue
+			}
+			// Split into at most 3 parts: col, op, value
+			dot1 := strings.Index(term, ".")
+			if dot1 < 0 {
+				return "", nil, fmt.Errorf("invalid or term: %q", term)
+			}
+			col := term[:dot1]
+			rest := term[dot1+1:]
+			if !isColumnIdent(col) {
+				return "", nil, fmt.Errorf("invalid or term column: %q", col)
+			}
+			dot2 := strings.Index(rest, ".")
+			var op, val string
+			if dot2 < 0 {
+				op = rest
+				val = ""
+			} else {
+				op = rest[:dot2]
+				val = rest[dot2+1:]
+			}
+			switch strings.ToLower(op) {
+			case "eq":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s = $%d", quoteIdent(col), len(args)+offset))
+			case "neq":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s <> $%d", quoteIdent(col), len(args)+offset))
+			case "gt":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s > $%d", quoteIdent(col), len(args)+offset))
+			case "gte":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s >= $%d", quoteIdent(col), len(args)+offset))
+			case "lt":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s < $%d", quoteIdent(col), len(args)+offset))
+			case "lte":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s <= $%d", quoteIdent(col), len(args)+offset))
+			case "like":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s LIKE $%d", quoteIdent(col), len(args)+offset))
+			case "ilike":
+				args = append(args, parseScalar(val))
+				orParts = append(orParts, fmt.Sprintf("%s ILIKE $%d", quoteIdent(col), len(args)+offset))
+			case "is":
+				switch strings.ToLower(val) {
+				case "null":
+					orParts = append(orParts, fmt.Sprintf("%s IS NULL", quoteIdent(col)))
+				case "not.null":
+					orParts = append(orParts, fmt.Sprintf("%s IS NOT NULL", quoteIdent(col)))
+				case "true":
+					orParts = append(orParts, fmt.Sprintf("%s IS TRUE", quoteIdent(col)))
+				case "false":
+					orParts = append(orParts, fmt.Sprintf("%s IS FALSE", quoteIdent(col)))
+				default:
+					return "", nil, fmt.Errorf("invalid or is value: %q", val)
+				}
+			default:
+				return "", nil, fmt.Errorf("unsupported or operator: %q", op)
+			}
+		}
+		if len(orParts) == 1 {
+			preds = append(preds, orParts[0])
+		} else if len(orParts) > 1 {
+			preds = append(preds, "("+strings.Join(orParts, " OR ")+")")
 		}
 	}
 

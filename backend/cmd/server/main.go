@@ -24,14 +24,34 @@ import (
 	"github.com/beepbite/backend/internal/chatbot"
 	"github.com/beepbite/backend/internal/config"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/handlers/adjustments"
 	"github.com/beepbite/backend/internal/handlers/aimenu"
+	"github.com/beepbite/backend/internal/handlers/bankaccounts"
 	"github.com/beepbite/backend/internal/handlers/cashdrawer"
 	"github.com/beepbite/backend/internal/handlers/data"
+	"github.com/beepbite/backend/internal/handlers/giftcards"
+	"github.com/beepbite/backend/internal/handlers/houseaccounts"
+	"github.com/beepbite/backend/internal/handlers/inventory"
+	"github.com/beepbite/backend/internal/handlers/kds"
+	"github.com/beepbite/backend/internal/handlers/deliveryzones"
+	"github.com/beepbite/backend/internal/handlers/fiscal"
+	"github.com/beepbite/backend/internal/handlers/payroll"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhooks"
+	"github.com/beepbite/backend/internal/handlers/pos"
 	"github.com/beepbite/backend/internal/handlers/promotions"
+	"github.com/beepbite/backend/internal/handlers/reservations"
+	"github.com/beepbite/backend/internal/handlers/storecredit"
+	"github.com/beepbite/backend/internal/handlers/tables"
+	"github.com/beepbite/backend/internal/handlers/tippools"
+	"github.com/beepbite/backend/internal/handlers/transferwebhook"
+	"github.com/beepbite/backend/internal/handlers/waste"
 	"github.com/beepbite/backend/internal/handlers/whatsappsend"
 	"github.com/beepbite/backend/internal/handlers/whatsappwebhook"
 	"github.com/beepbite/backend/internal/integrations/paystack"
+	"github.com/beepbite/backend/internal/jobs/auditretention"
+	"github.com/beepbite/backend/internal/jobs/kdsfanout"
+	"github.com/beepbite/backend/internal/jobs/payouts"
+	"github.com/beepbite/backend/internal/jobs/recipecost"
 	"github.com/beepbite/backend/internal/integrations/stripe"
 	"github.com/beepbite/backend/internal/integrations/whatsapp"
 	"github.com/beepbite/backend/internal/secretbox"
@@ -74,6 +94,23 @@ func main() {
 	dataH := data.NewHandler(database.Pool)
 	cashH := cashdrawer.NewHandler(database.Pool)
 	promoH := promotions.NewHandler(promotions.NewEngine(database.Pool))
+	tablesH := tables.NewHandler(database.Pool)
+	kdsH := kds.NewHandler(database.Pool)
+	posH := pos.NewHandler(database.Pool)
+	adjustmentsH := adjustments.NewHandler(database.Pool)
+	giftcardsH := giftcards.NewHandler(database.Pool)
+	storecreditH := storecredit.NewHandler(database.Pool)
+	houseaccountsH := houseaccounts.NewHandler(database.Pool)
+	inventoryH := inventory.NewHandler(database.Pool)
+	tipPoolsH := tippools.NewHandler(database.Pool)
+	wasteH := waste.NewHandler(database.Pool)
+	payrollH := payroll.NewHandler(database.Pool)
+	reservationsH := reservations.NewHandler(database.Pool)
+	deliveryZonesH := deliveryzones.NewHandler(database.Pool)
+	fiscalH := fiscal.NewHandler(database.Pool)
+	recipeCostRunner := recipecost.NewRunner(database.Pool)
+	kdsFanoutRunner := kdsfanout.NewRunner(database.Pool, kds.NewStore(database.Pool))
+	auditRetentionRunner := auditretention.NewRunner(database.Pool, 90)
 
 	aiSvc := ai.New(database.Pool, cfg.OpenAIAPIKey)
 	aiH := aimenu.NewHandler(aiSvc)
@@ -99,17 +136,28 @@ func main() {
 	stripeMgr := stripe.NewManager(stripe.ManagerConfig{})
 	pwH := paymentwebhooks.NewHandler(database.Pool, paystackMgr, stripeMgr)
 
-	// PaymentKeyEncryptionSecret is still loaded — it's used to AES-GCM
-	// encrypt bank account numbers once migration 27 lands. Build the
-	// secretbox eagerly so a bad key fails startup, but nothing else in
-	// this file reads it yet.
+	// PaymentKeyEncryptionSecret encrypts bank account numbers (migration 27).
+	// Build the secretbox eagerly so a bad key fails startup; pass it to the
+	// bank-account handler. If unset, the bank-account routes are skipped.
+	var paymentBox *secretbox.Box
 	if cfg.PaymentKeyEncryptionSecret != "" {
-		if _, err := secretbox.New(cfg.PaymentKeyEncryptionSecret); err != nil {
+		box, err := secretbox.New(cfg.PaymentKeyEncryptionSecret)
+		if err != nil {
 			log.Fatalf("payment encryption key: %v", err)
 		}
+		paymentBox = box
 	} else {
-		log.Println("PAYMENT_KEY_ENCRYPTION_SECRET not set — encrypted merchant columns (e.g. bank account numbers) will be unusable")
+		log.Println("PAYMENT_KEY_ENCRYPTION_SECRET not set — bank-account + payout endpoints disabled")
 	}
+
+	var bankaccountsH *bankaccounts.Handler
+	if paymentBox != nil {
+		bankaccountsH = bankaccounts.NewHandler(database.Pool, paystackMgr, paymentBox)
+	}
+
+	transferWebhookH := transferwebhook.NewHandler(database.Pool, paystackMgr)
+	transferReconciler := transferwebhook.NewReconciler(database.Pool, paystackMgr)
+	payoutRunner := payouts.NewRunner(database.Pool, paystackMgr)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -138,18 +186,45 @@ func main() {
 	// payment webhooks verify via per-region signature (see paymentwebhooks).
 	r.Mount("/webhooks/whatsapp", waWebhookH)
 	pwH.Mount(r)
+	transferWebhookH.Mount(r)
 
 	// Authenticated app surface.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(svc))
 
-		dataH.Mount(r)
+		dataH.MountWithIdempotency(r, database.Pool)
+		staffAuthH.MountManagerRoutes(r)
 		cashH.Mount(r)
 		promoH.Mount(r)
+		tablesH.Mount(r)
+		r.Route("/kds", kdsH.Mount)
+		posH.Mount(r)
+		adjustmentsH.Mount(r)
+		giftcardsH.Mount(r)
+		storecreditH.Mount(r)
+		houseaccountsH.Mount(r)
+		inventoryH.Mount(r)
+		tipPoolsH.Mount(r)
+		wasteH.Mount(r)
+		payrollH.Mount(r)
+		reservationsH.Mount(r)
+		deliveryZonesH.Mount(r)
+		fiscalH.Mount(r)
+		if bankaccountsH != nil {
+			bankaccountsH.Mount(r)
+		}
 
 		r.Post("/ai/menu", aiH)
 		r.Post("/chatbot/whatsapp/send", waSendH)
 	})
+
+	// Background jobs: weekly payout runner + transfer reconciliation cron +
+	// recipe-cost recompute on ingredient price changes.
+	go payoutRunner.Start(ctx)
+	go transferReconciler.Start(ctx)
+	go recipeCostRunner.Start(ctx)
+	go kdsFanoutRunner.Start(ctx)
+	go auditRetentionRunner.Start(ctx)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -25,6 +25,7 @@ const getLoadingMessage = (pathname) => {
   if (pathname.includes('/docs/cookies')) return 'Loading cookie policy...';
   if (pathname.includes('/docs/custom-avatar-url')) return 'Loading avatar guide...';
   if (pathname.includes('/docs/getting-started')) return 'Loading quick start...';
+  if (pathname.includes('/pos/workspace')) return 'Loading POS workspace...';
   if (pathname.includes('/docs/pos-overview')) return 'Loading POS guide...';
   if (pathname.includes('/docs/menu-management')) return 'Loading menu guide...';
   if (pathname.includes('/docs/whatsapp-setup')) return 'Loading WhatsApp guide...';
@@ -85,6 +86,33 @@ const DocsPosOverview = lazyImport(() => import('./pages/docs/pos-overview'));
 const DocsMenuManagement = lazyImport(() => import('./pages/docs/menu-management'));
 const DocsWhatsAppSetup = lazyImport(() => import('./pages/docs/whatsapp-setup'));
 
+// POS / dine-in / KDS / payments / promotions / gift cards / etc.
+const PosLogin = lazyImport(() => import('./pages/pos/login'));
+const PosWorkspace = lazyImport(() => import('./pages/pos/workspace'));
+const FloorLive = lazyImport(() => import('./pages/floor'));
+const FloorEditor = lazyImport(() => import('./pages/floor/edit'));
+const KdsStation = lazyImport(() => import('./pages/kds/station'));
+const KdsExpo = lazyImport(() => import('./pages/kds/expo'));
+const OrderAdjustmentsDemo = lazyImport(() => import('./pages/order-adjustments-demo'));
+const Cash = lazyImport(() => import('./pages/cash'));
+const SettingsPayouts = lazyImport(() => import('./pages/settings/payouts'));
+const SettingsPromotions = lazyImport(() => import('./pages/settings/promotions'));
+const MenuSchedules = lazyImport(() => import('./pages/menu/schedules'));
+const GiftCards = lazyImport(() => import('./pages/gift-cards'));
+const HouseAccounts = lazyImport(() => import('./pages/house-accounts'));
+const HouseAccountDetail = lazyImport(() => import('./pages/house-accounts/detail'));
+const InventorySuppliers = lazyImport(() => import('./pages/inventory/suppliers'));
+const InventoryPOs = lazyImport(() => import('./pages/inventory/purchase-orders'));
+const InventoryAutoPO = lazyImport(() => import('./pages/inventory/auto-suggestions'));
+const InventoryGRNs = lazyImport(() => import('./pages/inventory/grns'));
+const InventoryInvoiceMatch = lazyImport(() => import('./pages/inventory/invoice-match'));
+const SettingsBilling = lazyImport(() => import('./pages/settings/billing'));
+const SettingsDeliveryZones = lazyImport(() => import('./pages/settings/delivery-zones'));
+const ManagerDashboard = lazyImport(() => import('./pages/manager'));
+const StaffManage = lazyImport(() => import('./pages/staff/manage'));
+const Reservations = lazyImport(() => import('./pages/reservations'));
+const Waitlist = lazyImport(() => import('./pages/waitlist'));
+
 // Other pages
 const NotFound = lazyImport(() => import('./pages/not-found'));
 
@@ -104,6 +132,15 @@ const AppRoutes = () => {
           <Route path="/update-password" element={<UpdatePassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
+          <Route path="/pos/login" element={<PosLogin />} />
+        </Route>
+
+        {/* KDS station + expo screens run chrome-less for full-screen kitchen displays */}
+        <Route element={<BlankLayout />}>
+          <Route path="/kds/expo" element={<Protected><KdsExpo /></Protected>} />
+          <Route path="/kds/:stationId" element={<Protected><KdsStation /></Protected>} />
+          {/* Dedicated cashier POS workspace — chrome-less kiosk view */}
+          <Route path="/pos/workspace" element={<Protected><PosWorkspace /></Protected>} />
         </Route>
 
         {/* Public routes with main layout */}
@@ -188,6 +225,41 @@ const AppRoutes = () => {
               <Account />
             </Protected>
           } />
+
+          {/* Dine-in floor */}
+          <Route path="/floor" element={<Protected><FloorLive /></Protected>} />
+          <Route path="/floor/edit" element={<Protected><FloorEditor /></Protected>} />
+
+          {/* Cash drawer + gift cards + adjustments demo */}
+          <Route path="/cash" element={<Protected><Cash /></Protected>} />
+          <Route path="/gift-cards" element={<Protected><GiftCards /></Protected>} />
+          <Route path="/dev/adjustments" element={<Protected><OrderAdjustmentsDemo /></Protected>} />
+
+          {/* Menu schedules */}
+          <Route path="/menu/schedules" element={<Protected><MenuSchedules /></Protected>} />
+
+          {/* Settings — payouts + promotions + billing */}
+          <Route path="/settings/payouts" element={<Protected><SettingsPayouts /></Protected>} />
+          <Route path="/settings/promotions" element={<Protected><SettingsPromotions /></Protected>} />
+          <Route path="/settings/billing" element={<Protected><SettingsBilling /></Protected>} />
+
+          {/* House accounts */}
+          <Route path="/house-accounts" element={<Protected><HouseAccounts /></Protected>} />
+          <Route path="/house-accounts/:id" element={<Protected><HouseAccountDetail /></Protected>} />
+
+          {/* Inventory + procurement */}
+          <Route path="/inventory/suppliers" element={<Protected><InventorySuppliers /></Protected>} />
+          <Route path="/inventory/purchase-orders" element={<Protected><InventoryPOs /></Protected>} />
+          <Route path="/inventory/purchase-orders/auto-suggestions" element={<Protected><InventoryAutoPO /></Protected>} />
+          <Route path="/inventory/grns" element={<Protected><InventoryGRNs /></Protected>} />
+          <Route path="/inventory/invoice-match" element={<Protected><InventoryInvoiceMatch /></Protected>} />
+
+          {/* Manager + staff + reservations + delivery zones */}
+          <Route path="/manager" element={<Protected><ManagerDashboard /></Protected>} />
+          <Route path="/staff/manage" element={<Protected><StaffManage /></Protected>} />
+          <Route path="/reservations" element={<Protected><Reservations /></Protected>} />
+          <Route path="/waitlist" element={<Protected><Waitlist /></Protected>} />
+          <Route path="/settings/delivery-zones" element={<Protected><SettingsDeliveryZones /></Protected>} />
         </Route>
 
         {/* 404 Route */}

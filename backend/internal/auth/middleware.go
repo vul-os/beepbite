@@ -55,6 +55,10 @@ func ClaimsFrom(ctx context.Context) (*Claims, bool) {
 func bearer(r *http.Request) string {
 	h := r.Header.Get("Authorization")
 	if !strings.HasPrefix(h, "Bearer ") {
+		// EventSource compatibility: browsers cannot set headers, so fall back to ?token= query param.
+		if t := r.URL.Query().Get("token"); t != "" {
+			return t
+		}
 		return ""
 	}
 	return strings.TrimSpace(h[len("Bearer "):])
