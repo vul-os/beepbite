@@ -19,3 +19,7 @@ billingmodel/__pycache__/
 # Go build artifacts
 backend/bin/
 backend/tmp/
+
+.vscode
+
+playwright-report
