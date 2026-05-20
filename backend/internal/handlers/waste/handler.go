@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/beepbite/backend/internal/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -22,20 +23,20 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 
 // Mount registers all waste + prep-batch routes on r.
 //
-//	POST   /waste
-//	GET    /waste
-//	GET    /waste/report
-//	POST   /prep-batches
-//	GET    /prep-batches
+//	POST   /waste                  → can_manage_inventory
+//	GET    /waste                  → can_view_inventory
+//	GET    /waste/report           → can_view_inventory
+//	POST   /prep-batches           → can_manage_inventory
+//	GET    /prep-batches           → can_view_inventory
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/waste", func(r chi.Router) {
-		r.Post("/", h.recordWaste)
-		r.Get("/", h.listWaste)
-		r.Get("/report", h.wasteReport)
+		r.With(auth.RequireCapability("can_manage_inventory")).Post("/", h.recordWaste)
+		r.With(auth.RequireCapability("can_view_inventory")).Get("/", h.listWaste)
+		r.With(auth.RequireCapability("can_view_inventory")).Get("/report", h.wasteReport)
 	})
 	r.Route("/prep-batches", func(r chi.Router) {
-		r.Post("/", h.recordPrepBatch)
-		r.Get("/", h.listPrepBatches)
+		r.With(auth.RequireCapability("can_manage_inventory")).Post("/", h.recordPrepBatch)
+		r.With(auth.RequireCapability("can_view_inventory")).Get("/", h.listPrepBatches)
 	})
 }
 

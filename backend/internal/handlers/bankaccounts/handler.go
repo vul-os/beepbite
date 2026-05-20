@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/integrations/paystack"
 	"github.com/beepbite/backend/internal/secretbox"
 )
@@ -39,9 +40,16 @@ func NewHandler(pool *pgxpool.Pool, ps *paystack.Manager, box *secretbox.Box) *H
 	}
 }
 
+// bankCap is the capability required for all bank-account operations.
+// Managing bank accounts (registering payout destinations, deleting recipients)
+// is a high-privilege action equivalent to controlling where money is sent.
+const bankCap = "can_manage_bank"
+
 // Mount attaches the bank-account routes to the given router.
+// All routes require the can_manage_bank capability.
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/bank-accounts", func(r chi.Router) {
+		r.Use(auth.RequireCapability(bankCap))
 		r.Post("/", h.create)
 		r.Get("/", h.list)
 		r.Get("/{id}", h.getByID)
@@ -51,8 +59,10 @@ func (h *Handler) Mount(r chi.Router) {
 
 // Routes is a convenience wrapper that creates and returns a standalone router.
 // Callers may prefer Mount when composing into an existing router.
+// All routes require the can_manage_bank capability.
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
+	r.Use(auth.RequireCapability(bankCap))
 	r.Post("/", h.create)
 	r.Get("/", h.list)
 	r.Get("/{id}", h.getByID)

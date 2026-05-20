@@ -18,9 +18,17 @@ export const PAYMENT_METHODS = [
 // ---- Charge -----------------------------------------------------------------
 
 /**
- * Charge a POS order. Throws an Error with .status on non-2xx.
+ * Charge a POS order. Supports both single-payment (legacy) and split-tender
+ * (multi-leg) modes.
+ *
+ * Single-payment (legacy):
+ *   chargeOrder({ orderId, paymentMethodCode, amountPaidCents, ... })
+ *
+ * Split-tender (pass `payments` array):
+ *   chargeOrder({ orderId, processedByStaffId, payments: [{ payment_method_code, amount_paid_cents, ... }] })
+ *
  * Route: POST /pos/orders/{order_id}/charge
- * Returns: { order_id, payment_id, payment_status, session_closed }
+ * Returns: { order_id, payment_id, payment_ids, payment_status, session_closed }
  */
 export async function chargeOrder({
   orderId,
@@ -30,18 +38,30 @@ export async function chargeOrder({
   changeGivenCents,
   paymentReference,
   processedByStaffId,
+  // Split-tender: array of { payment_method_code, amount_paid_cents, ... }
+  payments,
 }) {
   if (!orderId) throw new Error('orderId required');
-  if (!paymentMethodCode) throw new Error('paymentMethodCode required');
 
-  const body = {
-    payment_method_code: paymentMethodCode,
-    amount_paid_cents: amountPaidCents,
-  };
-  if (tipAmountCents != null)       body.tip_amount_cents       = tipAmountCents;
-  if (changeGivenCents != null)     body.change_given_cents     = changeGivenCents;
-  if (paymentReference)             body.payment_reference      = paymentReference;
-  if (processedByStaffId)           body.processed_by_staff_id  = processedByStaffId;
+  let body;
+  if (payments && payments.length > 0) {
+    // Split-tender path
+    body = {
+      payments,
+      processed_by_staff_id: processedByStaffId || undefined,
+    };
+  } else {
+    // Single-payment (backwards-compatible)
+    if (!paymentMethodCode) throw new Error('paymentMethodCode required');
+    body = {
+      payment_method_code: paymentMethodCode,
+      amount_paid_cents: amountPaidCents,
+    };
+    if (tipAmountCents != null)   body.tip_amount_cents      = tipAmountCents;
+    if (changeGivenCents != null) body.change_given_cents    = changeGivenCents;
+    if (paymentReference)         body.payment_reference     = paymentReference;
+    if (processedByStaffId)       body.processed_by_staff_id = processedByStaffId;
+  }
 
   const { data, error } = await api.request(
     'POST',
@@ -54,6 +74,60 @@ export async function chargeOrder({
     throw e;
   }
   return data;
+}
+
+/**
+ * Charge all unpaid orders on a ticket using an array of TenderLegs
+ * (produced by TenderModal). Each leg becomes a payment_method_code + amount.
+ *
+ * @param {Object} params
+ * @param {Array<{id: string, total_cents: number}>} params.orders  — unpaid orders
+ * @param {Array<{method: string, amountCents: number, reference?: string, changeCents?: number}>} params.legs
+ * @param {string} [params.processedByStaffId]
+ * @returns {Promise<Array>} array of charge responses (one per order)
+ */
+export async function chargeOrdersWithLegs({ orders, legs, processedByStaffId }) {
+  if (!orders || orders.length === 0) throw new Error('No orders to charge');
+  if (!legs || legs.length === 0) throw new Error('No payment legs provided');
+
+  const results = [];
+
+  if (orders.length === 1) {
+    // Simple case: one order, pass all legs directly
+    const r = await chargeOrder({
+      orderId: orders[0].id,
+      processedByStaffId,
+      payments: legs.map((leg) => ({
+        payment_method_code: leg.method,
+        amount_paid_cents: leg.amountCents,
+        change_given_cents: leg.changeCents || 0,
+        payment_reference: leg.reference || '',
+      })),
+    });
+    results.push(r);
+    return results;
+  }
+
+  // Multiple orders: distribute legs proportionally by order total.
+  const totalOrderCents = orders.reduce((s, o) => s + (o.total_cents || 0), 0);
+  for (const order of orders) {
+    const ratio = totalOrderCents > 0 ? (order.total_cents || 0) / totalOrderCents : 1 / orders.length;
+    const orderPayments = legs.map((leg) => ({
+      payment_method_code: leg.method,
+      amount_paid_cents: Math.round(leg.amountCents * ratio),
+      change_given_cents: leg.changeCents ? Math.round(leg.changeCents * ratio) : 0,
+      payment_reference: leg.reference || '',
+    }));
+    // eslint-disable-next-line no-await-in-loop
+    const r = await chargeOrder({
+      orderId: order.id,
+      processedByStaffId,
+      payments: orderPayments,
+    });
+    results.push(r);
+  }
+
+  return results;
 }
 
 // ---- Currency utilities -----------------------------------------------------

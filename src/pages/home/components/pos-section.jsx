@@ -12,6 +12,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/currency";
 
 // Pick a food emoji for an item. Tries name keywords first, then falls back
 // to the item's category name. A new keyword takes a few seconds to add —
@@ -77,7 +78,8 @@ const POSSection = ({
   filteredItems,
   loadingItems,
   isOrdersExpanded,
-  addToCart
+  addToCart,
+  currency = 'USD',
 }) => {
   const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(false);
@@ -272,7 +274,7 @@ const POSSection = ({
                           "font-bold text-gray-900 tabular-nums",
                           isOrdersExpanded ? "text-xl" : "text-base"
                         )}>
-                          R{parseFloat(item.price || 0).toFixed(2)}
+                          {formatPrice(parseFloat(item.price || 0) * 100, currency)}
                         </span>
                       </div>
 

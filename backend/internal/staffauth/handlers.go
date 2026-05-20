@@ -8,16 +8,33 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/auth"
 )
 
 type Handler struct {
-	svc *Service
+	svc     *Service
+	pvSvc   *PinVerifyService
+	elevSvc *PinVerifyElevationService
 }
 
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// NewHandlerWithPool constructs a Handler that also supports the PIN-verify
+// overlay endpoint and the manager-elevation endpoint. Call this instead of
+// NewHandler when the pool is available (i.e. always in production —
+// NewHandler is kept for backward compat in tests that do not exercise those
+// paths).
+func NewHandlerWithPool(svc *Service, pool *pgxpool.Pool) *Handler {
+	pvSvc := NewPinVerifyService(svc.store, svc.secret, pool)
+	return &Handler{
+		svc:     svc,
+		pvSvc:   pvSvc,
+		elevSvc: NewPinVerifyElevationService(pvSvc),
+	}
 }
 
 // Mount attaches the staff auth routes. Call under a chi.Route("/auth", ...)
@@ -330,6 +347,145 @@ func (h *Handler) managerSetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// MountPinVerify attaches POST /pos/pin-verify and POST /pos/pin-verify-elevation
+// to an already-authenticated chi.Router (one that already has auth.Middleware
+// applied). Call this inside the authenticated group in main.go:
+//
+//	r.Group(func(r chi.Router) {
+//	    r.Use(auth.Middleware(svc))
+//	    staffAuthH.MountPinVerify(r)
+//	    ...
+//	})
+func (h *Handler) MountPinVerify(r chi.Router) {
+	r.Post("/pos/pin-verify", h.pinVerify)
+	r.Post("/pos/pin-verify-elevation", h.pinVerifyElevation)
+}
+
+// pinVerify handles POST /pos/pin-verify.
+// Requires a valid member JWT (supplied by auth.Middleware upstream).
+// On success returns an actor-overlay token valid for 15 minutes.
+func (h *Handler) pinVerify(w http.ResponseWriter, r *http.Request) {
+	if h.pvSvc == nil {
+		writeErr(w, http.StatusNotImplemented, "pin-verify not configured")
+		return
+	}
+
+	claims, ok := auth.ClaimsFrom(r.Context())
+	if !ok || claims == nil || claims.UserID == "" {
+		writeErr(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	// Capabilities come from the OrgScope already injected by RequireOrgScope.
+	// We read the raw bytes from the first membership so the actor token carries
+	// the same capability set the member portal uses.
+	orgScope := auth.OrgScopeFrom(r.Context())
+	var memberCaps []byte
+	if len(orgScope.Memberships) > 0 {
+		memberCaps = orgScope.Memberships[0].Capabilities
+	}
+
+	var req PinVerifyRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.LocationID == "" {
+		writeErr(w, http.StatusBadRequest, "location_id required")
+		return
+	}
+	if req.Username == "" {
+		writeErr(w, http.StatusBadRequest, "username required")
+		return
+	}
+	if req.PIN == "" {
+		writeErr(w, http.StatusBadRequest, "pin required")
+		return
+	}
+
+	resp, err := h.pvSvc.Verify(r.Context(), claims.UserID, memberCaps, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidCredential):
+			writeErr(w, http.StatusUnauthorized, "invalid username or pin")
+		case errors.Is(err, ErrStaffLocked):
+			writeErr(w, http.StatusLocked, "account is temporarily locked")
+		case errors.Is(err, ErrStaffInactive):
+			writeErr(w, http.StatusForbidden, "account is inactive")
+		default:
+			log.Printf("pin-verify: %v", err)
+			writeErr(w, http.StatusInternalServerError, "pin verify failed")
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// pinVerifyElevation handles POST /pos/pin-verify-elevation.
+// Requires a valid member JWT (supplied by auth.Middleware upstream).
+// On success returns a 60-second single-use elevation token.
+func (h *Handler) pinVerifyElevation(w http.ResponseWriter, r *http.Request) {
+	if h.elevSvc == nil {
+		writeErr(w, http.StatusNotImplemented, "pin-verify-elevation not configured")
+		return
+	}
+
+	_, ok := auth.ClaimsFrom(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	var req PinVerifyElevationRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.LocationID == "" {
+		writeErr(w, http.StatusBadRequest, "location_id required")
+		return
+	}
+	if req.Username == "" {
+		writeErr(w, http.StatusBadRequest, "username required")
+		return
+	}
+	if req.PIN == "" {
+		writeErr(w, http.StatusBadRequest, "pin required")
+		return
+	}
+	if req.Action == "" {
+		writeErr(w, http.StatusBadRequest, "action required")
+		return
+	}
+	if req.TargetID == "" {
+		writeErr(w, http.StatusBadRequest, "target_id required")
+		return
+	}
+
+	resp, err := h.elevSvc.VerifyElevation(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidCredential):
+			writeErr(w, http.StatusUnauthorized, "invalid username or pin")
+		case errors.Is(err, ErrStaffLocked):
+			writeErr(w, http.StatusLocked, "account is temporarily locked")
+		case errors.Is(err, ErrStaffInactive):
+			writeErr(w, http.StatusForbidden, "account is inactive")
+		case errors.Is(err, ErrNotManager):
+			writeErr(w, http.StatusForbidden, "staff role does not permit elevation")
+		case errors.Is(err, ErrUnknownAction):
+			writeErr(w, http.StatusBadRequest, "unknown elevation action")
+		case errors.Is(err, ErrMissingTarget):
+			writeErr(w, http.StatusBadRequest, "target_id is required for elevation")
+		default:
+			log.Printf("pin-verify-elevation: %v", err)
+			writeErr(w, http.StatusInternalServerError, "elevation verify failed")
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // --- JSON helpers ---

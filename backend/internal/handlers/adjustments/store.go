@@ -44,6 +44,19 @@ type Store struct {
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
+// GetOrderLocationID returns the location_id for the given order without
+// opening a transaction. Returns ErrOrderNotFound when no row is found.
+func (s *Store) GetOrderLocationID(ctx context.Context, orderID string) (string, error) {
+	var locID string
+	err := s.pool.QueryRow(ctx,
+		`SELECT location_id FROM orders WHERE id = $1`, orderID,
+	).Scan(&locID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrOrderNotFound
+	}
+	return locID, err
+}
+
 // GetApproverByID loads the minimal staff fields needed for PIN + role checks.
 func (s *Store) GetApproverByID(ctx context.Context, staffID string) (*approverRow, error) {
 	var r approverRow

@@ -159,7 +159,7 @@ func (s *Service) handleNewAddress(ctx context.Context, chatID, customerID, mess
 		return formatError("Unable to process your location. Please try again or type your address.")
 	}
 
-	geo := geocodeAddress(input)
+	geo := s.geocodeAddress(input)
 	if geo.Success && geo.Coordinates != nil {
 		nearby := s.getNearbyStores(ctx, geo.Coordinates.Latitude, geo.Coordinates.Longitude)
 		newState := state
@@ -394,7 +394,7 @@ func (s *Service) handleMenuDisplay(ctx context.Context, chatID, customerID, mes
 				newState.Step = "cart_view"
 				newState.PreviousStep = "menu_display"
 				s.updateConversationState(ctx, chatID, newState)
-				return formatCartView(cartItems, cartSummary)
+				return formatCartView(cartItems, cartSummary, s.currencySymbolFor(ctx, state.SelectedLocationID))
 			}
 			optionNumber++
 			if selectedNumber == optionNumber {
@@ -403,7 +403,7 @@ func (s *Service) handleMenuDisplay(ctx context.Context, chatID, customerID, mes
 				newState.Step = "checkout"
 				newState.PreviousStep = "menu_display"
 				s.updateConversationState(ctx, chatID, newState)
-				return formatCheckout(cartSummary, state.DeliveryType)
+				return formatCheckout(cartSummary, state.DeliveryType, s.currencySymbolFor(ctx, state.SelectedLocationID))
 			}
 			optionNumber++
 			if selectedNumber == optionNumber {
@@ -449,7 +449,7 @@ func (s *Service) handleCartView(ctx context.Context, chatID, customerID, messag
 		newState.Step = "checkout"
 		newState.PreviousStep = "cart_view"
 		s.updateConversationState(ctx, chatID, newState)
-		return formatCheckout(cartSummary, state.DeliveryType)
+		return formatCheckout(cartSummary, state.DeliveryType, s.currencySymbolFor(ctx, state.SelectedLocationID))
 	case 3:
 		s.clearCart(ctx, customerID, state.SelectedLocationID)
 		newState := state
@@ -562,7 +562,7 @@ func (s *Service) handleCategoryItems(ctx context.Context, chatID, customerID, m
 				newState.Step = "cart_view"
 				newState.PreviousStep = "category_items"
 				s.updateConversationState(ctx, chatID, newState)
-				return formatCartView(cartItems, cartSummary)
+				return formatCartView(cartItems, cartSummary, s.currencySymbolFor(ctx, state.SelectedLocationID))
 			}
 			optionNumber++
 			if selectedNumber == optionNumber {
@@ -571,7 +571,7 @@ func (s *Service) handleCategoryItems(ctx context.Context, chatID, customerID, m
 				newState.Step = "checkout"
 				newState.PreviousStep = "category_items"
 				s.updateConversationState(ctx, chatID, newState)
-				return formatCheckout(cartSummary, state.DeliveryType)
+				return formatCheckout(cartSummary, state.DeliveryType, s.currencySymbolFor(ctx, state.SelectedLocationID))
 			}
 			optionNumber++
 			if selectedNumber == optionNumber {
@@ -809,7 +809,7 @@ func (s *Service) handleCheckout(ctx context.Context, chatID, customerID, messag
 			if cartSummary != nil {
 				total = cartSummary.TotalAmount
 			}
-			return formatTipSelection(total)
+			return formatTipSelection(total, s.currencySymbolFor(ctx, state.SelectedLocationID))
 		case 2:
 			if isCollection {
 				newState := state
@@ -831,7 +831,7 @@ func (s *Service) handleCheckout(ctx context.Context, chatID, customerID, messag
 				newState.Step = "cart_view"
 				newState.PreviousStep = "checkout"
 				s.updateConversationState(ctx, chatID, newState)
-				return formatCartView(cartItems, cartSummary)
+				return formatCartView(cartItems, cartSummary, s.currencySymbolFor(ctx, state.SelectedLocationID))
 			}
 			newState := state
 			newState.PaymentMethod = "delivery_cash"
@@ -853,7 +853,7 @@ func (s *Service) handleCheckout(ctx context.Context, chatID, customerID, messag
 			newState.Step = "cart_view"
 			newState.PreviousStep = "checkout"
 			s.updateConversationState(ctx, chatID, newState)
-			return formatCartView(cartItems, cartSummary)
+			return formatCartView(cartItems, cartSummary, s.currencySymbolFor(ctx, state.SelectedLocationID))
 		case 5:
 			if !isCollection {
 				s.clearCart(ctx, customerID, state.SelectedLocationID)
@@ -870,12 +870,12 @@ func (s *Service) handleCheckout(ctx context.Context, chatID, customerID, messag
 				maxOption = 4
 			}
 			cartSummary := s.getCartSummary(ctx, customerID, state.SelectedLocationID)
-			return formatError(fmt.Sprintf("Please select a valid payment option (1-%d)", maxOption)) + "\n\n" + formatCheckout(cartSummary, state.DeliveryType)
+			return formatError(fmt.Sprintf("Please select a valid payment option (1-%d)", maxOption)) + "\n\n" + formatCheckout(cartSummary, state.DeliveryType, s.currencySymbolFor(ctx, state.SelectedLocationID))
 		}
 	}
 
 	cartSummary := s.getCartSummary(ctx, customerID, state.SelectedLocationID)
-	return formatError("Please select a valid option number") + "\n\n" + formatCheckout(cartSummary, state.DeliveryType)
+	return formatError("Please select a valid option number") + "\n\n" + formatCheckout(cartSummary, state.DeliveryType, s.currencySymbolFor(ctx, state.SelectedLocationID))
 }
 
 func (s *Service) handleTipSelection(ctx context.Context, chatID, customerID, messageBody string, state ConversationState) string {
@@ -938,7 +938,7 @@ func (s *Service) handleEmailCollection(ctx context.Context, chatID, customerID,
 		newState.Step = "checkout"
 		newState.PreviousStep = "email_collection"
 		s.updateConversationState(ctx, chatID, newState)
-		return formatCheckout(cartSummary, state.DeliveryType)
+		return formatCheckout(cartSummary, state.DeliveryType, s.currencySymbolFor(ctx, state.SelectedLocationID))
 	}
 	if strings.Contains(input, "@") && strings.Contains(input, ".") {
 		newState := state
@@ -978,7 +978,7 @@ func (s *Service) handlePaymentMethod(ctx context.Context, chatID, customerID, m
 			newState.Step = "checkout"
 			newState.PreviousStep = "payment_method"
 			s.updateConversationState(ctx, chatID, newState)
-			return formatCheckout(cartSummary, state.DeliveryType)
+			return formatCheckout(cartSummary, state.DeliveryType, s.currencySymbolFor(ctx, state.SelectedLocationID))
 		}
 	}
 	return formatError("Please select a valid payment method")

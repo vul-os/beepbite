@@ -42,6 +42,9 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { hasCapability } from '@/services/pos';
+import AdjustmentMenu from './adjustment-menu';
+import CourseSelect from './course-select';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -111,43 +114,68 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 // Sent section — fired orders, read-only
 // ---------------------------------------------------------------------------
 
-function SentItemRow({ item }) {
+// SentItemRow — individual fired line item.
+// Right-click / long-press opens the AdjustmentMenu for per-item comp/discount.
+function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
   const status = item.item_status || 'fired';
   const statusColor =
     status === 'ready' ? 'text-green-600 bg-green-50 border-green-200'
     : status === 'in_progress' ? 'text-amber-700 bg-amber-50 border-amber-200'
     : 'text-gray-500 bg-gray-50 border-gray-200';
 
+  const itemId     = item.order_item_id || item.id || null;
+  const priceCents = item.total_cents ?? Math.round(
+    (parseFloat(item.unit_price || 0) * (item.quantity || 0)) * 100,
+  );
+  const canActOnItem = hasCapability('can_comp');
+
   return (
-    <div className="flex items-start gap-2 px-3 py-2">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-semibold text-gray-700 tabular-nums shrink-0">
-            {item.quantity}×
-          </span>
-          <span className="text-sm text-gray-700 truncate">{item.item_name || item.name}</span>
-        </div>
-        {item.notes && (
-          <p className="mt-0.5 text-[11px] text-gray-500 truncate flex items-center gap-1">
-            <StickyNote className="w-2.5 h-2.5" />
-            {item.notes}
-          </p>
+    <AdjustmentMenu
+      orderId={orderId}
+      itemId={itemId}
+      currentPriceCents={priceCents}
+      locationId={locationId}
+      onSuccess={onAdjustSuccess}
+      disabled={!canActOnItem || !itemId}
+    >
+      <div
+        className={cn(
+          'flex items-start gap-2 px-3 py-2',
+          canActOnItem && itemId && 'cursor-context-menu hover:bg-orange-50/40 transition-colors',
         )}
+        title={canActOnItem && itemId ? 'Right-click or long-press to comp / discount' : undefined}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-semibold text-gray-700 tabular-nums shrink-0">
+              {item.quantity}×
+            </span>
+            <span className="text-sm text-gray-700 truncate">{item.item_name || item.name}</span>
+          </div>
+          {item.notes && (
+            <p className="mt-0.5 text-[11px] text-gray-500 truncate flex items-center gap-1">
+              <StickyNote className="w-2.5 h-2.5" />
+              {item.notes}
+            </p>
+          )}
+        </div>
+        <span className={cn(
+          'text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border',
+          statusColor,
+        )}>
+          {status === 'fired' ? 'Fired' : status === 'in_progress' ? 'Cooking' : status === 'ready' ? 'Ready' : status}
+        </span>
+        <span className="text-sm font-medium text-gray-700 tabular-nums shrink-0">
+          {formatRand(priceCents)}
+        </span>
       </div>
-      <span className={cn(
-        'text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border',
-        statusColor,
-      )}>
-        {status === 'fired' ? 'Fired' : status === 'in_progress' ? 'Cooking' : status === 'ready' ? 'Ready' : status}
-      </span>
-      <span className="text-sm font-medium text-gray-700 tabular-nums shrink-0">
-        {formatRand(item.total_cents ?? Math.round((parseFloat(item.unit_price || 0) * (item.quantity || 0)) * 100))}
-      </span>
-    </div>
+    </AdjustmentMenu>
   );
 }
 
-function SentOrderGroup({ order }) {
+// SentOrderGroup — one round of sent items.
+// The group header supports right-click / long-press for order-level void.
+function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
   const items = Array.isArray(order.items) ? order.items : [];
   if (items.length === 0) return null;
 
@@ -156,30 +184,55 @@ function SentOrderGroup({ order }) {
     ? new Date(firedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
 
+  const canVoid = hasCapability('can_void');
+
   return (
     <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50/80 border-b border-gray-100">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-600">
-          <CheckCircle2 className="w-3 h-3 text-green-500" />
-          Sent · {shortOrderNum(order)}
+      {/* Header — right-click / long-press to Void the whole order */}
+      <AdjustmentMenu
+        orderId={order.id}
+        itemId={null}
+        locationId={locationId}
+        onSuccess={onAdjustSuccess}
+        disabled={!canVoid}
+      >
+        <div
+          className={cn(
+            'flex items-center justify-between px-3 py-1.5 bg-gray-50/80 border-b border-gray-100',
+            canVoid && 'cursor-context-menu hover:bg-orange-50/60 transition-colors',
+          )}
+          title={canVoid ? 'Right-click or long-press to void this order' : undefined}
+        >
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-600">
+            <CheckCircle2 className="w-3 h-3 text-green-500" />
+            Sent · {shortOrderNum(order)}
+          </div>
+          {firedDisplay && (
+            <span className="text-[10px] text-gray-400 inline-flex items-center gap-0.5">
+              <Clock className="w-2.5 h-2.5" />
+              {firedDisplay}
+            </span>
+          )}
         </div>
-        {firedDisplay && (
-          <span className="text-[10px] text-gray-400 inline-flex items-center gap-0.5">
-            <Clock className="w-2.5 h-2.5" />
-            {firedDisplay}
-          </span>
-        )}
-      </div>
+      </AdjustmentMenu>
+
+      {/* Item rows — each has its own comp/discount context menu */}
       <div className="divide-y divide-gray-100">
         {items.map((it, idx) => (
-          <SentItemRow key={it.order_item_id || it.id || idx} item={it} />
+          <SentItemRow
+            key={it.order_item_id || it.id || idx}
+            item={it}
+            orderId={order.id}
+            locationId={locationId}
+            onAdjustSuccess={onAdjustSuccess}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function SentSection({ sentOrders }) {
+function SentSection({ sentOrders, locationId, onAdjustSuccess }) {
   if (!sentOrders || sentOrders.length === 0) return null;
   return (
     <div className="px-3 py-2 space-y-2">
@@ -191,7 +244,12 @@ function SentSection({ sentOrders }) {
       </div>
       <div className="space-y-2">
         {sentOrders.map((order) => (
-          <SentOrderGroup key={order.id} order={order} />
+          <SentOrderGroup
+            key={order.id}
+            order={order}
+            locationId={locationId}
+            onAdjustSuccess={onAdjustSuccess}
+          />
         ))}
       </div>
     </div>
@@ -202,53 +260,65 @@ function SentSection({ sentOrders }) {
 // New section — items not yet sent, editable
 // ---------------------------------------------------------------------------
 
-function NewItemRow({ item, onBumpQty, onRemove }) {
+function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
   const lineCents = Math.round((parseFloat(item.price || 0) * (item.qty || 0)) * 100);
   return (
-    <div className="flex items-start gap-2 px-3 py-2 bg-white">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900 truncate">{item.name}</p>
-        <p className="text-xs text-gray-500 tabular-nums mt-0.5">
-          {formatRand(Math.round(parseFloat(item.price || 0) * 100))} each
-        </p>
+    <div className="flex flex-col px-3 py-2 bg-white gap-1">
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{item.name}</p>
+          <p className="text-xs text-gray-500 tabular-nums mt-0.5">
+            {formatRand(Math.round(parseFloat(item.price || 0) * 100))} each
+          </p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onBumpQty(item.id, -1)}
+            className="h-7 w-7 p-0 rounded-full border-orange-200"
+            aria-label="Decrease quantity"
+          >
+            <Minus className="w-3 h-3" />
+          </Button>
+          <span className="w-7 text-center text-sm font-bold tabular-nums">{item.qty}</span>
+          <Button
+            size="sm"
+            onClick={() => onBumpQty(item.id, +1)}
+            className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600"
+            aria-label="Increase quantity"
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+          <span className="ml-1.5 w-16 text-right text-sm font-bold text-gray-900 tabular-nums">
+            {formatRand(lineCents)}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onRemove(item.id)}
+            className="h-7 w-7 p-0 ml-0.5 text-gray-400 hover:text-red-600"
+            aria-label="Remove"
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onBumpQty(item.id, -1)}
-          className="h-7 w-7 p-0 rounded-full border-orange-200"
-          aria-label="Decrease quantity"
-        >
-          <Minus className="w-3 h-3" />
-        </Button>
-        <span className="w-7 text-center text-sm font-bold tabular-nums">{item.qty}</span>
-        <Button
-          size="sm"
-          onClick={() => onBumpQty(item.id, +1)}
-          className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600"
-          aria-label="Increase quantity"
-        >
-          <Plus className="w-3 h-3" />
-        </Button>
-        <span className="ml-1.5 w-16 text-right text-sm font-bold text-gray-900 tabular-nums">
-          {formatRand(lineCents)}
-        </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => onRemove(item.id)}
-          className="h-7 w-7 p-0 ml-0.5 text-gray-400 hover:text-red-600"
-          aria-label="Remove"
-        >
-          <Trash2 className="w-3 h-3" />
-        </Button>
-      </div>
+      {/* Course assignment pill — only shown when courses are configured */}
+      {courses && courses.length > 0 && (
+        <div className="flex items-center gap-1.5 pl-0.5">
+          <CourseSelect
+            courseId={item.course_id || null}
+            courses={courses}
+            onChange={(courseId) => onSetCourse && onSetCourse(item.id, courseId)}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function NewSection({ newItems, onBumpQty, onRemove }) {
+function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }) {
   if (!newItems || newItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center px-6 py-10 text-center text-gray-400">
@@ -266,7 +336,14 @@ function NewSection({ newItems, onBumpQty, onRemove }) {
       </div>
       <div className="rounded-md border border-orange-200 bg-orange-50/30 overflow-hidden divide-y divide-orange-100">
         {newItems.map((it) => (
-          <NewItemRow key={it.id} item={it} onBumpQty={onBumpQty} onRemove={onRemove} />
+          <NewItemRow
+            key={it.id}
+            item={it}
+            onBumpQty={onBumpQty}
+            onRemove={onRemove}
+            courses={courses}
+            onSetCourse={onSetCourse}
+          />
         ))}
       </div>
     </div>
@@ -365,14 +442,19 @@ function TicketFooter({
 
 export default function ActiveTicketPanel({
   ticket,                // active ticket object or null
-  newItems = [],         // unsent items: [{ id, item_id, name, price, qty, ... }]
+  newItems = [],         // unsent items: [{ id, item_id, name, price, qty, course_id, ... }]
   sentOrders = [],       // sent rounds: [{ id, order_number, items: [...], created_at }]
   onBumpQty,             // (clientLineId, delta) => void
   onRemoveItem,          // (clientLineId) => void
   onSend,                // () => void
   onCharge,              // () => void
   onAdjustGuests,        // optional () => void
+  onAdjust,              // optional ({ orderId, type }) => void — kept for back-compat (workspace modal)
+  onAdjustSuccess,       // optional (data) => void — called after inline adjustment success
+  locationId = '',       // location_id for scoping adjustment reasons + manager list
   sending = false,
+  courses = [],          // [{ id, name, sort_order }] for CourseSelect (Wave 11 T11.3)
+  onSetCourse,           // optional (clientLineId, courseId | null) => void
 }) {
   const newSubtotalCents = newItems.reduce(
     (sum, it) => sum + Math.round((parseFloat(it.price || 0) * (it.qty || 0)) * 100),
@@ -396,11 +478,17 @@ export default function ActiveTicketPanel({
 
       {/* Scrollable middle (Sent + New) */}
       <div className="flex-1 overflow-y-auto">
-        <SentSection sentOrders={sentOrders} />
+        <SentSection
+          sentOrders={sentOrders}
+          locationId={locationId}
+          onAdjustSuccess={onAdjustSuccess}
+        />
         <NewSection
           newItems={newItems}
           onBumpQty={onBumpQty}
           onRemove={onRemoveItem}
+          courses={courses}
+          onSetCourse={onSetCourse}
         />
       </div>
 

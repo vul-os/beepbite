@@ -425,7 +425,11 @@ func formatCustomizationSummary(item *Item, selectedVariations map[string]string
 	return b.String()
 }
 
-func formatCartView(cartItems []CartItem, cartSummary *CartSummary) string {
+func formatCartView(cartItems []CartItem, cartSummary *CartSummary, currencySymbol string) string {
+	sym := currencySymbol
+	if sym == "" {
+		sym = "R"
+	}
 	var b strings.Builder
 	b.WriteString("🛒 *Your Plate*\n\n")
 	if len(cartItems) == 0 {
@@ -439,7 +443,7 @@ func formatCartView(cartItems []CartItem, cartSummary *CartSummary) string {
 				name = ci.Items.Name
 			}
 			fmt.Fprintf(&b, "*%d.* %s (x%d)\n", i+1, name, ci.Quantity)
-			fmt.Fprintf(&b, "   R%.2f\n", ci.TotalPrice)
+			fmt.Fprintf(&b, "   %s%.2f\n", sym, ci.TotalPrice)
 			for _, v := range ci.CartItemVariations {
 				fmt.Fprintf(&b, "   • %s: %s\n", v.ItemVariations.Name, v.ItemVariationOptions.Name)
 			}
@@ -457,11 +461,11 @@ func formatCartView(cartItems []CartItem, cartSummary *CartSummary) string {
 			deliveryFee = cartSummary.DeliveryFeeAmount
 			total = cartSummary.TotalAmount
 		}
-		fmt.Fprintf(&b, "Subtotal: R%.2f\n", subtotal)
+		fmt.Fprintf(&b, "Subtotal: %s%.2f\n", sym, subtotal)
 		if deliveryFee > 0 {
-			fmt.Fprintf(&b, "Delivery Fee: R%.2f\n", deliveryFee)
+			fmt.Fprintf(&b, "Delivery Fee: %s%.2f\n", sym, deliveryFee)
 		}
-		fmt.Fprintf(&b, "*Total: R%.2f*\n\n", total)
+		fmt.Fprintf(&b, "*Total: %s%.2f*\n\n", sym, total)
 
 		b.WriteString("*Options:*\n")
 		b.WriteString("*[1]* ✏️ Edit Items\n")
@@ -474,7 +478,11 @@ func formatCartView(cartItems []CartItem, cartSummary *CartSummary) string {
 	return b.String()
 }
 
-func formatCheckout(cartSummary *CartSummary, deliveryType string) string {
+func formatCheckout(cartSummary *CartSummary, deliveryType string, currencySymbol string) string {
+	sym := currencySymbol
+	if sym == "" {
+		sym = "R"
+	}
 	var b strings.Builder
 	b.WriteString("🧾 *Checkout*\n\n")
 	b.WriteString("*Order Summary:*\n")
@@ -486,11 +494,11 @@ func formatCheckout(cartSummary *CartSummary, deliveryType string) string {
 		deliveryFee = cartSummary.DeliveryFeeAmount
 		total = cartSummary.TotalAmount
 	}
-	fmt.Fprintf(&b, "Subtotal: R%.2f\n", subtotal)
+	fmt.Fprintf(&b, "Subtotal: %s%.2f\n", sym, subtotal)
 	if deliveryFee > 0 {
-		fmt.Fprintf(&b, "Delivery Fee: R%.2f\n", deliveryFee)
+		fmt.Fprintf(&b, "Delivery Fee: %s%.2f\n", sym, deliveryFee)
 	}
-	fmt.Fprintf(&b, "*Total: R%.2f*\n\n", total)
+	fmt.Fprintf(&b, "*Total: %s%.2f*\n\n", sym, total)
 
 	isCollection := deliveryType == "collection"
 	b.WriteString("*Payment Options:*\n")
@@ -509,18 +517,22 @@ func formatCheckout(cartSummary *CartSummary, deliveryType string) string {
 	return b.String()
 }
 
-func formatTipSelection(orderTotal float64) string {
+func formatTipSelection(orderTotal float64, currencySymbol string) string {
+	sym := currencySymbol
+	if sym == "" {
+		sym = "R"
+	}
 	var b strings.Builder
 	b.WriteString("💰 *Add Tip?*\n\n")
-	fmt.Fprintf(&b, "Order Total: R%.2f\n\n", orderTotal)
+	fmt.Fprintf(&b, "Order Total: %s%.2f\n\n", sym, orderTotal)
 	tip5 := orderTotal * 0.05
 	tip15 := orderTotal * 0.15
 	tip30 := orderTotal * 0.30
 	b.WriteString("*Tip Options:*\n")
-	fmt.Fprintf(&b, "*[1]* 5%% - R%.2f\n", tip5)
-	fmt.Fprintf(&b, "*[2]* 15%% - R%.2f\n", tip15)
-	fmt.Fprintf(&b, "*[3]* 30%% - R%.2f\n", tip30)
-	b.WriteString("*[4]* 💰 Custom amount (type R amount)\n")
+	fmt.Fprintf(&b, "*[1]* 5%% - %s%.2f\n", sym, tip5)
+	fmt.Fprintf(&b, "*[2]* 15%% - %s%.2f\n", sym, tip15)
+	fmt.Fprintf(&b, "*[3]* 30%% - %s%.2f\n", sym, tip30)
+	fmt.Fprintf(&b, "*[4]* 💰 Custom amount (type %s amount)\n", sym)
 	b.WriteString("*[5]* ⏭️ Skip tip\n\n")
 	b.WriteString("📱 *Powered by BeepBite.io*")
 	return b.String()
@@ -560,10 +572,14 @@ func formatPaymentMethods(paymentMethods []PaymentMethod) string {
 	return b.String()
 }
 
-func formatPaymentLink(paymentURL string, orderTotal float64) string {
+func formatPaymentLink(paymentURL string, orderTotal float64, currencySymbol string) string {
+	sym := currencySymbol
+	if sym == "" {
+		sym = "R"
+	}
 	var b strings.Builder
 	b.WriteString("💳 *Payment Link*\n\n")
-	fmt.Fprintf(&b, "Total Amount: R%.2f\n\n", orderTotal)
+	fmt.Fprintf(&b, "Total Amount: %s%.2f\n\n", sym, orderTotal)
 	b.WriteString("Click the link below to pay:\n")
 	fmt.Fprintf(&b, "%s\n\n", paymentURL)
 	b.WriteString("*Options:*\n")

@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/auth"
 )
 
 // Handler holds the store and is the only exported type in this package.
@@ -72,6 +74,13 @@ func (h *Handler) openSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Org-scope check: verify the caller has access to the requested location.
+	scope := auth.OrgScopeFrom(r.Context())
+	if !scope.AllowsLocation(req.LocationID) {
+		writeErr(w, http.StatusNotFound, "location not found")
+		return
+	}
+
 	sess, err := h.store.OpenSession(r.Context(), tableID, req.LocationID, req.OpenedBy, req.PartySize, req.Notes)
 	switch {
 	case errors.Is(err, ErrTableHasOpenSession):
@@ -91,6 +100,22 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Org-scope check: resolve session's location and verify caller access.
+	scope := auth.OrgScopeFrom(r.Context())
+	sessLocID, err := h.store.GetSessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(sessLocID) {
+		writeErr(w, http.StatusNotFound, "session not found")
+		return
+	}
+
 	detail, err := h.store.GetSessionDetail(r.Context(), sessionID)
 	switch {
 	case errors.Is(err, ErrSessionNotFound):
@@ -107,6 +132,22 @@ func (h *Handler) closeSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := chi.URLParam(r, "session_id")
 	if sessionID == "" {
 		writeErr(w, http.StatusBadRequest, "session_id required")
+		return
+	}
+
+	// Org-scope check.
+	scope := auth.OrgScopeFrom(r.Context())
+	sessLocID, err := h.store.GetSessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(sessLocID) {
+		writeErr(w, http.StatusNotFound, "session not found")
 		return
 	}
 
@@ -135,6 +176,22 @@ func (h *Handler) transferSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := chi.URLParam(r, "session_id")
 	if sessionID == "" {
 		writeErr(w, http.StatusBadRequest, "session_id required")
+		return
+	}
+
+	// Org-scope check.
+	scope := auth.OrgScopeFrom(r.Context())
+	sessLocID, err := h.store.GetSessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(sessLocID) {
+		writeErr(w, http.StatusNotFound, "session not found")
 		return
 	}
 
@@ -172,6 +229,22 @@ func (h *Handler) splitCheck(w http.ResponseWriter, r *http.Request) {
 	sessionID := chi.URLParam(r, "session_id")
 	if sessionID == "" {
 		writeErr(w, http.StatusBadRequest, "session_id required")
+		return
+	}
+
+	// Org-scope check.
+	scope := auth.OrgScopeFrom(r.Context())
+	sessLocID, err := h.store.GetSessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(sessLocID) {
+		writeErr(w, http.StatusNotFound, "session not found")
 		return
 	}
 
@@ -232,6 +305,22 @@ func (h *Handler) createSeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Org-scope check.
+	scope := auth.OrgScopeFrom(r.Context())
+	sessLocID, err := h.store.GetSessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(sessLocID) {
+		writeErr(w, http.StatusNotFound, "session not found")
+		return
+	}
+
 	var req createSeatReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -261,6 +350,22 @@ func (h *Handler) listSeats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Org-scope check.
+	scope := auth.OrgScopeFrom(r.Context())
+	sessLocID, err := h.store.GetSessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(sessLocID) {
+		writeErr(w, http.StatusNotFound, "session not found")
+		return
+	}
+
 	seats, err := h.store.ListSeats(r.Context(), sessionID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -273,6 +378,22 @@ func (h *Handler) updateSeat(w http.ResponseWriter, r *http.Request) {
 	seatID := chi.URLParam(r, "seat_id")
 	if seatID == "" {
 		writeErr(w, http.StatusBadRequest, "seat_id required")
+		return
+	}
+
+	// Org-scope check: resolve seat → session → location.
+	scope := auth.OrgScopeFrom(r.Context())
+	seatLocID, err := h.store.GetSeatLocationID(r.Context(), seatID)
+	switch {
+	case errors.Is(err, ErrSeatNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(seatLocID) {
+		writeErr(w, http.StatusNotFound, "seat not found")
 		return
 	}
 
@@ -304,7 +425,23 @@ func (h *Handler) deleteSeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.store.DeleteSeat(r.Context(), seatID)
+	// Org-scope check: resolve seat → session → location.
+	scope := auth.OrgScopeFrom(r.Context())
+	seatLocID, err := h.store.GetSeatLocationID(r.Context(), seatID)
+	switch {
+	case errors.Is(err, ErrSeatNotFound):
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !scope.AllowsLocation(seatLocID) {
+		writeErr(w, http.StatusNotFound, "seat not found")
+		return
+	}
+
+	err = h.store.DeleteSeat(r.Context(), seatID)
 	switch {
 	case errors.Is(err, ErrSeatNotFound):
 		writeErr(w, http.StatusNotFound, err.Error())

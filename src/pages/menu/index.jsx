@@ -85,6 +85,7 @@ import RecipeBuilder from './recipe-builder';
 import RecipeBreakdown from './recipe-breakdown';
 import CostAnalysis from './cost-analysis';
 import PrepStepsEditor from './prep-steps-editor';
+import ModifierGroupsEditor from './modifier-groups-editor';
 
 const Menu = () => {
   const { activeLocation } = useAuth();
@@ -1270,9 +1271,10 @@ const Menu = () => {
           </DialogHeader>
 
           <Tabs defaultValue="ingredients" className="mt-2">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="ingredients">Ingredients</TabsTrigger>
               <TabsTrigger value="prep">Prep Steps</TabsTrigger>
+              <TabsTrigger value="modifiers">Modifiers</TabsTrigger>
             </TabsList>
 
             <TabsContent value="ingredients" className="mt-3">
@@ -1292,6 +1294,10 @@ const Menu = () => {
                 itemId={buildingRecipe?.id || null}
                 onSaved={() => fetchData()}
               />
+            </TabsContent>
+
+            <TabsContent value="modifiers" className="mt-3">
+              <ModifierGroupsEditor itemId={buildingRecipe?.id || null} />
             </TabsContent>
           </Tabs>
 

@@ -37,14 +37,15 @@ type flags struct {
 	reset   bool
 	all     bool
 
-	sanity   bool
-	auth     bool
-	pentest  bool
-	menu     bool
-	recipes  bool
-	orders   bool
-	members  bool
-	whatsapp bool
+	sanity     bool
+	auth       bool
+	pentest    bool
+	menu       bool
+	recipes    bool
+	orders     bool
+	members    bool
+	whatsapp   bool
+	onboarding bool
 }
 
 func main() {
@@ -64,6 +65,7 @@ func main() {
 	flag.BoolVar(&f.orders, "orders", false, "order create + detail + status flow")
 	flag.BoolVar(&f.members, "members", false, "org members + invite RPCs")
 	flag.BoolVar(&f.whatsapp, "whatsapp", false, "whatsapp webhook verify handshake")
+	flag.BoolVar(&f.onboarding, "onboarding", false, "signup → org → member → profile → location flow")
 	flag.Parse()
 
 	cfg := loadCfg(f.env)
@@ -79,7 +81,7 @@ func main() {
 	}
 
 	if !anySelected(f) {
-		fmt.Fprintln(os.Stderr, "no suite selected. Pass --all or one of: --sanity --auth --pentest --menu --recipes --orders --members --whatsapp")
+		fmt.Fprintln(os.Stderr, "no suite selected. Pass --all or one of: --sanity --auth --pentest --menu --recipes --orders --members --whatsapp --onboarding")
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -112,6 +114,9 @@ func main() {
 	if f.all || f.whatsapp {
 		r.Suite("whatsapp", suiteWhatsApp)
 	}
+	if f.all || f.onboarding {
+		r.Suite("onboarding", suiteOnboarding)
+	}
 
 	r.Report()
 	if r.failed > 0 {
@@ -141,7 +146,7 @@ func runMigrateReset(env string) error {
 
 func anySelected(f flags) bool {
 	return f.all || f.sanity || f.auth || f.pentest || f.menu || f.recipes ||
-		f.orders || f.members || f.whatsapp
+		f.orders || f.members || f.whatsapp || f.onboarding
 }
 
 func firstNonEmpty(a, b string) string {

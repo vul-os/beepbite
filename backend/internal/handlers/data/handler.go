@@ -18,6 +18,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/auth"
 )
 
 // formatUUIDBytes renders pgx's default uuid representation ([16]byte) as the
@@ -90,12 +92,31 @@ func (h *Handler) Mount(r chi.Router) {
 //	single=true                     return one object (404 if no rows)
 //	count=exact                     include {count} header
 
+// reportViews is the set of aggregate / analytics views that require the
+// can_view_reports capability. Plain transactional tables are not gated here.
+var reportViews = map[string]struct{}{
+	"daily_sales_summary":        {},
+	"hourly_sales_heatmap":       {},
+	"menu_engineering":           {},
+	"labor_hours_daily":          {},
+	"theoretical_vs_actual_cogs": {},
+	"revenue_by_payment_method":  {},
+}
+
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	table := chi.URLParam(r, "table")
 	ops, ok := allowed(table)
 	if !ok || !ops.Select {
 		writeErr(w, http.StatusNotFound, "table not exposed")
 		return
+	}
+
+	// Report views require can_view_reports.
+	if _, isReport := reportViews[table]; isReport {
+		if !auth.HasCapability(r.Context(), "can_view_reports") {
+			writeErr(w, http.StatusForbidden, "missing capability: can_view_reports")
+			return
+		}
 	}
 
 	q := r.URL.Query()
@@ -146,16 +167,18 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(sb, " LIMIT %d", n)
 	}
 
-	rows, err := h.pool.Query(r.Context(), sb.String(), args...)
+	var out []map[string]any
+	err = h.runScoped(r.Context(), r, func(tx pgx.Tx) error {
+		rows, qerr := tx.Query(r.Context(), sb.String(), args...)
+		if qerr != nil {
+			return qerr
+		}
+		defer rows.Close()
+		out, qerr = rowsToMaps(rows)
+		return qerr
+	})
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	defer rows.Close()
-
-	out, err := rowsToMaps(rows)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -221,32 +244,20 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 	sb.WriteString(" RETURNING *")
 
 	ctx := r.Context()
-	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	dbRows, err := tx.Query(ctx, sb.String(), args...)
-	if err != nil {
+	var out []map[string]any
+	if err := h.runScoped(ctx, r, func(tx pgx.Tx) error {
+		dbRows, qerr := tx.Query(ctx, sb.String(), args...)
+		if qerr != nil {
+			return qerr
+		}
+		out, qerr = rowsToMaps(dbRows)
+		dbRows.Close()
+		if qerr != nil {
+			return qerr
+		}
+		return auditMutation(ctx, tx, table, opInsert, entityIDFromRow(out), nil, nil)
+	}); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	out, err := rowsToMaps(dbRows)
-	dbRows.Close()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	if err := auditMutation(ctx, tx, table, opInsert, entityIDFromRow(out), nil, nil); err != nil {
-		writeErr(w, http.StatusInternalServerError, "audit: "+err.Error())
-		return
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, out)
@@ -306,33 +317,20 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	sb.WriteString(" RETURNING *")
 
 	ctx := r.Context()
-	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	rows, err := tx.Query(ctx, sb.String(), args...)
-	if err != nil {
+	var out []map[string]any
+	if err := h.runScoped(ctx, r, func(tx pgx.Tx) error {
+		rows, qerr := tx.Query(ctx, sb.String(), args...)
+		if qerr != nil {
+			return qerr
+		}
+		out, qerr = rowsToMaps(rows)
+		rows.Close()
+		if qerr != nil {
+			return qerr
+		}
+		return auditMutation(ctx, tx, table, opUpdate, entityIDFromRow(out), nil, changes)
+	}); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	out, err := rowsToMaps(rows)
-	rows.Close()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// after_state carries the changed fields so the audit log captures what was set.
-	if err := auditMutation(ctx, tx, table, opUpdate, entityIDFromRow(out), nil, changes); err != nil {
-		writeErr(w, http.StatusInternalServerError, "audit: "+err.Error())
-		return
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -361,32 +359,19 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	// Use RETURNING * so we can capture the entity ID for the audit row.
 	deleteSql := fmt.Sprintf("DELETE FROM %s WHERE %s RETURNING *", quoteIdent(table), where)
 
-	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	delRows, err := tx.Query(ctx, deleteSql, args...)
-	if err != nil {
+	if err := h.runScoped(ctx, r, func(tx pgx.Tx) error {
+		delRows, qerr := tx.Query(ctx, deleteSql, args...)
+		if qerr != nil {
+			return qerr
+		}
+		deleted, qerr := rowsToMaps(delRows)
+		delRows.Close()
+		if qerr != nil {
+			return qerr
+		}
+		return auditMutation(ctx, tx, table, opDelete, entityIDFromRow(deleted), nil, nil)
+	}); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	deleted, err := rowsToMaps(delRows)
-	delRows.Close()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	if err := auditMutation(ctx, tx, table, opDelete, entityIDFromRow(deleted), nil, nil); err != nil {
-		writeErr(w, http.StatusInternalServerError, "audit: "+err.Error())
-		return
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -417,19 +402,17 @@ func (h *Handler) rpc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.pool.Query(r.Context(), sql, args...)
-	if err != nil {
+	var out []map[string]any
+	if err := h.runScoped(r.Context(), r, func(tx pgx.Tx) error {
+		rows, qerr := tx.Query(r.Context(), sql, args...)
+		if qerr != nil {
+			return qerr
+		}
+		defer rows.Close()
+		out, qerr = rowsToMaps(rows)
+		return qerr
+	}); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	defer rows.Close()
-
-	// RPCs that return a scalar json / table get returned as an array; the
-	// frontend treats rpc() as returning `data` directly so we mirror supabase-js
-	// by unwrapping a single-row scalar.
-	out, err := rowsToMaps(rows)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// Scalar single-column RETURNS → unwrap.

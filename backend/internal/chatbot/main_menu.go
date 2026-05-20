@@ -37,7 +37,7 @@ func (s *Service) handleMainMenu(ctx context.Context, chatID, customerID, messag
 			newState.SelectedLocationID = existingCartLocation
 			newState.PreviousStep = "main_menu"
 			s.updateConversationState(ctx, chatID, newState)
-			return formatCartView(cartItems, cartSummary)
+			return formatCartView(cartItems, cartSummary, s.currencySymbolFor(ctx, existingCartLocation))
 		}
 		return formatMainMenu("", cartCount, activeOrderCount, cartLocationName)
 
@@ -105,7 +105,7 @@ func (s *Service) handleNewOrderWarning(ctx context.Context, chatID, customerID,
 			newState.SelectedLocationID = existingCartLocation
 			newState.PreviousStep = "new_order_warning"
 			s.updateConversationState(ctx, chatID, newState)
-			return formatCartView(allCartItems, cartSummary)
+			return formatCartView(allCartItems, cartSummary, s.currencySymbolFor(ctx, existingCartLocation))
 		}
 		return formatMainMenu("", 0, 0, "")
 	case 2:
@@ -120,7 +120,7 @@ func (s *Service) handleNewOrderWarning(ctx context.Context, chatID, customerID,
 	case 3:
 		if existingCartLocation != "" {
 			cartSummary := s.getCartSummary(ctx, customerID, existingCartLocation)
-			return formatCartView(allCartItems, cartSummary) + "\n\n" + formatNewOrderWarning(cartCount, cartLocationName)
+			return formatCartView(allCartItems, cartSummary, s.currencySymbolFor(ctx, existingCartLocation)) + "\n\n" + formatNewOrderWarning(cartCount, cartLocationName)
 		}
 		return formatMainMenu("", 0, 0, "")
 	case 4:

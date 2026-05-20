@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Search,
   Clock,
   Package,
@@ -17,6 +17,7 @@ import {
   Save,
   User,
   MapPin,
+  Banknote,
   CreditCard,
   ShoppingBag,
   FileText,
@@ -26,6 +27,8 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
+import { markPaidOnDelivery } from '@/services/payments';
+import { hasCapability } from '@/services/pos';
 
 const OrdersSection = ({
   orders,
@@ -50,6 +53,41 @@ const OrdersSection = ({
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+
+  // Mark-paid-on-delivery state
+  const [markingPaid, setMarkingPaid] = useState({}); // { [orderId]: 'cash'|'card_machine'|null }
+  const [markPaidError, setMarkPaidError] = useState(null); // permission error modal text
+
+  // Check if the currently logged-in actor has can_settle capability.
+  // hasCapability returns true for owner/admin (Supabase) sessions.
+  const canSettle = hasCapability('can_settle');
+
+  const handleMarkPaid = async (orderId, method) => {
+    if (!canSettle) {
+      setMarkPaidError("You need the 'Mark paid' permission. Ask a manager.");
+      return;
+    }
+    setMarkingPaid((prev) => ({ ...prev, [orderId]: method }));
+    try {
+      const { error } = await markPaidOnDelivery(orderId, method);
+      if (error) {
+        if (error.status === 403) {
+          setMarkPaidError("You need the 'Mark paid' permission. Ask a manager.");
+        } else {
+          setMarkPaidError(error.message || 'Failed to mark as paid.');
+        }
+        return;
+      }
+      // Optimistically update the order status in parent
+      updateOrderStatus(orderId, 'completed');
+    } finally {
+      setMarkingPaid((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+    }
+  };
 
   // Handle view order details inline - fetch detailed data
   const handleViewDetails = async (order) => {
@@ -590,6 +628,30 @@ const OrdersSection = ({
   // Default orders list view
   return (
     <div className="absolute inset-0 flex flex-col">
+      {/* Permission error modal */}
+      {markPaidError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">Permission required</p>
+                <p className="text-sm text-gray-600 mt-1">{markPaidError}</p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => setMarkPaidError(null)}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Orders Search and Filter Header */}
       <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex gap-2 items-center">
@@ -697,7 +759,7 @@ const OrdersSection = ({
                   </div>
 
                   <div className="flex gap-2 mt-4">
-                    {getNextStatus(order.status) && (
+                    {getNextStatus(order.status) && order.status !== 'pending_on_delivery' && (
                       <Button
                         size="sm"
                         onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
@@ -723,6 +785,38 @@ const OrdersSection = ({
                       <Eye className="w-3 h-3" />
                     </Button>
                   </div>
+
+                  {/* Mark-paid buttons for pending_on_delivery orders */}
+                  {order.status === 'pending_on_delivery' && canSettle && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!!markingPaid[order.id]}
+                        onClick={() => handleMarkPaid(order.id, 'cash')}
+                        className="flex-1 border-green-300 text-green-700 hover:bg-green-50 h-8 text-xs gap-1"
+                      >
+                        {markingPaid[order.id] === 'cash' ? (
+                          <><span className="inline-block h-3 w-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />Marking…</>
+                        ) : (
+                          <><Banknote className="w-3 h-3" />Mark paid (cash)</>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!!markingPaid[order.id]}
+                        onClick={() => handleMarkPaid(order.id, 'card_machine')}
+                        className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 h-8 text-xs gap-1"
+                      >
+                        {markingPaid[order.id] === 'card_machine' ? (
+                          <><span className="inline-block h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />Marking…</>
+                        ) : (
+                          <><CreditCard className="w-3 h-3" />Mark paid (card)</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

@@ -35,7 +35,10 @@ import (
 	"github.com/beepbite/backend/internal/handlers/kds"
 	"github.com/beepbite/backend/internal/handlers/deliveryzones"
 	"github.com/beepbite/backend/internal/handlers/fiscal"
+	"github.com/beepbite/backend/internal/handlers/marketplace"
 	"github.com/beepbite/backend/internal/handlers/payroll"
+	"github.com/beepbite/backend/internal/handlers/paymentcredentials"
+	"github.com/beepbite/backend/internal/handlers/paymentwebhook"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhooks"
 	"github.com/beepbite/backend/internal/handlers/pos"
 	"github.com/beepbite/backend/internal/handlers/promotions"
@@ -47,6 +50,7 @@ import (
 	"github.com/beepbite/backend/internal/handlers/waste"
 	"github.com/beepbite/backend/internal/handlers/whatsappsend"
 	"github.com/beepbite/backend/internal/handlers/whatsappwebhook"
+	"github.com/beepbite/backend/internal/integrations/mapbox"
 	"github.com/beepbite/backend/internal/integrations/paystack"
 	"github.com/beepbite/backend/internal/jobs/auditretention"
 	"github.com/beepbite/backend/internal/jobs/kdsfanout"
@@ -89,7 +93,7 @@ func main() {
 	// but a distinct secret would be strictly safer.
 	staffStore := staffauth.NewStore(database.Pool)
 	staffSvc := staffauth.NewService(staffStore, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
-	staffAuthH := staffauth.NewHandler(staffSvc)
+	staffAuthH := staffauth.NewHandlerWithPool(staffSvc, database.Pool)
 
 	dataH := data.NewHandler(database.Pool)
 	cashH := cashdrawer.NewHandler(database.Pool)
@@ -108,6 +112,7 @@ func main() {
 	reservationsH := reservations.NewHandler(database.Pool)
 	deliveryZonesH := deliveryzones.NewHandler(database.Pool)
 	fiscalH := fiscal.NewHandler(database.Pool)
+	marketplaceH := marketplace.NewHandler(database.Pool)
 	recipeCostRunner := recipecost.NewRunner(database.Pool)
 	kdsFanoutRunner := kdsfanout.NewRunner(database.Pool, kds.NewStore(database.Pool))
 	auditRetentionRunner := auditretention.NewRunner(database.Pool, 90)
@@ -118,7 +123,14 @@ func main() {
 	wa := whatsapp.NewClient(cfg.WhatsAppAccessToken, cfg.WhatsAppPhoneNumberID)
 	waSendH := whatsappsend.NewHandler(wa)
 
-	chatSvc := chatbot.New(database.Pool, wa)
+	var mbClient *mapbox.Client
+	mapboxToken := os.Getenv("MAPBOX_TOKEN")
+	if mapboxToken == "" {
+		log.Println("WARNING: MAPBOX_TOKEN not set — chatbot geocoding will fall back to stub behaviour (users must share location instead of typing an address)")
+	} else {
+		mbClient = mapbox.NewClient(mapbox.Config{APIKey: mapboxToken})
+	}
+	chatSvc := chatbot.NewWithMapbox(database.Pool, wa, mbClient)
 	waWebhookH := whatsappwebhook.NewHandler(chatSvc, cfg.WhatsAppVerifyToken)
 
 	// Payments: credentials live in env vars per region
@@ -155,6 +167,15 @@ func main() {
 		bankaccountsH = bankaccounts.NewHandler(database.Pool, paystackMgr, paymentBox)
 	}
 
+	var paymentCredsH *paymentcredentials.Handler
+	if paymentBox != nil {
+		paymentCredsH = paymentcredentials.NewHandler(database.Pool, paymentBox, frontendURL)
+	}
+
+	// Unified webhook handler (T8.3): POST /webhooks/{provider}/{location_id}.
+	// Also registers backward-compat shims for old Paystack URLs.
+	unifiedWebhookH := paymentwebhook.NewHandler(database.Pool, paystackMgr, stripeMgr, paymentBox)
+
 	transferWebhookH := transferwebhook.NewHandler(database.Pool, paystackMgr)
 	transferReconciler := transferwebhook.NewReconciler(database.Pool, paystackMgr)
 	payoutRunner := payouts.NewRunner(database.Pool, paystackMgr)
@@ -182,40 +203,103 @@ func main() {
 		staffAuthH.Mount(r)
 	})
 
-	// Webhooks are unauthenticated — WhatsApp verifies via the verify token,
-	// payment webhooks verify via per-region signature (see paymentwebhooks).
+	// Webhooks are unauthenticated — verified by HMAC or token per provider.
 	r.Mount("/webhooks/whatsapp", waWebhookH)
+	// Unified webhook handler: POST /webhooks/{provider}/{location_id} plus
+	// backward-compat shims for old Paystack and transfer URLs.
+	unifiedWebhookH.Mount(r)
+	// Legacy handlers kept alive in parallel while clients migrate.
+	// TODO(T8): remove once all webhooks route through the unified handler.
 	pwH.Mount(r)
 	transferWebhookH.Mount(r)
 
-	// Authenticated app surface.
+	// Public marketplace store directory (no auth required).
+	// RLS is enforced at the DB layer via MarketplaceScope (is_marketplace_visible=true only).
+	r.Route("/stores", marketplaceH.Mount)
+
+	// Authenticated app surface — JWT required for all sub-groups below.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(svc))
 
-		dataH.MountWithIdempotency(r, database.Pool)
+		// Routes that require a valid JWT but NOT org-scope resolution.
+		// (Staff manager endpoints act on cross-org data; AI/chatbot helpers
+		// are internal tooling that doesn't operate on per-location records.)
 		staffAuthH.MountManagerRoutes(r)
-		cashH.Mount(r)
-		promoH.Mount(r)
-		tablesH.Mount(r)
-		r.Route("/kds", kdsH.Mount)
-		posH.Mount(r)
-		adjustmentsH.Mount(r)
-		giftcardsH.Mount(r)
-		storecreditH.Mount(r)
-		houseaccountsH.Mount(r)
-		inventoryH.Mount(r)
-		tipPoolsH.Mount(r)
-		wasteH.Mount(r)
-		payrollH.Mount(r)
-		reservationsH.Mount(r)
-		deliveryZonesH.Mount(r)
-		fiscalH.Mount(r)
-		if bankaccountsH != nil {
-			bankaccountsH.Mount(r)
-		}
-
+		staffAuthH.MountPinVerify(r)
 		r.Post("/ai/menu", aiH)
 		r.Post("/chatbot/whatsapp/send", waSendH)
+
+		// Authenticated + org-scoped sub-group.
+		//
+		// auth.RequireOrgScope resolves the caller's organization memberships
+		// from the DB, enforces that the user has at least one membership (403
+		// otherwise), and injects an OrgScope + db.Scope into context.
+		//
+		// auth.ActorOverlay reads the optional X-Actor-Token header (or
+		// actor_token query param) and, when valid, extends db.Scope with the
+		// staff actor's identity + capabilities for the duration of the
+		// request. Invalid / absent tokens pass through silently.
+		//
+		// Handlers in this block MUST use auth.OrgScopeFrom(ctx) — the
+		// canonical extractor — to read the scope. Do NOT introduce any other
+		// scope extractor.
+		//
+		// Routes covered: /data/*, /pos/*, /kds/*, /cashdrawer/*,
+		//   /tippools/*, /tables/*, /adjustments/*, /payment-credentials/*,
+		//   and all ancillary commerce + ops routes below.
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireOrgScope(database.Pool))
+			r.Use(auth.ActorOverlay([]byte(cfg.JWTSecret)))
+
+			// Generic data layer (/data/{table} + /rpc/{fn}).
+			dataH.MountWithIdempotency(r, database.Pool)
+
+			// POS orders + charge + mark-paid-on-delivery.
+			posH.Mount(r)
+
+			// Kitchen Display System.
+			r.Route("/kds", kdsH.Mount)
+
+			// Cash drawer sessions.
+			cashH.Mount(r)
+
+			// Tip pools.
+			tipPoolsH.Mount(r)
+
+			// Table sessions.
+			tablesH.Mount(r)
+
+			// Void / adjustment entries.
+			adjustmentsH.Mount(r)
+
+			// Promotions engine.
+			promoH.Mount(r)
+
+			// Ancillary commerce features.
+			giftcardsH.Mount(r)
+			storecreditH.Mount(r)
+			houseaccountsH.Mount(r)
+
+			// Inventory, waste, payroll, reservations, delivery zones, fiscal.
+			inventoryH.Mount(r)
+			wasteH.Mount(r)
+			payrollH.Mount(r)
+			reservationsH.Mount(r)
+			deliveryZonesH.Mount(r)
+			fiscalH.Mount(r)
+
+			// Bank accounts + payouts (optional — disabled when encryption key
+			// is absent; see startup log).
+			if bankaccountsH != nil {
+				bankaccountsH.Mount(r)
+			}
+
+			// BYO payment-provider credentials per location (/payment-credentials/*).
+			// Disabled when PAYMENT_KEY_ENCRYPTION_SECRET is unset.
+			if paymentCredsH != nil {
+				paymentCredsH.Mount(r)
+			}
+		})
 	})
 
 	// Background jobs: weekly payout runner + transfer reconciliation cron +

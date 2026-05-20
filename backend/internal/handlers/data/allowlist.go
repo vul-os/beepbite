@@ -140,7 +140,7 @@ var allTables = map[string]ops{
 	// regions is config — insert/update guarded by admin-only UI; exposing both
 	// for now. payment_provider text column on regions is set per deployment;
 	// actual gateway credentials live in env vars, not the DB.
-	"regions": {Select: true, Insert: true, Update: true},
+	"regions": {Select: true}, // global reference data — writes are service-role only (seeded via migration 014)
 
 	// Migration 27 — subscription plans + payouts
 	// subscription_plans: read-only via generic API (mutations via admin flow)
@@ -150,6 +150,11 @@ var allTables = map[string]ops{
 
 	// Migration 29 — staff pay rates (effective-dated)
 	"staff_pay_rates": {Select: true, Insert: true, Update: true, Delete: true},
+
+	// Migration 004 — modifier groups + modifiers + courses (ROADMAP Now-22)
+	"modifier_groups": {Select: true, Insert: true, Update: true, Delete: true},
+	"modifiers":       {Select: true, Insert: true, Update: true, Delete: true},
+	"courses":         {Select: true, Insert: true, Update: true, Delete: true},
 }
 
 // allRPCs names the Postgres functions the /rpc/:fn endpoint is willing to

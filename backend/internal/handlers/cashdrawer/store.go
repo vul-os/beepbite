@@ -13,6 +13,7 @@ import (
 
 // Sentinel errors bubbled up to the HTTP layer for status-code mapping.
 var (
+	ErrDrawerNotFound  = errors.New("cash drawer not found")
 	ErrSessionNotFound = errors.New("cash drawer session not found")
 	ErrSessionNotOpen  = errors.New("cash drawer session is not open")
 	ErrDrawerHasOpen   = errors.New("drawer already has an open session")
@@ -338,6 +339,36 @@ VALUES
 		return nil, err
 	}
 	return &out, nil
+}
+
+// DrawerLocationID returns the location_id for a cash drawer, or ErrDrawerNotFound.
+// Used by org-scope checks to verify cross-tenant access before any mutation.
+func (s *Store) DrawerLocationID(ctx context.Context, drawerID string) (string, error) {
+	var locID string
+	err := s.pool.QueryRow(ctx,
+		`SELECT location_id FROM cash_drawers WHERE id = $1`, drawerID,
+	).Scan(&locID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrDrawerNotFound
+	}
+	return locID, err
+}
+
+// SessionLocationID returns the location_id for a session's drawer in a single
+// join query, or ErrSessionNotFound when the session does not exist.
+// Used by org-scope checks to verify cross-tenant access before any mutation.
+func (s *Store) SessionLocationID(ctx context.Context, sessionID string) (string, error) {
+	var locID string
+	err := s.pool.QueryRow(ctx, `
+		SELECT cd.location_id
+		FROM cash_drawer_sessions cds
+		JOIN cash_drawers cd ON cd.id = cds.cash_drawer_id
+		WHERE cds.id = $1
+	`, sessionID).Scan(&locID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrSessionNotFound
+	}
+	return locID, err
 }
 
 // nullStr lets optional string fields arrive as real SQL NULL, not ''.

@@ -4,10 +4,28 @@
 //
 // Tokens are persisted to localStorage. The client auto-refreshes once on a
 // 401 and replays the original request.
+//
+// Actor token: when a staff PIN overlay is active the ActorTokenProvider keeps
+// an in-memory reference (_actorRef). Authenticated requests automatically
+// include X-Actor-Token if that ref holds a non-expired token. The import is
+// lazy (dynamic) to avoid a circular-module issue — the context file imports
+// nothing from here, but we still defer the read to call-time.
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 const STORAGE_KEY = 'bb.auth';
+
+// Singleton ref populated by ActorTokenProvider (actor-token-context.jsx).
+// Resolved once via a side-effect import so the reference is available
+// synchronously on every subsequent request. Safe to call before the import
+// settles — the header is simply omitted on the very first request in that
+// race (essentially impossible in practice since the Provider mounts before
+// any authenticated request fires).
+// Shape when set: { _token: string, _expiresAt: number, ... }
+let _actorRefSync = null;
+import('@/context/actor-token-context')
+  .then((mod) => { _actorRefSync = mod._actorRef; })
+  .catch(() => { _actorRefSync = { current: null }; });
 
 // ---- token storage ----
 
@@ -32,6 +50,37 @@ function emitAuth(event, session) {
   }
 }
 
+// ---- global missing_capability subscriber ----------------------------------
+// Components subscribe once (e.g. in a root layout useEffect) to receive a
+// toast whenever the server returns 403 { error:"missing_capability", capability:"can_xxx" }.
+let capabilityListeners = new Set();
+export function onMissingCapability(cb) {
+  capabilityListeners.add(cb);
+  return () => capabilityListeners.delete(cb);
+}
+function emitMissingCapability(capability) {
+  for (const cb of capabilityListeners) {
+    try { cb(capability); } catch (e) { console.error(e); }
+  }
+}
+
+// ---- manager-override handler ----------------------------------------------
+// Register exactly ONE async handler that receives { capability, reason } and
+// returns a one-shot manager token string (or throws/returns null to abort).
+// The api-client's request() will retry the original call with that token
+// attached as X-Actor-Token for ONE request only — the actor session is NOT
+// switched globally.
+//
+// Usage: registerManagerOverrideHandler(async ({ capability }) => {
+//   const token = await requestPin({ reason: capability, isManagerOverride: true });
+//   return token;
+// });
+let _managerOverrideHandler = null;
+export function registerManagerOverrideHandler(fn) {
+  _managerOverrideHandler = fn;
+  return () => { if (_managerOverrideHandler === fn) _managerOverrideHandler = null; };
+}
+
 // ---- low-level fetch ----
 
 async function raw(method, path, { body, headers = {}, auth = true } = {}) {
@@ -39,6 +88,12 @@ async function raw(method, path, { body, headers = {}, auth = true } = {}) {
   if (auth) {
     const a = readAuth();
     if (a?.access_token) h.Authorization = `Bearer ${a.access_token}`;
+
+    // Attach actor token from the in-memory singleton if available and valid.
+    const actorRef = _actorRefSync;
+    if (actorRef?.current?._token && actorRef.current._expiresAt > Date.now()) {
+      h['X-Actor-Token'] = actorRef.current._token;
+    }
   }
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -85,7 +140,46 @@ async function request(method, path, opts = {}) {
   }
   if (!res.ok) {
     const msg = (payload && payload.error) || res.statusText || 'request failed';
-    return { data: null, error: { message: msg, status: res.status } };
+
+    // Manager-override path: on 403 missing_capability, if a handler is
+    // registered, ask for a manager PIN and replay the request ONCE with
+    // the one-shot token attached. The actor session is NOT changed globally.
+    if (
+      res.status === 403 &&
+      payload &&
+      payload.error === 'missing_capability' &&
+      payload.capability &&
+      _managerOverrideHandler &&
+      !opts._managerOverrideAttempted // prevent infinite retry
+    ) {
+      try {
+        const oneShotToken = await _managerOverrideHandler({
+          capability: payload.capability,
+          reason: payload.capability.replace(/_/g, ' '),
+        });
+        if (oneShotToken) {
+          // Replay the request with the override token injected.
+          const overrideOpts = {
+            ...opts,
+            _managerOverrideAttempted: true,
+            headers: {
+              ...(opts.headers || {}),
+              'X-Actor-Token': oneShotToken,
+            },
+          };
+          return request(method, path, overrideOpts);
+        }
+      } catch {
+        // Handler threw (user cancelled) — fall through to normal error.
+      }
+    }
+
+    // Fire global missing_capability subscribers so any subscribed toast handler
+    // can notify the user without per-call boilerplate.
+    if (res.status === 403 && payload && payload.error === 'missing_capability' && payload.capability) {
+      emitMissingCapability(payload.capability);
+    }
+    return { data: null, error: { message: msg, status: res.status, capability: payload?.capability } };
   }
   return { data: payload, error: null };
 }

@@ -143,3 +143,48 @@ export async function transferSession(sessionId, { toTableId, openedBy, partySiz
   }
   return data;
 }
+
+// ---- Check splits -----------------------------------------------------------
+
+/**
+ * Create check_splits + check_split_items for a session (split-by-seat).
+ * Route: POST /sessions/{session_id}/split-check
+ *
+ * @param {string} sessionId
+ * @param {Array<{label: string, items: Array<{order_item_id: string, quantity: number}>}>} splits
+ * @param {string} [createdBy]
+ * @returns {Promise<{splits: CheckSplit[], items: CheckSplitItem[]}>}
+ */
+export async function splitCheck(sessionId, splits, createdBy) {
+  if (!sessionId) throw new Error('sessionId required');
+  const body = { splits, created_by: createdBy || '' };
+  const { data, error } = await api.request(
+    'POST',
+    `/sessions/${encodeURIComponent(sessionId)}/split-check`,
+    { body },
+  );
+  if (error) {
+    const e = new Error(error.message || 'Failed to split check');
+    e.status = error.status;
+    throw e;
+  }
+  return data;
+}
+
+/**
+ * List seats for a session.
+ * Route: GET /sessions/{session_id}/seats
+ */
+export async function listSeats(sessionId) {
+  if (!sessionId) return [];
+  const { data, error } = await api.request(
+    'GET',
+    `/sessions/${encodeURIComponent(sessionId)}/seats`,
+  );
+  if (error) {
+    const e = new Error(error.message || 'Failed to list seats');
+    e.status = error.status;
+    throw e;
+  }
+  return Array.isArray(data) ? data : [];
+}

@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { MovementsList } from './movements-list';
 import { CloseSessionModal } from './close-session-modal';
 import { api } from '@/lib/api-client';
+import { hasCapability } from '@/services/pos';
 import { Loader2, LockKeyhole, PlusCircle, Wallet } from 'lucide-react';
 
 // Movement types with inflow/outflow sign convention
@@ -45,6 +46,8 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
   const [movLoading, setMovLoading] = useState(false);
   const [movError, setMovError] = useState(null);
   const [closeOpen, setCloseOpen] = useState(false);
+
+  const canSettle = hasCapability('can_settle');
 
   // Compute expected balance from movements when server hasn't closed yet
   const movements = session.movements || [];
@@ -104,15 +107,17 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
               Open
             </Badge>
           </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setCloseOpen(true)}
-            className="shrink-0"
-          >
-            <LockKeyhole className="mr-1.5 h-4 w-4" />
-            Close Session
-          </Button>
+          {canSettle && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setCloseOpen(true)}
+              className="shrink-0"
+            >
+              <LockKeyhole className="mr-1.5 h-4 w-4" />
+              Close Session
+            </Button>
+          )}
         </CardHeader>
 
         <CardContent className="space-y-6">

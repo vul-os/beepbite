@@ -28,6 +28,7 @@ import POSSection from './components/pos-section';
 import OrderModals from './components/order-modal';
 import OpenRegisterModal from './components/open-register-modal';
 import ReturnModal from './components/return-modal';
+import OnboardingChecklist from './components/onboarding-checklist';
 import { cn } from '@/lib/utils';
 import {
   getOpenSession,
@@ -41,6 +42,8 @@ import {
 
 const Home = () => {
   const { activeOrganization, activeLocation } = useAuth();
+  // Derive the display currency from the active organisation (falls back to USD).
+  const orgCurrency = activeOrganization?.default_currency_code || activeOrganization?.currency_code || activeOrganization?.currency || 'USD';
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -131,7 +134,7 @@ const Home = () => {
     try {
       let statusFilter;
       if (orderStatusFilter === 'active') {
-        statusFilter = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
+        statusFilter = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'pending_on_delivery'];
       } else if (orderStatusFilter === 'inactive') {
         statusFilter = ['delivered', 'completed', 'cancelled'];
       } else {
@@ -531,6 +534,7 @@ const Home = () => {
       case 'preparing': return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'ready': return 'bg-green-100 text-green-800 border-green-200';
       case 'out_for_delivery': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'pending_on_delivery': return 'bg-amber-100 text-amber-800 border-amber-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -555,7 +559,8 @@ const Home = () => {
       'out_for_delivery': 'Out for Delivery',
       'delivered': 'Delivered',
       'completed': 'Completed',
-      'cancelled': 'Cancelled'
+      'cancelled': 'Cancelled',
+      'pending_on_delivery': 'Awaiting Payment'
     };
     return labels[status] || status;
   };
@@ -871,13 +876,21 @@ const Home = () => {
     );
   }
 
+  // No location yet — show the onboarding checklist instead of a dead-end message.
+  // The checklist includes an "Add location" action that, on success, triggers
+  // fetchLocations() in the auth context. Once locations load, activeLocation
+  // becomes non-null and the normal POS renders automatically.
   if (!activeLocation) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-orange-50 to-orange-100">
-        <AlertCircle className="w-16 h-16 text-orange-400 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Location Available</h2>
-        <p className="text-gray-600">This organization has no locations configured.</p>
-      </div>
+      <OnboardingChecklist
+        onComplete={() => {
+          // This callback is called from the "Open POS" step once all
+          // prerequisites are met. By the time it fires, activeLocation
+          // will already be set (locations were fetched post-add), so
+          // the component will have re-rendered into the POS view.
+          // Nothing extra needed here.
+        }}
+      />
     );
   }
 
@@ -1008,6 +1021,7 @@ const Home = () => {
               placingOrder={placingOrder}
               placeOrderError={placeOrderError}
               lastPlacedOrderNumber={lastPlacedOrderNumber}
+              currency={orgCurrency}
             />
           </TabsContent>
         </Tabs>
@@ -1044,6 +1058,7 @@ const Home = () => {
           loadingItems={loadingItems}
           isOrdersExpanded={isOrdersExpanded}
           addToCart={addToCart}
+          currency={orgCurrency}
         />
       </div>
 

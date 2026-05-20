@@ -4,19 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
+	"github.com/beepbite/backend/internal/locations"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Sentinel errors returned by Store and mapped to HTTP status codes by Handler.
 var (
-	ErrLocationNotFound      = errors.New("location not found")
-	ErrItemNotFound          = errors.New("one or more items not found")
-	ErrBadVariation          = errors.New("one or more variation option IDs are invalid")
-	ErrOrderNotFound         = errors.New("order not found")
-	ErrOrderAlreadyPaid      = errors.New("order already paid")
-	ErrPaymentMethodNotFound = errors.New("payment method not found")
+	ErrLocationNotFound         = errors.New("location not found")
+	ErrItemNotFound             = errors.New("one or more items not found")
+	ErrBadVariation             = errors.New("one or more variation option IDs are invalid")
+	ErrOrderNotFound            = errors.New("order not found")
+	ErrOrderAlreadyPaid         = errors.New("order already paid")
+	ErrPaymentMethodNotFound    = errors.New("payment method not found")
+	ErrNoPaymentMethodAvailable = errors.New("no payment method available")
 )
 
 // Store holds the pgx pool for POS order operations.
@@ -45,12 +48,17 @@ type OrderLineInput struct {
 
 // CreatedOrder is the response returned after successfully creating an order.
 type CreatedOrder struct {
-	OrderID      string   `json:"order_id"`
-	OrderNumber  string   `json:"order_number"`
-	Subtotal     float64  `json:"subtotal"`
-	Tax          float64  `json:"tax"`
-	Total        float64  `json:"total"`
-	KDSTicketIDs []string `json:"kds_ticket_ids"`
+	OrderID       string   `json:"order_id"`
+	OrderNumber   string   `json:"order_number"`
+	Subtotal      float64  `json:"subtotal"`
+	Tax           float64  `json:"tax"`
+	Total         float64  `json:"total"`
+	CurrencyCode  string   `json:"currency_code"`
+	KDSTicketIDs  []string `json:"kds_ticket_ids"`
+	// Status reflects the on-delivery fallback: "pending_on_delivery" when
+	// payment is deferred to handover; "confirmed" for the normal path.
+	Status        string   `json:"status"`
+	PaymentMethod string   `json:"payment_method"`
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +70,12 @@ type CreatedOrder struct {
 //
 // orderType must be a value accepted by the orders.order_type_check constraint:
 // 'delivery', 'pickup', 'dine_in'. The handler translates 'takeaway' → 'pickup'.
+//
+// onDeliveryMethod is the customer-selected on-delivery tender ("cash" or
+// "card_machine"). Ignored unless the fallback path is triggered (no active
+// online payment credential). When the fallback is triggered:
+//   - If locations.on_delivery_payment_methods is empty → ErrNoPaymentMethodAvailable.
+//   - Otherwise (delivery order) → status='pending_on_delivery', payment_method set.
 func (s *Store) CreateOrder(
 	ctx context.Context,
 	locationID string,
@@ -71,6 +85,7 @@ func (s *Store) CreateOrder(
 	registerSessionID string,
 	customerID string,
 	lines []OrderLineInput,
+	onDeliveryMethod string,
 ) (*CreatedOrder, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -78,15 +93,50 @@ func (s *Store) CreateOrder(
 	}
 	defer tx.Rollback(ctx)
 
-	// --- 1. Verify location exists ---
+	// --- 1. Verify location exists and resolve on-delivery fallback ---
 	var locationExists bool
+	var onDeliveryMethods []string
 	if err := tx.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM locations WHERE id = $1)`, locationID,
-	).Scan(&locationExists); err != nil {
+		`SELECT EXISTS(SELECT 1 FROM locations WHERE id = $1),
+		        (SELECT on_delivery_payment_methods FROM locations WHERE id = $1)`,
+		locationID,
+	).Scan(&locationExists, &onDeliveryMethods); err != nil {
 		return nil, err
 	}
 	if !locationExists {
 		return nil, ErrLocationNotFound
+	}
+
+	// --- 1b. Determine initial order status and payment method ---
+	// Check whether an active online payment credential exists for this location.
+	initialStatus := "confirmed"
+	initialPaymentMethod := "cash"
+
+	var hasActiveCredential bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM location_payment_credentials WHERE location_id = $1 AND is_active = true)`,
+		locationID,
+	).Scan(&hasActiveCredential); err != nil {
+		return nil, err
+	}
+
+	if !hasActiveCredential {
+		// Fallback to on-delivery payment if the location supports it.
+		if len(onDeliveryMethods) == 0 {
+			return nil, ErrNoPaymentMethodAvailable
+		}
+		// Delivery orders with on-delivery fallback are pending payment at handover.
+		if orderType == "delivery" {
+			initialStatus = "pending_on_delivery"
+			// Map the customer-selected tender to a payment_method_code.
+			switch onDeliveryMethod {
+			case "card_machine":
+				initialPaymentMethod = "card_on_delivery"
+			default:
+				// Default to cash on delivery when not specified or "cash".
+				initialPaymentMethod = "cash_on_delivery"
+			}
+		}
 	}
 
 	// --- 2. Resolve item prices and validate items exist ---
@@ -147,9 +197,18 @@ func (s *Store) CreateOrder(
 		}
 		subtotal += unitPrice * float64(line.Quantity)
 	}
-	const taxRate = 15.0
+	taxRate, err := TaxRateFor(ctx, s.pool, locationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolving tax rate: %w", err)
+	}
 	taxAmount := subtotal * (taxRate / 100.0)
 	total := subtotal + taxAmount
+
+	// Resolve per-store currency (with 5-min cache).
+	cur, err := locations.CurrencyFor(ctx, s.pool, locationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolving currency: %w", err)
+	}
 
 	// --- 5. Generate sequential order_number per location ---
 	// Uses MAX over today's orders as a lightweight sequence; good enough for a
@@ -173,10 +232,10 @@ func (s *Store) CreateOrder(
 	// --- 6. Insert order ---
 	var orderID string
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO orders (location_id, customer_id, order_number, order_type, status, table_session_id)
-		VALUES ($1, $2, $3, $4, 'confirmed', $5)
+		INSERT INTO orders (location_id, customer_id, order_number, order_type, status, table_session_id, currency_code)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
-	`, locationID, nullStr(customerID), orderNumber, orderType, nullStr(tableSessionID),
+	`, locationID, nullStr(customerID), orderNumber, orderType, initialStatus, nullStr(tableSessionID), cur.Code,
 	).Scan(&orderID); err != nil {
 		return nil, err
 	}
@@ -199,8 +258,8 @@ func (s *Store) CreateOrder(
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO order_financial_details
 		    (order_id, subtotal, delivery_fee, total_amount, tax_rate, tax_amount, tax_inclusive, payment_status, payment_method)
-		VALUES ($1, $2, 0, $3, $4, $5, false, 'pending', 'cash')
-	`, orderID, subtotal, total, taxRate, taxAmount); err != nil {
+		VALUES ($1, $2, 0, $3, $4, $5, false, 'pending', $6)
+	`, orderID, subtotal, total, taxRate, taxAmount, initialPaymentMethod); err != nil {
 		return nil, err
 	}
 
@@ -245,9 +304,17 @@ func (s *Store) CreateOrder(
 	// keeping it all in one tx ensures atomicity.
 	kdsTicketIDs, err := fanoutInsideTx(ctx, tx, orderID)
 	if err != nil {
-		// Non-fatal: KDS fanout job will pick this up within seconds.
-		// Log and continue rather than rolling back the entire order.
-		_ = err
+		// Non-fatal: order is committed; enqueue for the KDS fanout job so the
+		// kitchen is never silently missed. Capture the original error so ops
+		// can inspect it via kds_fanout_queue.error_message.
+		if _, qErr := tx.Exec(ctx, `
+			INSERT INTO kds_fanout_queue (order_id, error_message, retry_count, state)
+			VALUES ($1, $2, 0, 'pending')
+			ON CONFLICT (order_id) DO NOTHING
+		`, orderID, err.Error()); qErr != nil {
+			// Last-resort: log both errors so nothing is silently swallowed.
+			log.Printf("pos: fanout failed (%v) AND enqueue failed (%v) for order=%s — kitchen may miss this order", err, qErr, orderID)
+		}
 		kdsTicketIDs = []string{}
 	}
 
@@ -256,12 +323,15 @@ func (s *Store) CreateOrder(
 	}
 
 	return &CreatedOrder{
-		OrderID:      orderID,
-		OrderNumber:  orderNumber,
-		Subtotal:     subtotal,
-		Tax:          taxAmount,
-		Total:        total,
-		KDSTicketIDs: kdsTicketIDs,
+		OrderID:       orderID,
+		OrderNumber:   orderNumber,
+		Subtotal:      subtotal,
+		Tax:           taxAmount,
+		Total:         total,
+		CurrencyCode:  cur.Code,
+		KDSTicketIDs:  kdsTicketIDs,
+		Status:        initialStatus,
+		PaymentMethod: initialPaymentMethod,
 	}, nil
 }
 
@@ -367,6 +437,33 @@ func fanoutInsideTx(ctx context.Context, tx pgx.Tx, orderID string) ([]string, e
 	}
 
 	return ticketIDs, nil
+}
+
+// GetOrderLocationID returns the location_id for the given order.
+// Returns ErrOrderNotFound when no order with that ID exists.
+func (s *Store) GetOrderLocationID(ctx context.Context, orderID string) (string, error) {
+	var locID string
+	err := s.pool.QueryRow(ctx,
+		`SELECT location_id FROM orders WHERE id = $1`, orderID,
+	).Scan(&locID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrOrderNotFound
+	}
+	return locID, err
+}
+
+// GetTableSessionLocationID returns the location_id for the given table session.
+// Returns ErrOrderNotFound when no session with that ID exists (avoids leaking
+// existence of a foreign session via a distinct sentinel).
+func (s *Store) GetTableSessionLocationID(ctx context.Context, sessionID string) (string, error) {
+	var locID string
+	err := s.pool.QueryRow(ctx,
+		`SELECT location_id FROM table_sessions WHERE id = $1`, sessionID,
+	).Scan(&locID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrOrderNotFound
+	}
+	return locID, err
 }
 
 // nullStr converts an empty string to nil so optional DB columns receive NULL.

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { hasCapability } from '@/services/pos';
 import { 
   Settings, 
   LogOut, 
@@ -150,7 +151,8 @@ const TopBar = () => {
           name: 'Reports',
           path: '/reports',
           icon: BarChart3,
-          description: 'Sales analytics'
+          description: 'Sales analytics',
+          capability: 'can_view_reports',
         },
         {
           name: 'Menu',
@@ -415,10 +417,10 @@ const TopBar = () => {
                         {section.title}
                       </h3>
                       <div className="space-y-1">
-                        {section.items.map((item) => {
+                        {section.items.filter((item) => !item.capability || hasCapability(item.capability)).map((item) => {
                           const Icon = item.icon;
                           const isActive = isActivePath(item.path);
-                          
+
                           return (
                             <Link
                               key={item.path}

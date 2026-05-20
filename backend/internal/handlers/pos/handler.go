@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/auth"
 )
 
 // Handler wires together the Store and HTTP routing.
@@ -26,6 +28,9 @@ func (h *Handler) Mount(r chi.Router) {
 		r.Post("/orders", h.createOrder)
 		r.Post("/orders/{order_id}/charge", h.charge)
 	})
+	// Mark-paid-on-delivery lives at /orders/:id/mark-paid-on-delivery so that
+	// it is accessible without the /pos prefix (shared with marketplace orders).
+	r.Post("/orders/{order_id}/mark-paid-on-delivery", h.markPaidOnDelivery)
 }
 
 // ---------------------------------------------------------------------------
@@ -40,6 +45,10 @@ type createOrderReq struct {
 	RegisterSessionID string           `json:"register_session_id"`
 	CustomerID        string           `json:"customer_id"`
 	Items             []OrderLineInput `json:"items"`
+	// OnDeliveryMethod is required when the order is a delivery and no active
+	// online payment credential exists for the location.
+	// Accepted values: "cash" | "card_machine".
+	OnDeliveryMethod string `json:"on_delivery_method"`
 }
 
 // ---------------------------------------------------------------------------
@@ -74,6 +83,31 @@ func (h *Handler) createOrder(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Org-scope check: verify the caller has access to the requested location.
+	scope := auth.OrgScopeFrom(r.Context())
+	if !scope.AllowsLocation(req.LocationID) {
+		writeErr(w, http.StatusNotFound, "location not found")
+		return
+	}
+
+	// Org-scope check: if a table_session_id is supplied, verify it belongs to a
+	// location in the caller's scope (prevents cross-tenant session hijacking).
+	if req.TableSessionID != "" {
+		sessLocID, err := h.store.GetTableSessionLocationID(r.Context(), req.TableSessionID)
+		switch {
+		case errors.Is(err, ErrOrderNotFound):
+			writeErr(w, http.StatusNotFound, "table_session not found")
+			return
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !scope.AllowsLocation(sessLocID) {
+			writeErr(w, http.StatusNotFound, "table_session not found")
+			return
+		}
+	}
+
 	// Map request order_type to DB constraint values.
 	dbOrderType, ok := mapOrderType(req.OrderType)
 	if !ok {
@@ -90,6 +124,7 @@ func (h *Handler) createOrder(w http.ResponseWriter, r *http.Request) {
 		req.RegisterSessionID,
 		req.CustomerID,
 		req.Items,
+		req.OnDeliveryMethod,
 	)
 	switch {
 	case errors.Is(err, ErrLocationNotFound):
@@ -100,6 +135,9 @@ func (h *Handler) createOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, ErrBadVariation):
 		writeErr(w, http.StatusBadRequest, "one or more variation_option_ids are invalid")
+		return
+	case errors.Is(err, ErrNoPaymentMethodAvailable):
+		writeErr(w, http.StatusUnprocessableEntity, "no payment method available — store cannot accept orders right now")
 		return
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err.Error())

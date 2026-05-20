@@ -17,6 +17,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/auth"
 )
 
 // Handler holds the store and mounts routes.
@@ -31,12 +33,20 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 
 // Mount wires all /payroll sub-routes onto r. Callers should mount this under
 // a group that already applies auth middleware.
+//
+// Capability gates:
+//   - GET  /payroll/* → can_view_reports  (read access to rates + export)
+//   - POST /payroll/* → can_manage_payroll (creating / mutating rates)
+//   - PATCH /payroll/* → can_manage_payroll
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/payroll", func(r chi.Router) {
-		r.Get("/staff/{staff_id}/rates", h.listRates)
-		r.Post("/staff/{staff_id}/rates", h.createRate)
-		r.Patch("/rates/{rate_id}", h.patchRate)
-		r.Get("/export", h.exportPayroll)
+		// Read-only endpoints: requires can_view_reports.
+		r.With(auth.RequireCapability("can_view_reports")).Get("/staff/{staff_id}/rates", h.listRates)
+		r.With(auth.RequireCapability("can_view_reports")).Get("/export", h.exportPayroll)
+
+		// Mutating endpoints: requires can_manage_payroll.
+		r.With(auth.RequireCapability("can_manage_payroll")).Post("/staff/{staff_id}/rates", h.createRate)
+		r.With(auth.RequireCapability("can_manage_payroll")).Patch("/rates/{rate_id}", h.patchRate)
 	})
 }
 

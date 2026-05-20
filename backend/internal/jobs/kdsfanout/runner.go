@@ -58,9 +58,13 @@ func (r *Runner) Start(ctx context.Context) {
 	}()
 }
 
-// RunOnce processes up to batchSize unprocessed rows from kds_fanout_queue.
-// For each row it calls kds.Store.FanoutOrder; on success it marks the row
-// processed, on error it records the error message and continues.
+// RunOnce processes up to batchSize pending rows from kds_fanout_queue
+// (state='pending' AND retry_count < maxRetries).
+//
+// On fanout success  → DELETE the row (order is fully routed).
+// On fanout failure  → increment retry_count; if retry_count reaches maxRetries
+//                      set state='dead' and emit a single error log.
+// Dead rows are never selected again, so log spam is bounded to one line.
 func (r *Runner) RunOnce(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -78,10 +82,14 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 
 		_, fanErr := r.kdsStore.FanoutOrder(ctx, row.OrderID)
 		if fanErr != nil {
-			log.Printf("kdsfanout: FanoutOrder order=%s queue=%s: %v", row.OrderID, row.ID, fanErr)
-			// Record the error but do not mark processed — we will retry next tick.
-			if mErr := markError(ctx, r.db, row.ID, fanErr.Error()); mErr != nil {
-				log.Printf("kdsfanout: markError queue=%s: %v", row.ID, mErr)
+			dead, mErr := markRetry(ctx, r.db, row.ID, fanErr.Error(), row.RetryCount)
+			if mErr != nil {
+				log.Printf("kdsfanout: markRetry queue=%s: %v", row.ID, mErr)
+			}
+			// Log only when the row transitions to dead — avoids per-retry spam.
+			if dead {
+				log.Printf("kdsfanout: order=%s queue=%s dead after %d retries; last error: %v",
+					row.OrderID, row.ID, maxRetries, fanErr)
 			}
 			continue
 		}

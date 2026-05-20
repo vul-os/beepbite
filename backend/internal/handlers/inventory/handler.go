@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/beepbite/backend/internal/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -25,18 +26,14 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 // Mount registers all inventory routes on r.
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/inventory", func(r chi.Router) {
-		// GRN receive
-		r.Post("/goods-receipts/{grn_id}/receive", h.receiveGRN)
+		// Read-only endpoints — requires can_view_inventory.
+		r.With(auth.RequireCapability("can_view_inventory")).Get("/auto-po-suggestions", h.autoPOSuggestions)
 
-		// 3-way match
-		r.Post("/supplier-invoices/{invoice_id}/match", h.matchInvoice)
-
-		// Auto-PO suggestions (read-only, no side effects)
-		r.Get("/auto-po-suggestions", h.autoPOSuggestions)
-
-		// Purchase orders
-		r.Post("/purchase-orders", h.createPO)
-		r.Post("/purchase-orders/{po_id}/submit", h.submitPO)
+		// Write endpoints — requires can_manage_inventory.
+		r.With(auth.RequireCapability("can_manage_inventory")).Post("/goods-receipts/{grn_id}/receive", h.receiveGRN)
+		r.With(auth.RequireCapability("can_manage_inventory")).Post("/supplier-invoices/{invoice_id}/match", h.matchInvoice)
+		r.With(auth.RequireCapability("can_manage_inventory")).Post("/purchase-orders", h.createPO)
+		r.With(auth.RequireCapability("can_manage_inventory")).Post("/purchase-orders/{po_id}/submit", h.submitPO)
 	})
 }
 

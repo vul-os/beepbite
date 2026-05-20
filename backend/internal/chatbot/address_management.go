@@ -192,8 +192,8 @@ func (s *Service) handleAddressAdd(ctx context.Context, chatID, customerID, mess
 		return formatLocationSuggestions(suggestions)
 	}
 
-	// Geocoding (stubbed — returns error, matching TS fallback behavior)
-	geo := geocodeAddress(input)
+	// Geocode the typed address via Mapbox (falls back to stub when no client).
+	geo := s.geocodeAddress(input)
 	if geo.Success && geo.Coordinates != nil {
 		res := s.addCustomerAddress(ctx, customerID, geo.Address, geo.Coordinates.Latitude, geo.Coordinates.Longitude, false)
 		if res.Success && res.Address != nil {
@@ -211,8 +211,8 @@ func (s *Service) handleAddressAdd(ctx context.Context, chatID, customerID, mess
 
 func (s *Service) getNearbyAddressSuggestions(ctx context.Context, latitude, longitude float64) []string {
 	_ = ctx
-	// Reverse geocoding is stubbed — provide fallback suggestions to preserve flow.
-	rev := reverseGeocode(latitude, longitude)
+	// Reverse geocode via Mapbox (falls back to stub when no client).
+	rev := s.reverseGeocode(latitude, longitude)
 	if rev.Success && rev.Address != "" {
 		base := rev.Address
 		suggestions := []string{

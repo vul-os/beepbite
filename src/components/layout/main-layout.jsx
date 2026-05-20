@@ -1,11 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import TopBar from '../nav/top-bar';
+import { onMissingCapability } from '@/lib/api-client';
+import { useToast } from '@/hooks/use-toast';
 
 const MainLayout = () => {
   const isMobile = useMediaQuery({ maxWidth: 640 });
   const location = useLocation();
+  const { toast } = useToast();
+
+  // Global handler: whenever the server returns 403 missing_capability, show a toast.
+  useEffect(() => {
+    const unsub = onMissingCapability((capability) => {
+      toast({
+        variant: 'destructive',
+        title: 'Permission required',
+        description: `You need the ${capability} permission. Ask a manager.`,
+      });
+    });
+    return unsub;
+  }, [toast]);
   const isLandingPage = location.pathname === '/';
   const isDocsPage = location.pathname === '/docs' || location.pathname.startsWith('/docs/');
   const isFullBleed = isLandingPage || isDocsPage;

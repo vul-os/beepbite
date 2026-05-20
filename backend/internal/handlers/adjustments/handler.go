@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/auth"
 )
 
 // Handler wires together the store and the chi routes.
@@ -25,13 +27,22 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 // Callers should nest this under their /orders group:
 //
 //	r.Mount("/orders", adjustments.NewHandler(pool).Mount)
+//
+// Capability gates (enforced before the handler executes):
+//   - void    → can_void
+//   - refund  → can_refund
+//   - comp    → can_comp
+//   - price-override → can_comp  (manager price override is treated as a comp
+//     action per the existing convention that a manager override == a discount
+//     authorisation; keeping a single "can_comp" gate avoids capability sprawl)
 func (h *Handler) Mount(r chi.Router) {
-	r.Post("/{order_id}/void", h.voidOrder)
-	r.Post("/{order_id}/refund", h.refundOrder)
+	r.With(auth.RequireCapability("can_void")).Post("/{order_id}/void", h.voidOrder)
+	r.With(auth.RequireCapability("can_refund")).Post("/{order_id}/refund", h.refundOrder)
 	r.Get("/{order_id}/adjustments", h.listAdjustments)
 
-	r.Post("/{order_id}/items/{item_id}/comp", h.compItem)
-	r.Post("/{order_id}/items/{item_id}/price-override", h.priceOverride)
+	r.With(auth.RequireCapability("can_comp")).Post("/{order_id}/items/{item_id}/comp", h.compItem)
+	// price-override is a manager discount/override action; guarded by can_comp.
+	r.With(auth.RequireCapability("can_comp")).Post("/{order_id}/items/{item_id}/price-override", h.priceOverride)
 }
 
 // --- request DTOs ---
@@ -46,6 +57,29 @@ type baseAdjReq struct {
 type priceOverrideReq struct {
 	baseAdjReq
 	NewPriceCents int64 `json:"new_price_cents"`
+}
+
+// --- Org-scope helper ---
+
+// checkOrderScope fetches the order's location_id and verifies the caller's
+// OrgScope allows access. Returns true and writes a 404 on mismatch so callers
+// can bail with a single `if !ok { return }`.
+func (h *Handler) checkOrderScope(w http.ResponseWriter, r *http.Request, orderID string) bool {
+	scope := auth.OrgScopeFrom(r.Context())
+	locID, err := h.store.GetOrderLocationID(r.Context(), orderID)
+	switch {
+	case errors.Is(err, ErrOrderNotFound):
+		writeErr(w, http.StatusNotFound, "order not found")
+		return false
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if !scope.AllowsLocation(locID) {
+		writeErr(w, http.StatusNotFound, "order not found")
+		return false
+	}
+	return true
 }
 
 // --- PIN helper used by every mutating handler ---
@@ -102,6 +136,10 @@ func (h *Handler) voidOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.checkOrderScope(w, r, orderID) {
+		return
+	}
+
 	var req baseAdjReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -137,6 +175,10 @@ func (h *Handler) compItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.checkOrderScope(w, r, orderID) {
+		return
+	}
+
 	var req baseAdjReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -167,6 +209,10 @@ func (h *Handler) priceOverride(w http.ResponseWriter, r *http.Request) {
 	itemID := chi.URLParam(r, "item_id")
 	if orderID == "" || itemID == "" {
 		writeErr(w, http.StatusBadRequest, "order_id and item_id required")
+		return
+	}
+
+	if !h.checkOrderScope(w, r, orderID) {
 		return
 	}
 
@@ -209,6 +255,10 @@ func (h *Handler) refundOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.checkOrderScope(w, r, orderID) {
+		return
+	}
+
 	var req baseAdjReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -236,6 +286,10 @@ func (h *Handler) listAdjustments(w http.ResponseWriter, r *http.Request) {
 	orderID := chi.URLParam(r, "order_id")
 	if orderID == "" {
 		writeErr(w, http.StatusBadRequest, "order_id required")
+		return
+	}
+
+	if !h.checkOrderScope(w, r, orderID) {
 		return
 	}
 

@@ -1,0 +1,452 @@
+// courses.jsx — CRUD UI for kitchen fire courses at the active location.
+//
+// Lives at /menu/courses (accessible from the main-layout app shell).
+// Uses the generic REST data layer via `api.from('courses')`.
+//
+// Columns: id, location_id, name, sort_order, is_active,
+//          fire_on_previous_course_bumped, created_at, updated_at.
+//
+// RLS on the `courses` table is location→org scoped so only members of the
+// owning org can read / write.
+
+/* eslint-disable react/prop-types */
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  ChefHat,
+  Plus,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  Loader2,
+  ToggleRight,
+  ToggleLeft,
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+import { useAuth } from '@/context/auth-context';
+import { api } from '@/lib/api-client';
+import { useToast } from '@/hooks/use-toast';
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
+function useCourses(locationId) {
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetch = useCallback(async () => {
+    if (!locationId) { setCourses([]); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: err } = await api
+        .from('courses')
+        .select('*')
+        .eq('location_id', locationId)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (err) throw new Error(err.message);
+      setCourses(data || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [locationId]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const create = useCallback(async (body) => {
+    const { data, error: err } = await api.from('courses').insert(body);
+    if (err) throw new Error(err.message);
+    await fetch();
+    return data;
+  }, [fetch]);
+
+  const update = useCallback(async (id, body) => {
+    const { data, error: err } = await api
+      .from('courses').update(body).eq('id', id);
+    if (err) throw new Error(err.message);
+    await fetch();
+    return data;
+  }, [fetch]);
+
+  const remove = useCallback(async (id) => {
+    const { error: err } = await api.from('courses').delete().eq('id', id);
+    if (err) throw new Error(err.message);
+    await fetch();
+  }, [fetch]);
+
+  return { courses, loading, error, refresh: fetch, create, update, remove };
+}
+
+// ---------------------------------------------------------------------------
+// Form dialog
+// ---------------------------------------------------------------------------
+
+const EMPTY_FORM = {
+  name: '',
+  sort_order: 0,
+  fire_on_previous_course_bumped: false,
+  is_active: true,
+};
+
+function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }) {
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  useEffect(() => {
+    if (open) setForm(initial ? { ...initial } : EMPTY_FORM);
+  }, [open, initial]);
+
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    onSubmit({
+      name: form.name.trim(),
+      sort_order: parseInt(form.sort_order, 10) || 0,
+      fire_on_previous_course_bumped: Boolean(form.fire_on_previous_course_bumped),
+      is_active: Boolean(form.is_active),
+    });
+  };
+
+  const isEdit = Boolean(initial?.id);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit course' : 'New course'}</DialogTitle>
+          <DialogDescription>
+            Courses let you group and fire kitchen tickets in stages (Starter → Main → Dessert).
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Name</label>
+            <Input
+              value={form.name}
+              onChange={(e) => set('name', e.target.value)}
+              placeholder="e.g. Starter, Main, Dessert"
+              required
+              autoFocus
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Sort order</label>
+            <Input
+              type="number"
+              value={form.sort_order}
+              onChange={(e) => set('sort_order', e.target.value)}
+              min={0}
+              className="w-24"
+            />
+            <p className="text-xs text-gray-400">
+              Lower numbers fire first. Starter = 1, Main = 2, Dessert = 3.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Auto-fire when previous course is bumped</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                When the preceding course is marked done on the KDS, this course fires automatically.
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(form.fire_on_previous_course_bumped)}
+              onCheckedChange={(v) => set('fire_on_previous_course_bumped', v)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Active</p>
+              <p className="text-xs text-gray-400 mt-0.5">Inactive courses are hidden in the POS.</p>
+            </div>
+            <Switch
+              checked={Boolean(form.is_active)}
+              onCheckedChange={(v) => set('is_active', v)}
+            />
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitting || !form.name.trim()}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Saving…</>
+              ) : (
+                isEdit ? 'Save changes' : 'Create course'
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default function CoursesPage() {
+  const { activeLocation } = useAuth();
+  const { toast } = useToast();
+  const locationId = activeLocation?.id || null;
+
+  const { courses, loading, error, create, update, remove } = useCourses(locationId);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);   // course row | null
+  const [submitting, setSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // course row | null
+
+  const openCreate = () => { setEditTarget(null); setFormOpen(true); };
+  const openEdit = (c) => { setEditTarget(c); setFormOpen(true); };
+
+  const handleSubmit = async (values) => {
+    setSubmitting(true);
+    try {
+      if (editTarget) {
+        await update(editTarget.id, values);
+        toast({ title: 'Course updated' });
+      } else {
+        await create({ ...values, location_id: locationId });
+        toast({ title: 'Course created' });
+      }
+      setFormOpen(false);
+      setEditTarget(null);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Save failed', description: e.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await remove(deleteTarget.id);
+      toast({ title: `"${deleteTarget.name}" deleted` });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: e.message });
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleToggleActive = async (c) => {
+    try {
+      await update(c.id, { is_active: !c.is_active });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Update failed', description: e.message });
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-3xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow">
+            <ChefHat className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Courses</h1>
+            <p className="text-sm text-gray-500">
+              Manage kitchen fire courses for {activeLocation?.name || 'this location'}.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={openCreate}
+          disabled={!locationId}
+          className="bg-orange-500 hover:bg-orange-600 text-white"
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Add course
+        </Button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {!locationId && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Select a location first.
+        </div>
+      )}
+
+      {/* Table */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-gray-400">
+          <Loader2 className="w-6 h-6 animate-spin mr-2" />
+          Loading courses…
+        </div>
+      ) : courses.length === 0 && locationId ? (
+        <div className="text-center py-16 text-gray-400">
+          <ChefHat className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="text-sm font-medium">No courses yet</p>
+          <p className="text-xs mt-1">Add Starter, Main and Dessert to enable staged kitchen firing.</p>
+          <Button onClick={openCreate} variant="outline" className="mt-4 border-orange-200 text-orange-700">
+            <Plus className="w-4 h-4 mr-1.5" /> Add first course
+          </Button>
+        </div>
+      ) : courses.length > 0 ? (
+        <div className="rounded-xl border border-gray-200 overflow-hidden">
+          <Table>
+            <TableHeader className="bg-gray-50">
+              <TableRow>
+                <TableHead className="w-10 text-center">#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="text-center">Auto-fire</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="w-24" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {courses.map((c) => (
+                <TableRow key={c.id} className="hover:bg-orange-50/30">
+                  <TableCell className="text-center text-sm text-gray-500 tabular-nums font-medium">
+                    {c.sort_order}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm font-semibold text-gray-900">{c.name}</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {c.fire_on_previous_course_bumped ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                        <ToggleRight className="w-3.5 h-3.5" /> Yes
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                        <ToggleLeft className="w-3.5 h-3.5" /> No
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(c)}
+                      className="focus:outline-none"
+                      title={c.is_active ? 'Click to deactivate' : 'Click to activate'}
+                    >
+                      {c.is_active ? (
+                        <Badge className="bg-green-100 text-green-800 border-green-200 cursor-pointer hover:bg-green-200" variant="outline">
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="cursor-pointer hover:bg-gray-200">
+                          Inactive
+                        </Badge>
+                      )}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1 justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEdit(c)}
+                        className="h-7 w-7 p-0 text-gray-500 hover:text-orange-600"
+                        title="Edit"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDeleteTarget(c)}
+                        className="h-7 w-7 p-0 text-gray-500 hover:text-red-600"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
+
+      {/* Form dialog */}
+      <CourseFormDialog
+        open={formOpen}
+        onClose={() => { setFormOpen(false); setEditTarget(null); }}
+        onSubmit={handleSubmit}
+        initial={editTarget}
+        submitting={submitting}
+      />
+
+      {/* Delete confirm */}
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &quot;{deleteTarget?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the course. Order items already assigned to it will retain
+              their <code className="text-xs bg-gray-100 px-1 rounded">course_number</code> for back-compat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

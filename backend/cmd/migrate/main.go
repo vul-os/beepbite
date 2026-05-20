@@ -1,4 +1,4 @@
-// Command migrate applies Supabase-style numbered SQL migrations.
+// Command migrate applies numbered SQL migrations from backend/migrations/.
 //
 // Usage:
 //
@@ -8,9 +8,10 @@
 //	go run ./cmd/migrate --env=local --reset    # drops schema + re-applies everything
 //	go run ./cmd/migrate --env=local --down     # drops schema (no --up after)
 //
-// Migrations live in backend/migrations/ and are named
-// YYYYMMDDHHMMSS_<name>.sql (Supabase-style). Applied versions are tracked in
-// the schema_migrations table.
+// Migrations are named NNN_<name>.sql (e.g. 001_extensions_and_helpers.sql).
+// Files in the legacy/ subdirectory are intentionally skipped — they are the
+// pre-consolidation 46-migration history archived by T0.C.3 and must not be
+// re-applied. Applied versions are tracked in the schema_migrations table.
 package main
 
 import (
@@ -30,7 +31,10 @@ import (
 	"github.com/beepbite/backend/internal/config"
 )
 
-var migrationFile = regexp.MustCompile(`^(\d{14})_([a-z0-9_]+)\.sql$`)
+// migrationFile matches consolidated migration filenames: NNN_name.sql
+// where NNN is one or more digits. The legacy/ subdirectory uses a
+// YYYYMMDDHHMMSS prefix and is excluded at the directory-entry level below.
+var migrationFile = regexp.MustCompile(`^(\d{3,})_([a-z0-9_]+)\.sql$`)
 
 type migration struct {
 	version string
@@ -152,6 +156,8 @@ func loadMigrations(dir string) ([]migration, error) {
 	}
 	var out []migration
 	for _, e := range entries {
+		// Skip ALL subdirectories, including legacy/ which holds the
+		// pre-consolidation 2024*.sql files archived by T0.C.3.
 		if e.IsDir() {
 			continue
 		}

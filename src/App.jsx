@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/auth-context';
+import { ActorTokenProvider } from './context/actor-token-context';
+import { PinModalProvider } from '@/components/pin-modal';
 import AppRoutes from './routes';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
@@ -20,11 +22,15 @@ const AuthWrapper = () => {
       onNavigate={(path) => navigate(path, { replace: true })}
       pathname={location.pathname}
     >
-      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <AppRoutes />
-        <OnboardingPopup />
-        <Toaster />
-      </ThemeProvider>
+      <ActorTokenProvider>
+        <PinModalProvider>
+          <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+            <AppRoutes />
+            <OnboardingPopup />
+            <Toaster />
+          </ThemeProvider>
+        </PinModalProvider>
+      </ActorTokenProvider>
     </AuthProvider>
   );
 };

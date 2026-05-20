@@ -13,6 +13,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/currency";
 
 // Format an ISO date as a short clock time, e.g. "08:42 AM".
 function fmtOpenedTime(iso) {
@@ -49,6 +50,7 @@ const CartSection = ({
   placeOrderError,
   lastPlacedOrderNumber,
   taxRate = 0.15,
+  currency = 'USD',
 }) => {
   const hasPosCheckout = typeof onPlaceOrder === 'function';
   const subtotal = cartTotal;
@@ -133,7 +135,7 @@ const CartSection = ({
                           <span className="font-medium">{variation.variationName}:</span> {variation.optionName}
                           {variation.priceModifier !== 0 && (
                             <span className="text-orange-600 ml-1">
-                              {variation.priceModifier > 0 ? '+' : ''}R{variation.priceModifier.toFixed(2)}
+                              {variation.priceModifier > 0 ? '+' : ''}{formatPrice(variation.priceModifier * 100, currency)}
                             </span>
                           )}
                         </span>
@@ -168,7 +170,7 @@ const CartSection = ({
                                   <span className="font-medium">{option.name}</span>
                                   {option.price_modifier !== 0 && (
                                     <span className="text-orange-600">
-                                      {option.price_modifier > 0 ? '+' : ''}R{parseFloat(option.price_modifier || 0).toFixed(2)}
+                                      {option.price_modifier > 0 ? '+' : ''}{formatPrice(parseFloat(option.price_modifier || 0) * 100, currency)}
                                     </span>
                                   )}
                                 </div>
@@ -239,10 +241,10 @@ const CartSection = ({
                   {/* Price and Per-Item Cost - Bottom Right */}
                   <div className="text-right">
                     <div className="text-lg font-bold text-orange-600">
-                      R{(item.price * item.quantity).toFixed(2)}
+                      {formatPrice(item.price * item.quantity * 100, currency)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      R{parseFloat(item.price).toFixed(2)} each
+                      {formatPrice(parseFloat(item.price) * 100, currency)} each
                     </div>
                   </div>
                 </div>
@@ -259,16 +261,16 @@ const CartSection = ({
             <div className="space-y-1 mb-3 text-sm">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
-                <span className="tabular-nums">R{(subtotal - tax).toFixed(2)}</span>
+                <span className="tabular-nums">{formatPrice((subtotal - tax) * 100, currency)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Tax (incl.)</span>
-                <span className="tabular-nums">R{tax.toFixed(2)}</span>
+                <span className="tabular-nums">{formatPrice(tax * 100, currency)}</span>
               </div>
               <div className="h-px bg-gray-200 my-2" />
               <div className="flex justify-between text-lg font-bold">
                 <span className="text-gray-900">Total</span>
-                <span className="text-orange-600 tabular-nums">R{subtotal.toFixed(2)}</span>
+                <span className="text-orange-600 tabular-nums">{formatPrice(subtotal * 100, currency)}</span>
               </div>
             </div>
 
@@ -318,7 +320,7 @@ const CartSection = ({
             <div className="flex justify-between items-center mb-4">
               <span className="text-xl font-bold text-gray-900">Total:</span>
               <span className="text-2xl font-bold text-orange-600">
-                R{cartTotal.toFixed(2)}
+                {formatPrice(cartTotal * 100, currency)}
               </span>
             </div>
             <div className="flex gap-3">

@@ -35,6 +35,26 @@ export function getStaff() {
 }
 
 /**
+ * Check if the currently-logged-in staff has a named capability.
+ *
+ * The staff session JWT carries capabilities as a string array, e.g.
+ *   ["can_void", "can_settle", "can_comp"]
+ *
+ * Owners/admins using a Supabase email session (no bb.auth staff record) are
+ * granted all capabilities.
+ */
+export function hasCapability(name) {
+  const session = readStaffSession();
+  // No staff session at all means an owner/admin Supabase login — full access.
+  if (!session) return true;
+  const caps = session.capabilities || session.staff?.capabilities || [];
+  // Support both array form (new actor-overlay tokens) and legacy object form
+  if (Array.isArray(caps)) return caps.includes(name);
+  if (typeof caps === 'object') return caps[name] === true;
+  return false;
+}
+
+/**
  * Convenience: return a display name for the staff member.
  */
 export function getStaffDisplayName() {

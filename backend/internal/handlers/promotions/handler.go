@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/beepbite/backend/internal/auth"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -18,7 +19,13 @@ func NewHandler(engine *Engine) *Handler {
 }
 
 func (h *Handler) Mount(r chi.Router) {
+	// Apply promotion to an order — no extra capability; cashiers use this during ring-up.
 	r.Post("/orders/{order_id}/apply-promotions", h.apply)
+
+	// Promotion configuration management — requires can_manage_promotions.
+	r.With(auth.RequireCapability("can_manage_promotions")).Post("/promotions", h.createPromotion)
+	r.With(auth.RequireCapability("can_manage_promotions")).Patch("/promotions/{promotion_id}", h.updatePromotion)
+	r.With(auth.RequireCapability("can_manage_promotions")).Delete("/promotions/{promotion_id}", h.deletePromotion)
 }
 
 type applyReq struct {
@@ -51,4 +58,25 @@ func (h *Handler) apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+// ---------------------------------------------------------------------------
+// Promotion config management (gated: can_manage_promotions)
+// ---------------------------------------------------------------------------
+
+// createPromotion creates a new promotion record.
+// Full implementation is tracked in a subsequent task; the route + capability
+// gate are wired here so the permission boundary is enforced immediately.
+func (h *Handler) createPromotion(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "createPromotion not yet implemented")
+}
+
+// updatePromotion updates a promotion's configuration.
+func (h *Handler) updatePromotion(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "updatePromotion not yet implemented")
+}
+
+// deletePromotion removes a promotion.
+func (h *Handler) deletePromotion(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "deletePromotion not yet implemented")
 }

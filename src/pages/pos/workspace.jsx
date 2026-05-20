@@ -33,10 +33,12 @@ import {
   Plus,
   Receipt,
   RotateCcw,
+  Scissors,
   Search,
   ShoppingBag,
   Unlock,
   User as UserIcon,
+  UserCheck,
   Utensils,
 } from 'lucide-react';
 
@@ -53,8 +55,11 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 import { useAuth } from '@/context/auth-context';
+import { useActor } from '@/context/actor-token-context';
 import { supabase } from '@/services/supabase-client';
 import { useToast } from '@/hooks/use-toast';
+import { usePinModal } from '@/hooks/use-pin-modal';
+import { registerManagerOverrideHandler } from '@/lib/api-client';
 import {
   clearStoredRegister,
   getOpenSession,
@@ -72,7 +77,7 @@ import {
   transferSession,
   getSessionDetail,
 } from '@/services/tables';
-import { chargeOrder, PAYMENT_METHODS } from '@/services/payment';
+import { chargeOrder, chargeOrdersWithLegs, PAYMENT_METHODS } from '@/services/payment';
 
 import OpenRegisterModal from '@/pages/home/components/open-register-modal';
 import ReturnModal from '@/pages/home/components/return-modal';
@@ -81,6 +86,10 @@ import ActiveTicketPanel from './components/active-ticket-panel';
 import CashTenderModal from './components/cash-tender-modal';
 import { CardTenderModal } from './components/card-tender-modal';
 import { TablePickerDialog } from './components/table-picker-dialog';
+import AdjustmentModal from '@/components/order-adjustments/adjustment-modal';
+import TenderModal from './components/tender-modal';
+import SplitBySeat from './components/split-by-seat';
+import ModifierPicker, { useItemHasModifiers } from './components/modifier-picker';
 
 // ---------------------------------------------------------------------------
 // Constants & helpers
@@ -148,12 +157,46 @@ export default function PosWorkspacePage() {
   const { toast } = useToast();
   const { activeLocation, user, userProfile, signOut } = useAuth();
 
+  // ----- PIN re-auth (actor expiry) -------------------------------------
+  // usePinModal auto-triggers the PIN modal when the actor expires while on
+  // /pos/workspace, preserving all in-progress cart/ticket state.
+  // requestPin is also exported so child actions (e.g. void) can trigger
+  // manager-override flows directly.
+  const { requestPin } = usePinModal();
+  // Make requestPin accessible to sub-handlers via ref so closures stay stable.
+  const requestPinRef = useRef(requestPin);
+  requestPinRef.current = requestPin;
+
+  // Register the manager-override handler with the api-client for the lifetime
+  // of this workspace page. On 403 missing_capability, the client will call
+  // this to open the PIN modal and obtain a one-shot manager token, then replay
+  // the original request automatically.
+  useEffect(() => {
+    const unregister = registerManagerOverrideHandler(async ({ capability, reason }) => {
+      const token = await requestPinRef.current({
+        reason: reason || capability,
+        isManagerOverride: true,
+      });
+      return token;
+    });
+    return unregister;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ----- actor overlay (T9.5) --------------------------------------------
+  const { actor, clearActor } = useActor();
+  // Display name comes from:
+  //  1. The actor overlay (staff.display_name from /pos/pin-verify)
+  //  2. Legacy staff localStorage session
+  //  3. Member profile / OAuth name
+  const actorDisplayName = actor?.display_name || null;
+
   // ----- auth gate -------------------------------------------------------
   const staff = useMemo(() => getStaff(), []);
   const staffName = useMemo(() => getStaffDisplayName(), []);
-  const displayName = staffName || userProfile?.first_name
+  const displayName = actorDisplayName || staffName || userProfile?.first_name
     || user?.user_metadata?.name || user?.email || 'User';
-  const isAuthed = Boolean(staff || user);
+  // The device is authed if: (a) actor overlay set, (b) legacy staff session, or (c) member JWT.
+  const isAuthed = Boolean(actor || staff || user);
   useEffect(() => { if (!isAuthed) navigate('/pos/login', { replace: true }); }, [isAuthed, navigate]);
 
   // ----- register session ------------------------------------------------
@@ -169,6 +212,44 @@ export default function PosWorkspacePage() {
   // Effective gate used everywhere downstream — `true` when the cashier may
   // place orders. Owners always pass; staff need an open register.
   const canTakeOrders = !isStaffSession || Boolean(registerSession);
+
+  // ----- courses (Wave 11 — T11.2/T11.3) -----------------------------------
+  // Loaded once per location; passed down to ticket lines for course assignment.
+  const [courses, setCourses] = useState([]);
+  useEffect(() => {
+    if (!activeLocation?.id) { setCourses([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('courses')
+          .select('id, name, sort_order, fire_on_previous_course_bumped')
+          .eq('location_id', activeLocation.id)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+        if (!cancelled) setCourses(data || []);
+      } catch { /* non-critical */ }
+    })();
+    return () => { cancelled = true; };
+  }, [activeLocation?.id]);
+
+  // Assign a course to a new (unsent) item on the active ticket.
+  const handleSetCourse = useCallback((clientId, courseId) => {
+    if (!activeTicketId) return;
+    setTickets((prev) => {
+      const t = prev[activeTicketId];
+      if (!t) return prev;
+      return {
+        ...prev,
+        [activeTicketId]: {
+          ...t,
+          newItems: t.newItems.map((ni) =>
+            ni.id === clientId ? { ...ni, course_id: courseId || null } : ni,
+          ),
+        },
+      };
+    });
+  }, [activeTicketId]);
 
   // ----- menu state ------------------------------------------------------
   const [items, setItems] = useState([]);
@@ -199,6 +280,24 @@ export default function PosWorkspacePage() {
   // ----- assign-table flow -----------------------------------------------
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [assigningTable, setAssigningTable] = useState(false);
+
+  // ----- modifier picker state --------------------------------------------
+  const [modifierPickerItem, setModifierPickerItem] = useState(null); // item being customised
+  const { check: checkHasModifiers } = useItemHasModifiers();
+
+  // ----- adjustment modal state -------------------------------------------
+  const [adjustmentModal, setAdjustmentModal] = useState(null); // { orderId, type } | null
+
+  const handleOpenAdjustment = useCallback(({ orderId, type }) => {
+    setAdjustmentModal({ orderId, type });
+  }, []);
+
+  // ----- split tender (TenderModal) state ---------------------------------
+  const [showTenderModal, setShowTenderModal] = useState(false);
+  const [tenderError, setTenderError] = useState('');
+
+  // ----- split-by-seat state ----------------------------------------------
+  const [showSplitBySeat, setShowSplitBySeat] = useState(false);
 
   // ===== effects =========================================================
 
@@ -460,7 +559,41 @@ export default function PosWorkspacePage() {
     setActiveTicketId(t.id);
   }, [walkInCounter]);
 
-  const handleAddItem = useCallback((item) => {
+  // commitAddItem — called directly (no modifiers) or after modifier picker confirms.
+  const commitAddItem = useCallback((item, { extraCents = 0, selectedModifiers = [], linePriceCents = null } = {}) => {
+    const basePrice = parseFloat(item.price || 0);
+    const linePrice = linePriceCents != null ? linePriceCents / 100 : basePrice + (extraCents / 100);
+    updateTicket(activeTicket.id, (t) => {
+      // Only stack quantity when there are no per-line modifier overrides.
+      const canStack = selectedModifiers.length === 0;
+      if (canStack) {
+        const idx = t.newItems.findIndex((ni) => ni.item_id === item.id && !ni.modifier_ids?.length);
+        if (idx >= 0) {
+          const next = t.newItems.slice();
+          next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
+          return { ...t, newItems: next };
+        }
+      }
+      return {
+        ...t,
+        newItems: [
+          ...t.newItems,
+          {
+            id: uuid(),
+            item_id: item.id,
+            name: item.name,
+            price: linePrice,
+            qty: 1,
+            variation_option_ids: [],
+            modifier_ids: selectedModifiers.map((m) => m.id),
+            modifier_names: selectedModifiers.map((m) => m.name),
+          },
+        ],
+      };
+    });
+  }, [activeTicket]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAddItem = useCallback(async (item) => {
     if (!activeTicket) {
       toast({ title: 'Pick a table or start a walk-in first' });
       return;
@@ -469,23 +602,15 @@ export default function PosWorkspacePage() {
       setIsOpenRegisterOpen(true);
       return;
     }
-    updateTicket(activeTicket.id, (t) => {
-      const idx = t.newItems.findIndex((ni) => ni.item_id === item.id);
-      if (idx >= 0) {
-        const next = t.newItems.slice();
-        next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
-        return { ...t, newItems: next };
-      }
-      return {
-        ...t,
-        newItems: [
-          ...t.newItems,
-          { id: uuid(), item_id: item.id, name: item.name, price: parseFloat(item.price || 0), qty: 1, variation_option_ids: [] },
-        ],
-      };
-    });
+    // Check if this item has modifier groups — if so, open the picker.
+    const has = await checkHasModifiers(item.id);
+    if (has) {
+      setModifierPickerItem(item);
+      return;
+    }
+    commitAddItem(item);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTicket, registerSession, toast]);
+  }, [activeTicket, registerSession, toast, commitAddItem, checkHasModifiers]);
 
   const handleBumpQty = (clientId, delta) => {
     if (!activeTicket) return;
@@ -563,8 +688,8 @@ export default function PosWorkspacePage() {
 
   const handleOpenCharge = () => {
     if (!activeTicket || activeTicket.sentOrders.length === 0) return;
-    setChargeError('');
-    setShowMethodPicker(true);
+    setTenderError('');
+    setShowTenderModal(true);
   };
 
   const handlePickMethod = (code) => {
@@ -572,27 +697,18 @@ export default function PosWorkspacePage() {
     setChargeMethod(code);
   };
 
-  // Run charge for ALL unpaid orders on the active ticket. Most tickets have
-  // one order; this covers the multi-round case gracefully.
-  const runCharge = async ({ amountCents, paymentMethodCode, reference, changeCents }) => {
+  // Run charge for ALL unpaid orders using split-tender legs from TenderModal.
+  const runCharge = async (legs) => {
     if (!activeTicket) return;
     setChargeBusy(true);
-    setChargeError('');
+    setTenderError('');
     try {
       const unpaid = activeTicket.sentOrders.filter((o) => o.payment_status !== 'paid');
-      const results = [];
-      for (const order of unpaid) {
-        // eslint-disable-next-line no-await-in-loop
-        const r = await chargeOrder({
-          orderId: order.id,
-          paymentMethodCode,
-          amountPaidCents: order.total_cents || amountCents,
-          changeGivenCents: changeCents || 0,
-          paymentReference: reference || undefined,
-          processedByStaffId: staff?.id || undefined,
-        });
-        results.push(r);
-      }
+      const results = await chargeOrdersWithLegs({
+        orders: unpaid,
+        legs,
+        processedByStaffId: staff?.id || undefined,
+      });
       // Mark all as paid locally
       updateTicket(activeTicket.id, (t) => ({
         ...t,
@@ -603,6 +719,7 @@ export default function PosWorkspacePage() {
         title: 'Payment received ✓',
         description: sessionClosed ? 'Table closed.' : 'Order marked paid.',
       });
+      setShowTenderModal(false);
       // If table-bound ticket and session closed, drop the ticket and refresh tables.
       if (sessionClosed && activeTicket.kind === 'table') {
         setTickets((prev) => {
@@ -624,11 +741,25 @@ export default function PosWorkspacePage() {
       setChargeMethod(null);
     } catch (err) {
       console.error('Charge failed:', err);
-      setChargeError(err.message || 'Charge failed');
+      setTenderError(err.message || 'Charge failed');
     } finally {
       setChargeBusy(false);
     }
   };
+
+  // Charge a single seat split: find the orders that contain its items and
+  // record payment legs for that split's amount.
+  const handleChargeSplit = useCallback(async (_splitId, legs) => {
+    if (!activeTicket) return;
+    // For a seat split we charge the full-ticket orders proportionally —
+    // the split just determines the tender amount already baked into legs.
+    const unpaid = activeTicket.sentOrders.filter((o) => o.payment_status !== 'paid');
+    await chargeOrdersWithLegs({
+      orders: unpaid,
+      legs,
+      processedByStaffId: staff?.id || undefined,
+    });
+  }, [activeTicket, staff?.id]);
 
   // ----- assign / change table for the active ticket ---------------------
   // Walk-in → table: open a new table_session, move items into a new ticket
@@ -705,9 +836,28 @@ export default function PosWorkspacePage() {
     }
   }, [activeTicket, assigningTable, activeLocation?.id, sections, staff?.id, user?.id, refreshTables, toast]);
 
+  // ----- end shift (actor overlay) ----------------------------------------
+  // Used by the "End shift / Switch user" button in the header.
+  const handleEndShift = () => {
+    clearStoredRegister();
+    clearActor();
+    // Navigate back to the slug-scoped PIN page that started this session.
+    const slug = actor?.slug;
+    if (slug) {
+      navigate(`/s/${slug}`, { replace: true });
+    } else {
+      navigate('/pos/login', { replace: true });
+    }
+  };
+
   // ----- sign out --------------------------------------------------------
   const handleSignOut = async () => {
     clearStoredRegister();
+    if (actor) {
+      // Actor overlay session — clear actor and go back to PIN screen.
+      handleEndShift();
+      return;
+    }
     if (staff) {
       localStorage.removeItem('bb.auth');
       navigate('/pos/login', { replace: true });
@@ -748,7 +898,14 @@ export default function PosWorkspacePage() {
               <span className="text-[11px] text-gray-500 truncate flex items-center gap-1">
                 <UserIcon className="w-3 h-3" />
                 {displayName}
-                {!staff && (
+                {/* Actor overlay chip — shown when staff logged in via /s/:slug PIN */}
+                {actor && (
+                  <span className="ml-0.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-semibold uppercase tracking-wide">
+                    <UserCheck className="w-2.5 h-2.5" />
+                    {actor.role || 'Staff'}
+                  </span>
+                )}
+                {!actor && !staff && (
                   <span className="ml-0.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 text-[9px] font-semibold uppercase tracking-wide">
                     Owner
                   </span>
@@ -795,6 +952,14 @@ export default function PosWorkspacePage() {
                 </span>
               </Button>
             )}
+            {activeTicket?.kind === 'table' && activeTicket?.sentOrders?.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => setShowSplitBySeat(true)}
+                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8"
+                title="Split check by seat">
+                <Scissors className="w-3.5 h-3.5 mr-1.5" />
+                <span className="hidden md:inline">Split</span>
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => setIsReturnOpen(true)} disabled={isStaffSession && !registerSession}
               className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8">
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
@@ -805,6 +970,15 @@ export default function PosWorkspacePage() {
               <ChefHat className="w-3.5 h-3.5 mr-1.5" />
               <span className="hidden md:inline">Kitchen</span>
             </Button>
+            {/* End shift / Switch user — shown when an actor overlay is active. */}
+            {actor && (
+              <Button size="sm" variant="outline" onClick={handleEndShift}
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-8"
+                title="End shift and return to PIN screen">
+                <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+                <span className="hidden md:inline">End shift</span>
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={handleSignOut}
               className="text-gray-500 hover:text-gray-900 h-8">
               <LogOut className="w-3.5 h-3.5 mr-1.5" />
@@ -950,7 +1124,15 @@ export default function PosWorkspacePage() {
           onRemoveItem={handleRemoveItem}
           onSend={handleSend}
           onCharge={handleOpenCharge}
+          onAdjust={handleOpenAdjustment}
+          onAdjustSuccess={() => {
+            // Inline adjustment succeeded — refresh sent orders for the active ticket.
+            toast({ title: 'Adjustment applied' });
+          }}
+          locationId={activeLocation?.id || ''}
           sending={sending}
+          courses={courses}
+          onSetCourse={handleSetCourse}
         />
       </main>
 
@@ -1004,19 +1186,15 @@ export default function PosWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Charge — cash modal */}
+      {/* Charge — cash modal (legacy path, accessible via method picker) */}
       <CashTenderModal
         open={chargeMethod === 'cash'}
         onOpenChange={(o) => { if (!o) setChargeMethod(null); }}
         amountDueCents={activeUnpaidCents}
         submitting={chargeBusy}
-        errorMessage={chargeError}
+        errorMessage={tenderError}
         onConfirm={({ tenderedCents, changeCents }) => {
-          runCharge({
-            amountCents: tenderedCents,
-            paymentMethodCode: 'cash',
-            changeCents,
-          });
+          runCharge([{ method: 'cash', amountCents: tenderedCents, changeCents }]);
         }}
       />
 
@@ -1039,20 +1217,64 @@ export default function PosWorkspacePage() {
         }}
       />
 
-      {/* Charge — card modal */}
+      {/* Charge — card modal (legacy path, accessible via method picker) */}
       <CardTenderModal
         open={chargeMethod === 'card_in_person'}
         onOpenChange={(o) => { if (!o) setChargeMethod(null); }}
         amountDueCents={activeUnpaidCents}
         submitting={chargeBusy}
-        errorMessage={chargeError}
+        errorMessage={tenderError}
         onConfirm={({ amountCents, reference }) => {
-          runCharge({
-            amountCents,
-            paymentMethodCode: 'card_in_person',
-            reference,
-          });
+          runCharge([{ method: 'card_in_person', amountCents, reference }]);
         }}
+      />
+
+      {/* Modifier picker — shown when an item with modifier_groups is tapped */}
+      <ModifierPicker
+        open={Boolean(modifierPickerItem)}
+        onOpenChange={(o) => { if (!o) setModifierPickerItem(null); }}
+        item={modifierPickerItem}
+        onConfirm={({ selectedModifiers, extraCents, linePriceCents }) => {
+          if (modifierPickerItem) {
+            commitAddItem(modifierPickerItem, { selectedModifiers, extraCents, linePriceCents });
+          }
+          setModifierPickerItem(null);
+        }}
+      />
+
+      {/* Adjustment modal — Void / Comp / Discount / Refund */}
+      {adjustmentModal && (
+        <AdjustmentModal
+          open={Boolean(adjustmentModal)}
+          onClose={() => setAdjustmentModal(null)}
+          orderId={adjustmentModal.orderId}
+          itemId={null}
+          type={adjustmentModal.type}
+          locationId={activeLocation?.id || ''}
+          onSuccess={() => {
+            setAdjustmentModal(null);
+            toast({ title: 'Adjustment applied' });
+          }}
+        />
+      )}
+
+      {/* Split Tender modal — pay one ticket across multiple methods */}
+      <TenderModal
+        open={showTenderModal}
+        onOpenChange={(o) => { if (!o) setShowTenderModal(false); }}
+        totalCents={activeUnpaidCents}
+        submitting={chargeBusy}
+        errorMessage={tenderError}
+        onConfirm={runCharge}
+      />
+
+      {/* Split-by-seat — dine-in check splitting per seat */}
+      <SplitBySeat
+        open={showSplitBySeat}
+        onOpenChange={setShowSplitBySeat}
+        ticket={activeTicket}
+        onChargeSplit={handleChargeSplit}
+        staffId={staff?.id || actor?.staff_id || undefined}
       />
     </div>
   );

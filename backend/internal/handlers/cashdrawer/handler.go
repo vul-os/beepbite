@@ -10,7 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/auth"
 )
+
+// settleCap is the capability required to close sessions and record
+// paid_out / no_sale movements. Opening a session needs no capability —
+// any authenticated staff member can start their shift.
+const settleCap = "can_settle"
 
 type Handler struct {
 	store *Store
@@ -22,11 +29,16 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/cash-drawers", func(r chi.Router) {
+		// Open session: no capability required — any staff can start their shift.
 		r.Post("/{drawer_id}/sessions/open", h.openSession)
 		r.Get("/{drawer_id}/sessions", h.listSessions)
 
+		// Movements: capability enforced inside the handler for sensitive types
+		// (paid_out, no_sale) because the gate is body-conditional.
 		r.Post("/sessions/{session_id}/movements", h.postMovement)
-		r.Post("/sessions/{session_id}/close", h.closeSession)
+
+		// Close session always requires can_settle.
+		r.With(auth.RequireCapability(settleCap)).Post("/sessions/{session_id}/close", h.closeSession)
 		r.Get("/sessions/{session_id}", h.getSession)
 	})
 }
@@ -63,6 +75,22 @@ func (h *Handler) openSession(w http.ResponseWriter, r *http.Request) {
 	drawerID := chi.URLParam(r, "drawer_id")
 	if drawerID == "" {
 		writeErr(w, http.StatusBadRequest, "drawer_id required")
+		return
+	}
+
+	// Cross-tenant guard: load the drawer's location_id and verify scope.
+	// Returns 404 (not 403) to avoid existence leaks.
+	locID, err := h.store.DrawerLocationID(r.Context(), drawerID)
+	switch {
+	case errors.Is(err, ErrDrawerNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !auth.OrgScopeFrom(r.Context()).AllowsLocation(locID) {
+		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
 
@@ -125,6 +153,21 @@ func (h *Handler) postMovement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cross-tenant guard: resolve session→drawer→location and verify scope.
+	locID, err := h.store.SessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !auth.OrgScopeFrom(r.Context()).AllowsLocation(locID) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
 	var req movementReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -133,6 +176,13 @@ func (h *Handler) postMovement(w http.ResponseWriter, r *http.Request) {
 	if _, ok := allowedMovementTypes[req.MovementType]; !ok {
 		writeErr(w, http.StatusBadRequest, "invalid movement_type")
 		return
+	}
+	// paid_out and no_sale require can_settle (body-conditional capability gate).
+	if req.MovementType == "paid_out" || req.MovementType == "no_sale" {
+		if !auth.HasCapability(r.Context(), settleCap) {
+			writeErr(w, http.StatusForbidden, "missing capability: "+settleCap)
+			return
+		}
 	}
 	if err := validateMovementSign(req.MovementType, req.AmountCents); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -163,6 +213,21 @@ func (h *Handler) closeSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := chi.URLParam(r, "session_id")
 	if sessionID == "" {
 		writeErr(w, http.StatusBadRequest, "session_id required")
+		return
+	}
+
+	// Cross-tenant guard: resolve session→drawer→location and verify scope.
+	locID, err := h.store.SessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !auth.OrgScopeFrom(r.Context()).AllowsLocation(locID) {
+		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
 
@@ -200,6 +265,22 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "session_id required")
 		return
 	}
+
+	// Cross-tenant guard: resolve session→drawer→location and verify scope.
+	locID, err := h.store.SessionLocationID(r.Context(), sessionID)
+	switch {
+	case errors.Is(err, ErrSessionNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !auth.OrgScopeFrom(r.Context()).AllowsLocation(locID) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
 	detail, err := h.store.GetSessionDetail(r.Context(), sessionID)
 	switch {
 	case errors.Is(err, ErrSessionNotFound):
@@ -218,6 +299,22 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "drawer_id required")
 		return
 	}
+
+	// Cross-tenant guard: load the drawer's location_id and verify scope.
+	locID, err := h.store.DrawerLocationID(r.Context(), drawerID)
+	switch {
+	case errors.Is(err, ErrDrawerNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !auth.OrgScopeFrom(r.Context()).AllowsLocation(locID) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
 	status := r.URL.Query().Get("status")
 	switch status {
 	case "", "open", "closed", "reconciled":

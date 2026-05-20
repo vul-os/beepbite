@@ -421,3 +421,32 @@ func (s *Store) DeleteSeat(ctx context.Context, seatID string) error {
 	}
 	return nil
 }
+
+// GetSessionLocationID returns the location_id for the given session.
+// Returns ErrSessionNotFound when no session with that ID exists.
+func (s *Store) GetSessionLocationID(ctx context.Context, sessionID string) (string, error) {
+	var locID string
+	err := s.pool.QueryRow(ctx,
+		`SELECT location_id FROM table_sessions WHERE id = $1`, sessionID,
+	).Scan(&locID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrSessionNotFound
+	}
+	return locID, err
+}
+
+// GetSeatLocationID returns the location_id for the session that owns the given seat.
+// Returns ErrSeatNotFound when no seat with that ID exists.
+func (s *Store) GetSeatLocationID(ctx context.Context, seatID string) (string, error) {
+	var locID string
+	err := s.pool.QueryRow(ctx, `
+SELECT ts.location_id
+FROM seats se
+JOIN table_sessions ts ON ts.id = se.table_session_id
+WHERE se.id = $1
+`, seatID).Scan(&locID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrSeatNotFound
+	}
+	return locID, err
+}

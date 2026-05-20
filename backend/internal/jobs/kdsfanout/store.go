@@ -10,22 +10,27 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const maxRetries = 10
+
 // queueRow is a single row from kds_fanout_queue.
 type queueRow struct {
-	ID       string
-	OrderID  string
-	QueuedAt time.Time
+	ID         string
+	OrderID    string
+	QueuedAt   time.Time
+	RetryCount int
 }
 
-// loadPending returns up to limit unprocessed rows ordered by queued_at ASC.
+// loadPending returns up to limit rows where state = 'pending' AND
+// retry_count < maxRetries, ordered by queued_at ASC.
 func loadPending(ctx context.Context, db *pgxpool.Pool, limit int) ([]queueRow, error) {
 	rows, err := db.Query(ctx, `
-		SELECT id, order_id, queued_at
+		SELECT id, order_id, queued_at, retry_count
 		FROM kds_fanout_queue
-		WHERE processed_at IS NULL
+		WHERE state = 'pending'
+		  AND retry_count < $2
 		ORDER BY queued_at ASC
 		LIMIT $1
-	`, limit)
+	`, limit, maxRetries)
 	if err != nil {
 		return nil, fmt.Errorf("kdsfanout: query pending: %w", err)
 	}
@@ -34,7 +39,7 @@ func loadPending(ctx context.Context, db *pgxpool.Pool, limit int) ([]queueRow, 
 	var out []queueRow
 	for rows.Next() {
 		var r queueRow
-		if err := rows.Scan(&r.ID, &r.OrderID, &r.QueuedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.OrderID, &r.QueuedAt, &r.RetryCount); err != nil {
 			return nil, fmt.Errorf("kdsfanout: scan: %w", err)
 		}
 		out = append(out, r)
@@ -42,12 +47,10 @@ func loadPending(ctx context.Context, db *pgxpool.Pool, limit int) ([]queueRow, 
 	return out, rows.Err()
 }
 
-// markProcessed sets processed_at = now() for the given queue row ID.
+// markProcessed removes the queue row — fanout succeeded, no longer needed.
 func markProcessed(ctx context.Context, db *pgxpool.Pool, id string) error {
 	_, err := db.Exec(ctx, `
-		UPDATE kds_fanout_queue
-		SET processed_at = now()
-		WHERE id = $1
+		DELETE FROM kds_fanout_queue WHERE id = $1
 	`, id)
 	if err != nil {
 		return fmt.Errorf("kdsfanout: mark processed %s: %w", id, err)
@@ -55,16 +58,26 @@ func markProcessed(ctx context.Context, db *pgxpool.Pool, id string) error {
 	return nil
 }
 
-// markError records an error message on the queue row without setting
-// processed_at, so the runner will retry it on the next tick.
-func markError(ctx context.Context, db *pgxpool.Pool, id, errMsg string) error {
-	_, err := db.Exec(ctx, `
-		UPDATE kds_fanout_queue
-		SET error_message = $2
-		WHERE id = $1
-	`, id, errMsg)
-	if err != nil {
-		return fmt.Errorf("kdsfanout: mark error %s: %w", id, err)
+// markRetry increments retry_count and records the latest error.
+// If retry_count reaches maxRetries the row is set to state='dead'.
+// Returns true when the row just transitioned to dead so the caller can log.
+func markRetry(ctx context.Context, db *pgxpool.Pool, id, errMsg string, currentRetry int) (dead bool, err error) {
+	nextRetry := currentRetry + 1
+	newState := "pending"
+	if nextRetry >= maxRetries {
+		newState = "dead"
+		dead = true
 	}
-	return nil
+
+	_, err = db.Exec(ctx, `
+		UPDATE kds_fanout_queue
+		SET retry_count   = $2,
+		    error_message = $3,
+		    state         = $4
+		WHERE id = $1
+	`, id, nextRetry, errMsg, newState)
+	if err != nil {
+		return false, fmt.Errorf("kdsfanout: markRetry %s: %w", id, err)
+	}
+	return dead, nil
 }

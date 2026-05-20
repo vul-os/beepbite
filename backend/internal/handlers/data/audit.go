@@ -14,14 +14,18 @@ package data
 //     so before_state is always NULL for updates coming through this path.
 //     Dedicated handlers (cashdrawer, bankaccounts) fetch before/after
 //     explicitly and pass them directly.
-//   - actor: extracted from context key "actor_id" (same convention as
-//     bankaccounts handler); falls back to NULL so the row is still written.
+//   - actor resolution priority (highest → lowest):
+//       1. db.Scope.ActorID  — staff/PIN overlay actor  → actor_type='staff'
+//       2. auth.Claims.UserID — authenticated member    → actor_type='member'
+//       3. nil               — anonymous / no context   → actor_id=NULL (row still written)
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/beepbite/backend/internal/auth"
+	"github.com/beepbite/backend/internal/db"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -107,6 +111,14 @@ var auditActions = map[string]tableAuditCfg{
 		entityType: "bank_account",
 		update:     "bank_account.updated",
 	},
+
+	// Order adjustments (void, comp, refund, etc.)
+	"order_adjustments": {
+		entityType: "order_adjustment",
+		insert:     "order_adjustment.created",
+		update:     "order_adjustment.updated",
+		delete:     "order_adjustment.deleted",
+	},
 }
 
 // dqTx is the subset of pgx.Tx the audit helper needs, so it can be used with
@@ -168,8 +180,11 @@ func auditMutation(
 		}
 	}
 
-	// actor_id from context — same key as bankaccounts handler.
-	actorID := actorIDFromCtx(ctx)
+	// actor from context — resolution priority:
+	//   1. db.Scope.ActorID (staff/PIN overlay) → actor_type='staff'
+	//   2. auth.Claims.UserID (member JWT)      → actor_type='member'
+	//   3. nil                                  → actor_id=NULL
+	actorID, actorType := actorFromCtx(ctx)
 
 	var entityIDVal any
 	if entityID != "" {
@@ -180,8 +195,9 @@ func auditMutation(
 INSERT INTO audit_log
     (actor_type, actor_id, action, entity_type, entity_id, before_state, after_state)
 VALUES
-    ('member', $1, $2, $3, $4, $5, $6)
+    ($1, $2, $3, $4, $5, $6, $7)
 `,
+		actorType,
 		actorID,
 		action,
 		cfg.entityType,
@@ -201,18 +217,28 @@ func nullJSONB(b []byte) any {
 	return b
 }
 
-// actorIDFromCtx extracts the actor UUID string from the request context.
-// Returns nil when not present so audit rows still record a NULL actor_id.
-// The context key must match the one set by the auth middleware.
-func actorIDFromCtx(ctx context.Context) *string {
-	type ctxKey string
-	v := ctx.Value(ctxKey("actor_id"))
-	if v == nil {
-		return nil
+// actorFromCtx resolves the audit actor from the request context using the
+// following priority chain:
+//
+//  1. db.Scope.ActorID — set when a staff/PIN overlay middleware is active.
+//     Returns actor_type="staff".
+//  2. auth.Claims.UserID — set by the JWT auth middleware for authenticated
+//     members. Returns actor_type="member".
+//  3. Neither present — returns (nil, "member") so the audit row is still
+//     written with actor_id=NULL (the column is nullable).
+func actorFromCtx(ctx context.Context) (actorID *string, actorType string) {
+	// Priority 1: staff/PIN overlay actor (db.Scope.ActorID).
+	if scope := db.ScopeFromContext(ctx); scope.ActorID != "" {
+		id := scope.ActorID
+		return &id, "staff"
 	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return nil
+
+	// Priority 2: authenticated member from JWT claims.
+	if claims, ok := auth.ClaimsFrom(ctx); ok && claims.UserID != "" {
+		id := claims.UserID
+		return &id, "member"
 	}
-	return &s
+
+	// Priority 3: no actor — write NULL, default type for schema compatibility.
+	return nil, "member"
 }

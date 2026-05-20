@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/auth"
 )
 
 // Handler wires HTTP routes to the Store.
@@ -91,6 +93,13 @@ func (h *Handler) createPool(w http.ResponseWriter, r *http.Request) {
 		req.Config = map[string]any{}
 	}
 
+	// Cross-tenant guard: when a location_id is provided, verify it is in scope.
+	// Returns 404 (not 403) to avoid existence leaks.
+	if req.LocationID != "" && !auth.OrgScopeFrom(r.Context()).AllowsLocation(req.LocationID) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
 	pool, err := h.store.CreatePool(
 		r.Context(),
 		req.OrganizationID, req.LocationID, req.Name, req.RuleType, req.Config, req.ShiftDate,
@@ -105,6 +114,12 @@ func (h *Handler) createPool(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listPools(w http.ResponseWriter, r *http.Request) {
 	locationID := r.URL.Query().Get("location_id")
 	shiftDate := r.URL.Query().Get("shift_date")
+
+	// Cross-tenant guard: when a location_id filter is supplied, verify scope.
+	if locationID != "" && !auth.OrgScopeFrom(r.Context()).AllowsLocation(locationID) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
 
 	pools, err := h.store.ListPools(r.Context(), locationID, shiftDate)
 	if err != nil {
@@ -121,10 +136,25 @@ func (h *Handler) getPool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cross-tenant guard: load pool first to resolve its location_id.
+	pool, err := h.store.GetPool(r.Context(), id)
+	switch {
+	case errors.Is(err, ErrPoolNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if pool.LocationID != nil && !auth.OrgScopeFrom(r.Context()).AllowsLocation(*pool.LocationID) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
 	detail, err := h.store.GetPoolDetail(r.Context(), id)
 	switch {
 	case errors.Is(err, ErrPoolNotFound):
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, http.StatusNotFound, "not found")
 		return
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -140,6 +170,21 @@ func (h *Handler) updatePool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cross-tenant guard: load pool first to resolve its location_id.
+	existing, err := h.store.GetPool(r.Context(), id)
+	switch {
+	case errors.Is(err, ErrPoolNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing.LocationID != nil && !auth.OrgScopeFrom(r.Context()).AllowsLocation(*existing.LocationID) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
 	var req updatePoolReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -149,7 +194,7 @@ func (h *Handler) updatePool(w http.ResponseWriter, r *http.Request) {
 	pool, err := h.store.UpdatePool(r.Context(), id, req.Name, req.RuleType, req.Config, req.IsActive)
 	switch {
 	case errors.Is(err, ErrPoolNotFound):
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, http.StatusNotFound, "not found")
 		return
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -175,13 +220,18 @@ func (h *Handler) contribute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify pool exists before inserting contribution.
-	if _, err := h.store.GetPool(r.Context(), id); err != nil {
-		if errors.Is(err, ErrPoolNotFound) {
-			writeErr(w, http.StatusNotFound, err.Error())
-			return
-		}
+	// Load pool (verifies existence) and check cross-tenant scope.
+	pool, err := h.store.GetPool(r.Context(), id)
+	switch {
+	case errors.Is(err, ErrPoolNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if pool.LocationID != nil && !auth.OrgScopeFrom(r.Context()).AllowsLocation(*pool.LocationID) {
+		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
 
@@ -219,10 +269,16 @@ func (h *Handler) distribute(w http.ResponseWriter, r *http.Request) {
 	pool, err := h.store.GetPool(r.Context(), id)
 	switch {
 	case errors.Is(err, ErrPoolNotFound):
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, http.StatusNotFound, "not found")
 		return
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Cross-tenant guard: verify the pool's location is in scope.
+	if pool.LocationID != nil && !auth.OrgScopeFrom(r.Context()).AllowsLocation(*pool.LocationID) {
+		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
 

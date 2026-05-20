@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beepbite/backend/internal/locations"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -270,7 +271,7 @@ func (s *Service) getStoresBySearch(ctx context.Context, searchTerm string) []Lo
 		`SELECT id, name, address, latitude::float8, longitude::float8,
 		        delivery_fee, free_delivery_threshold, is_active
 		 FROM locations
-		 WHERE name ILIKE $1 AND is_active = true
+		 WHERE (name ILIKE $1 OR slug ILIKE $1) AND is_active = true
 		 ORDER BY name
 		 LIMIT 10`,
 		"%"+searchTerm+"%",
@@ -750,13 +751,20 @@ func (s *Service) createOrder(
 	taxAmount := subtotal * (taxRate / 100.0)
 	totalAmount := subtotal + deliveryFee + tipAmount
 
+	// Resolve per-store currency (5-min in-process cache).
+	cur, curErr := locations.CurrencyFor(ctx, s.pool, locationID)
+	if curErr != nil {
+		log.Printf("chatbot: createOrder: CurrencyFor(%s): %v — defaulting to ZAR", locationID, curErr)
+		cur = locations.Currency{Code: "ZAR", Symbol: "R", Decimals: 2}
+	}
+
 	// Step 1: Create order
 	var orderID string
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO orders (location_id, customer_id, order_number, order_type, status)
-		 VALUES ($1, $2, $3, $4, 'pending')
+		`INSERT INTO orders (location_id, customer_id, order_number, order_type, status, currency_code)
+		 VALUES ($1, $2, $3, $4, 'pending', $5)
 		 RETURNING id`,
-		locationID, customerID, orderNumber, orderType,
+		locationID, customerID, orderNumber, orderType, cur.Code,
 	).Scan(&orderID)
 	if err != nil {
 		log.Printf("Error creating order: %v", err)
