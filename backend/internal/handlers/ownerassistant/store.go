@@ -6,6 +6,7 @@ package ownerassistant
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -25,6 +26,31 @@ type Store struct {
 
 // NewStore constructs a Store backed by pool.
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+// ---------------------------------------------------------------------------
+// LLM usage metering
+// ---------------------------------------------------------------------------
+
+// RecordLLMUsage inserts a row into llm_messages under ServiceRoleScope
+// (the table's INSERT policy requires is_service_role()). orgID must be set —
+// llm_messages.organization_id is NOT NULL with an FK to organizations, so
+// metering is skipped when the org is unknown.
+func (s *Store) RecordLLMUsage(ctx context.Context, orgID, convID, provider, model string, tokensIn, tokensOut int) {
+	if orgID == "" {
+		return
+	}
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
+INSERT INTO llm_messages (organization_id, conversation_id, provider, model, tokens_in, tokens_out, cost_cents)
+VALUES ($1, $2, $3, $4, $5, $6, 0)`,
+			orgID, convID, provider, model, tokensIn, tokensOut,
+		)
+		return err
+	})
+	if err != nil {
+		log.Printf("ownerassistant: RecordLLMUsage: %v", err)
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Item reads (used by LLM tools and direct commands)

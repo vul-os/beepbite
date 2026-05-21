@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -398,24 +399,35 @@ func (h *Handler) printKitchen(w http.ResponseWriter, r *http.Request) {
 // per-printer results. USB printers get a stub success (the POS agent handles
 // those locally).
 func dispatchPrint(ctx context.Context, printers []Printer, data []byte) []printJobResp {
-	results := make([]printJobResp, 0, len(printers))
-	for _, p := range printers {
-		r := printJobResp{PrinterID: p.ID}
-		if p.Connection == "usb" {
-			r.Sent = true
-			r.Error = "usb: send via pos agent"
-		} else if p.Host == nil || *p.Host == "" {
-			r.Error = "no host configured"
-		} else {
-			np := escpos.NewNetworkPrinter(*p.Host, p.Port)
-			if err := np.Print(ctx, data); err != nil {
-				r.Error = err.Error()
-			} else {
-				r.Sent = true
-			}
+	// Pre-allocate one result slot per printer and index into it by position so
+	// the goroutines never share/append to the same slice (no data race).
+	results := make([]printJobResp, len(printers))
+	var wg sync.WaitGroup
+	for i, p := range printers {
+		results[i] = printJobResp{PrinterID: p.ID}
+		switch {
+		case p.Connection == "usb":
+			// USB printers are handled locally by the POS agent — stub success.
+			results[i].Sent = true
+			results[i].Error = "usb: send via pos agent"
+		case p.Host == nil || *p.Host == "":
+			results[i].Error = "no host configured"
+		default:
+			// Dial + print each network printer concurrently so one offline
+			// printer's dial timeout doesn't serialize the whole response.
+			wg.Add(1)
+			go func(i int, host string, port int) {
+				defer wg.Done()
+				np := escpos.NewNetworkPrinter(host, port)
+				if err := np.Print(ctx, data); err != nil {
+					results[i].Error = err.Error()
+				} else {
+					results[i].Sent = true
+				}
+			}(i, *p.Host, p.Port)
 		}
-		results = append(results, r)
 	}
+	wg.Wait()
 	return results
 }
 

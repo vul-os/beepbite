@@ -275,6 +275,7 @@ func (h *Handler) handleLLM(ctx context.Context, userMsg, locationID, orgID stri
 	// Agentic loop: model may call tools repeatedly until it emits a text reply.
 	const maxIter = 8
 	var finalDraft *DraftSummary
+	var totalIn, totalOut int
 
 	for i := 0; i < maxIter; i++ {
 		resp, err := prov.Chat(ctx, llm.ChatRequest{
@@ -286,9 +287,12 @@ func (h *Handler) handleLLM(ctx context.Context, userMsg, locationID, orgID stri
 		if err != nil {
 			return "", nil, fmt.Errorf("llm chat: %w", err)
 		}
+		totalIn += resp.TokensIn
+		totalOut += resp.TokensOut
 
 		// No tool calls → model produced its final answer.
 		if len(resp.ToolCalls) == 0 {
+			h.store.RecordLLMUsage(ctx, orgID, "", provName, model, totalIn, totalOut)
 			return resp.Text, finalDraft, nil
 		}
 
@@ -305,13 +309,13 @@ func (h *Handler) handleLLM(ctx context.Context, userMsg, locationID, orgID stri
 			}
 		}
 
-		// Append the assistant's tool-call turn and a synthetic user turn with results.
+		// Feed the tool results back as a single synthetic user turn.
 		messages = append(messages,
-			llm.Message{Role: "assistant", Content: strings.Join(toolResults, "\n")},
 			llm.Message{Role: "user", Content: "Tool results:\n" + strings.Join(toolResults, "\n")},
 		)
 	}
 
+	h.store.RecordLLMUsage(ctx, orgID, "", provName, model, totalIn, totalOut)
 	return "I've processed your request.", finalDraft, nil
 }
 

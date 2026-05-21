@@ -174,6 +174,7 @@ function useKdsStations() {
         .from('kitchen_stations')
         .select('id,name,location_id')
         .eq('location_id', activeLocation.id)
+        .eq('is_active', true)
         .order('name', { ascending: true });
 
       if (cancelled) return;
@@ -376,7 +377,6 @@ function POSPanel({ posView }) {
 // ---------------------------------------------------------------------------
 
 export default function WorkspacePage() {
-  const { membership: _m } = useAuth(); // not used directly — we query directly
   const { roles, caps, loading: memberLoading } = useMembership();
 
   const { showPOS, showKitchen } = useMemo(

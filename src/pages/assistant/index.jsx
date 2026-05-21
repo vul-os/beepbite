@@ -21,7 +21,6 @@ import {
 import { useAuth } from '@/context/auth-context';
 import {
   sendMessage,
-  getDraft,
   commitDraft,
   discardDraft,
 } from '@/services/assistant';

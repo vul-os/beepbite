@@ -134,8 +134,8 @@ func (b *Builder) DrawerKick() *Builder {
 	return b
 }
 
-// Barcode emits a GS k barcode print command.
-// barcodeType should be one of the Barcode* constants.
+// Barcode emits a GS k barcode print command (NEW form: GS k m n data).
+// barcodeType should be one of the Barcode* (NEW-form) constants.
 // data is the barcode content string (ASCII); max 255 bytes.
 // The printer must support the requested barcode type; otherwise it silently
 // skips the command. HRI (human-readable interpretation) digits are printed
@@ -145,11 +145,15 @@ func (b *Builder) Barcode(barcodeType int, data string) *Builder {
 	if len(data) == 0 || len(data) > 255 {
 		return b
 	}
-	// GS k m n d1…dn  (newer form: GS k m+65 n data NUL)
-	// We use the older GS k m d1…dn NUL form which is universally supported.
-	b.buf.Write([]byte{0x1D, 0x6B, byte(barcodeType)})
+	// Epson ESC/POS GS k has two forms:
+	//   OLD:  GS k m d1…dn NUL      where m is 0–6
+	//   NEW:  GS k m n  d1…dn       where m is 65–73, n = byte length of data
+	// Our Barcode* constants (UPCA=65, EAN13=67, …) are NEW-form values, so we
+	// emit the NEW form: a one-byte length follows m, and there is NO NUL
+	// terminator. (Mixing NEW-form m with the OLD-form NUL framing — the prior
+	// behaviour — produced an invalid command on most printers.)
+	b.buf.Write([]byte{0x1D, 0x6B, byte(barcodeType), byte(len(data))})
 	b.buf.WriteString(data)
-	b.buf.WriteByte(0x00) // NUL terminator
 	return b
 }
 

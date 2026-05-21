@@ -381,14 +381,18 @@ export default function TimeClockPage() {
   }, [activeLocation]);
 
   const loadEntries = useCallback(async () => {
+    // listEntries is a manager-only endpoint; non-managers get a silent 403.
+    if (!isManager) return;
     setLoadingEntries(true);
     const result = await listEntries({ limit: 100 });
     if (result.ok) setEntries(result.data);
     setLoadingEntries(false);
-  }, []);
+  }, [isManager]);
 
   useEffect(() => { loadStaff(); }, [loadStaff]);
-  useEffect(() => { loadEntries(); }, [loadEntries]);
+  // Only managers may list time entries — gate the fetch so non-managers
+  // don't trigger a 403 on mount.
+  useEffect(() => { if (isManager) loadEntries(); }, [isManager, loadEntries]);
 
   const handleAction = (newEntry) => {
     setEntries((prev) => [newEntry, ...prev]);
@@ -420,22 +424,25 @@ export default function TimeClockPage() {
             <ClockPanel staff={staff} onAction={handleAction} />
           )}
         </div>
-        <div>
-          {loadingEntries ? (
-            <Card>
-              <CardContent className="py-12 text-center text-sm text-gray-500">
-                Loading entries…
-              </CardContent>
-            </Card>
-          ) : (
-            <EntriesPanel
-              entries={entries}
-              isManager={isManager}
-              onRefresh={loadEntries}
-              onEntryEdited={handleEntryEdited}
-            />
-          )}
-        </div>
+        {/* Time entries are manager-only; non-managers never see this panel. */}
+        {isManager && (
+          <div>
+            {loadingEntries ? (
+              <Card>
+                <CardContent className="py-12 text-center text-sm text-gray-500">
+                  Loading entries…
+                </CardContent>
+              </Card>
+            ) : (
+              <EntriesPanel
+                entries={entries}
+                isManager={isManager}
+                onRefresh={loadEntries}
+                onEntryEdited={handleEntryEdited}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -152,6 +152,11 @@ SELECT EXISTS (
     JOIN   locations l ON l.id = s.location_id
     WHERE  l.organization_id = $1
     LIMIT  1
+) OR EXISTS (
+    SELECT 1 FROM organization_members
+    WHERE  organization_id = $1
+      AND  role = 'driver'
+    LIMIT  1
 )`, orgID).Scan(&st.HasStaffOrDriver); err != nil {
 			return err
 		}
