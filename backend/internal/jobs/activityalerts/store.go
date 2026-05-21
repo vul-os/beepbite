@@ -133,7 +133,7 @@ type walletDropHit struct {
 // Tables: org_wallets (org_id, balance_cents)
 //
 //	wallet_transactions (org_id, amount_cents, kind, created_at)
-//	  kind IN ('debit') reduces balance; 'credit' increases it.
+//	  debit_% kinds reduce balance; topup/refund/adjustment increase it.
 func queryWalletDrops(ctx context.Context, pool *pgxpool.Pool, since time.Time, dropPctThreshold int) ([]walletDropHit, error) {
 	// net_change = SUM of signed amounts in the window.
 	// wallet_transactions.amount_cents is always positive; kind determines sign.
@@ -145,9 +145,11 @@ WITH wallet_net AS (
     SELECT
         wt.org_id,
         COALESCE(SUM(
-            CASE wt.kind
-                WHEN 'credit' THEN  wt.amount_cents
-                WHEN 'debit'  THEN -wt.amount_cents
+            CASE
+                -- Credits add to balance.
+                WHEN wt.kind IN ('topup', 'refund', 'adjustment') THEN  wt.amount_cents
+                -- Debits (debit_llm/debit_whatsapp/debit_sms/debit_bulk_import/debit_overage) subtract.
+                WHEN wt.kind::text LIKE 'debit_%'                  THEN -wt.amount_cents
                 ELSE 0
             END
         ), 0) AS net_change_cents

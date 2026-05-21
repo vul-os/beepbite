@@ -127,14 +127,9 @@ const OrdersSection = ({
             name,
             description
           ),
-          order_item_variations (
-            price_modifier,
-            item_variations (
-              name
-            ),
-            item_variation_options (
-              name
-            )
+          order_item_modifiers (
+            name_snapshot,
+            price_cents_snapshot
           )
         `)
         .eq('order_id', order.id);
@@ -262,11 +257,11 @@ const OrdersSection = ({
                           {item.items?.description && (
                             <p className="text-sm text-gray-600 mt-1">{item.items.description}</p>
                           )}
-                          {item.order_item_variations && item.order_item_variations.length > 0 && (
+                          {item.order_item_modifiers && item.order_item_modifiers.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
-                              {item.order_item_variations.map((variation, vIndex) => (
+                              {item.order_item_modifiers.map((modifier, vIndex) => (
                                 <span key={vIndex} className="inline-block bg-blue-100 rounded-full px-2 py-1 text-xs text-blue-700">
-                                  {variation.item_variations?.name}: {variation.item_variation_options?.name}
+                                  {modifier.name_snapshot}
                                 </span>
                               ))}
                             </div>

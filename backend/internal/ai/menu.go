@@ -138,13 +138,13 @@ type GenerateResponse struct {
 }
 
 type ConfirmStats struct {
-	ItemsUpdated       int `json:"items_updated"`
-	ItemsCreated       int `json:"items_created"`
-	ItemsSkipped       int `json:"items_skipped"`
-	ItemsFailed        int `json:"items_failed"`
-	ItemsSuccessful    int `json:"items_successful"`
-	CategoriesCreated  int `json:"categories_created"`
-	VariationsCreated  int `json:"variations_created"`
+	ItemsUpdated      int `json:"items_updated"`
+	ItemsCreated      int `json:"items_created"`
+	ItemsSkipped      int `json:"items_skipped"`
+	ItemsFailed       int `json:"items_failed"`
+	ItemsSuccessful   int `json:"items_successful"`
+	CategoriesCreated int `json:"categories_created"`
+	VariationsCreated int `json:"variations_created"`
 }
 
 type ConfirmResults struct {
@@ -351,10 +351,14 @@ WHERE i.location_id = $1 AND i.is_active = true
 	}
 
 	for i := range out {
+		// Variations are now modeled as modifier_groups (the group) with
+		// modifiers (the selectable options). price_delta_cents is stored in
+		// cents; convert to dollars for the VariationOption.PriceModifier.
 		vRows, err := s.pool.Query(ctx, `
-SELECT iv.id, iv.name, iv.is_required
-FROM item_variations iv
-WHERE iv.item_id = $1
+SELECT mg.id, mg.name, mg.is_required
+FROM modifier_groups mg
+WHERE mg.item_id = $1
+ORDER BY mg.sort_order
 `, out[i].ID)
 		if err != nil {
 			continue
@@ -376,14 +380,19 @@ WHERE iv.item_id = $1
 		for _, v := range vrows {
 			variation := ItemVariation{Name: v.name, IsRequired: v.isRequired, Options: []VariationOption{}}
 			optRows, err := s.pool.Query(ctx, `
-SELECT name, COALESCE(price_modifier, 0), COALESCE(is_default, false)
-FROM item_variation_options
-WHERE variation_id = $1
+SELECT name, COALESCE(price_delta_cents, 0), COALESCE(is_default, false)
+FROM modifiers
+WHERE modifier_group_id = $1 AND is_active = true
+ORDER BY sort_order
 `, v.id)
 			if err == nil {
 				for optRows.Next() {
-					var o VariationOption
-					if err := optRows.Scan(&o.Name, &o.PriceModifier, &o.IsDefault); err == nil {
+					var (
+						o             VariationOption
+						priceDeltaCts int64
+					)
+					if err := optRows.Scan(&o.Name, &priceDeltaCts, &o.IsDefault); err == nil {
+						o.PriceModifier = float64(priceDeltaCts) / 100.0
 						variation.Options = append(variation.Options, o)
 					}
 				}
@@ -702,22 +711,27 @@ RETURNING id
 			results.ItemsCreated++
 			results.SuccessfulItems = append(results.SuccessfulItems, d)
 
-			for _, variation := range item.Variations {
+			for vIdx, variation := range item.Variations {
+				// Variations map to modifier_groups; options map to modifiers.
+				// max_select defaults to 1 to satisfy the modifier_groups CHECK
+				// (max_select >= 1 and >= min_select). PriceModifier is in
+				// dollars, store as price_delta_cents.
 				var newVarID string
 				err := s.pool.QueryRow(ctx, `
-INSERT INTO item_variations (item_id, name, is_required)
-VALUES ($1, $2, $3)
+INSERT INTO modifier_groups (item_id, name, is_required, sort_order)
+VALUES ($1, $2, $3, $4)
 RETURNING id
-`, newItemID, variation.Name, variation.IsRequired).Scan(&newVarID)
+`, newItemID, variation.Name, variation.IsRequired, vIdx).Scan(&newVarID)
 				if err != nil {
 					continue
 				}
 				results.VariationsCreated++
-				for _, opt := range variation.Options {
+				for oIdx, opt := range variation.Options {
+					priceDeltaCents := int64(opt.PriceModifier*100 + 0.5)
 					_, _ = s.pool.Exec(ctx, `
-INSERT INTO item_variation_options (variation_id, name, price_modifier, is_default)
-VALUES ($1, $2, $3, $4)
-`, newVarID, opt.Name, opt.PriceModifier, opt.IsDefault)
+INSERT INTO modifiers (modifier_group_id, name, price_delta_cents, is_default, sort_order)
+VALUES ($1, $2, $3, $4, $5)
+`, newVarID, opt.Name, priceDeltaCents, opt.IsDefault, oIdx)
 				}
 			}
 		default:

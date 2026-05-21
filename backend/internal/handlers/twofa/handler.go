@@ -222,6 +222,19 @@ func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Guard: only allow disabling when 2FA is actually enabled. A user who
+	// enrolled but never verified (or any other caller) must not be able to
+	// disable.
+	st, err := h.store.GetStatus(r.Context(), userID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !st.Enabled {
+		writeErr(w, http.StatusBadRequest, "2FA is not currently enabled")
+		return
+	}
+
 	// Validate via TOTP code or backup code.
 	if req.Code != "" {
 		secret, err := h.store.LoadPendingSecret(r.Context(), userID)

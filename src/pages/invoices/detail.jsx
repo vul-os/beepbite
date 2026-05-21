@@ -178,7 +178,7 @@ export default function InvoiceDetailPage() {
   const currency = inv.currency || 'ZAR';
   const isDraft = inv.status === 'draft';
   const isIssued = inv.status === 'sent' || inv.status === 'overdue';
-  const lines = inv.metadata?.lines ?? [];
+  const lines = inv.lines ?? [];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">

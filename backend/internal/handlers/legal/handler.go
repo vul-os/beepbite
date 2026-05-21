@@ -19,8 +19,9 @@
 //	// Authenticated (inside auth.Middleware group, after RequireOrgScope):
 //	legalH.MountAuthed(r)
 //
-// The handler reads the client IP from X-Forwarded-For (first value) or
-// RemoteAddr for acceptance records. IP is stored for audit purposes only.
+// The handler reads the client IP from r.RemoteAddr (set by chi's
+// middleware.RealIP) for acceptance records. IP is stored for audit purposes
+// only.
 package legal
 
 import (
@@ -28,7 +29,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -148,20 +148,14 @@ func writeErr(w http.ResponseWriter, code int, msg string) {
 	writeJSON(w, code, map[string]string{"error": msg})
 }
 
-// clientIP extracts the real client IP from X-Forwarded-For (first value) or
-// falls back to RemoteAddr. Returns an empty string if extraction fails.
+// clientIP extracts the client IP from r.RemoteAddr. chi's middleware.RealIP
+// is applied globally and rewrites RemoteAddr to the real client IP, so we do
+// not read the spoofable X-Forwarded-For header directly here. Returns an
+// empty string if the host portion cannot be extracted.
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For may be a comma-separated list; take the first entry.
-		parts := strings.SplitN(xff, ",", 2)
-		ip := strings.TrimSpace(parts[0])
-		if ip != "" {
-			return ip
-		}
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		return ""
 	}
 	return host
 }

@@ -31,6 +31,7 @@
 package customdomains
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -177,10 +178,11 @@ func (h *Handler) removeDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Also request cert removal (best-effort; failures are logged, not fatal).
+	// Use a background context so the request lifecycle does not cancel it.
+	bgctx := context.Background()
 	go func() {
 		// Re-fetch to get the hostname (already soft-deleted so we read from DB).
-		// Use a background context so the request lifecycle does not cancel it.
-		_ = h.flyCerts.RemoveCert(r.Context(), id) // id used as a label; real impl looks up hostname
+		_ = h.flyCerts.RemoveCert(bgctx, id) // id used as a label; real impl looks up hostname
 	}()
 
 	w.WriteHeader(http.StatusNoContent)

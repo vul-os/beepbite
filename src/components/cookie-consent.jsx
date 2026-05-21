@@ -252,7 +252,7 @@ const CookieConsent = () => {
             ) : (
               <button
                 onClick={() => setExpanded(true)}
-                aria-expanded="false"
+                aria-expanded={expanded}
                 style={btnStyle('secondary')}
               >
                 Manage preferences

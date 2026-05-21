@@ -136,10 +136,17 @@ func (s *Store) SearchStores(ctx context.Context, q string, lat, lng *float64, r
 		  )
 		  AND (
 		      $2::float8 IS NULL OR $3::float8 IS NULL
-		      OR earth_distance(
-		             ll_to_earth(latitude::float8, longitude::float8),
-		             ll_to_earth($2::float8, $3::float8)
-		         ) <= $4::float8 * 1000
+		      OR latitude IS NULL OR longitude IS NULL
+		      OR (
+		          -- Haversine great-circle distance in km (no earthdistance ext).
+		          6371 * acos(
+		              least(1, greatest(-1,
+		                  cos(radians($2::float8)) * cos(radians(latitude::float8))
+		                  * cos(radians(longitude::float8) - radians($3::float8))
+		                  + sin(radians($2::float8)) * sin(radians(latitude::float8))
+		              ))
+		          ) <= $4::float8
+		      )
 		  )
 		ORDER BY name
 		LIMIT 20`

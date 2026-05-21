@@ -67,7 +67,7 @@ func SendReceiptOnCompletion(
 	}
 
 	// Record the PDF generation regardless of channel delivery.
-	if rErr := store.RecordDelivery(ctx, orderID, orgID,
+	if rErr := store.RecordDelivery(srCtx, orderID, orgID,
 		fmt.Sprintf("auto:order:%s", orderID), "pdf"); rErr != nil {
 		log.Printf("receiptdelivery: SendReceiptOnCompletion: record pdf delivery for order %s: %v", orderID, rErr)
 	}
@@ -97,7 +97,7 @@ func SendReceiptOnCompletion(
 			if sErr := provider.Send(ctx, msg); sErr != nil {
 				log.Printf("receiptdelivery: SendReceiptOnCompletion: email send for order %s: %v", orderID, sErr)
 			} else {
-				if rErr := store.RecordDelivery(ctx, orderID, orgID,
+				if rErr := store.RecordDelivery(srCtx, orderID, orgID,
 					"email:"+contact.Email, "email"); rErr != nil {
 					log.Printf("receiptdelivery: SendReceiptOnCompletion: record email delivery for order %s: %v", orderID, rErr)
 				}
@@ -112,7 +112,7 @@ func SendReceiptOnCompletion(
 		if _, wErr := waClient.SendText(contact.WhatsAppNumber, body, false); wErr != nil {
 			log.Printf("receiptdelivery: SendReceiptOnCompletion: whatsapp send for order %s: %v", orderID, wErr)
 		} else {
-			if rErr := store.RecordDelivery(ctx, orderID, orgID,
+			if rErr := store.RecordDelivery(srCtx, orderID, orgID,
 				"whatsapp:"+contact.WhatsAppNumber, "whatsapp"); rErr != nil {
 				log.Printf("receiptdelivery: SendReceiptOnCompletion: record wa delivery for order %s: %v", orderID, rErr)
 			}
