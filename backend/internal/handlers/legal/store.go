@@ -54,7 +54,7 @@ func (s *Store) GetCurrentDocument(ctx context.Context, kind string) (*Document,
 SELECT id, kind, version, body_md, effective_at
 FROM legal_documents
 WHERE kind = $1
-  AND effective_at <= timezone('utc', now())
+  AND effective_at <= now()
 ORDER BY effective_at DESC
 LIMIT 1
 `, kind).Scan(&doc.ID, &doc.Kind, &doc.Version, &doc.BodyMD, &doc.EffectiveAt)

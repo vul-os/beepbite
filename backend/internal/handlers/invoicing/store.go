@@ -72,6 +72,11 @@ var (
 
 	// ErrInvoiceNotIssued is returned when marking paid requires sent status.
 	ErrInvoiceNotIssued = errors.New("invoice is not in sent status")
+
+	// ErrMissingRecipient is returned when a tenant-issued invoice is created
+	// without a recipient_org_id or recipient_customer_id, which would violate
+	// the invoices_has_recipient CHECK constraint.
+	ErrMissingRecipient = errors.New("tenant invoices require recipient_org_id or recipient_customer_id")
 )
 
 // ---------------------------------------------------------------------------
@@ -122,32 +127,40 @@ type invoiceMetadata struct {
 //	VATNumberShown removed       → replaced by VATApplied + VATRatePercent
 //	Lines                        → decoded from Metadata.Lines
 type Invoice struct {
-	ID               string        `json:"id"`
-	Issuer           string        `json:"issuer"`
-	IssuerOrgID      *string       `json:"issuer_org_id"`
-	RecipientName    string        `json:"recipient_name"`
-	RecipientAddress string        `json:"recipient_address"`
-	Currency         string        `json:"currency"`
-	SubtotalCents    int64         `json:"subtotal_cents"`
-	VATCents         int64         `json:"vat_cents"`
-	VATRatePercent   *float64      `json:"vat_rate_percent"`
-	VATApplied       bool          `json:"vat_applied"`
-	TotalCents       int64         `json:"total_cents"`
-	InvoiceNumber    string        `json:"invoice_number"`
-	Status           string        `json:"status"`
-	IssuedAt         *time.Time    `json:"issued_at"`
-	CreatedAt        time.Time     `json:"created_at"`
-	UpdatedAt        time.Time     `json:"updated_at"`
-	Lines            []InvoiceLine `json:"lines,omitempty"`
+	ID                  string        `json:"id"`
+	Issuer              string        `json:"issuer"`
+	IssuerOrgID         *string       `json:"issuer_org_id"`
+	RecipientOrgID      *string       `json:"recipient_org_id,omitempty"`
+	RecipientCustomerID *string       `json:"recipient_customer_id,omitempty"`
+	RecipientName       string        `json:"recipient_name"`
+	RecipientAddress    string        `json:"recipient_address"`
+	Currency            string        `json:"currency"`
+	SubtotalCents       int64         `json:"subtotal_cents"`
+	VATCents            int64         `json:"vat_cents"`
+	VATRatePercent      *float64      `json:"vat_rate_percent"`
+	VATApplied          bool          `json:"vat_applied"`
+	TotalCents          int64         `json:"total_cents"`
+	InvoiceNumber       string        `json:"invoice_number"`
+	Status              string        `json:"status"`
+	IssuedAt            *time.Time    `json:"issued_at"`
+	CreatedAt           time.Time     `json:"created_at"`
+	UpdatedAt           time.Time     `json:"updated_at"`
+	Lines               []InvoiceLine `json:"lines,omitempty"`
 }
 
 // CreateInvoiceReq is the body for POST /invoicing/invoices.
 type CreateInvoiceReq struct {
-	Issuer           string    `json:"issuer"` // "platform" | "tenant"
-	RecipientName    string    `json:"recipient_name"`
-	RecipientAddress string    `json:"recipient_address"`
-	Currency         string    `json:"currency"` // ISO-4217, e.g. "ZAR"
-	Lines            []LineReq `json:"lines"`
+	Issuer           string `json:"issuer"` // "platform" | "tenant"
+	RecipientName    string `json:"recipient_name"`
+	RecipientAddress string `json:"recipient_address"`
+	Currency         string `json:"currency"` // ISO-4217, e.g. "ZAR"
+	// RecipientOrgID links the invoice to another organization (B2B invoicing).
+	// Required for tenant-issued invoices unless RecipientCustomerID is set.
+	RecipientOrgID *string `json:"recipient_org_id"`
+	// RecipientCustomerID links the invoice to a customer record.
+	// Required for tenant-issued invoices unless RecipientOrgID is set.
+	RecipientCustomerID *string   `json:"recipient_customer_id"`
+	Lines               []LineReq `json:"lines"`
 	// VATRatePct is the VAT percentage to apply (e.g. 15 for 15%).
 	// Applied only when the issuer has a vat_number set.
 	VATRatePct float64 `json:"vat_rate_pct"`
@@ -287,13 +300,15 @@ RETURNING org_id, legal_name, registered_address, country,
 // scanInvoice is a helper that decodes an invoices row into an Invoice DTO.
 // Caller must have selected exactly these columns in this order:
 //
-//	id, issuer, issuer_org_id,
+//	id, issuer, issuer_org_id, recipient_org_id, recipient_customer_id,
 //	recipient_snapshot, currency,
 //	subtotal_cents, vat_cents, vat_rate_percent, vat_applied, total_cents,
 //	invoice_number, status, issued_at, created_at, updated_at,
 //	metadata
 func scanInvoice(row pgx.Row, inv *Invoice) error {
 	var issuerOrgID *string
+	var recipientOrgID *string
+	var recipientCustomerID *string
 	var snapshotJSON []byte
 	var metaJSON []byte
 	var vatRatePercent *float64
@@ -302,6 +317,8 @@ func scanInvoice(row pgx.Row, inv *Invoice) error {
 		&inv.ID,
 		&inv.Issuer,
 		&issuerOrgID,
+		&recipientOrgID,
+		&recipientCustomerID,
 		&snapshotJSON,
 		&inv.Currency,
 		&inv.SubtotalCents,
@@ -320,6 +337,8 @@ func scanInvoice(row pgx.Row, inv *Invoice) error {
 	}
 
 	inv.IssuerOrgID = issuerOrgID
+	inv.RecipientOrgID = recipientOrgID
+	inv.RecipientCustomerID = recipientCustomerID
 	inv.VATRatePercent = vatRatePercent
 
 	// Decode recipient_snapshot
@@ -346,7 +365,7 @@ func scanInvoice(row pgx.Row, inv *Invoice) error {
 }
 
 const invoiceSelectCols = `
-	id, issuer, issuer_org_id,
+	id, issuer, issuer_org_id, recipient_org_id, recipient_customer_id,
 	recipient_snapshot, currency,
 	subtotal_cents, vat_cents, vat_rate_percent, vat_applied, total_cents,
 	invoice_number, status, issued_at, created_at, updated_at,
@@ -411,6 +430,13 @@ SELECT`+invoiceSelectCols+`
 // vatNumber is the issuer's VAT number (empty string means no VAT).
 // vatRatePct is the rate to apply (e.g. 15.0 for 15%); ignored when vatNumber is empty.
 func (s *Store) CreateInvoice(ctx context.Context, req CreateInvoiceReq, vatNumber string, vatRatePct float64) (*Invoice, error) {
+	// Validate recipient: tenant-issued invoices must satisfy the DB CHECK
+	// constraint invoices_has_recipient (recipient_org_id IS NOT NULL OR
+	// recipient_customer_id IS NOT NULL OR issuer = 'platform').
+	if req.Issuer == "tenant" && req.RecipientOrgID == nil && req.RecipientCustomerID == nil {
+		return nil, ErrMissingRecipient
+	}
+
 	// Compute subtotal, vat, total
 	var subtotal int64
 	lines := make([]InvoiceLine, 0, len(req.Lines))
@@ -459,16 +485,19 @@ func (s *Store) CreateInvoice(ctx context.Context, req CreateInvoiceReq, vatNumb
 		row := tx.QueryRow(ctx, `
 INSERT INTO invoices
     (issuer, issuer_org_id,
+     recipient_org_id, recipient_customer_id,
      recipient_snapshot, currency,
      subtotal_cents, vat_cents, vat_rate_percent, vat_applied, total_cents,
      invoice_number, status, metadata)
 VALUES
     ($1, current_org_id(),
      $2, $3,
-     $4, $5, $6, $7, $8,
-     $9, 'draft', $10)
+     $4, $5,
+     $6, $7, $8, $9, $10,
+     $11, 'draft', $12)
 RETURNING`+invoiceSelectCols,
 			req.Issuer,
+			req.RecipientOrgID, req.RecipientCustomerID,
 			snapJSON, req.Currency,
 			subtotal, vatCents, vatRate, vatApplied, total,
 			invoiceNum,

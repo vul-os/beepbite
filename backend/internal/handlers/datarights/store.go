@@ -240,7 +240,9 @@ LIMIT 10000
 
 		// Staff.
 		doc.Staff, scanErr = queryRows(ctx, tx, `
-SELECT s.id, s.name, s.role, s.email, s.is_active, s.created_at
+SELECT s.id,
+       coalesce(s.display_name, s.first_name || ' ' || s.last_name) AS name,
+       s.role, s.email, s.is_active, s.created_at
 FROM staff s
 JOIN locations l ON l.id = s.location_id
 WHERE l.organization_id = $1

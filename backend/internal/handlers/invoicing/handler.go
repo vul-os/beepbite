@@ -152,6 +152,10 @@ func (h *Handler) createInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	inv, err := h.store.CreateInvoice(r.Context(), req, vatNumber, vatRatePct)
+	if errors.Is(err, ErrMissingRecipient) {
+		writeErr(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
