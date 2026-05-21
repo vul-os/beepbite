@@ -7,6 +7,14 @@
 // Usage:
 //   import { useBarcodeScanner } from '@/pages/pos/hooks/use-barcode-scanner';
 //
+//   // The hook only captures the scanned string; the caller does the lookup.
+//   // items.sku exists (migration 048), so resolve via the generic data layer:
+//   //   GET /data/items?eq=sku,<code>
+//   async function lookupBySku(code) {
+//     const res = await apiClient.get(`/data/items?eq=sku,${encodeURIComponent(code)}`);
+//     return res.ok ? res.data?.[0] ?? null : null;
+//   }
+//
 //   // In your POS component:
 //   useBarcodeScanner({
 //     onScan: async (barcode) => {
