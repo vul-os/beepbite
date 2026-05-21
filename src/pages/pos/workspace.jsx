@@ -233,24 +233,6 @@ export default function PosWorkspacePage() {
     return () => { cancelled = true; };
   }, [activeLocation?.id]);
 
-  // Assign a course to a new (unsent) item on the active ticket.
-  const handleSetCourse = useCallback((clientId, courseId) => {
-    if (!activeTicketId) return;
-    setTickets((prev) => {
-      const t = prev[activeTicketId];
-      if (!t) return prev;
-      return {
-        ...prev,
-        [activeTicketId]: {
-          ...t,
-          newItems: t.newItems.map((ni) =>
-            ni.id === clientId ? { ...ni, course_id: courseId || null } : ni,
-          ),
-        },
-      };
-    });
-  }, [activeTicketId]);
-
   // ----- menu state ------------------------------------------------------
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -269,6 +251,26 @@ export default function PosWorkspacePage() {
   const [activeTicketId, setActiveTicketId] = useState(null);
   const [walkInCounter, setWalkInCounter] = useState(1);
   const [openingTable, setOpeningTable] = useState(false);
+
+  // Assign a course to a new (unsent) item on the active ticket.
+  // Defined here (after tickets/activeTicketId state) to avoid a temporal
+  // dead-zone error from the parallel Wave 11 edits.
+  const handleSetCourse = useCallback((clientId, courseId) => {
+    if (!activeTicketId) return;
+    setTickets((prev) => {
+      const t = prev[activeTicketId];
+      if (!t) return prev;
+      return {
+        ...prev,
+        [activeTicketId]: {
+          ...t,
+          newItems: t.newItems.map((ni) =>
+            ni.id === clientId ? { ...ni, course_id: courseId || null } : ni,
+          ),
+        },
+      };
+    });
+  }, [activeTicketId]);
 
   // ----- send/charge state ----------------------------------------------
   const [sending, setSending] = useState(false);
@@ -640,15 +642,18 @@ export default function PosWorkspacePage() {
         orderType: activeTicket.kind === 'table' ? 'dine_in' : 'takeaway',
         tableNumber: activeTicket.kind === 'table' ? String(activeTicket.table_number || activeTicket.label || '') : undefined,
         registerSessionId: registerSession?.id,
-        items: activeTicket.newItems.map((ni) => ({
-          item_id: ni.item_id,
-          quantity: ni.qty,
-          variation_option_ids: ni.variation_option_ids || [],
-          notes: ni.notes || undefined,
-        })),
-        // Note: submitPosOrder doesn't currently forward table_session_id —
-        // we add it via the raw body shape on the next line via a tiny hack:
-        // the helper just forwards extra keys.
+        items: activeTicket.newItems.map((ni) => {
+          const lineItem = {
+            item_id: ni.item_id,
+            quantity: ni.qty,
+            notes: ni.notes || undefined,
+          };
+          if (ni.course_id) lineItem.course_id = ni.course_id;
+          if (ni.modifier_ids && ni.modifier_ids.length > 0) {
+            lineItem.modifiers = ni.modifier_ids.map((id) => ({ modifier_id: id }));
+          }
+          return lineItem;
+        }),
       });
       // Build a "sent order" record from the cart we just sent.
       const sentItems = activeTicket.newItems.map((ni) => ({

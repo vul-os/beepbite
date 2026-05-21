@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { MapPin, Star, Clock, ChevronLeft, ShoppingCart } from 'lucide-react';
-import { getStore, readCart, writeCart } from '@/services/marketplace';
+import { MapPin, Star, Clock, ChevronLeft, ShoppingCart, Truck, Store } from 'lucide-react';
+import { getStore, readCart, writeCart, readCartMeta, writeCartMeta } from '@/services/marketplace';
 import MenuSection from './components/menu-section';
 import CartWidget from './components/cart-widget';
 
@@ -43,6 +45,126 @@ function removeFromCart(items, item) {
     .filter((i) => (i.quantity ?? 0) > 0);
 }
 
+/**
+ * Derive which fulfillment modes a store offers.
+ * If neither flag is present (backend gap), default to offering both.
+ *
+ * @param {object} store
+ * @returns {{ offersDelivery: boolean, offersCollection: boolean }}
+ */
+function getFulfillmentOptions(store) {
+  if (!store) return { offersDelivery: true, offersCollection: true };
+
+  const hasDeliveryFlag = 'offers_delivery' in store;
+  const hasCollectionFlag = 'offers_collection' in store;
+
+  // Defensive: if neither flag is present, show both
+  if (!hasDeliveryFlag && !hasCollectionFlag) {
+    return { offersDelivery: true, offersCollection: true };
+  }
+
+  return {
+    offersDelivery: store.offers_delivery === true,
+    offersCollection: store.offers_collection === true,
+  };
+}
+
+/**
+ * FulfillmentSelector — shows a Delivery / Collection toggle (or nothing if
+ * only one mode is available, which gets auto-selected).
+ */
+function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddressChange }) {
+  const { offersDelivery, offersCollection } = getFulfillmentOptions(store);
+
+  // Build store address string for collection note
+  const storeAddress = [store?.address, store?.city, store?.country]
+    .filter(Boolean)
+    .join(', ');
+
+  const showToggle = offersDelivery && offersCollection;
+
+  return (
+    <div className="border rounded-lg px-4 py-3 space-y-3">
+      {/* Tab-style toggle — only shown when both modes are available */}
+      {showToggle && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onChange('delivery')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
+              value === 'delivery'
+                ? 'bg-orange-500 text-white border-orange-500'
+                : 'bg-background text-muted-foreground border-border hover:border-orange-300 hover:text-orange-600'
+            }`}
+          >
+            <Truck className="h-3.5 w-3.5" />
+            Delivery
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange('collection')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
+              value === 'collection'
+                ? 'bg-orange-500 text-white border-orange-500'
+                : 'bg-background text-muted-foreground border-border hover:border-orange-300 hover:text-orange-600'
+            }`}
+          >
+            <Store className="h-3.5 w-3.5" />
+            Collection
+          </button>
+        </div>
+      )}
+
+      {/* Single-mode label when only one is available */}
+      {!showToggle && (
+        <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+          {value === 'delivery' ? (
+            <>
+              <Truck className="h-3.5 w-3.5 text-orange-500" />
+              <span>Delivery only</span>
+            </>
+          ) : (
+            <>
+              <Store className="h-3.5 w-3.5 text-orange-500" />
+              <span>Collection only</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Delivery address input */}
+      {value === 'delivery' && (
+        <div className="space-y-1.5">
+          <Label htmlFor="delivery-address" className="text-xs text-muted-foreground">
+            Delivery address
+          </Label>
+          <Input
+            id="delivery-address"
+            type="text"
+            placeholder="Enter your delivery address"
+            value={deliveryAddress}
+            onChange={(e) => onAddressChange(e.target.value)}
+            className="h-8 text-sm focus-visible:ring-orange-400"
+          />
+        </div>
+      )}
+
+      {/* Collection note */}
+      {value === 'collection' && (
+        <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
+          <span>
+            Collect at{' '}
+            <span className="font-medium text-foreground">
+              {storeAddress || store?.name || 'the store'}
+            </span>
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function StoreDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -51,14 +173,53 @@ export default function StoreDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Cart — initialise from localStorage
+  // Cart — initialise items from localStorage
   const [cartItems, setCartItems] = useState(() => readCart(slug));
   const [cartOpen, setCartOpen] = useState(false);
 
-  // Persist cart to localStorage whenever it changes
+  // Fulfillment — initialise from localStorage meta
+  const [fulfillmentType, setFulfillmentType] = useState(() => {
+    const meta = readCartMeta(slug);
+    return meta.fulfillment_type || null; // null = not yet resolved; set once store loads
+  });
+  const [deliveryAddress, setDeliveryAddress] = useState(() => {
+    const meta = readCartMeta(slug);
+    return meta.delivery_address || '';
+  });
+
+  // Once store data is available, auto-select fulfillment type if not already set
+  useEffect(() => {
+    if (!store) return;
+    if (fulfillmentType) return; // already set by localStorage or previous interaction
+
+    const { offersDelivery, offersCollection } = getFulfillmentOptions(store);
+    if (offersDelivery) {
+      setFulfillmentType('delivery');
+    } else if (offersCollection) {
+      setFulfillmentType('collection');
+    }
+  }, [store, fulfillmentType]);
+
+  // Also correct an existing fulfillment_type if the store doesn't actually offer it
+  useEffect(() => {
+    if (!store || !fulfillmentType) return;
+    const { offersDelivery, offersCollection } = getFulfillmentOptions(store);
+    if (fulfillmentType === 'delivery' && !offersDelivery && offersCollection) {
+      setFulfillmentType('collection');
+    } else if (fulfillmentType === 'collection' && !offersCollection && offersDelivery) {
+      setFulfillmentType('delivery');
+    }
+  }, [store, fulfillmentType]);
+
+  // Persist cart items to localStorage whenever they change
   useEffect(() => {
     writeCart(slug, cartItems);
   }, [slug, cartItems]);
+
+  // Persist fulfillment meta to localStorage whenever it changes
+  useEffect(() => {
+    writeCartMeta(slug, { fulfillment_type: fulfillmentType, delivery_address: deliveryAddress });
+  }, [slug, fulfillmentType, deliveryAddress]);
 
   // Fetch store detail
   useEffect(() => {
@@ -92,6 +253,13 @@ export default function StoreDetailPage() {
 
   const handleClear = useCallback(() => {
     setCartItems([]);
+  }, []);
+
+  const handleFulfillmentChange = useCallback((type) => {
+    setFulfillmentType(type);
+    if (type === 'collection') {
+      setDeliveryAddress('');
+    }
   }, []);
 
   const cartQty = cartItems.reduce((s, i) => s + (i.quantity ?? 1), 0);
@@ -136,6 +304,8 @@ export default function StoreDetailPage() {
                 onClear={handleClear}
                 storeName={store?.name}
                 currency={store?.currency || store?.default_currency_code || store?.currency_code || 'USD'}
+                fulfillmentType={fulfillmentType}
+                deliveryAddress={deliveryAddress}
               />
             </div>
           </SheetContent>
@@ -220,6 +390,19 @@ export default function StoreDetailPage() {
                 </span>
               )}
             </div>
+
+            {/* Fulfillment selector — shown below store meta, above the menu */}
+            {fulfillmentType && (
+              <div className="pt-1">
+                <FulfillmentSelector
+                  store={store}
+                  value={fulfillmentType}
+                  onChange={handleFulfillmentChange}
+                  deliveryAddress={deliveryAddress}
+                  onAddressChange={setDeliveryAddress}
+                />
+              </div>
+            )}
           </div>
 
           {/* Two-column layout: menu + sidebar cart */}
@@ -246,6 +429,8 @@ export default function StoreDetailPage() {
                   onClear={handleClear}
                   storeName={store?.name}
                   currency={store?.currency || store?.default_currency_code || store?.currency_code || 'USD'}
+                  fulfillmentType={fulfillmentType}
+                  deliveryAddress={deliveryAddress}
                 />
               </div>
             </div>

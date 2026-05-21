@@ -6,13 +6,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 // archiveOldAuditLog calls the database function and returns the number of rows moved.
-func archiveOldAuditLog(ctx context.Context, db *pgxpool.Pool, retainDays int) (int64, error) {
+func archiveOldAuditLog(ctx context.Context, tx pgx.Tx, retainDays int) (int64, error) {
 	var moved int64
-	err := db.QueryRow(ctx, `SELECT moved_rows FROM archive_old_audit_log($1)`, retainDays).Scan(&moved)
+	err := tx.QueryRow(ctx, `SELECT moved_rows FROM archive_old_audit_log($1)`, retainDays).Scan(&moved)
 	if err != nil {
 		return 0, fmt.Errorf("auditretention: archive_old_audit_log(%d): %w", retainDays, err)
 	}

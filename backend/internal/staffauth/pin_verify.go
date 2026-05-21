@@ -20,10 +20,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/beepbite/backend/internal/auth"
+	"github.com/beepbite/backend/internal/db"
 )
 
 // actorOverlayTTL is the lifetime of the short-lived actor token. Deliberately
@@ -190,16 +192,26 @@ func (s *PinVerifyService) writeAudit(
 		staffIDVal = staffID
 	}
 
-	_, _ = s.pool.Exec(ctx, `
+	// This route runs outside RequireOrgScope, and migration 013 restricts
+	// audit_log INSERT to service_role under FORCE RLS, so the raw-pool insert
+	// would be rejected. Run as service_role; the inserted values are unchanged.
+	// Best-effort semantics preserved: any error is swallowed.
+	// organization_id is sourced via a sub-SELECT on locations using the known locationID.
+	_ = db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, _ = tx.Exec(ctx, `
 INSERT INTO audit_log
-    (actor_type, actor_id, action, entity_type, entity_id, location_id, metadata)
-VALUES
-    ('staff', $1, $2, 'staff', $1, $3::uuid, '{}')
+    (organization_id, actor_type, actor_id, action, entity_type, entity_id, location_id, metadata)
+SELECT loc.organization_id,
+       'staff', $1, $2, 'staff', $1, $3::uuid, '{}'
+FROM locations loc
+WHERE loc.id = $3::uuid
 `,
-		staffIDVal,
-		action,
-		nullableUUID(locationID),
-	)
+			staffIDVal,
+			action,
+			nullableUUID(locationID),
+		)
+		return nil
+	})
 }
 
 // nullableUUID returns nil for an empty string so Postgres treats it as NULL.

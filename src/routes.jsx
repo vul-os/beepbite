@@ -131,6 +131,10 @@ const Checkout = lazyImport(() => import('./pages/checkout'));
 // Quick POS — chrome-less counter-service kiosk at /q/:slug
 const QuickPOS = lazyImport(() => import('./pages/quick-pos'));
 
+// Drivers (Wave 16) — central driver portal + public customer live-tracking
+const DriverPortal = lazyImport(() => import('./pages/driver'));
+const CustomerTracking = lazyImport(() => import('./pages/track'));
+
 // Other pages
 const NotFound = lazyImport(() => import('./pages/not-found'));
 
@@ -189,6 +193,10 @@ const AppRoutes = () => {
           <Route path="/checkout" element={<Checkout />} />
           {/* Quick POS kiosk — public, chrome-less, counter-service */}
           <Route path="/q/:slug" element={<QuickPOS />} />
+          {/* Customer live order tracking — public, token-scoped */}
+          <Route path="/track/:token" element={<CustomerTracking />} />
+          {/* Central driver portal — requires sign-in, chrome-less (mobile) */}
+          <Route path="/driver" element={<Protected><DriverPortal /></Protected>} />
         </Route>
 
         {/* Protected app routes */}

@@ -1,0 +1,171 @@
+# .github/workflows/test.yml
+# CI: Go build/vet + Go tests + HTTP smoke suites + frontend build + Vitest unit tests on every push/PR.
+# Playwright E2E is a separate optional job (needs a browser binary).
+
+name: test
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  # ---------- Go ----------
+  go-build:
+    name: Go build, vet & test
+    runs-on: ubuntu-latest
+
+    # Postgres service container for the HTTP smoke suites.
+    # The server and `go run ./cmd/tests --all` connect to this instance.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: beepbite
+          POSTGRES_PASSWORD: beepbite
+          POSTGRES_DB: beepbite_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U beepbite"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Required by config.Load() — DATABASE_URL and JWT_SECRET are the only
+      # mandatory fields (all others have safe defaults or are optional).
+      DATABASE_URL: postgres://beepbite:beepbite@localhost:5432/beepbite_ci?sslmode=disable
+      JWT_SECRET: ci-test-secret-do-not-use-in-prod
+      APP_ENV: local
+      PORT: 8080
+      # Expose DATABASE_URL to the e2e package tests via TEST_DATABASE_URL so
+      # that helper_test.go's openPool() (which reads TEST_DATABASE_URL) is
+      # satisfied without Docker — testenv falls back to a scratch DB on the
+      # service container when Docker is unavailable.
+      TEST_DATABASE_URL: postgres://beepbite:beepbite@localhost:5432/beepbite_ci?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      # -----------------------------------------------------------------------
+      # Static analysis
+      # -----------------------------------------------------------------------
+
+      - name: go build
+        working-directory: backend
+        run: go build ./...
+
+      - name: go vet
+        working-directory: backend
+        run: go vet ./...
+
+      # -----------------------------------------------------------------------
+      # Unit / integration tests (go test ./...)
+      #
+      # testenv.StartPostgres() tries Docker first (testcontainers); when Docker
+      # is unavailable on the runner it falls back to a scratch DB on the
+      # Postgres service container above (reads DATABASE_URL / TEST_DATABASE_URL).
+      # The e2e tests in cmd/tests/e2e use TEST_DATABASE_URL directly and skip
+      # gracefully when neither path works, so this step never fails hard due to
+      # a missing Docker daemon.
+      # -----------------------------------------------------------------------
+
+      - name: go test (unit + integration)
+        working-directory: backend
+        run: go test ./...
+
+      # -----------------------------------------------------------------------
+      # HTTP smoke suites
+      #
+      # Steps:
+      #  1. Run migrations against the CI Postgres via `go run ./cmd/migrate --up`.
+      #     The migrate command reads DATABASE_URL from the environment (APP_ENV=local
+      #     causes config.Load to look for a .env file which won't exist in CI, but
+      #     the DATABASE_URL env var is already set above so it wins).
+      #  2. Start the server in the background on port 8080.
+      #  3. Wait until GET /health returns 200 (up to 30 s).
+      #  4. Run the full HTTP smoke suite with `go run ./cmd/tests --all`.
+      # -----------------------------------------------------------------------
+
+      - name: Migrate database
+        working-directory: backend
+        run: go run ./cmd/migrate --up
+
+      - name: Start server in background
+        working-directory: backend
+        run: go run ./cmd/server &
+        # The server reads APP_ENV, DATABASE_URL, JWT_SECRET, and PORT from the
+        # environment (all set in the job-level env block above).
+
+      - name: Wait for server /health
+        # Poll /health with a 1-second back-off for up to 30 seconds.
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Server is up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not become healthy within 30 seconds" >&2
+          exit 1
+
+      - name: Run HTTP smoke suites (--all)
+        working-directory: backend
+        # The tests runner reads APP_ENV to find the port (defaults to 8080).
+        # --all exercises: sanity, auth, pentest, menu, recipes, orders, members,
+        # whatsapp, onboarding, pos, kds, cashdrawer, adjustments.
+        run: go run ./cmd/tests --all
+
+  # ---------- Frontend ----------
+  frontend:
+    name: Frontend build + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Vite build (catches bundler errors)
+        run: npm run build
+
+      - name: Vitest unit tests
+        run: npm run test:unit
+
+  # ---------- Playwright E2E (optional) ----------
+  # Runs only when a browser binary is available.
+  # Disabled by default on ubuntu-latest because Playwright's bundled Chromium
+  # does not support Ubuntu 26+. Enable once you pin to ubuntu-22.04 or use
+  # the mcr.microsoft.com/playwright Docker image.
+  #
+  # Uncomment to activate:
+  #
+  # e2e:
+  #   name: Playwright render smoke
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #     - run: npm ci
+  #     - run: npx playwright install chromium --with-deps
+  #     - run: npm run test:e2e
+  #   env:
+  #     CI: true

@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 // Sentinel errors for HTTP-layer status-code mapping.
@@ -40,14 +42,14 @@ type Contribution struct {
 
 // Distribution mirrors a tip_distributions row.
 type Distribution struct {
-	ID                 string     `json:"id"`
-	TipPoolID          string     `json:"tip_pool_id"`
-	StaffID            string     `json:"staff_id"`
-	AmountCents        int64      `json:"amount_cents"`
-	HoursWorked        *float64   `json:"hours_worked"`
-	WeightPoints       *float64   `json:"weight_points"`
-	DistributedAt      time.Time  `json:"distributed_at"`
-	PayrollExportedAt  *time.Time `json:"payroll_exported_at"`
+	ID                string     `json:"id"`
+	TipPoolID         string     `json:"tip_pool_id"`
+	StaffID           string     `json:"staff_id"`
+	AmountCents       int64      `json:"amount_cents"`
+	HoursWorked       *float64   `json:"hours_worked"`
+	WeightPoints      *float64   `json:"weight_points"`
+	DistributedAt     time.Time  `json:"distributed_at"`
+	PayrollExportedAt *time.Time `json:"payroll_exported_at"`
 }
 
 // PoolDetail is what GET /tip-pools/{id} returns.
@@ -101,12 +103,14 @@ func (s *Store) CreatePool(
 	shiftDate string,
 ) (*TipPool, error) {
 	var out TipPool
-	err := scanPool(s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return scanPool(tx.QueryRow(ctx, `
 INSERT INTO tip_pools (organization_id, location_id, name, rule_type, config, shift_date)
 VALUES ($1, $2, $3, $4, $5, $6::date)
 RETURNING `+poolCols,
-		orgID, nullStr(locationID), name, ruleType, config, nullStr(shiftDate),
-	), &out)
+			orgID, nullStr(locationID), name, ruleType, config, nullStr(shiftDate),
+		), &out)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -128,29 +132,37 @@ func (s *Store) ListPools(ctx context.Context, locationID, shiftDate string) ([]
 	}
 	q += ` ORDER BY created_at DESC LIMIT 100`
 
-	rows, err := s.pool.Query(ctx, q, args...)
+	out := []TipPool{}
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, q, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var p TipPool
+			if err := scanPool(rows, &p); err != nil {
+				return err
+			}
+			out = append(out, p)
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	out := []TipPool{}
-	for rows.Next() {
-		var p TipPool
-		if err := scanPool(rows, &p); err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // GetPool returns one pool by ID, or ErrPoolNotFound.
 func (s *Store) GetPool(ctx context.Context, id string) (*TipPool, error) {
 	var out TipPool
-	err := scanPool(s.pool.QueryRow(ctx,
-		`SELECT `+poolCols+` FROM tip_pools WHERE id = $1`, id,
-	), &out)
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return scanPool(tx.QueryRow(ctx,
+			`SELECT `+poolCols+` FROM tip_pools WHERE id = $1`, id,
+		), &out)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrPoolNotFound
 	}
@@ -159,20 +171,34 @@ func (s *Store) GetPool(ctx context.Context, id string) (*TipPool, error) {
 
 // GetPoolDetail returns the pool plus all its contributions and distributions.
 func (s *Store) GetPoolDetail(ctx context.Context, id string) (*PoolDetail, error) {
-	pool, err := s.GetPool(ctx, id)
-	if err != nil {
-		return nil, err
-	}
+	var out PoolDetail
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		if err := scanPool(tx.QueryRow(ctx,
+			`SELECT `+poolCols+` FROM tip_pools WHERE id = $1`, id,
+		), &out.TipPool); err != nil {
+			return err
+		}
 
-	contrib, err := s.listContributions(ctx, id)
+		contrib, err := listContributionsTx(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		out.Contributions = contrib
+
+		dist, err := listDistributionsTx(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		out.Distributions = dist
+		return nil
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrPoolNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	dist, err := s.listDistributions(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return &PoolDetail{TipPool: *pool, Contributions: contrib, Distributions: dist}, nil
+	return &out, nil
 }
 
 // UpdatePool applies partial updates to name / rule_type / config / is_active.
@@ -183,7 +209,8 @@ func (s *Store) UpdatePool(
 	isActive *bool,
 ) (*TipPool, error) {
 	var out TipPool
-	err := scanPool(s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return scanPool(tx.QueryRow(ctx, `
 UPDATE tip_pools
 SET name      = COALESCE(NULLIF($2, ''), name),
     rule_type = COALESCE(NULLIF($3, ''), rule_type),
@@ -192,8 +219,9 @@ SET name      = COALESCE(NULLIF($2, ''), name),
     updated_at = now()
 WHERE id = $1
 RETURNING `+poolCols,
-		id, name, ruleType, configArg(config), isActive,
-	), &out)
+			id, name, ruleType, configArg(config), isActive,
+		), &out)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrPoolNotFound
 	}
@@ -217,18 +245,33 @@ func (s *Store) AddContribution(
 	amountCents int64,
 ) (*Contribution, error) {
 	var c Contribution
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 INSERT INTO tip_pool_contributions (tip_pool_id, order_payment_id, amount_cents)
 VALUES ($1, $2, $3)
 RETURNING id, tip_pool_id, order_payment_id, amount_cents, contributed_at
 `, poolID, nullStr(orderPaymentID), amountCents).Scan(
-		&c.ID, &c.TipPoolID, &c.OrderPaymentID, &c.AmountCents, &c.ContributedAt,
-	)
-	return &c, err
+			&c.ID, &c.TipPoolID, &c.OrderPaymentID, &c.AmountCents, &c.ContributedAt,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
 func (s *Store) listContributions(ctx context.Context, poolID string) ([]Contribution, error) {
-	rows, err := s.pool.Query(ctx, `
+	out := []Contribution{}
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		var err error
+		out, err = listContributionsTx(ctx, tx, poolID)
+		return err
+	})
+	return out, err
+}
+
+func listContributionsTx(ctx context.Context, tx pgx.Tx, poolID string) ([]Contribution, error) {
+	rows, err := tx.Query(ctx, `
 SELECT id, tip_pool_id, order_payment_id, amount_cents, contributed_at
 FROM tip_pool_contributions
 WHERE tip_pool_id = $1
@@ -252,7 +295,17 @@ ORDER BY contributed_at`, poolID)
 // ---- Distributions ----------------------------------------------------------
 
 func (s *Store) listDistributions(ctx context.Context, poolID string) ([]Distribution, error) {
-	rows, err := s.pool.Query(ctx, `
+	out := []Distribution{}
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		var err error
+		out, err = listDistributionsTx(ctx, tx, poolID)
+		return err
+	})
+	return out, err
+}
+
+func listDistributionsTx(ctx context.Context, tx pgx.Tx, poolID string) ([]Distribution, error) {
+	rows, err := tx.Query(ctx, `
 SELECT id, tip_pool_id, staff_id, amount_cents, hours_worked, weight_points,
        distributed_at, payroll_exported_at
 FROM tip_distributions
@@ -285,67 +338,64 @@ func (s *Store) DistributePool(
 	pool *TipPool,
 	reqRecipients []RecipientReq,
 ) ([]Distribution, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	// Sum all undistributed contributions.
-	var totalCents int64
-	if err := tx.QueryRow(ctx, `
+	var dists []Distribution
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		// Sum all undistributed contributions.
+		var totalCents int64
+		if err := tx.QueryRow(ctx, `
 SELECT COALESCE(SUM(amount_cents), 0) FROM tip_pool_contributions WHERE tip_pool_id = $1
 `, pool.ID).Scan(&totalCents); err != nil {
-		return nil, err
-	}
-	if totalCents == 0 {
-		return nil, errors.New("no contributions to distribute")
-	}
+			return err
+		}
+		if totalCents == 0 {
+			return errors.New("no contributions to distribute")
+		}
 
-	// Enrich recipients with their role from the staff table.
-	recipients := make([]Recipient, len(reqRecipients))
-	for i, rr := range reqRecipients {
-		var role string
-		if err := tx.QueryRow(ctx,
-			`SELECT role FROM staff WHERE id = $1`, rr.StaffID,
-		).Scan(&role); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return nil, errors.New("staff not found: " + rr.StaffID)
+		// Enrich recipients with their role from the staff table.
+		recipients := make([]Recipient, len(reqRecipients))
+		for i, rr := range reqRecipients {
+			var role string
+			if err := tx.QueryRow(ctx,
+				`SELECT role FROM staff WHERE id = $1`, rr.StaffID,
+			).Scan(&role); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return errors.New("staff not found: " + rr.StaffID)
+				}
+				return err
 			}
-			return nil, err
+			recipients[i] = Recipient{
+				StaffID:     rr.StaffID,
+				Role:        role,
+				HoursWorked: rr.HoursWorked,
+				WeightPts:   rr.WeightPoints,
+			}
 		}
-		recipients[i] = Recipient{
-			StaffID:     rr.StaffID,
-			Role:        role,
-			HoursWorked: rr.HoursWorked,
-			WeightPts:   rr.WeightPoints,
+
+		shares, err := Distribute(pool.RuleType, pool.Config, totalCents, recipients)
+		if err != nil {
+			return err
 		}
-	}
 
-	shares, err := Distribute(pool.RuleType, pool.Config, totalCents, recipients)
-	if err != nil {
-		return nil, err
-	}
-
-	dists := make([]Distribution, 0, len(shares))
-	for _, sh := range shares {
-		var d Distribution
-		if err := tx.QueryRow(ctx, `
+		dists = make([]Distribution, 0, len(shares))
+		for _, sh := range shares {
+			var d Distribution
+			if err := tx.QueryRow(ctx, `
 INSERT INTO tip_distributions (tip_pool_id, staff_id, amount_cents, hours_worked, weight_points)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, tip_pool_id, staff_id, amount_cents, hours_worked, weight_points,
           distributed_at, payroll_exported_at
 `, pool.ID, sh.StaffID, sh.AmountCents, nullF64(sh.HoursWorked), nullF64(sh.WeightPts),
-		).Scan(
-			&d.ID, &d.TipPoolID, &d.StaffID, &d.AmountCents, &d.HoursWorked, &d.WeightPoints,
-			&d.DistributedAt, &d.PayrollExportedAt,
-		); err != nil {
-			return nil, err
+			).Scan(
+				&d.ID, &d.TipPoolID, &d.StaffID, &d.AmountCents, &d.HoursWorked, &d.WeightPoints,
+				&d.DistributedAt, &d.PayrollExportedAt,
+			); err != nil {
+				return err
+			}
+			dists = append(dists, d)
 		}
-		dists = append(dists, d)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return dists, nil
@@ -354,7 +404,9 @@ RETURNING id, tip_pool_id, staff_id, amount_cents, hours_worked, weight_points,
 // StaffRole fetches the role column for a staff ID.
 func (s *Store) StaffRole(ctx context.Context, staffID string) (string, error) {
 	var role string
-	err := s.pool.QueryRow(ctx, `SELECT role FROM staff WHERE id = $1`, staffID).Scan(&role)
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT role FROM staff WHERE id = $1`, staffID).Scan(&role)
+	})
 	return role, err
 }
 

@@ -21,8 +21,8 @@ var ErrOrderNotPendingOnDelivery = errors.New("order is not pending_on_delivery"
 // ---------------------------------------------------------------------------
 
 type markPaidOnDeliveryReq struct {
-	Method             string `json:"method"`              // "cash" or "card_machine"
-	AmountReceivedCents int64 `json:"amount_received_cents"`
+	Method              string `json:"method"` // "cash" or "card_machine"
+	AmountReceivedCents int64  `json:"amount_received_cents"`
 }
 
 type markPaidOnDeliveryResp struct {
@@ -102,7 +102,7 @@ func (h *Handler) markPaidOnDelivery(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 // MarkPaidOnDelivery settles an on-delivery order: inserts an order_payments
-// row, updates order status to 'paid' (via order_financial_details), and
+// row, updates order status to 'completed', and
 // writes an audit_log entry — all within one transaction.
 func (s *Store) MarkPaidOnDelivery(
 	ctx context.Context,
@@ -151,18 +151,9 @@ func (s *Store) MarkPaidOnDelivery(
 		return nil, err
 	}
 
-	// --- 4. Update order_financial_details ---
-	if _, err := tx.Exec(ctx, `
-		UPDATE order_financial_details
-		SET payment_status = 'paid',
-		    payment_method = $2,
-		    updated_at     = timezone('utc'::text, now())
-		WHERE order_id = $1
-	`, orderID, paymentMethodCode); err != nil {
-		return nil, err
-	}
-
-	// --- 5. Update order status to 'completed' ---
+	// --- 4. Update order status to 'completed' ---
+	// Payment status/method are recorded on the order_payments row above; the
+	// Wave 0 consolidation dropped order_financial_details (no separate update).
 	if _, err := tx.Exec(ctx, `
 		UPDATE orders
 		SET status = 'completed'
@@ -179,8 +170,11 @@ func (s *Store) MarkPaidOnDelivery(
 	})
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO audit_log
-		    (actor_type, actor_id, action, entity_type, entity_id, before_state, after_state)
-		VALUES ('member', $1::uuid, 'order.paid_on_delivery', 'orders', $2::uuid, $3, $4)
+		    (organization_id, actor_type, actor_id, action, entity_type, entity_id, before_state, after_state)
+		SELECT o.organization_id,
+		       'member', $1::uuid, 'order.paid_on_delivery', 'orders', $2::uuid, $3, $4
+		FROM orders o
+		WHERE o.id = $2::uuid
 	`, nullStr(actorID), orderID,
 		[]byte(`{"status":"pending_on_delivery"}`),
 		afterJSON,

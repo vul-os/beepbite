@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/integrations/paystack"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,8 +22,8 @@ type Runner struct {
 }
 
 // NewRunner constructs a Runner. Both db and paystackMgr are required.
-func NewRunner(db *pgxpool.Pool, paystackMgr *paystack.Manager) *Runner {
-	return &Runner{db: db, paystack: paystackMgr}
+func NewRunner(pool *pgxpool.Pool, paystackMgr *paystack.Manager) *Runner {
+	return &Runner{db: pool, paystack: paystackMgr}
 }
 
 // Start launches the background polling loop. The loop ticks once per hour and
@@ -82,7 +83,9 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 // ---- internal helpers ------------------------------------------------------
 
 func (r *Runner) loadDueSchedules(ctx context.Context) ([]payoutScheduleRow, error) {
-	rows, err := r.db.Query(ctx, `
+	var out []payoutScheduleRow
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
 SELECT
     id, organization_id, location_id,
     cadence, day_of_week, day_of_month, run_at_hour,
@@ -94,25 +97,26 @@ WHERE is_active = true
   AND next_run_at <= now()
 ORDER BY next_run_at ASC
 `)
-	if err != nil {
-		return nil, fmt.Errorf("query: %w", err)
-	}
-	defer rows.Close()
-
-	var out []payoutScheduleRow
-	for rows.Next() {
-		var s payoutScheduleRow
-		if err := rows.Scan(
-			&s.ID, &s.OrganizationID, &s.LocationID,
-			&s.Cadence, &s.DayOfWeek, &s.DayOfMonth, &s.RunAtHour,
-			&s.MinimumPayoutCents, &s.HoldPeriodHours,
-			&s.LastRunAt, &s.NextRunAt,
-		); err != nil {
-			return nil, fmt.Errorf("scan: %w", err)
+		if err != nil {
+			return fmt.Errorf("query: %w", err)
 		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
+		defer rows.Close()
+
+		for rows.Next() {
+			var s payoutScheduleRow
+			if err := rows.Scan(
+				&s.ID, &s.OrganizationID, &s.LocationID,
+				&s.Cadence, &s.DayOfWeek, &s.DayOfMonth, &s.RunAtHour,
+				&s.MinimumPayoutCents, &s.HoldPeriodHours,
+				&s.LastRunAt, &s.NextRunAt,
+			); err != nil {
+				return fmt.Errorf("scan: %w", err)
+			}
+			out = append(out, s)
+		}
+		return rows.Err()
+	})
+	return out, err
 }
 
 func (r *Runner) processSchedule(ctx context.Context, sched payoutScheduleRow) error {
@@ -212,10 +216,11 @@ func (r *Runner) processSchedule(ctx context.Context, sched payoutScheduleRow) e
 func (r *Runner) loadBankAccount(ctx context.Context, orgID string, locationID *string) (*bankAccountRow, error) {
 	var row bankAccountRow
 
-	var err error
-	if locationID != nil {
-		// Prefer the location-specific bank account when one exists.
-		err = r.db.QueryRow(ctx, `
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		var err error
+		if locationID != nil {
+			// Prefer the location-specific bank account when one exists.
+			err = tx.QueryRow(ctx, `
 SELECT id, organization_id, location_id, provider_recipient_id
 FROM bank_accounts
 WHERE organization_id = $1
@@ -224,11 +229,11 @@ WHERE organization_id = $1
 ORDER BY is_default DESC, created_at ASC
 LIMIT 1
 `, orgID, *locationID).Scan(&row.ID, &row.OrganizationID, &row.LocationID, &row.ProviderRecipientID)
-	}
+		}
 
-	if locationID == nil || errors.Is(err, pgx.ErrNoRows) {
-		// Fall back to the org-level (location_id IS NULL) default.
-		err = r.db.QueryRow(ctx, `
+		if locationID == nil || errors.Is(err, pgx.ErrNoRows) {
+			// Fall back to the org-level (location_id IS NULL) default.
+			err = tx.QueryRow(ctx, `
 SELECT id, organization_id, location_id, provider_recipient_id
 FROM bank_accounts
 WHERE organization_id = $1
@@ -237,20 +242,26 @@ WHERE organization_id = $1
 ORDER BY is_default DESC, created_at ASC
 LIMIT 1
 `, orgID).Scan(&row.ID, &row.OrganizationID, &row.LocationID, &row.ProviderRecipientID)
-	}
-
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("no active bank account for org %s", orgID)
 		}
-		return nil, fmt.Errorf("query: %w", err)
+
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("no active bank account for org %s", orgID)
+			}
+			return fmt.Errorf("query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return &row, nil
 }
 
 func (r *Runner) loadOrgPlan(ctx context.Context, orgID string) (*orgPlanRow, error) {
 	var row orgPlanRow
-	err := r.db.QueryRow(ctx, `
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT
     org.id                          AS organization_id,
     sp.id                           AS subscription_plan_id,
@@ -262,13 +273,14 @@ FROM organizations org
 JOIN subscription_plans sp ON sp.tier_code = org.subscription_tier
 WHERE org.id = $1
 `, orgID).Scan(
-		&row.OrganizationID,
-		&row.SubscriptionPlanID,
-		&row.TransactionFeePct,
-		&row.TransactionFeeFixed,
-		&row.PayoutFeePct,
-		&row.PayoutFeeFixed,
-	)
+			&row.OrganizationID,
+			&row.SubscriptionPlanID,
+			&row.TransactionFeePct,
+			&row.TransactionFeeFixed,
+			&row.PayoutFeePct,
+			&row.PayoutFeeFixed,
+		)
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("org %s not found or has no plan", orgID)
@@ -283,15 +295,13 @@ func (r *Runner) sumEligiblePayments(
 	sched payoutScheduleRow,
 	periodStart, holdCutoff time.Time,
 ) (int64, []string, error) {
-	// Build the location filter clause.  When the schedule has a location_id we
-	// restrict to payments made at that location; otherwise all locations under
-	// the org are included.
 	var (
 		grossCents int64
 		ids        []string
 	)
 
-	rows, err := r.db.Query(ctx, `
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
 SELECT op.id, op.amount_paid_cents
 FROM order_payments op
 JOIN orders o ON o.id = op.order_id
@@ -307,21 +317,23 @@ WHERE l.organization_id = $1
       WHERE pf.order_payment_id = op.id AND pf.fee_kind = 'payout'
   )
 `, sched.OrganizationID, sched.LocationID, periodStart, holdCutoff)
-	if err != nil {
-		return 0, nil, fmt.Errorf("query: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var id string
-		var amt int64
-		if err := rows.Scan(&id, &amt); err != nil {
-			return 0, nil, fmt.Errorf("scan: %w", err)
+		if err != nil {
+			return fmt.Errorf("query: %w", err)
 		}
-		grossCents += amt
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
+		defer rows.Close()
+
+		for rows.Next() {
+			var id string
+			var amt int64
+			if err := rows.Scan(&id, &amt); err != nil {
+				return fmt.Errorf("scan: %w", err)
+			}
+			grossCents += amt
+			ids = append(ids, id)
+		}
+		return rows.Err()
+	})
+	if err != nil {
 		return 0, nil, err
 	}
 	return grossCents, ids, nil
@@ -331,14 +343,16 @@ func (r *Runner) sumTransactionFees(ctx context.Context, paymentIDs []string) (i
 	if len(paymentIDs) == 0 {
 		return 0, nil
 	}
-	// pgx supports []string as a text[] parameter.
 	var total int64
-	err := r.db.QueryRow(ctx, `
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		// pgx supports []string as a text[] parameter.
+		return tx.QueryRow(ctx, `
 SELECT COALESCE(SUM(fee_amount_cents), 0)
 FROM beepbite_payment_fees
 WHERE order_payment_id = ANY($1::uuid[])
   AND fee_kind = 'transaction'
 `, paymentIDs).Scan(&total)
+	})
 	if err != nil {
 		return 0, fmt.Errorf("query: %w", err)
 	}
@@ -351,9 +365,11 @@ func (r *Runner) resolveLocationID(ctx context.Context, sched payoutScheduleRow)
 	}
 	// Pick the first active location for the org.
 	var locID string
-	err := r.db.QueryRow(ctx, `
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT id FROM locations WHERE organization_id = $1 AND is_active = true ORDER BY created_at ASC LIMIT 1
 `, sched.OrganizationID).Scan(&locID)
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("org %s has no active locations", sched.OrganizationID)
@@ -372,7 +388,8 @@ func (r *Runner) insertMerchantPayout(
 	grossCents, totalFeesCents, netPayoutCents, payoutFeeCents int64,
 ) (string, error) {
 	var payoutID string
-	err := r.db.QueryRow(ctx, `
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 INSERT INTO merchant_payouts (
     location_id,
     period_start, period_end,
@@ -390,11 +407,12 @@ INSERT INTO merchant_payouts (
 )
 RETURNING id
 `,
-		sched.LocationID,
-		periodStart.UTC(), periodEnd.UTC(),
-		grossCents, totalFeesCents, netPayoutCents,
-		bank.ID, plan.SubscriptionPlanID, payoutFeeCents,
-	).Scan(&payoutID)
+			sched.LocationID,
+			periodStart.UTC(), periodEnd.UTC(),
+			grossCents, totalFeesCents, netPayoutCents,
+			bank.ID, plan.SubscriptionPlanID, payoutFeeCents,
+		).Scan(&payoutID)
+	})
 	if err != nil {
 		return "", fmt.Errorf("insert: %w", err)
 	}
@@ -407,66 +425,65 @@ func (r *Runner) finaliseTransfer(
 	paymentIDs []string,
 	payoutFeeCents int64,
 ) error {
-	// Update merchant_payouts with the transfer code.
-	_, err := r.db.Exec(ctx, `
+	return db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		// Update merchant_payouts with the transfer code.
+		_, err := tx.Exec(ctx, `
 UPDATE merchant_payouts
 SET provider_transfer_id = $2, provider_transfer_status = 'initiated'
 WHERE id = $1
 `, payoutID, transferCode)
-	if err != nil {
-		return fmt.Errorf("update merchant_payout: %w", err)
-	}
-
-	// Write payout-fee rows for each payment included in this batch.
-	// We split the per-payout fee proportionally across payments; for
-	// simplicity we attribute the full fee to the first payment and zero
-	// to the rest (an accounting detail — the merchant_payouts row carries
-	// the authoritative total).
-	if len(paymentIDs) == 0 {
-		return nil
-	}
-
-	// Insert payout-kind fee for each payment so they are marked as paid out.
-	// The amount is 0 for all but the first; the true payout fee total sits on
-	// the merchant_payouts.payout_fee_cents column.
-	for i, pid := range paymentIDs {
-		feeAmt := int64(0)
-		if i == 0 {
-			feeAmt = payoutFeeCents
+		if err != nil {
+			return fmt.Errorf("update merchant_payout: %w", err)
 		}
-		_, insErr := r.db.Exec(ctx, `
+
+		if len(paymentIDs) == 0 {
+			return nil
+		}
+
+		// Insert payout-kind fee for each payment so they are marked as paid out.
+		for i, pid := range paymentIDs {
+			feeAmt := int64(0)
+			if i == 0 {
+				feeAmt = payoutFeeCents
+			}
+			_, insErr := tx.Exec(ctx, `
 INSERT INTO beepbite_payment_fees
     (order_payment_id, organization_id, subscription_plan_id, fee_kind, fee_amount_cents)
 VALUES ($1, $2, $3, 'payout', $4)
 ON CONFLICT (order_payment_id, fee_kind) DO NOTHING
 `, pid, orgID, planID, feeAmt)
-		if insErr != nil {
-			return fmt.Errorf("insert payout fee for payment %s: %w", pid, insErr)
+			if insErr != nil {
+				return fmt.Errorf("insert payout fee for payment %s: %w", pid, insErr)
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (r *Runner) markPayoutFailed(ctx context.Context, payoutID, errMsg string) error {
-	_, err := r.db.Exec(ctx, `
+	return db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE merchant_payouts
 SET payout_status = 'failed', provider_transfer_error = $2, failed_at = now()
 WHERE id = $1
 `, payoutID, errMsg)
-	return err
+		return err
+	})
 }
 
 func (r *Runner) advanceSchedule(ctx context.Context, sched payoutScheduleRow) error {
 	nextRun := computeNextRun(sched)
-	_, err := r.db.Exec(ctx, `
+	return db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE payout_schedules
 SET last_run_at = now(), next_run_at = $2, updated_at = now()
 WHERE id = $1
 `, sched.ID, nextRun)
-	if err != nil {
-		return fmt.Errorf("advance schedule %s: %w", sched.ID, err)
-	}
-	return nil
+		if err != nil {
+			return fmt.Errorf("advance schedule %s: %w", sched.ID, err)
+		}
+		return nil
+	})
 }
 
 // computeNextRun calculates the next next_run_at based on cadence.

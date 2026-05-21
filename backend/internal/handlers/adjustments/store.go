@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 // Sentinel errors used by the HTTP layer for status-code mapping.
@@ -23,18 +25,18 @@ var (
 
 // Adjustment mirrors an order_adjustments row.
 type Adjustment struct {
-	ID                 string     `json:"id"`
-	OrderID            string     `json:"order_id"`
-	OrderItemID        *string    `json:"order_item_id"`
-	AdjustmentType     string     `json:"adjustment_type"`
-	ReasonID           *string    `json:"reason_id"`
-	ReasonText         *string    `json:"reason_text"`
-	AmountCents        int64      `json:"amount_cents"`
+	ID                  string    `json:"id"`
+	OrderID             string    `json:"order_id"`
+	OrderItemID         *string   `json:"order_item_id"`
+	AdjustmentType      string    `json:"adjustment_type"`
+	ReasonID            *string   `json:"reason_id"`
+	ReasonText          *string   `json:"reason_text"`
+	AmountCents         int64     `json:"amount_cents"`
 	OriginalAmountCents *int64    `json:"original_amount_cents"`
-	AppliedBy          *string    `json:"applied_by"`
-	ApprovedBy         *string    `json:"approved_by"`
-	ApprovalStatus     string     `json:"approval_status"`
-	CreatedAt          time.Time  `json:"created_at"`
+	AppliedBy           *string   `json:"applied_by"`
+	ApprovedBy          *string   `json:"approved_by"`
+	ApprovalStatus      string    `json:"approval_status"`
+	CreatedAt           time.Time `json:"created_at"`
 }
 
 // Store wraps pgxpool for all adjustment-related queries.
@@ -48,9 +50,11 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // opening a transaction. Returns ErrOrderNotFound when no row is found.
 func (s *Store) GetOrderLocationID(ctx context.Context, orderID string) (string, error) {
 	var locID string
-	err := s.pool.QueryRow(ctx,
-		`SELECT location_id FROM orders WHERE id = $1`, orderID,
-	).Scan(&locID)
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx,
+			`SELECT location_id FROM orders WHERE id = $1`, orderID,
+		).Scan(&locID)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrOrderNotFound
 	}
@@ -60,11 +64,13 @@ func (s *Store) GetOrderLocationID(ctx context.Context, orderID string) (string,
 // GetApproverByID loads the minimal staff fields needed for PIN + role checks.
 func (s *Store) GetApproverByID(ctx context.Context, staffID string) (*approverRow, error) {
 	var r approverRow
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT id, role, pin_hash
 FROM staff
 WHERE id = $1
 `, staffID).Scan(&r.ID, &r.Role, &r.PinHash)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrApproverNotFound
 	}
@@ -192,17 +198,26 @@ func (s *Store) insertAuditLog(
 		return err
 	}
 
-	_, err = tx.Exec(ctx, `
+	// audit_log INSERT is restricted to service_role (migration 013), so elevate
+	// just for this write; the surrounding adjustment mutations stay tenant-scoped.
+	return db.WithTxServiceRole(ctx, tx, func() error {
+		_, err = tx.Exec(ctx, `
 INSERT INTO audit_log (
+    organization_id,
     actor_type, actor_id,
     action, entity_type, entity_id,
     before_state, after_state
-) VALUES ('staff', $1, $2, $3, $4, $5, $6)
+)
+SELECT o.organization_id,
+       'staff', $1, $2, $3, $4, $5, $6
+FROM orders o
+WHERE o.id = $4::uuid
 `,
-		nullStr(actorID), action, entityType, nullStr(entityID),
-		bJSON, aJSON,
-	)
-	return err
+			nullStr(actorID), action, entityType, nullStr(entityID),
+			bJSON, aJSON,
+		)
+		return err
+	})
 }
 
 // -------------------------------------------------------------------
@@ -217,49 +232,46 @@ func (s *Store) VoidOrder(
 	appliedBy string,
 	approvedBy string,
 ) (*Adjustment, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	var adj *Adjustment
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		order, err := s.GetOrderState(ctx, tx, orderID)
+		if err != nil {
+			return err
+		}
+
+		paid, err := s.HasCompletedPayment(ctx, tx, orderID)
+		if err != nil {
+			return err
+		}
+		if paid {
+			return ErrOrderAlreadyPaid
+		}
+
+		voided, err := s.HasActiveVoid(ctx, tx, orderID)
+		if err != nil {
+			return err
+		}
+		if voided {
+			return ErrAlreadyVoided
+		}
+
+		rt := nullableStr(reasonText)
+		adj, err = s.insertAdjustment(
+			ctx, tx, orderID, nil, "void", rt, 0, nil, appliedBy, approvedBy,
+		)
+		if err != nil {
+			return err
+		}
+
+		return s.insertAuditLog(ctx, tx, appliedBy, "order.void", "orders", orderID,
+			map[string]any{"status": order.Status},
+			map[string]any{"adjustment_id": adj.ID, "adjustment_type": "void"},
+		)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
-
-	order, err := s.GetOrderState(ctx, tx, orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	paid, err := s.HasCompletedPayment(ctx, tx, orderID)
-	if err != nil {
-		return nil, err
-	}
-	if paid {
-		return nil, ErrOrderAlreadyPaid
-	}
-
-	voided, err := s.HasActiveVoid(ctx, tx, orderID)
-	if err != nil {
-		return nil, err
-	}
-	if voided {
-		return nil, ErrAlreadyVoided
-	}
-
-	rt := nullableStr(reasonText)
-	adj, err := s.insertAdjustment(
-		ctx, tx, orderID, nil, "void", rt, 0, nil, appliedBy, approvedBy,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.insertAuditLog(ctx, tx, appliedBy, "order.void", "orders", orderID,
-		map[string]any{"status": order.Status},
-		map[string]any{"adjustment_id": adj.ID, "adjustment_type": "void"},
-	); err != nil {
-		return nil, err
-	}
-
-	return adj, tx.Commit(ctx)
+	return adj, nil
 }
 
 // CompItem comps a single order item.
@@ -271,38 +283,36 @@ func (s *Store) CompItem(
 	appliedBy string,
 	approvedBy string,
 ) (*Adjustment, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	var adj *Adjustment
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		if _, err := s.GetOrderState(ctx, tx, orderID); err != nil {
+			return err
+		}
+
+		origCents, err := s.GetOrderItemAmountCents(ctx, tx, orderID, itemID)
+		if err != nil {
+			return err
+		}
+
+		rt := nullableStr(reasonText)
+		iid := itemID
+		var err2 error
+		adj, err2 = s.insertAdjustment(
+			ctx, tx, orderID, &iid, "comp", rt, origCents, &origCents, appliedBy, approvedBy,
+		)
+		if err2 != nil {
+			return err2
+		}
+
+		return s.insertAuditLog(ctx, tx, appliedBy, "order.comp", "orders", orderID,
+			map[string]any{"order_item_id": itemID, "original_amount_cents": origCents},
+			map[string]any{"adjustment_id": adj.ID, "adjustment_type": "comp", "amount_cents": origCents},
+		)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
-
-	if _, err := s.GetOrderState(ctx, tx, orderID); err != nil {
-		return nil, err
-	}
-
-	origCents, err := s.GetOrderItemAmountCents(ctx, tx, orderID, itemID)
-	if err != nil {
-		return nil, err
-	}
-
-	rt := nullableStr(reasonText)
-	iid := itemID
-	adj, err := s.insertAdjustment(
-		ctx, tx, orderID, &iid, "comp", rt, origCents, &origCents, appliedBy, approvedBy,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.insertAuditLog(ctx, tx, appliedBy, "order.comp", "orders", orderID,
-		map[string]any{"order_item_id": itemID, "original_amount_cents": origCents},
-		map[string]any{"adjustment_id": adj.ID, "adjustment_type": "comp", "amount_cents": origCents},
-	); err != nil {
-		return nil, err
-	}
-
-	return adj, tx.Commit(ctx)
+	return adj, nil
 }
 
 // PriceOverrideItem overrides the price of a single item.
@@ -315,43 +325,41 @@ func (s *Store) PriceOverrideItem(
 	appliedBy string,
 	approvedBy string,
 ) (*Adjustment, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	var adj *Adjustment
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		if _, err := s.GetOrderState(ctx, tx, orderID); err != nil {
+			return err
+		}
+
+		origCents, err := s.GetOrderItemAmountCents(ctx, tx, orderID, itemID)
+		if err != nil {
+			return err
+		}
+
+		delta := origCents - newPriceCents // positive = price lowered
+		if delta < 0 {
+			delta = -delta
+		}
+
+		rt := nullableStr(reasonText)
+		iid := itemID
+		var err2 error
+		adj, err2 = s.insertAdjustment(
+			ctx, tx, orderID, &iid, "price_override", rt, delta, &origCents, appliedBy, approvedBy,
+		)
+		if err2 != nil {
+			return err2
+		}
+
+		return s.insertAuditLog(ctx, tx, appliedBy, "order.price_override", "orders", orderID,
+			map[string]any{"order_item_id": itemID, "original_amount_cents": origCents},
+			map[string]any{"adjustment_id": adj.ID, "new_price_cents": newPriceCents},
+		)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
-
-	if _, err := s.GetOrderState(ctx, tx, orderID); err != nil {
-		return nil, err
-	}
-
-	origCents, err := s.GetOrderItemAmountCents(ctx, tx, orderID, itemID)
-	if err != nil {
-		return nil, err
-	}
-
-	delta := origCents - newPriceCents // positive = price lowered
-	if delta < 0 {
-		delta = -delta
-	}
-
-	rt := nullableStr(reasonText)
-	iid := itemID
-	adj, err := s.insertAdjustment(
-		ctx, tx, orderID, &iid, "price_override", rt, delta, &origCents, appliedBy, approvedBy,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.insertAuditLog(ctx, tx, appliedBy, "order.price_override", "orders", orderID,
-		map[string]any{"order_item_id": itemID, "original_amount_cents": origCents},
-		map[string]any{"adjustment_id": adj.ID, "new_price_cents": newPriceCents},
-	); err != nil {
-		return nil, err
-	}
-
-	return adj, tx.Commit(ctx)
+	return adj, nil
 }
 
 // RefundOrder records a post-payment refund adjustment.
@@ -363,41 +371,41 @@ func (s *Store) RefundOrder(
 	appliedBy string,
 	approvedBy string,
 ) (*Adjustment, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	var adj *Adjustment
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		order, err := s.GetOrderState(ctx, tx, orderID)
+		if err != nil {
+			return err
+		}
+
+		// TODO: trigger payment-provider refund API call here before writing DB rows.
+		// Suggested shape: refundProvider(ctx, orderID, amountCents)
+
+		rt := nullableStr(reasonText)
+		var err2 error
+		adj, err2 = s.insertAdjustment(
+			ctx, tx, orderID, nil, "refund", rt, 0, nil, appliedBy, approvedBy,
+		)
+		if err2 != nil {
+			return err2
+		}
+
+		return s.insertAuditLog(ctx, tx, appliedBy, "order.refund", "orders", orderID,
+			map[string]any{"status": order.Status},
+			map[string]any{"adjustment_id": adj.ID, "adjustment_type": "refund"},
+		)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
-
-	order, err := s.GetOrderState(ctx, tx, orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: trigger payment-provider refund API call here before writing DB rows.
-	// Suggested shape: refundProvider(ctx, orderID, amountCents)
-
-	rt := nullableStr(reasonText)
-	adj, err := s.insertAdjustment(
-		ctx, tx, orderID, nil, "refund", rt, 0, nil, appliedBy, approvedBy,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.insertAuditLog(ctx, tx, appliedBy, "order.refund", "orders", orderID,
-		map[string]any{"status": order.Status},
-		map[string]any{"adjustment_id": adj.ID, "adjustment_type": "refund"},
-	); err != nil {
-		return nil, err
-	}
-
-	return adj, tx.Commit(ctx)
+	return adj, nil
 }
 
 // ListAdjustments returns all adjustment rows for an order, newest first.
 func (s *Store) ListAdjustments(ctx context.Context, orderID string) ([]Adjustment, error) {
-	rows, err := s.pool.Query(ctx, `
+	out := []Adjustment{}
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
 SELECT id, order_id, order_item_id, adjustment_type,
        reason_id, reason_text, amount_cents, original_amount_cents,
        applied_by, approved_by, approval_status, created_at
@@ -405,24 +413,28 @@ FROM order_adjustments
 WHERE order_id = $1
 ORDER BY created_at DESC
 `, orderID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var a Adjustment
+			if err := rows.Scan(
+				&a.ID, &a.OrderID, &a.OrderItemID, &a.AdjustmentType,
+				&a.ReasonID, &a.ReasonText, &a.AmountCents, &a.OriginalAmountCents,
+				&a.AppliedBy, &a.ApprovedBy, &a.ApprovalStatus, &a.CreatedAt,
+			); err != nil {
+				return err
+			}
+			out = append(out, a)
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	out := []Adjustment{}
-	for rows.Next() {
-		var a Adjustment
-		if err := rows.Scan(
-			&a.ID, &a.OrderID, &a.OrderItemID, &a.AdjustmentType,
-			&a.ReasonID, &a.ReasonText, &a.AmountCents, &a.OriginalAmountCents,
-			&a.AppliedBy, &a.ApprovedBy, &a.ApprovalStatus, &a.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		out = append(out, a)
-	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // nullStr returns nil for empty strings so Postgres stores SQL NULL.

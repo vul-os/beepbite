@@ -146,6 +146,26 @@ func setSessionVars(ctx context.Context, tx pgx.Tx, s Scope) error {
 	return nil
 }
 
+// WithTxServiceRole elevates app.is_service_role to true for the duration of fn
+// inside an already-open transaction, then restores it to false. Use it to wrap
+// an append-only audit_log insert inside an otherwise tenant-scoped transaction:
+// migration 013 restricts audit_log INSERT to service_role (so a compromised
+// tenant session cannot forge audit entries), while the surrounding data
+// mutations must stay under tenant RLS. The toggle is transaction-local
+// (set_config is_local=true), so it never leaks past commit/rollback.
+func WithTxServiceRole(ctx context.Context, tx pgx.Tx, fn func() error) error {
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.is_service_role', 'true', true)`); err != nil {
+		return fmt.Errorf("elevate service role: %w", err)
+	}
+	if err := fn(); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.is_service_role', '', true)`); err != nil {
+		return fmt.Errorf("restore tenant scope: %w", err)
+	}
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

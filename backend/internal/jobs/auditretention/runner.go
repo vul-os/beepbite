@@ -6,7 +6,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 const (
@@ -23,11 +26,11 @@ type Runner struct {
 
 // NewRunner constructs a Runner. retainDays controls how far back rows are kept;
 // pass 0 to use the default of 90 days.
-func NewRunner(db *pgxpool.Pool, retainDays int) *Runner {
+func NewRunner(pool *pgxpool.Pool, retainDays int) *Runner {
 	if retainDays <= 0 {
 		retainDays = defaultRetainDays
 	}
-	return &Runner{db: db, retainDays: retainDays}
+	return &Runner{db: pool, retainDays: retainDays}
 }
 
 // Start launches the background daily sweep. It exits cleanly when ctx is
@@ -60,9 +63,17 @@ func (r *Runner) Start(ctx context.Context) {
 // RunOnce immediately executes the archive sweep and logs the result. It is
 // exported so callers can trigger an ad-hoc run (e.g. from an admin endpoint
 // or integration test).
+//
+// The sweep runs inside a service-role transaction so that the audit_log RLS
+// policy (INSERT WITH CHECK (is_service_role())) is satisfied for the archival
+// function.
 func (r *Runner) RunOnce(ctx context.Context) error {
-	moved, err := archiveOldAuditLog(ctx, r.db, r.retainDays)
-	if err != nil {
+	var moved int64
+	if err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		var err error
+		moved, err = archiveOldAuditLog(ctx, tx, r.retainDays)
+		return err
+	}); err != nil {
 		return err
 	}
 	log.Printf("auditretention: archived %d audit_log row(s) older than %d days", moved, r.retainDays)

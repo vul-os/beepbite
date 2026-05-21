@@ -72,11 +72,13 @@ WHERE id = $1
 }
 
 // PayoutRow is a minimal projection of merchant_payouts used in reconcile paths.
+// OrganizationID is resolved via a JOIN to locations since merchant_payouts only
+// stores location_id (it has no organization_id column).
 type PayoutRow struct {
-	ID                    string
-	ProviderTransferID    string // transfer_code or numeric id as stored
-	OrganizationID        string
-	LocationID            *string
+	ID                 string
+	ProviderTransferID string // transfer_code or numeric id as stored
+	OrganizationID     string
+	LocationID         *string
 }
 
 // UpdatePayoutSuccess sets provider_transfer_status='success' and completed_at
@@ -154,10 +156,16 @@ WHERE id = $1
 func (s *Store) UpdatePayoutStatus(ctx context.Context, payoutID, newStatus, failureReason string) error {
 	return s.inTx(ctx, func(tx pgx.Tx) error {
 		var row PayoutRow
+		// JOIN locations to resolve organization_id (merchant_payouts has no
+		// organization_id column; it is normalised through location_id).
 		err := tx.QueryRow(ctx, `
-SELECT id, COALESCE(provider_transfer_id,''), organization_id, location_id
-FROM merchant_payouts
-WHERE id = $1
+SELECT mp.id,
+       COALESCE(mp.provider_transfer_id,''),
+       l.organization_id,
+       mp.location_id
+FROM merchant_payouts mp
+JOIN locations l ON l.id = mp.location_id
+WHERE mp.id = $1
 FOR UPDATE
 `, payoutID).Scan(&row.ID, &row.ProviderTransferID, &row.OrganizationID, &row.LocationID)
 		if err != nil {
@@ -191,19 +199,24 @@ WHERE id = $1
 			return err
 		}
 		return auditLog(ctx, tx, row, "payout.recon_status_synced", map[string]any{
-			"new_status":      newStatus,
-			"failure_reason":  failureReason,
+			"new_status":     newStatus,
+			"failure_reason": failureReason,
 		})
 	})
 }
 
 // StickyInitiatedPayouts returns payouts stuck in 'initiated' for > 1 hour.
+// organization_id is resolved via a JOIN to locations.
 func (s *Store) StickyInitiatedPayouts(ctx context.Context) ([]PayoutRow, error) {
 	rows, err := s.pool.Query(ctx, `
-SELECT id, COALESCE(provider_transfer_id,''), organization_id, location_id
-FROM merchant_payouts
-WHERE provider_transfer_status = 'initiated'
-  AND created_at < now() - interval '1 hour'
+SELECT mp.id,
+       COALESCE(mp.provider_transfer_id,''),
+       l.organization_id,
+       mp.location_id
+FROM merchant_payouts mp
+JOIN locations l ON l.id = mp.location_id
+WHERE mp.provider_transfer_status = 'initiated'
+  AND mp.created_at < now() - interval '1 hour'
 `)
 	if err != nil {
 		return nil, err
@@ -239,12 +252,17 @@ func (s *Store) inTx(ctx context.Context, fn func(pgx.Tx) error) error {
 
 // lockPayoutByTransferCode selects the merchant_payouts row whose
 // provider_transfer_id matches, locking it for update.
+// organization_id is resolved via a JOIN to locations.
 func lockPayoutByTransferCode(ctx context.Context, tx pgx.Tx, transferCode string) (PayoutRow, error) {
 	var row PayoutRow
 	err := tx.QueryRow(ctx, `
-SELECT id, COALESCE(provider_transfer_id,''), organization_id, location_id
-FROM merchant_payouts
-WHERE provider_transfer_id = $1
+SELECT mp.id,
+       COALESCE(mp.provider_transfer_id,''),
+       l.organization_id,
+       mp.location_id
+FROM merchant_payouts mp
+JOIN locations l ON l.id = mp.location_id
+WHERE mp.provider_transfer_id = $1
 FOR UPDATE
 `, transferCode).Scan(&row.ID, &row.ProviderTransferID, &row.OrganizationID, &row.LocationID)
 	if err != nil {

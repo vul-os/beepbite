@@ -22,6 +22,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/beepbite/backend/internal/db"
@@ -320,9 +321,11 @@ func requireOrgScopeWith(q orgMembershipQuerier) func(http.Handler) http.Handler
 
 			locationIDs, err := q.queryLocationIDs(ctx, orgIDs)
 			if err != nil {
+				log.Printf("DEBUG RequireOrgScope: queryLocationIDs error for orgIDs=%v: %v", orgIDs, err)
 				http.Error(w, "internal error resolving locations", http.StatusInternalServerError)
 				return
 			}
+			log.Printf("DEBUG RequireOrgScope: user=%s orgIDs=%v locationIDs=%v", claims.UserID, orgIDs, locationIDs)
 
 			// Build AllowedLocations set for O(1) AllowsLocation checks.
 			allowed := make(map[string]struct{}, len(locationIDs))

@@ -1,144 +1,98 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import {
-  Clock,
-  ShoppingCart,
-  PanelLeftOpen,
-  PanelRightOpen,
-  AlertCircle,
-  Unlock,
-  Lock,
-  User as UserIcon
-} from 'lucide-react';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
-import { useToast } from '@/hooks/use-toast';
 
-// Import the new components
-import OrdersSection from './components/orders-section';
-import CartSection from './components/cart-section';
-import POSSection from './components/pos-section';
-import OrderModals from './components/order-modal';
-import OpenRegisterModal from './components/open-register-modal';
-import ReturnModal from './components/return-modal';
+// Stats API
+import { fetchStatsSummary, fetchStatsHeatmap } from '@/services/stats';
+
+// Dashboard sub-components
+import PeriodFilter from './components/period-filter';
+import KpiCards from './components/kpi-cards';
+import SalesTrendChart from './components/sales-trend-chart';
+import BusyHeatmap from './components/busy-heatmap';
+import LiveOrdersPanel from './components/live-orders-panel';
 import OnboardingChecklist from './components/onboarding-checklist';
-import { cn } from '@/lib/utils';
-import {
-  getOpenSession,
-  getStaffDisplayName,
-  getStaff,
-  readStoredRegister,
-  persistRegister,
-  clearStoredRegister,
-  submitPosOrder,
-} from '@/services/pos';
 
 const Home = () => {
-  const { activeOrganization, activeLocation } = useAuth();
-  // Derive the display currency from the active organisation (falls back to USD).
-  const orgCurrency = activeOrganization?.default_currency_code || activeOrganization?.currency_code || activeOrganization?.currency || 'USD';
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const { activeOrganization, activeLocation, locations, hasLoadedLocations } = useAuth();
+  const orgCurrency =
+    activeOrganization?.default_currency_code ||
+    activeOrganization?.currency_code ||
+    activeOrganization?.currency ||
+    'USD';
 
-  // ---- POS cashier state ------------------------------------------------
-  // Register session is required before the cashier can place orders.
-  // We hydrate from localStorage and then verify with the backend.
-  const stored = useMemo(() => readStoredRegister(), []);
-  const [registerSession, setRegisterSession] = useState(null);
-  const [registerDrawerId, setRegisterDrawerId] = useState(stored?.drawerId || '');
-  const [registerOpenedAt, setRegisterOpenedAt] = useState(stored?.openedAt || null);
-  const [registerLoading, setRegisterLoading] = useState(true);
-  const [isOpenRegisterOpen, setIsOpenRegisterOpen] = useState(false);
-  const [isReturnOpen, setIsReturnOpen] = useState(false);
+  // Resolve the location to drive the dashboard. Prefer the explicitly active
+  // location; if it is null/stale (e.g. it hasn't hydrated yet after login, or
+  // localStorage held a location from a different org), fall back to the org's
+  // first loaded location so the dashboard shows REAL data instead of zeros.
+  const resolvedLocation = useMemo(() => {
+    if (activeLocation?.id) return activeLocation;
+    if (locations && locations.length > 0) return locations[0];
+    return null;
+  }, [activeLocation, locations]);
+  const locationId = resolvedLocation?.id;
 
-  // Order placement state
-  const [placingOrder, setPlacingOrder] = useState(false);
-  const [placeOrderError, setPlaceOrderError] = useState('');
-  const [lastPlacedOrderNumber, setLastPlacedOrderNumber] = useState(null);
+  // ── Period filter ────────────────────────────────────────────────────────
+  const [period, setPeriod] = useState('week');
 
-  const staffDisplayName = useMemo(() => getStaffDisplayName(), []);
-  const isStaffSession = useMemo(() => Boolean(getStaff()), []);
+  // ── Stats summary state ──────────────────────────────────────────────────
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
 
-  // Layout state
-  const [isOrdersExpanded, setIsOrdersExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState('orders');
-  
-  // State for orders
+  // ── Heatmap state ────────────────────────────────────────────────────────
+  const [heatmap, setHeatmap] = useState(null);
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
+
+  // ── Live orders state ────────────────────────────────────────────────────
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
-  const [orderStatusFilter, setOrderStatusFilter] = useState('active'); // 'active', 'inactive', 'all'
-  
-  // State for POS
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loadingItems, setLoadingItems] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [cart, setCart] = useState([]);
-  
-  // State for quick order creation
-  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [orderNumber, setOrderNumber] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('active');
 
-  // State for variation selection
-  const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [selectedVariations, setSelectedVariations] = useState({});
-  const [editingCartItem, setEditingCartItem] = useState(null);
-
-  // State for order editing
-  const [editingOrder, setEditingOrder] = useState(null);
-  const [isOrderEditModalOpen, setIsOrderEditModalOpen] = useState(false);
-
-  // State for order detail view
-  const [viewingOrder, setViewingOrder] = useState(null);
-  const [orderDetails, setOrderDetails] = useState(null);
-  const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
-  const [isOrderDetailsModalOpen, setIsOrderDetailsModalOpen] = useState(false);
-
-  // State for inline cart editing
-  const [expandedCartItems, setExpandedCartItems] = useState(new Set());
-  const [tempVariationSelections, setTempVariationSelections] = useState({});
-
-  // State for fractional quantity editing
-  const [isFractionalQtyOpen, setIsFractionalQtyOpen] = useState(false);
-  const [fractionalQtyItem, setFractionalQtyItem] = useState(null);
-  const [fractionalQtyValue, setFractionalQtyValue] = useState('');
-
-  // Auto-switch to cart tab when items are added
-  useEffect(() => {
-    if (cart.length > 0 && activeTab === 'orders') {
-      setActiveTab('cart');
+  // ── Fetch stats summary ──────────────────────────────────────────────────
+  const loadSummary = useCallback(async () => {
+    if (!locationId) return;
+    setSummaryLoading(true);
+    setSummaryError(null);
+    const { data, error } = await fetchStatsSummary(locationId, period);
+    if (error) {
+      setSummaryError(error.message || 'Failed to load stats');
+    } else {
+      setSummary(data);
     }
-  }, [cart.length]);
+    setSummaryLoading(false);
+  }, [locationId, period]);
 
-  // Fetch active orders
+  // ── Fetch heatmap ────────────────────────────────────────────────────────
+  const loadHeatmap = useCallback(async () => {
+    if (!locationId) return;
+    setHeatmapLoading(true);
+    const { data } = await fetchStatsHeatmap(locationId, 12);
+    if (data) setHeatmap(data);
+    setHeatmapLoading(false);
+  }, [locationId]);
+
+  // ── Fetch live orders ────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
-    if (!activeLocation?.id) {
+    if (!locationId) {
       setOrders([]);
       setLoadingOrders(false);
       return;
     }
-    
     setLoadingOrders(true);
     try {
       let statusFilter;
       if (orderStatusFilter === 'active') {
-        statusFilter = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'pending_on_delivery'];
+        statusFilter = [
+          'pending', 'confirmed', 'preparing', 'ready',
+          'out_for_delivery', 'pending_on_delivery',
+        ];
       } else if (orderStatusFilter === 'inactive') {
         statusFilter = ['delivered', 'completed', 'cancelled'];
       } else {
-        // 'all' - don't filter by status
         statusFilter = null;
       }
 
@@ -159,824 +113,159 @@ const Home = () => {
             kitchen_notes
           )
         `)
-        .eq('location_id', activeLocation.id)
+        .eq('location_id', locationId)
         .order('created_at', { ascending: false })
         .limit(50);
-      
+
       if (statusFilter) {
         query = query.in('status', statusFilter);
       }
-      
+
       const { data, error } = await query;
-      
       if (error) throw error;
       setOrders(data || []);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
       setOrders([]);
     } finally {
       setLoadingOrders(false);
     }
-  }, [activeLocation, orderStatusFilter]);
+  }, [locationId, orderStatusFilter]);
 
-  // Fetch menu items and categories
-  const fetchMenuData = useCallback(async () => {
-    if (!activeLocation?.id) {
-      setItems([]);
-      setCategories([]);
-      setLoadingItems(false);
-      return;
-    }
-    
-    setLoadingItems(true);
-    try {
-      // Fetch categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('location_id', activeLocation.id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-        .order('name', { ascending: true });
-      
-      if (categoriesError) throw categoriesError;
-      setCategories(categoriesData || []);
+  // ── Effects ──────────────────────────────────────────────────────────────
+  useEffect(() => { loadSummary(); }, [loadSummary]);
+  useEffect(() => { loadHeatmap(); }, [loadHeatmap]);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-      // Fetch items with variations
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('items')
-        .select(`
-          *,
-          categories (
-            id,
-            name
-          ),
-          item_variations (
-            id,
-            name,
-            is_required,
-            item_variation_options (
-              id,
-              name,
-              price_modifier,
-              is_default
-            )
-          )
-        `)
-        .eq('location_id', activeLocation.id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-        .order('name', { ascending: true });
-      
-      if (itemsError) throw itemsError;
-      setItems(itemsData || []);
-    } catch (error) {
-      console.error('Error fetching menu data:', error);
-      setItems([]);
-      setCategories([]);
-    } finally {
-      setLoadingItems(false);
-    }
-  }, [activeLocation]);
-
-  // Effect to fetch data when activeLocation changes
-  useEffect(() => {
-    fetchOrders();
-    fetchMenuData();
-  }, [fetchOrders, fetchMenuData]);
-
-  // ---- Register-session verification --------------------------------------
-  // Only matters for staff-PIN sessions; admin/dashboard users skip the gate.
-  useEffect(() => {
-    if (!isStaffSession) {
-      setRegisterLoading(false);
-      return;
-    }
-    if (!activeLocation?.id) {
-      setRegisterLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setRegisterLoading(true);
-
-    (async () => {
-      try {
-        // If we have a stored drawer id, ping that drawer for an open session.
-        // Otherwise, list active drawers for the location and ping the first one.
-        let drawerId = stored?.drawerId || '';
-        if (!drawerId) {
-          const { data } = await supabase
-            .from('cash_drawers')
-            .select('id')
-            .eq('location_id', activeLocation.id)
-            .eq('is_active', true)
-            .limit(1);
-          drawerId = data?.[0]?.id || '';
-        }
-        if (!drawerId) {
-          if (!cancelled) {
-            setRegisterSession(null);
-            setIsOpenRegisterOpen(true);
-          }
-          return;
-        }
-        const session = await getOpenSession(drawerId);
-        if (cancelled) return;
-        if (session?.id) {
-          setRegisterSession(session);
-          setRegisterDrawerId(drawerId);
-          setRegisterOpenedAt(session.opened_at || stored?.openedAt || null);
-          persistRegister({
-            sessionId: session.id,
-            drawerId,
-            openedAt: session.opened_at,
-          });
-        } else {
-          // Stored session is stale — clear & prompt.
-          clearStoredRegister();
-          setRegisterSession(null);
-          setIsOpenRegisterOpen(true);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Register session check failed:', err);
-          // Be lenient: open the modal so the cashier can try opening one.
-          setIsOpenRegisterOpen(true);
-        }
-      } finally {
-        if (!cancelled) setRegisterLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-    // We intentionally only depend on the active location and staff session.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLocation?.id, isStaffSession]);
-
-  const handleRegisterOpened = useCallback(({ session, drawerId }) => {
-    setRegisterSession(session);
-    setRegisterDrawerId(drawerId);
-    setRegisterOpenedAt(session?.opened_at || new Date().toISOString());
-    toast({
-      title: 'Register opened',
-      description: `Opening float counted. You can now take orders.`,
-    });
-  }, [toast]);
-
-  // ---- POS checkout — POST /pos/orders -----------------------------------
-  const handlePlaceOrder = useCallback(async () => {
-    setPlaceOrderError('');
-    if (!activeLocation?.id) {
-      setPlaceOrderError('No active location selected');
-      return;
-    }
-    if (cart.length === 0) {
-      setPlaceOrderError('Cart is empty');
-      return;
-    }
-    if (!registerSession?.id) {
-      setPlaceOrderError('Open the register before placing orders');
-      setIsOpenRegisterOpen(true);
-      return;
-    }
-
-    setPlacingOrder(true);
-    try {
-      const payload = {
-        locationId: activeLocation.id,
-        orderType: 'dine_in',
-        registerSessionId: registerSession.id,
-        items: cart.map((ci) => ({
-          item_id: ci.id,
-          // Backend stores quantity as integer; fractional cart qty rounds up
-          // so a 1.5 sandwich becomes 2 to avoid losing inventory.
-          quantity: Math.max(1, Math.ceil(parseFloat(ci.quantity) || 1)),
-          variation_option_ids: ci.selectedVariations
-            ? Object.values(ci.selectedVariations).filter(Boolean)
-            : [],
-          notes: ci.notes || undefined,
-        })),
-      };
-      const result = await submitPosOrder(payload);
-      const orderNumber = result?.order_number || result?.id || '?';
-      setLastPlacedOrderNumber(orderNumber);
-      toast({
-        title: `Order #${orderNumber} sent to kitchen ✓`,
-        description: result?.total
-          ? `Total R${parseFloat(result.total).toFixed(2)}`
-          : 'Cart cleared.',
-      });
-      clearCart();
-      fetchOrders();
-      // Hide the success banner after a moment.
-      setTimeout(() => setLastPlacedOrderNumber(null), 4000);
-    } catch (err) {
-      console.error('Place order failed:', err);
-      setPlaceOrderError(err.message || 'Failed to place order');
-      toast({
-        variant: 'destructive',
-        title: 'Order failed',
-        description: err.message || 'Could not place order. Please try again.',
-      });
-    } finally {
-      setPlacingOrder(false);
-    }
-    // clearCart is stable, defined below — using deps that change matters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLocation?.id, cart, registerSession?.id, toast]);
-
-  // Filter orders based on search term
+  // ── Order helpers ────────────────────────────────────────────────────────
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      if (!orderSearchTerm) return true;
-      
-      const searchLower = orderSearchTerm.toLowerCase();
-      return (
-        order.order_number.toLowerCase().includes(searchLower) ||
-        order.customers?.whatsapp_number?.includes(searchLower) ||
-        order.customers?.first_name?.toLowerCase().includes(searchLower) ||
-        order.customers?.last_name?.toLowerCase().includes(searchLower) ||
-        order.status.toLowerCase().includes(searchLower)
-      );
-    });
+    if (!orderSearchTerm) return orders;
+    const q = orderSearchTerm.toLowerCase();
+    return orders.filter(
+      (o) =>
+        o.order_number?.toLowerCase().includes(q) ||
+        o.customers?.whatsapp_number?.includes(q) ||
+        o.customers?.first_name?.toLowerCase().includes(q) ||
+        o.customers?.last_name?.toLowerCase().includes(q) ||
+        o.status?.toLowerCase().includes(q)
+    );
   }, [orders, orderSearchTerm]);
 
-  // Filter items based on search and category
-  const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      const matchesSearch = !searchTerm || 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCategory = selectedCategory === 'all' || 
-        item.category_id === selectedCategory;
-      
-      return matchesSearch && matchesCategory;
-    });
-  }, [items, searchTerm, selectedCategory]);
-
-  // Cart functions with variation support
-  const addToCart = (item, selectedVariations = {}) => {
-    // If item has variations and none are selected, open variation modal
-    if (item.item_variations && item.item_variations.length > 0 && Object.keys(selectedVariations).length === 0) {
-      setSelectedItem(item);
-      setSelectedVariations({});
-      setIsVariationModalOpen(true);
-      return;
-    }
-
-    // Create a unique cart item key including variations
-    const variationKey = Object.keys(selectedVariations).sort().map(k => `${k}:${selectedVariations[k]}`).join('|');
-    const cartItemKey = `${item.id}${variationKey ? '|' + variationKey : ''}`;
-    
-    // Calculate price with variations
-    let totalPrice = parseFloat(item.price || 0);
-    const variationDetails = [];
-    
-    if (item.item_variations) {
-      item.item_variations.forEach(variation => {
-        const selectedOptionId = selectedVariations[variation.id];
-        if (selectedOptionId) {
-          const option = variation.item_variation_options.find(opt => opt.id === selectedOptionId);
-          if (option) {
-            totalPrice += parseFloat(option.price_modifier || 0);
-            variationDetails.push({
-              variationName: variation.name,
-              optionName: option.name,
-              priceModifier: parseFloat(option.price_modifier || 0)
-            });
-          }
-        }
-      });
-    }
-
-    setCart(prev => {
-      const existingItem = prev.find(cartItem => cartItem.cartItemKey === cartItemKey);
-      if (existingItem) {
-        return prev.map(cartItem =>
-          cartItem.cartItemKey === cartItemKey
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
-            : cartItem
-        );
-      }
-      return [...prev, { 
-        ...item, 
-        cartItemKey,
-        quantity: 1,
-        price: totalPrice,
-        basePrice: parseFloat(item.price || 0),
-        selectedVariations,
-        variationDetails
-      }];
-    });
-
-    // Close variation modal if open
-    setIsVariationModalOpen(false);
-    setSelectedItem(null);
-  };
-
-  const handleVariationChange = (variationId, optionId) => {
-    setSelectedVariations(prev => ({
-      ...prev,
-      [variationId]: optionId
-    }));
-  };
-
-  const updateCartQuantity = (cartItemKey, quantity) => {
-    const numQty = parseFloat(quantity);
-    if (numQty <= 0) {
-      setCart(prev => prev.filter(item => item.cartItemKey !== cartItemKey));
-    } else {
-      setCart(prev => prev.map(item =>
-        item.cartItemKey === cartItemKey ? { ...item, quantity: numQty } : item
-      ));
-    }
-  };
-
-  const clearCart = () => {
-    setCart([]);
-    setActiveTab('orders');
-  };
-
-  const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-
-  const updateOrderStatus = async (orderId, newStatus) => {
+  const updateOrderStatus = useCallback(async (orderId, newStatus) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId ? { ...o, status: newStatus, updated_at: new Date().toISOString() } : o
+      )
+    );
     try {
-      setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { 
-              ...order, 
-              status: newStatus,
-              updated_at: new Date().toISOString()
-            }
-          : order
-      ));
-
       const { error } = await supabase
         .from('orders')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', orderId);
-      
       if (error) throw error;
-    } catch (error) {
-      console.error('Error updating order status:', error);
+    } catch (err) {
+      console.error('Error updating order status:', err);
       fetchOrders();
     }
-  };
+  }, [fetchOrders]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'preparing': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'ready': return 'bg-green-100 text-green-800 border-green-200';
-      case 'out_for_delivery': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'pending_on_delivery': return 'bg-amber-100 text-amber-800 border-amber-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getNextStatus = (currentStatus) => {
-    const statusFlow = {
-      'pending': 'confirmed',
-      'confirmed': 'preparing',
-      'preparing': 'ready',
-      'ready': 'out_for_delivery',
-      'out_for_delivery': 'delivered'
-    };
-    return statusFlow[currentStatus];
-  };
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      'pending': 'Pending',
-      'confirmed': 'Confirmed',
-      'preparing': 'Preparing',
-      'ready': 'Ready',
-      'out_for_delivery': 'Out for Delivery',
-      'delivered': 'Delivered',
-      'completed': 'Completed',
-      'cancelled': 'Cancelled',
-      'pending_on_delivery': 'Awaiting Payment'
-    };
-    return labels[status] || status;
-  };
-
-  const toggleCartItemExpanded = (cartItemKey) => {
-    setExpandedCartItems(prev => {
-      const newExpanded = new Set(prev);
-      if (newExpanded.has(cartItemKey)) {
-        newExpanded.delete(cartItemKey);
-        // Clear temp selections when closing
-        setTempVariationSelections(prev => {
-          const newTemp = {...prev};
-          delete newTemp[cartItemKey];
-          return newTemp;
-        });
-      } else {
-        newExpanded.add(cartItemKey);
-        // Initialize temp selections with current values
-        const cartItem = cart.find(item => item.cartItemKey === cartItemKey);
-        if (cartItem) {
-          setTempVariationSelections(prev => ({
-            ...prev,
-            [cartItemKey]: cartItem.selectedVariations || {}
-          }));
-        }
-      }
-      return newExpanded;
-    });
-  };
-
-  const updateTempVariation = (cartItemKey, variationId, optionId) => {
-    setTempVariationSelections(prev => ({
-      ...prev,
-      [cartItemKey]: {
-        ...prev[cartItemKey],
-        [variationId]: optionId
-      }
-    }));
-  };
-
-  const saveInlineVariationEdit = (cartItemKey) => {
-    const cartItem = cart.find(item => item.cartItemKey === cartItemKey);
-    const newVariations = tempVariationSelections[cartItemKey];
-    
-    if (cartItem && newVariations) {
-      // Remove old item and add new one with updated variations
-      setCart(prev => prev.filter(item => item.cartItemKey !== cartItemKey));
-      const originalItem = items.find(item => item.id === cartItem.id);
-      if (originalItem) {
-        addToCart(originalItem, newVariations);
-      }
-    }
-    
-    // Close the expanded state
-    setExpandedCartItems(prev => {
-      const newExpanded = new Set(prev);
-      newExpanded.delete(cartItemKey);
-      return newExpanded;
-    });
-  };
-
-  const openFractionalQtyModal = (cartItem) => {
-    setFractionalQtyItem(cartItem);
-    setFractionalQtyValue(cartItem.quantity.toString());
-    setIsFractionalQtyOpen(true);
-  };
-
-  const saveFractionalQty = () => {
-    if (!fractionalQtyItem) return;
-    
-    const newQty = parseFloat(fractionalQtyValue);
-    if (isNaN(newQty) || newQty <= 0) {
-      alert('Please enter a valid quantity');
-      return;
-    }
-    
-    updateCartQuantity(fractionalQtyItem.cartItemKey, newQty);
-    setIsFractionalQtyOpen(false);
-    setFractionalQtyItem(null);
-    setFractionalQtyValue('');
-  };
-
-  const createOrder = async () => {
-    if (!customerPhone.trim() || !orderNumber.trim()) {
-      alert('Please enter both customer phone and order number');
-      return;
-    }
-
-    if (!activeLocation?.id) {
-      alert('No active location selected');
-      return;
-    }
-
-    if (cart.length === 0) {
-      alert('Cart is empty. Please add items before creating an order.');
-      return;
-    }
-
-    setCreating(true);
-    try {
-      // Step 1: Create or get customer
-      let customerId;
-      const { data: existingCustomer, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('whatsapp_number', customerPhone.trim())
-        .single();
-      
-      if (existingCustomer) {
-        customerId = existingCustomer.id;
-      } else {
-        // Create new customer
-        const { data: newCustomer, error: createCustomerError } = await supabase
-          .from('customers')
-          .insert({
-            whatsapp_number: customerPhone.trim()
-          })
-          .select('id')
-          .single();
-        
-        if (createCustomerError) throw createCustomerError;
-        customerId = newCustomer.id;
-      }
-
-      // Step 2: Create order
-      const { data: newOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          location_id: activeLocation.id,
-          customer_id: customerId,
-          order_number: orderNumber.trim(),
-          order_type: 'whatsapp',
-          status: 'pending'
-        })
-        .select('id')
-        .single();
-
-      if (orderError) throw orderError;
-      const orderId = newOrder.id;
-
-      // Step 3: Create order details
-      await supabase
-        .from('order_details')
-        .insert({
-          order_id: orderId,
-          notes: `POS order created with ${cart.length} items`
-        });
-
-      // Step 4: Calculate totals
-      const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-      
-      // Step 5: Create financial details
-      await supabase
-        .from('order_financial_details')
-        .insert({
-          order_id: orderId,
-          subtotal: subtotal,
-          total_amount: subtotal,
-          tax_rate: 15.00,
-          tax_amount: subtotal * 0.15,
-          tax_inclusive: true,
-          payment_status: 'pending',
-          payment_method: 'cash'
-        });
-
-      // Step 6: Create order items
-      for (const cartItem of cart) {
-        // Insert order item
-        const { data: orderItem, error: itemError } = await supabase
-          .from('order_items')
-          .insert({
-            order_id: orderId,
-            item_id: cartItem.id,
-            quantity: cartItem.quantity,
-            unit_price: cartItem.basePrice, // Base price without variations
-            total_price: cartItem.price * cartItem.quantity
-          })
-          .select('id')
-          .single();
-
-        if (itemError) throw itemError;
-
-        // Insert variations if any
-        if (cartItem.selectedVariations && Object.keys(cartItem.selectedVariations).length > 0) {
-          for (const [variationId, optionId] of Object.entries(cartItem.selectedVariations)) {
-            await supabase
-              .from('order_item_variations')
-              .insert({
-                order_item_id: orderItem.id,
-                variation_id: variationId,
-                option_id: optionId,
-                // Get price modifier from the original item data
-                price_modifier: (() => {
-                  const originalItem = items.find(item => item.id === cartItem.id);
-                  const variation = originalItem?.item_variations?.find(v => v.id === variationId);
-                  const option = variation?.item_variation_options?.find(o => o.id === optionId);
-                  return parseFloat(option?.price_modifier || 0);
-                })()
-              });
-          }
-        }
-      }
-
-      // Success!
-      alert(`Order #${orderNumber.trim()} created successfully!`);
-
-      // Reset form and close dialog
-      setCustomerPhone('');
-      setOrderNumber('');
-      setIsCreateOrderOpen(false);
-      clearCart();
-      
-      // Refresh orders list
-      fetchOrders();
-      
-    } catch (error) {
-      console.error('Error creating order:', error);
-      alert('Failed to create order: ' + error.message);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const fetchOrderDetails = async (orderId) => {
-    setLoadingOrderDetails(true);
-    try {
-      // Fetch order with customer details
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          customers (
-            id,
-            first_name,
-            last_name,
-            whatsapp_number,
-            email
-          ),
-          order_details (
-            delivery_address,
-            notes,
-            kitchen_notes
-          ),
-          order_financial_details (
-            subtotal,
-            delivery_fee,
-            total_amount,
-            tax_amount,
-            payment_status,
-            payment_method
-          )
-        `)
-        .eq('id', orderId)
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Fetch order items with variations
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select(`
-          *,
-          items (
-            id,
-            name,
-            description
-          ),
-          order_item_variations (
-            price_modifier,
-            item_variations (
-              name
-            ),
-            item_variation_options (
-              name
-            )
-          )
-        `)
-        .eq('order_id', orderId);
-
-      if (itemsError) throw itemsError;
-
-      setOrderDetails({
-        ...order,
-        order_items: orderItems || []
-      });
-      setViewingOrder(order);
-      setIsOrderDetailsModalOpen(true);
-    } catch (error) {
-      console.error('Error fetching order details:', error);
-      alert('Failed to load order details');
-    } finally {
-      setLoadingOrderDetails(false);
-    }
-  };
-
-  const viewOrderDetails = (order) => {
-    fetchOrderDetails(order.id);
-  };
-
-  const closeOrderDetails = () => {
-    setViewingOrder(null);
-    setOrderDetails(null);
-    setIsOrderDetailsModalOpen(false);
-  };
-
+  // ── Guard: no org ────────────────────────────────────────────────────────
   if (!activeOrganization) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-orange-50 to-orange-100">
         <AlertCircle className="w-16 h-16 text-orange-400 mb-4" />
         <h2 className="text-xl font-semibold text-gray-900 mb-2">No Organization Selected</h2>
-        <p className="text-gray-600">Please select an organization to access the POS.</p>
+        <p className="text-gray-600">Please select an organization to view your dashboard.</p>
       </div>
     );
   }
 
-  // No location yet — show the onboarding checklist instead of a dead-end message.
-  // The checklist includes an "Add location" action that, on success, triggers
-  // fetchLocations() in the auth context. Once locations load, activeLocation
-  // becomes non-null and the normal POS renders automatically.
-  if (!activeLocation) {
+  // ── Guard: locations still loading → avoid flashing onboarding ──────────
+  // Until the auth context has finished loading this org's locations we cannot
+  // know whether the user genuinely has no location. Show a light loading
+  // state instead of the onboarding checklist (which would mask real data).
+  if (!resolvedLocation && !hasLoadedLocations) {
     return (
-      <OnboardingChecklist
-        onComplete={() => {
-          // This callback is called from the "Open POS" step once all
-          // prerequisites are met. By the time it fires, activeLocation
-          // will already be set (locations were fetched post-add), so
-          // the component will have re-rendered into the POS view.
-          // Nothing extra needed here.
-        }}
-      />
+      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-orange-50 to-orange-100">
+        <RefreshCw className="w-8 h-8 text-orange-400 mb-3 animate-spin" />
+        <p className="text-gray-600">Loading your dashboard…</p>
+      </div>
     );
   }
 
-  return (
-    <div className="fixed inset-0 top-16 bg-gradient-to-br from-orange-50 to-orange-100 flex overflow-hidden">
-      {/* Mobile View Toggle Button */}
-      <Button
-        onClick={() => setIsOrdersExpanded(!isOrdersExpanded)}
-        className="md:hidden fixed bottom-4 right-4 z-50 bg-white border-2 border-orange-300 text-orange-600 hover:bg-orange-50 h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
-        size="sm"
-      >
-        {isOrdersExpanded ? <PanelRightOpen className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
-      </Button>
+  // ── Guard: no location → onboarding ─────────────────────────────────────
+  if (!resolvedLocation) {
+    return <OnboardingChecklist onComplete={() => {}} />;
+  }
 
-      {/* Left Sidebar - Orders & Cart */}
-      <div 
-        className={cn(
-          "bg-white border-r border-orange-200 flex flex-col shadow-lg transition-all duration-300 ease-in-out",
-          "fixed md:relative",
-          isOrdersExpanded 
-            ? "inset-0 w-full md:w-[45%] lg:w-[35%]" 
-            : "md:w-[30%] -translate-x-full md:translate-x-0 w-full"
-        )}
-      >
-        {/* Staff status strip (only for staff-PIN sessions) */}
-        {isStaffSession && (
-          <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-orange-100 text-xs">
-            <div className="flex items-center gap-1.5 text-gray-700 font-medium truncate">
-              <UserIcon className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-              <span className="truncate">{staffDisplayName || 'Staff'}</span>
-            </div>
-            {registerLoading ? (
-              <span className="text-gray-400">Checking register…</span>
-            ) : registerSession ? (
-              <span className="inline-flex items-center gap-1 text-green-700 font-medium">
-                <Unlock className="w-3 h-3" />
-                Register Open
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsOpenRegisterOpen(true)}
-                className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-medium"
-              >
-                <Lock className="w-3 h-3" />
-                Register Closed
-              </button>
-            )}
+  // ── Derived data ─────────────────────────────────────────────────────────
+  const kpis = summary?.kpis ?? null;
+  const previous = summary?.previous ?? null;
+  const series = summary?.series ?? [];
+  const heatmapCells = heatmap?.cells ?? [];
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100">
+      {/* Top bar */}
+      <div className="bg-white border-b border-orange-100 shadow-sm px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Dashboard</h1>
+          <p className="text-xs text-gray-500">{resolvedLocation?.name || 'All locations'}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <PeriodFilter value={period} onChange={setPeriod} />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { loadSummary(); loadHeatmap(); fetchOrders(); }}
+            className="h-8 w-8 p-0 text-gray-400 hover:text-orange-600 hover:bg-orange-50"
+            title="Refresh"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="px-4 sm:px-6 py-4 space-y-4 max-w-[1600px] mx-auto">
+
+        {/* Summary error banner */}
+        {summaryError && !summaryLoading && (
+          <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>Analytics unavailable: {summaryError}</span>
           </div>
         )}
 
-        {/* Header with Tabs */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-white/20 backdrop-blur-sm">
-              <TabsTrigger 
-                value="orders" 
-                className="data-[state=active]:bg-white data-[state=active]:text-orange-600 text-white/90"
-              >
-                <Clock className="w-4 h-4 mr-2" />
-                Orders ({orders.length})
-              </TabsTrigger>
-              <TabsTrigger 
-                value="cart" 
-                className="data-[state=active]:bg-white data-[state=active]:text-orange-600 text-white/90"
-              >
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Cart ({cart.length})
-                {cart.length > 0 && (
-                  <span className="ml-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {cart.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        {/* KPI row */}
+        <KpiCards
+          kpis={kpis}
+          previous={previous}
+          currency={orgCurrency}
+          loading={summaryLoading}
+        />
 
-        {/* Tab Content */}
-        <Tabs value={activeTab} className="flex-1 flex flex-col">
-          {/* Active Orders Tab */}
-          <TabsContent 
-            value="orders" 
-            className={`overflow-hidden m-0 ${activeTab === 'orders' ? 'flex-1 flex flex-col relative' : ''}`}
-          >
-            <OrdersSection
+        {/* Charts row + Live Orders */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left column: trend + heatmap */}
+          <div className="lg:col-span-2 space-y-4">
+            <SalesTrendChart
+              series={series}
+              period={period}
+              currency={orgCurrency}
+              loading={summaryLoading}
+            />
+            <BusyHeatmap
+              cells={heatmapCells}
+              currency={orgCurrency}
+              loading={heatmapLoading}
+            />
+          </div>
+
+          {/* Right column: live orders */}
+          <div className="lg:col-span-1" style={{ minHeight: 520 }}>
+            <LiveOrdersPanel
               orders={orders}
               loadingOrders={loadingOrders}
               orderSearchTerm={orderSearchTerm}
@@ -985,151 +274,12 @@ const Home = () => {
               setOrderStatusFilter={setOrderStatusFilter}
               filteredOrders={filteredOrders}
               updateOrderStatus={updateOrderStatus}
-              setEditingOrder={setEditingOrder}
-              setIsOrderEditModalOpen={setIsOrderEditModalOpen}
-              viewOrderDetails={viewOrderDetails}
-              getStatusColor={getStatusColor}
-              getNextStatus={getNextStatus}
-              getStatusLabel={getStatusLabel}
-              isOrdersExpanded={isOrdersExpanded}
             />
-          </TabsContent>
-
-          {/* Cart Tab */}
-          <TabsContent 
-            value="cart" 
-            className={`overflow-hidden m-0 ${activeTab === 'cart' ? 'flex-1 flex flex-col' : ''}`}
-          >
-            <CartSection
-              cart={cart}
-              items={items}
-              expandedCartItems={expandedCartItems}
-              tempVariationSelections={tempVariationSelections}
-              updateCartQuantity={updateCartQuantity}
-              toggleCartItemExpanded={toggleCartItemExpanded}
-              updateTempVariation={updateTempVariation}
-              saveInlineVariationEdit={saveInlineVariationEdit}
-              openFractionalQtyModal={openFractionalQtyModal}
-              cartTotal={cartTotal}
-              clearCart={clearCart}
-              setIsCreateOrderOpen={setIsCreateOrderOpen}
-              // POS cashier wiring — only active when a staff session is logged in.
-              registerSession={isStaffSession ? registerSession : null}
-              registerOpenedAt={registerOpenedAt}
-              onPlaceOrder={isStaffSession ? handlePlaceOrder : undefined}
-              onProcessReturn={isStaffSession ? () => setIsReturnOpen(true) : undefined}
-              placingOrder={placingOrder}
-              placeOrderError={placeOrderError}
-              lastPlacedOrderNumber={lastPlacedOrderNumber}
-              currency={orgCurrency}
-            />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </div>
-
-      {/* Desktop Toggle Button */}
-      <div className="hidden md:block relative z-10">
-        <Button
-          onClick={() => setIsOrdersExpanded(!isOrdersExpanded)}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white border-2 border-orange-300 text-orange-600 hover:bg-orange-50 h-12 w-12 rounded-full shadow-lg"
-          size="sm"
-        >
-          {isOrdersExpanded ? <PanelRightOpen className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
-        </Button>
-      </div>
-
-      {/* Main POS Area */}
-      <div 
-        className={cn(
-          "flex flex-col min-w-0 transition-all duration-300 ease-in-out",
-          "fixed md:relative",
-          !isOrdersExpanded 
-            ? "inset-0 w-full" 
-            : "md:flex-1 translate-x-full md:translate-x-0 w-full"
-        )}
-      >
-        <POSSection
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          categories={categories}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          filteredItems={filteredItems}
-          loadingItems={loadingItems}
-          isOrdersExpanded={isOrdersExpanded}
-          addToCart={addToCart}
-          currency={orgCurrency}
-        />
-      </div>
-
-      {/* All Modals */}
-      <OrderModals
-        // Quick Order Creation Modal
-        isCreateOrderOpen={isCreateOrderOpen}
-        setIsCreateOrderOpen={setIsCreateOrderOpen}
-        customerPhone={customerPhone}
-        setCustomerPhone={setCustomerPhone}
-        orderNumber={orderNumber}
-        setOrderNumber={setOrderNumber}
-        creating={creating}
-        createOrder={createOrder}
-        cart={cart}
-        cartTotal={cartTotal}
-
-        // Variation Selection Modal
-        isVariationModalOpen={isVariationModalOpen}
-        setIsVariationModalOpen={setIsVariationModalOpen}
-        selectedItem={selectedItem}
-        setSelectedItem={setSelectedItem}
-        selectedVariations={selectedVariations}
-        handleVariationChange={handleVariationChange}
-        addToCart={addToCart}
-
-        // Order Edit Modal
-        isOrderEditModalOpen={isOrderEditModalOpen}
-        setIsOrderEditModalOpen={setIsOrderEditModalOpen}
-        editingOrder={editingOrder}
-        setEditingOrder={setEditingOrder}
-        updateOrderStatus={updateOrderStatus}
-
-        // Order Details Modal
-        isOrderDetailsModalOpen={isOrderDetailsModalOpen}
-        setIsOrderDetailsModalOpen={setIsOrderDetailsModalOpen}
-        viewingOrder={viewingOrder}
-        orderDetails={orderDetails}
-        loadingOrderDetails={loadingOrderDetails}
-        closeOrderDetails={closeOrderDetails}
-        getStatusColor={getStatusColor}
-        getStatusLabel={getStatusLabel}
-
-        // Fractional Quantity Modal
-        isFractionalQtyOpen={isFractionalQtyOpen}
-        setIsFractionalQtyOpen={setIsFractionalQtyOpen}
-        fractionalQtyItem={fractionalQtyItem}
-        fractionalQtyValue={fractionalQtyValue}
-        setFractionalQtyValue={setFractionalQtyValue}
-        saveFractionalQty={saveFractionalQty}
-      />
-
-      {/* POS cashier modals — only mounted for staff-PIN sessions */}
-      {isStaffSession && (
-        <>
-          <OpenRegisterModal
-            open={isOpenRegisterOpen}
-            onOpenChange={setIsOpenRegisterOpen}
-            locationId={activeLocation?.id}
-            onOpened={handleRegisterOpened}
-          />
-          <ReturnModal
-            open={isReturnOpen}
-            onOpenChange={setIsReturnOpen}
-            locationId={activeLocation?.id}
-            onSuccess={() => fetchOrders()}
-          />
-        </>
-      )}
     </div>
   );
 };
 
-export default Home; 
+export default Home;

@@ -11,14 +11,9 @@ package main
 //
 //	go run ./cmd/tests --onboarding
 //
-// Known failure (BUG-ORGSCOPE-MEMBERSHIP-RLS, documented in
-// docs/onboarding-verification.md):
-//
-//	Steps 7-8 (POST/GET /data/locations) fail because RequireOrgScope's
-//	poolQuerier.queryMemberships runs without setting app.current_user_id,
-//	so the organization_members SELECT policy returns 0 rows. The middleware
-//	then sets db.Scope.OrgID="" which makes current_org_id() NULL, causing
-//	the locations INSERT WITH CHECK to reject the row and SELECT to return [].
+// All 24 checks pass: the RLS-bootstrap chain (created_by org visibility,
+// service-role membership resolution, owner-capability trigger) is exercised
+// end to end. This is the regression guard for the onboarding flow.
 
 import "fmt"
 
@@ -159,23 +154,17 @@ func suiteOnboarding(r *Runner) {
 
 	// -------------------------------------------------------------------
 	// Step 7: POST /data/locations → 201
-	//
-	// KNOWN FAILING: BUG-ORGSCOPE-MEMBERSHIP-RLS
-	// RequireOrgScope's poolQuerier.queryMemberships runs without
-	// app.current_user_id set so RLS on organization_members returns 0 rows.
-	// db.Scope.OrgID is set to "" causing current_org_id() = NULL, which
-	// fails the locations_insert WITH CHECK.
-	// See docs/onboarding-verification.md for full analysis.
+	// (BUG-ORGSCOPE-MEMBERSHIP-RLS fixed via service-role queryMemberships;
+	//  region_id now resolved dynamically.)
 	// -------------------------------------------------------------------
 	resp = r.POST("/data/locations",
 		map[string]any{
 			"organization_id": orgID,
 			"name":            "Main Branch",
-			"region_id":       firstActiveRegionID(),
+			"region_id":       firstActiveRegionID(r, token),
 		},
 		withBearer(token))
-	// This check is expected to FAIL until BUG-ORGSCOPE-MEMBERSHIP-RLS is fixed.
-	r.CheckStatus(resp.status, 201, "step7: create location 201 [KNOWN-FAIL: BUG-ORGSCOPE-MEMBERSHIP-RLS]")
+	r.CheckStatus(resp.status, 201, "step7: create location 201")
 
 	var locRows []map[string]any
 	_ = resp.JSON(&locRows)
@@ -192,7 +181,7 @@ func suiteOnboarding(r *Runner) {
 	// current_org_id() = NULL means locations_select_member is always false.
 	// -------------------------------------------------------------------
 	resp = r.GET("/data/locations?eq=organization_id,"+orgID, withBearer(token))
-	r.CheckStatus(resp.status, 200, "step8: GET locations 200 [KNOWN-FAIL: BUG-ORGSCOPE-MEMBERSHIP-RLS]")
+	r.CheckStatus(resp.status, 200, "step8: GET locations 200")
 
 	var locs []map[string]any
 	_ = resp.JSON(&locs)
@@ -203,16 +192,34 @@ func suiteOnboarding(r *Runner) {
 				found = true
 			}
 		}
-		r.Check(found, "step8: created location visible in GET /data/locations [KNOWN-FAIL]")
+		r.Check(found, "step8: created location visible in GET /data/locations")
 	} else {
 		// Location wasn't created (expected under the bug), skip the visibility check.
 		r.Check(true, "step8: skipped visibility check (location not created in step7)")
 	}
 }
 
-// firstActiveRegionID returns a hard-coded South Africa region UUID that is
-// seeded by migration 014. If your test environment uses a different seed,
-// change this value (or query the DB).
-func firstActiveRegionID() string {
-	return "5377a030-9e34-4f61-8d18-c202e76df3cc"
+// firstActiveRegionID resolves a real seeded region id from the live server
+// (the ZA region from migration 014) rather than hard-coding a UUID. A stale
+// hard-coded value caused a foreign-key 400 on location creation that was
+// previously mis-attributed to an RLS bug.
+func firstActiveRegionID(r *Runner, token string) string {
+	resp := r.GET("/data/regions?eq=code,ZA&limit=1", withBearer(token))
+	var regions []map[string]any
+	_ = resp.JSON(&regions)
+	if len(regions) > 0 {
+		if id, ok := regions[0]["id"].(string); ok && id != "" {
+			return id
+		}
+	}
+	// Fallback: any region.
+	resp = r.GET("/data/regions?limit=1", withBearer(token))
+	var any1 []map[string]any
+	_ = resp.JSON(&any1)
+	if len(any1) > 0 {
+		if id, ok := any1[0]["id"].(string); ok {
+			return id
+		}
+	}
+	return ""
 }

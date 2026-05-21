@@ -5,8 +5,9 @@ import (
 	"time"
 )
 
-// Exercises the order creation path the frontend uses: customer → order →
-// order_details → order_financial_details → order_items. Then updates status.
+// Exercises the order creation path the frontend uses: customer → order
+// (financials + delivery address folded onto the orders row by the Wave 0
+// consolidation) → order_items. Then updates status.
 
 func suiteOrders(r *Runner) {
 	if !r.ensureSession() {
@@ -35,15 +36,21 @@ func suiteOrders(r *Runner) {
 	}
 	customerID := fmt.Sprint(rows[0]["id"])
 
-	// 2. create order
+	// 2. create order — financials + delivery address now live on the orders
+	// row (order_details / order_financial_details were folded in by Wave 0).
 	orderNum := fmt.Sprintf("T%d", time.Now().Unix()%1000000)
 	resp = r.POST("/data/orders",
 		map[string]any{
-			"location_id":  r.locationID,
-			"customer_id":  customerID,
-			"order_number": orderNum,
-			"order_type":   "delivery",
-			"status":       "pending",
+			"location_id":      r.locationID,
+			"customer_id":      customerID,
+			"order_number":     orderNum,
+			"order_type":       "delivery",
+			"fulfillment_type": "delivery",
+			"status":           "pending",
+			"subtotal_cents":   2500,
+			"tax_cents":        0,
+			"total_cents":      3000,
+			"delivery_address": "1 Test Rd",
 		}, withBearer(r.token))
 	r.CheckStatus(resp.status, 201, "create order 201")
 	_ = resp.JSON(&rows)
@@ -53,26 +60,14 @@ func suiteOrders(r *Runner) {
 	}
 	orderID := fmt.Sprint(rows[0]["id"])
 
-	// 3. order_details
-	resp = r.POST("/data/order_details",
-		map[string]any{"order_id": orderID, "delivery_address": "1 Test Rd"},
-		withBearer(r.token))
-	r.CheckStatus(resp.status, 201, "create order_details 201")
-
-	// 4. order_financial_details
-	resp = r.POST("/data/order_financial_details",
-		map[string]any{"order_id": orderID, "subtotal": 25.0, "delivery_fee": 5.0, "total_amount": 30.0},
-		withBearer(r.token))
-	r.CheckStatus(resp.status, 201, "create order_financial_details 201")
-
-	// 5. order_items
+	// 3. order_items (bigint cents columns)
 	resp = r.POST("/data/order_items",
 		map[string]any{
-			"order_id":    orderID,
-			"item_id":     r.itemID,
-			"quantity":    2,
-			"unit_price":  12.5,
-			"total_price": 25.0,
+			"order_id":          orderID,
+			"item_id":           r.itemID,
+			"quantity":          2,
+			"unit_price_cents":  1250,
+			"total_price_cents": 2500,
 		}, withBearer(r.token))
 	r.CheckStatus(resp.status, 201, "create order_item 201")
 

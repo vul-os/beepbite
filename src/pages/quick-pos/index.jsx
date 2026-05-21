@@ -20,38 +20,24 @@ import KioskModifierPrompt from './components/kiosk-modifier-prompt';
 
 // ---- cart helpers -------------------------------------------------------
 
-function buildCartItemKey(item, selectedVariations) {
-  const vKey = Object.keys(selectedVariations).sort()
-    .map(k => `${k}:${selectedVariations[k]}`).join('|');
-  return `${item.id}${vKey ? '|' + vKey : ''}`;
+/**
+ * Build a stable cart-item key from the item id + sorted selected modifier ids.
+ * @param {string} itemId
+ * @param {string[]} selectedModifierIds
+ */
+function buildCartItemKey(itemId, selectedModifierIds) {
+  const mKey = [...selectedModifierIds].sort().join('|');
+  return `${itemId}${mKey ? '|' + mKey : ''}`;
 }
 
-function computePrice(item, selectedVariations) {
-  let price = parseFloat(item.price || 0);
-  for (const variation of (item.item_variations || [])) {
-    const optId = selectedVariations[variation.id];
-    if (!optId) continue;
-    const opt = variation.item_variation_options?.find(o => o.id === optId);
-    if (opt) price += parseFloat(opt.price_modifier || 0);
-  }
-  return price;
-}
-
-function buildVariationDetails(item, selectedVariations) {
-  const details = [];
-  for (const variation of (item.item_variations || [])) {
-    const optId = selectedVariations[variation.id];
-    if (!optId) continue;
-    const opt = variation.item_variation_options?.find(o => o.id === optId);
-    if (opt) {
-      details.push({
-        variationName: variation.name,
-        optionName: opt.name,
-        priceModifier: parseFloat(opt.price_modifier || 0),
-      });
-    }
-  }
-  return details;
+/**
+ * Compute line price in currency units given base price + selected modifiers.
+ * @param {number} basePrice   - item.price as a float
+ * @param {Array}  modifiers   - [{price_delta_cents, ...}] selected modifier objects
+ */
+function computeModifierPrice(basePrice, modifiers) {
+  const extraCents = modifiers.reduce((s, m) => s + (m.price_delta_cents || 0), 0);
+  return basePrice + extraCents / 100;
 }
 
 // ---- component ----------------------------------------------------------
@@ -64,7 +50,7 @@ const QuickPOS = () => {
   const [storeLoading, setStoreLoading] = useState(true);
   const [storeError, setStoreError] = useState(null);
 
-  // Menu data
+  // Menu data (items now include modifier_groups via separate fetch in effect below)
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [menuLoading, setMenuLoading] = useState(false);
@@ -73,7 +59,7 @@ const QuickPOS = () => {
   const [cart, setCart] = useState([]);
   const [cartCollapsed, setCartCollapsed] = useState(true);
 
-  // Modifier prompt
+  // Modifier prompt — item being customised (with modifier_groups attached)
   const [modifierItem, setModifierItem] = useState(null);
 
   // Tender modal
@@ -126,21 +112,61 @@ const QuickPOS = () => {
       supabase.from('items')
         .select(`
           *,
-          category:categories (id, name),
-          item_variations (
-            id, name, is_required,
-            item_variation_options (id, name, price_modifier, is_default)
-          )
+          category:categories (id, name)
         `)
         .eq('location_id', locationId)
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true }),
-    ]).then(([catRes, itemRes]) => {
+    ]).then(async ([catRes, itemRes]) => {
       if (cancelled) return;
+      const fetchedItems = itemRes.data || [];
       setCategories(catRes.data || []);
-      setItems(itemRes.data || []);
-      setMenuLoading(false);
+
+      // Fetch modifier_groups + modifiers for all items in one shot
+      if (fetchedItems.length > 0) {
+        const itemIds = fetchedItems.map(it => it.id);
+        const [{ data: gData }, { data: mData }] = await Promise.all([
+          supabase.from('modifier_groups')
+            .select('*')
+            .in('item_id', itemIds)
+            .order('sort_order', { ascending: true })
+            .order('name', { ascending: true }),
+          supabase.from('modifiers')
+            .select('*')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true })
+            .order('name', { ascending: true }),
+        ]);
+
+        if (!cancelled) {
+          const groups = gData || [];
+          const modifiers = mData || [];
+
+          // Index: groupId → modifiers[]
+          const modsByGroup = {};
+          modifiers.forEach(m => {
+            if (!modsByGroup[m.modifier_group_id]) modsByGroup[m.modifier_group_id] = [];
+            modsByGroup[m.modifier_group_id].push(m);
+          });
+
+          // Index: itemId → groups[] (with nested modifiers)
+          const groupsByItem = {};
+          groups.forEach(g => {
+            if (!groupsByItem[g.item_id]) groupsByItem[g.item_id] = [];
+            groupsByItem[g.item_id].push({ ...g, modifiers: modsByGroup[g.id] || [] });
+          });
+
+          setItems(fetchedItems.map(it => ({
+            ...it,
+            modifier_groups: groupsByItem[it.id] || [],
+          })));
+        }
+      } else {
+        if (!cancelled) setItems([]);
+      }
+
+      if (!cancelled) setMenuLoading(false);
     }).catch(() => {
       if (!cancelled) setMenuLoading(false);
     });
@@ -150,10 +176,16 @@ const QuickPOS = () => {
 
   // ---- Cart logic ------------------------------------------------------
 
-  const addItem = useCallback((item, selectedVariations = {}) => {
-    const key = buildCartItemKey(item, selectedVariations);
-    const price = computePrice(item, selectedVariations);
-    const variationDetails = buildVariationDetails(item, selectedVariations);
+  /**
+   * Add (or stack) an item into the cart.
+   * @param {object} item                - menu item with modifier_groups attached
+   * @param {Array}  selectedModifiers   - [{id, name, price_delta_cents, ...}]
+   */
+  const addItem = useCallback((item, selectedModifiers = []) => {
+    const selectedModifierIds = selectedModifiers.map(m => m.id);
+    const key = buildCartItemKey(item.id, selectedModifierIds);
+    const basePrice = parseFloat(item.price || 0);
+    const price = computeModifierPrice(basePrice, selectedModifiers);
 
     setCart(prev => {
       const existing = prev.find(ci => ci.cartItemKey === key);
@@ -167,9 +199,9 @@ const QuickPOS = () => {
         cartItemKey: key,
         quantity: 1,
         price,
-        basePrice: parseFloat(item.price || 0),
-        selectedVariations,
-        variationDetails,
+        basePrice,
+        selectedModifiers,
+        selectedModifierIds,
       }];
     });
     setCartCollapsed(false);
@@ -177,18 +209,18 @@ const QuickPOS = () => {
 
   // When user taps an item on the grid
   const handleTapItem = useCallback((item) => {
-    const hasVariations = item.item_variations?.length > 0;
-    if (hasVariations) {
+    const hasModifierGroups = (item.modifier_groups || []).length > 0;
+    if (hasModifierGroups) {
       setModifierItem(item);
     } else {
-      addItem(item, {});
+      addItem(item, []);
     }
   }, [addItem]);
 
-  // Modifier prompt confirmed
-  const handleModifierConfirm = useCallback((selections) => {
+  // Modifier prompt confirmed — selectedModifiers is [{id, name, price_delta_cents, ...}]
+  const handleModifierConfirm = useCallback((selectedModifiers) => {
     if (!modifierItem) return;
-    addItem(modifierItem, selections);
+    addItem(modifierItem, selectedModifiers);
     setModifierItem(null);
   }, [modifierItem, addItem]);
 
@@ -228,13 +260,16 @@ const QuickPOS = () => {
       const result = await submitPosOrder({
         locationId,
         orderType: 'counter',
-        items: cart.map(ci => ({
-          item_id: ci.id,
-          quantity: Math.max(1, Math.ceil(parseFloat(ci.quantity) || 1)),
-          variation_option_ids: ci.selectedVariations
-            ? Object.values(ci.selectedVariations).filter(Boolean)
-            : [],
-        })),
+        items: cart.map(ci => {
+          const lineItem = {
+            item_id: ci.id,
+            quantity: Math.max(1, Math.ceil(parseFloat(ci.quantity) || 1)),
+          };
+          if (ci.selectedModifierIds && ci.selectedModifierIds.length > 0) {
+            lineItem.modifiers = ci.selectedModifierIds.map(id => ({ modifier_id: id }));
+          }
+          return lineItem;
+        }),
       });
       const orderNum = result?.order_number || result?.id || '?';
       setLastOrderNumber(orderNum);

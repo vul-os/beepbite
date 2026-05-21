@@ -16,18 +16,20 @@ import { formatPrice } from '@/lib/currency';
  *   onRemove: (item) => void
  *   onClear: () => void
  *   storeName: string
- *   currency: string  ISO 4217 code from the store (default 'USD')
+ *   currency: string          ISO 4217 code from the store (default 'USD')
+ *   fulfillmentType: string   'delivery' | 'collection' | null
+ *   deliveryAddress: string   customer's delivery address (when fulfillmentType='delivery')
  */
-export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear, storeName, currency = 'USD' }) {
+export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear, storeName, currency = 'USD', fulfillmentType, deliveryAddress }) {
   const navigate = useNavigate();
 
   const subtotal = items.reduce((sum, i) => sum + Number(i.price ?? 0) * (i.quantity ?? 1), 0);
   const totalQty = items.reduce((sum, i) => sum + (i.quantity ?? 1), 0);
 
   const handleCheckout = () => {
-    // Pass state so checkout knows which store + cart
+    // Pass state so checkout knows which store + cart + fulfillment
     navigate('/checkout', {
-      state: { slug, storeName, items, subtotal, currency },
+      state: { slug, storeName, items, subtotal, currency, fulfillment_type: fulfillmentType, delivery_address: deliveryAddress },
     });
   };
 

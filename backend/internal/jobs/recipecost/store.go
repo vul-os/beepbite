@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 // ---- row types ---------------------------------------------------------------
@@ -19,17 +19,17 @@ type priceHistoryRow struct {
 }
 
 type costRunRow struct {
-	ID                   string
-	LastPriceHistoryID   *string
+	ID                 string
+	LastPriceHistoryID *string
 }
 
 // ---- store helpers -----------------------------------------------------------
 
 // loadLastRun returns the most recent recipe_cost_runs row (watermark).
 // Returns a zero costRunRow (nil LastPriceHistoryID) if the table is empty.
-func loadLastRun(ctx context.Context, db *pgxpool.Pool) (costRunRow, error) {
+func loadLastRun(ctx context.Context, tx pgx.Tx) (costRunRow, error) {
 	var row costRunRow
-	err := db.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 SELECT id, last_price_history_id
 FROM recipe_cost_runs
 ORDER BY started_at DESC
@@ -47,7 +47,7 @@ LIMIT 1
 // than the watermark row identified by afterID (exclusive).  When afterID is
 // nil every row is returned, ordered oldest-first so we advance the watermark
 // correctly.
-func newPriceHistorySince(ctx context.Context, db *pgxpool.Pool, afterID *string) ([]priceHistoryRow, error) {
+func newPriceHistorySince(ctx context.Context, tx pgx.Tx, afterID *string) ([]priceHistoryRow, error) {
 	var rows []priceHistoryRow
 
 	query := `
@@ -58,7 +58,7 @@ WHERE ($1::uuid IS NULL OR created_at > (
 ))
 ORDER BY created_at ASC, id ASC
 `
-	pgRows, err := db.Query(ctx, query, afterID)
+	pgRows, err := tx.Query(ctx, query, afterID)
 	if err != nil {
 		return nil, fmt.Errorf("query ingredient_price_history: %w", err)
 	}
@@ -91,8 +91,8 @@ ORDER BY created_at ASC, id ASC
 // and at least one recipe row; this is safe and correct because the Postgres
 // calculate_recipe_cost() function reads cost_price from child items which is
 // ultimately derived from inventory costs.
-func affectedItems(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
-	pgRows, err := db.Query(ctx, `
+func affectedItems(ctx context.Context, tx pgx.Tx) ([]string, error) {
+	pgRows, err := tx.Query(ctx, `
 SELECT DISTINCT id
 FROM items
 WHERE auto_calculate_cost = true
@@ -117,8 +117,8 @@ WHERE auto_calculate_cost = true
 // recomputeItemCost calls the existing Postgres function calculate_recipe_cost()
 // and writes the result back to items.cost_price for the given item.
 // Returns true if the row was actually updated (cost changed).
-func recomputeItemCost(ctx context.Context, db *pgxpool.Pool, itemID string) (bool, error) {
-	tag, err := db.Exec(ctx, `
+func recomputeItemCost(ctx context.Context, tx pgx.Tx, itemID string) (bool, error) {
+	tag, err := tx.Exec(ctx, `
 UPDATE items
 SET cost_price = calculate_recipe_cost(id),
     updated_at = now()
@@ -133,9 +133,9 @@ WHERE id = $1
 }
 
 // insertRun records a new recipe_cost_runs row and returns its id.
-func insertRun(ctx context.Context, db *pgxpool.Pool, startedAt time.Time, lastHistoryID *string, itemsUpdated int, errMsg *string) (string, error) {
+func insertRun(ctx context.Context, tx pgx.Tx, startedAt time.Time, lastHistoryID *string, itemsUpdated int, errMsg *string) (string, error) {
 	var id string
-	err := db.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 INSERT INTO recipe_cost_runs (started_at, completed_at, last_price_history_id, items_updated_count, error_message)
 VALUES ($1, now(), $2, $3, $4)
 RETURNING id

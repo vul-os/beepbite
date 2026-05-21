@@ -29,35 +29,39 @@ import (
 	"github.com/beepbite/backend/internal/handlers/bankaccounts"
 	"github.com/beepbite/backend/internal/handlers/cashdrawer"
 	"github.com/beepbite/backend/internal/handlers/data"
+	"github.com/beepbite/backend/internal/handlers/deliveryzones"
+	"github.com/beepbite/backend/internal/handlers/driver"
+	"github.com/beepbite/backend/internal/handlers/driverinvite"
+	"github.com/beepbite/backend/internal/handlers/fiscal"
 	"github.com/beepbite/backend/internal/handlers/giftcards"
 	"github.com/beepbite/backend/internal/handlers/houseaccounts"
 	"github.com/beepbite/backend/internal/handlers/inventory"
 	"github.com/beepbite/backend/internal/handlers/kds"
-	"github.com/beepbite/backend/internal/handlers/deliveryzones"
-	"github.com/beepbite/backend/internal/handlers/fiscal"
 	"github.com/beepbite/backend/internal/handlers/marketplace"
-	"github.com/beepbite/backend/internal/handlers/payroll"
 	"github.com/beepbite/backend/internal/handlers/paymentcredentials"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhook"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhooks"
+	"github.com/beepbite/backend/internal/handlers/payroll"
 	"github.com/beepbite/backend/internal/handlers/pos"
 	"github.com/beepbite/backend/internal/handlers/promotions"
 	"github.com/beepbite/backend/internal/handlers/reservations"
+	"github.com/beepbite/backend/internal/handlers/stats"
 	"github.com/beepbite/backend/internal/handlers/storecredit"
 	"github.com/beepbite/backend/internal/handlers/tables"
 	"github.com/beepbite/backend/internal/handlers/tippools"
+	"github.com/beepbite/backend/internal/handlers/tracking"
 	"github.com/beepbite/backend/internal/handlers/transferwebhook"
 	"github.com/beepbite/backend/internal/handlers/waste"
 	"github.com/beepbite/backend/internal/handlers/whatsappsend"
 	"github.com/beepbite/backend/internal/handlers/whatsappwebhook"
 	"github.com/beepbite/backend/internal/integrations/mapbox"
 	"github.com/beepbite/backend/internal/integrations/paystack"
+	"github.com/beepbite/backend/internal/integrations/stripe"
+	"github.com/beepbite/backend/internal/integrations/whatsapp"
 	"github.com/beepbite/backend/internal/jobs/auditretention"
 	"github.com/beepbite/backend/internal/jobs/kdsfanout"
 	"github.com/beepbite/backend/internal/jobs/payouts"
 	"github.com/beepbite/backend/internal/jobs/recipecost"
-	"github.com/beepbite/backend/internal/integrations/stripe"
-	"github.com/beepbite/backend/internal/integrations/whatsapp"
 	"github.com/beepbite/backend/internal/secretbox"
 	"github.com/beepbite/backend/internal/staffauth"
 )
@@ -101,6 +105,10 @@ func main() {
 	tablesH := tables.NewHandler(database.Pool)
 	kdsH := kds.NewHandler(database.Pool)
 	posH := pos.NewHandler(database.Pool)
+	statsH := stats.NewHandler(database.Pool)
+	driverH := driver.NewHandler(database.Pool)
+	driverInviteH := driverinvite.NewHandler(database.Pool)
+	trackingH := tracking.NewHandler(database.Pool)
 	adjustmentsH := adjustments.NewHandler(database.Pool)
 	giftcardsH := giftcards.NewHandler(database.Pool)
 	storecreditH := storecredit.NewHandler(database.Pool)
@@ -217,6 +225,10 @@ func main() {
 	// RLS is enforced at the DB layer via MarketplaceScope (is_marketplace_visible=true only).
 	r.Route("/stores", marketplaceH.Mount)
 
+	// Public customer live-tracking (no auth — the order_tracking_token is the
+	// access key; the SQL gate + pings_visible_to_customer enforce privacy).
+	trackingH.Mount(r)
+
 	// Authenticated app surface — JWT required for all sub-groups below.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(svc))
@@ -256,6 +268,11 @@ func main() {
 
 			// POS orders + charge + mark-paid-on-delivery.
 			posH.Mount(r)
+
+			// Driver portal (assignments/shifts/pings) + driver invites.
+			r.Route("/driver", driverH.Mount)
+			driverInviteH.Mount(r)
+			r.Route("/stats", statsH.Mount)
 
 			// Kitchen Display System.
 			r.Route("/kds", kdsH.Mount)

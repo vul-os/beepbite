@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 
+	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,11 +18,72 @@ var (
 	ErrLocationNotFound         = errors.New("location not found")
 	ErrItemNotFound             = errors.New("one or more items not found")
 	ErrBadVariation             = errors.New("one or more variation option IDs are invalid")
+	ErrBadModifier              = errors.New("one or more modifier IDs are invalid or do not belong to the requested item")
 	ErrOrderNotFound            = errors.New("order not found")
 	ErrOrderAlreadyPaid         = errors.New("order already paid")
 	ErrPaymentMethodNotFound    = errors.New("payment method not found")
 	ErrNoPaymentMethodAvailable = errors.New("no payment method available")
 )
+
+// KDS routing fallback chain.
+//
+// For each order_item we resolve a target kitchen station using, in priority
+// order:
+//  1. item_station_routing  — explicit per-item routing (is_primary first)
+//  2. category_station_routing — routing inherited from the item's category
+//  3. any active kitchen_station in the item's location (lowest sort_order)
+//
+// This ensures every order produces KDS tickets even when only category-level
+// routing exists (as the seeded demo data does) or when no routing exists at
+// all, so the kitchen is never silently missed.
+const kdsItemRoutesCTE = `
+	WITH item_routes AS (
+		SELECT
+			oi.id AS order_item_id,
+			oi.item_id,
+			oi.quantity,
+			oi.special_instructions,
+			COALESCE(
+				(SELECT isr.station_id
+				   FROM item_station_routing isr
+				  WHERE isr.item_id = oi.item_id
+				  ORDER BY isr.is_primary DESC
+				  LIMIT 1),
+				(SELECT csr.station_id
+				   FROM category_station_routing csr
+				   JOIN items it ON it.id = oi.item_id
+				  WHERE csr.category_id = it.category_id
+				  ORDER BY csr.is_primary DESC
+				  LIMIT 1),
+				(SELECT ks.id
+				   FROM kitchen_stations ks
+				   JOIN items it2 ON it2.id = oi.item_id
+				  WHERE ks.location_id = it2.location_id
+				    AND ks.is_active
+				  ORDER BY ks.sort_order ASC, ks.created_at ASC
+				  LIMIT 1)
+			) AS station_id
+		FROM order_items oi
+		WHERE oi.order_id = $1
+	)`
+
+// kdsStationDiscoverySQL returns the DISTINCT non-null stations an order fans
+// out to. Bind $1 = order_id.
+const kdsStationDiscoverySQL = kdsItemRoutesCTE + `
+	SELECT DISTINCT station_id
+	FROM item_routes
+	WHERE station_id IS NOT NULL`
+
+// kdsTicketItemsInsertSQL inserts kds_ticket_items for the order_items that
+// resolve to a given station. The shared CTE binds $1 = order_id, so this query
+// keeps that and uses $2 = ticket_id, $3 = station_id.
+const kdsTicketItemsInsertSQL = kdsItemRoutesCTE + `
+	INSERT INTO kds_ticket_items (ticket_id, order_item_id, quantity, item_status, notes)
+	SELECT $2, ir.order_item_id, ir.quantity, 'fired', ir.special_instructions
+	FROM item_routes ir
+	WHERE ir.station_id = $3
+	ON CONFLICT (ticket_id, order_item_id) DO NOTHING
+	RETURNING id`
 
 // Store holds the pgx pool for POS order operations.
 type Store struct {
@@ -34,12 +97,23 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // Input types
 // ---------------------------------------------------------------------------
 
+// ModifierSelection is a single modifier chosen for a line item.
+type ModifierSelection struct {
+	ModifierID string `json:"modifier_id"`
+}
+
 // OrderLineInput is one line in the create-order request.
 type OrderLineInput struct {
-	ItemID             string   `json:"item_id"`
-	Quantity           int      `json:"quantity"`
-	VariationOptionIDs []string `json:"variation_option_ids"`
-	Notes              string   `json:"notes"`
+	ItemID             string              `json:"item_id"`
+	Quantity           int                 `json:"quantity"`
+	VariationOptionIDs []string            `json:"variation_option_ids"`
+	Notes              string              `json:"notes"`
+	// CourseID is an optional reference to courses.id for kitchen course firing.
+	// Added in Wave 11 (migration 022 adds order_items.course_id).
+	CourseID  string              `json:"course_id"`
+	// Modifiers is an optional list of selected modifiers for this line.
+	// Each modifier's price_delta_cents is added to the item's base unit price.
+	Modifiers []ModifierSelection `json:"modifiers"`
 }
 
 // ---------------------------------------------------------------------------
@@ -87,23 +161,37 @@ func (s *Store) CreateOrder(
 	lines []OrderLineInput,
 	onDeliveryMethod string,
 ) (*CreatedOrder, error) {
+	// Use the request's db.Scope (injected by RequireOrgScope middleware) so RLS
+	// session variables (current_org_id, current_user_id) are set on the
+	// transaction. Without this, RLS blocks the location existence check and
+	// returns ErrLocationNotFound even when the location is valid.
+	scope := db.ScopeFromContext(ctx)
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-
-	// --- 1. Verify location exists and resolve on-delivery fallback ---
-	var locationExists bool
-	var onDeliveryMethods []string
-	if err := tx.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM locations WHERE id = $1),
-		        (SELECT on_delivery_payment_methods FROM locations WHERE id = $1)`,
-		locationID,
-	).Scan(&locationExists, &onDeliveryMethods); err != nil {
+	// Set session vars for RLS policies.
+	if err := setTxScope(ctx, tx, scope); err != nil {
 		return nil, err
 	}
-	if !locationExists {
+
+	// --- 1. Verify location exists and resolve org + on-delivery fallback ---
+	// organization_id is read from the location: orders.organization_id is NOT
+	// NULL and the orders RLS WITH CHECK requires it to equal current_org_id(),
+	// so it must be the location's owning org.
+	var orgID *string
+	var onDeliveryMethods []string
+	if err := tx.QueryRow(ctx,
+		`SELECT organization_id, on_delivery_payment_methods FROM locations WHERE id = $1`,
+		locationID,
+	).Scan(&orgID, &onDeliveryMethods); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrLocationNotFound
+		}
+		return nil, err
+	}
+	if orgID == nil {
 		return nil, ErrLocationNotFound
 	}
 
@@ -120,22 +208,24 @@ func (s *Store) CreateOrder(
 		return nil, err
 	}
 
-	if !hasActiveCredential {
-		// Fallback to on-delivery payment if the location supports it.
+	// In-store POS orders (dine_in / takeaway / counter) are settled at the till
+	// in cash or on the card machine — they never require an online payment
+	// credential or an on-delivery method, so the cash defaults above stand.
+	// Only DELIVERY orders need a way to collect payment: an online credential,
+	// or a configured on-delivery method (cash / card machine at handover).
+	if !hasActiveCredential && orderType == "delivery" {
 		if len(onDeliveryMethods) == 0 {
 			return nil, ErrNoPaymentMethodAvailable
 		}
 		// Delivery orders with on-delivery fallback are pending payment at handover.
-		if orderType == "delivery" {
-			initialStatus = "pending_on_delivery"
-			// Map the customer-selected tender to a payment_method_code.
-			switch onDeliveryMethod {
-			case "card_machine":
-				initialPaymentMethod = "card_on_delivery"
-			default:
-				// Default to cash on delivery when not specified or "cash".
-				initialPaymentMethod = "cash_on_delivery"
-			}
+		initialStatus = "pending_on_delivery"
+		// Map the customer-selected tender to a payment_method_code.
+		switch onDeliveryMethod {
+		case "card_machine":
+			initialPaymentMethod = "card_on_delivery"
+		default:
+			// Default to cash on delivery when not specified or "cash".
+			initialPaymentMethod = "cash_on_delivery"
 		}
 	}
 
@@ -162,47 +252,70 @@ func (s *Store) CreateOrder(
 		itemCache[line.ItemID] = ir
 	}
 
-	// --- 3. Resolve variation price modifiers ---
-	type varOptionRow struct {
-		variationID   string
-		priceModifier float64
+	// --- 3. Resolve modifier prices and compute per-line unit prices ---
+	// resolvedModifier holds the DB-fetched data for one selected modifier.
+	type resolvedModifier struct {
+		modifierID      string
+		name            string
+		priceDeltaCents int64
 	}
-	optionCache := make(map[string]varOptionRow)
-	for _, line := range lines {
-		for _, optID := range line.VariationOptionIDs {
-			if _, cached := optionCache[optID]; cached {
-				continue
+	// lineUnitCents[i] is the total unit price for lines[i] in integer cents:
+	// item base price + sum of selected modifier price_delta_cents values.
+	lineUnitCents := make([]int64, len(lines))
+	// lineModifiers[i] holds the resolved modifier rows for lines[i], in
+	// the same order as the request, so the INSERT loop can correlate them.
+	lineModifiers := make([][]resolvedModifier, len(lines))
+
+	for i, line := range lines {
+		baseItem := itemCache[line.ItemID]
+		baseCents := int64(math.Round(baseItem.price * 100))
+		extra := int64(0)
+
+		if len(line.Modifiers) > 0 {
+			mods := make([]resolvedModifier, 0, len(line.Modifiers))
+			for _, sel := range line.Modifiers {
+				// Look up the modifier and validate it belongs to a modifier_group
+				// whose item_id matches this line's item. A mismatch (or missing row)
+				// means the caller sent an invalid modifier_id for this item.
+				var rm resolvedModifier
+				rm.modifierID = sel.ModifierID
+				err := tx.QueryRow(ctx, `
+					SELECT m.name, m.price_delta_cents
+					FROM modifiers m
+					JOIN modifier_groups mg ON mg.id = m.modifier_group_id
+					WHERE m.id = $1
+					  AND mg.item_id = $2
+					  AND m.is_active = true
+				`, sel.ModifierID, line.ItemID).Scan(&rm.name, &rm.priceDeltaCents)
+				if errors.Is(err, pgx.ErrNoRows) {
+					return nil, fmt.Errorf("%w: modifier %s is not valid for item %s",
+						ErrBadModifier, sel.ModifierID, line.ItemID)
+				}
+				if err != nil {
+					return nil, fmt.Errorf("resolving modifier %s: %w", sel.ModifierID, err)
+				}
+				extra += rm.priceDeltaCents
+				mods = append(mods, rm)
 			}
-			var vr varOptionRow
-			err := tx.QueryRow(ctx,
-				`SELECT variation_id, price_modifier FROM item_variation_options WHERE id = $1`,
-				optID,
-			).Scan(&vr.variationID, &vr.priceModifier)
-			if errors.Is(err, pgx.ErrNoRows) {
-				return nil, ErrBadVariation
-			}
-			if err != nil {
-				return nil, err
-			}
-			optionCache[optID] = vr
+			lineModifiers[i] = mods
 		}
+
+		lineUnitCents[i] = baseCents + extra
 	}
 
-	// --- 4. Compute subtotal ---
-	var subtotal float64
-	for _, line := range lines {
-		unitPrice := itemCache[line.ItemID].price
-		for _, optID := range line.VariationOptionIDs {
-			unitPrice += optionCache[optID].priceModifier
-		}
-		subtotal += unitPrice * float64(line.Quantity)
+	// --- 4. Compute order totals (integer cents) ---
+	var subtotalCents int64
+	for i, line := range lines {
+		subtotalCents += lineUnitCents[i] * int64(line.Quantity)
 	}
+
 	taxRate, err := TaxRateFor(ctx, s.pool, locationID)
 	if err != nil {
 		return nil, fmt.Errorf("resolving tax rate: %w", err)
 	}
-	taxAmount := subtotal * (taxRate / 100.0)
-	total := subtotal + taxAmount
+	// Tax-exclusive: tax is added on top of the subtotal (matches prior behaviour).
+	taxCents := int64(math.Round(float64(subtotalCents) * taxRate / 100.0))
+	totalCents := subtotalCents + taxCents
 
 	// Resolve per-store currency (with 5-min cache).
 	cur, err := locations.CurrencyFor(ctx, s.pool, locationID)
@@ -230,69 +343,59 @@ func (s *Store) CreateOrder(
 	orderNumber := fmt.Sprintf("POS%04d", maxSeq+1)
 
 	// --- 6. Insert order ---
+	// The schema consolidation folded order_details (estimated_prep_time, notes)
+	// and order_financial_details (subtotal/tax/total) directly onto orders, all
+	// in integer cents. Payment method/status is no longer stored here — it is
+	// recorded in order_payments at charge time.
+	var notes any
+	if tableNumber != "" {
+		notes = "Table: " + tableNumber
+	}
 	var orderID string
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO orders (location_id, customer_id, order_number, order_type, status, table_session_id, currency_code)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO orders (
+		    organization_id, location_id, customer_id, order_number,
+		    order_type, fulfillment_type, status, table_session_id,
+		    subtotal_cents, tax_cents, total_cents, tax_rate, tax_inclusive,
+		    currency_code, estimated_prep_time, notes
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, $13, 20, $14)
 		RETURNING id
-	`, locationID, nullStr(customerID), orderNumber, orderType, initialStatus, nullStr(tableSessionID), cur.Code,
+	`,
+		*orgID, locationID, nullStr(customerID), orderNumber,
+		orderType, fulfillmentTypeFor(orderType), initialStatus, nullStr(tableSessionID),
+		subtotalCents, taxCents, totalCents, taxRate,
+		cur.Code, notes,
 	).Scan(&orderID); err != nil {
 		return nil, err
 	}
 
-	// --- 7. Insert order_details (table_number goes into notes for now; the
-	//     table_session_id column requires a live session UUID which the POS
-	//     may not always have at order-create time) ---
-	var detailNotes interface{}
-	if tableNumber != "" {
-		detailNotes = "Table: " + tableNumber
-	}
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO order_details (order_id, estimated_prep_time, notes)
-		VALUES ($1, 20, $2)
-	`, orderID, detailNotes); err != nil {
-		return nil, err
-	}
-
-	// --- 8. Insert order_financial_details ---
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO order_financial_details
-		    (order_id, subtotal, delivery_fee, total_amount, tax_rate, tax_amount, tax_inclusive, payment_status, payment_method)
-		VALUES ($1, $2, 0, $3, $4, $5, false, 'pending', $6)
-	`, orderID, subtotal, total, taxRate, taxAmount, initialPaymentMethod); err != nil {
-		return nil, err
-	}
-
-	// --- 9. Insert order_items and order_item_variations ---
-	type insertedItem struct {
-		orderItemID string
-		unitPrice   float64
-	}
-	insertedItems := make([]insertedItem, 0, len(lines))
-	for _, line := range lines {
-		unitPrice := itemCache[line.ItemID].price
-		for _, optID := range line.VariationOptionIDs {
-			unitPrice += optionCache[optID].priceModifier
-		}
-		totalPrice := unitPrice * float64(line.Quantity)
-
+	// --- 7. Insert order_items and order_item_modifiers ---
+	// Migration 022 adds order_items.course_id (nullable uuid) and the
+	// order_item_modifiers table. Both are coded against that schema; they
+	// compile and work once migration 022 has been applied at runtime.
+	for i, line := range lines {
+		unitCents := lineUnitCents[i]
 		var orderItemID string
 		if err := tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, item_id, quantity, unit_price, total_price, special_instructions)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO order_items (order_id, item_id, quantity, unit_price_cents, total_price_cents, special_instructions, course_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id
-		`, orderID, line.ItemID, line.Quantity, unitPrice, totalPrice, nullStr(line.Notes),
+		`, orderID, line.ItemID, line.Quantity, unitCents, unitCents*int64(line.Quantity),
+			nullStr(line.Notes), nullStr(line.CourseID),
 		).Scan(&orderItemID); err != nil {
 			return nil, err
 		}
-		insertedItems = append(insertedItems, insertedItem{orderItemID: orderItemID, unitPrice: unitPrice})
 
-		for _, optID := range line.VariationOptionIDs {
-			vr := optionCache[optID]
+		// Persist selected modifiers as order_item_modifiers rows.
+		// price_cents_snapshot captures the modifier's price_delta_cents at order
+		// time so that later repricing never retroactively alters historical totals.
+		for _, rm := range lineModifiers[i] {
 			if _, err := tx.Exec(ctx, `
-				INSERT INTO order_item_variations (order_item_id, variation_id, option_id, price_modifier)
+				INSERT INTO order_item_modifiers (order_item_id, modifier_id, price_cents_snapshot, name_snapshot)
 				VALUES ($1, $2, $3, $4)
-			`, orderItemID, vr.variationID, optID, vr.priceModifier); err != nil {
+			`, orderItemID, rm.modifierID, rm.priceDeltaCents, rm.name,
+			); err != nil {
 				return nil, err
 			}
 		}
@@ -306,12 +409,18 @@ func (s *Store) CreateOrder(
 	if err != nil {
 		// Non-fatal: order is committed; enqueue for the KDS fanout job so the
 		// kitchen is never silently missed. Capture the original error so ops
-		// can inspect it via kds_fanout_queue.error_message.
-		if _, qErr := tx.Exec(ctx, `
-			INSERT INTO kds_fanout_queue (order_id, error_message, retry_count, state)
-			VALUES ($1, $2, 0, 'pending')
-			ON CONFLICT (order_id) DO NOTHING
-		`, orderID, err.Error()); qErr != nil {
+		// can inspect it via kds_fanout_queue.error_message. kds_fanout_queue
+		// INSERT is service-role-only (migration 008/020), so elevate for this
+		// write — the surrounding order mutations stay tenant-scoped.
+		qErr := db.WithTxServiceRole(ctx, tx, func() error {
+			_, e := tx.Exec(ctx, `
+				INSERT INTO kds_fanout_queue (order_id, error_message, retry_count, state)
+				VALUES ($1, $2, 0, 'pending')
+				ON CONFLICT (order_id) DO NOTHING
+			`, orderID, err.Error())
+			return e
+		})
+		if qErr != nil {
 			// Last-resort: log both errors so nothing is silently swallowed.
 			log.Printf("pos: fanout failed (%v) AND enqueue failed (%v) for order=%s — kitchen may miss this order", err, qErr, orderID)
 		}
@@ -325,14 +434,28 @@ func (s *Store) CreateOrder(
 	return &CreatedOrder{
 		OrderID:       orderID,
 		OrderNumber:   orderNumber,
-		Subtotal:      subtotal,
-		Tax:           taxAmount,
-		Total:         total,
+		Subtotal:      float64(subtotalCents) / 100,
+		Tax:           float64(taxCents) / 100,
+		Total:         float64(totalCents) / 100,
 		CurrencyCode:  cur.Code,
 		KDSTicketIDs:  kdsTicketIDs,
 		Status:        initialStatus,
 		PaymentMethod: initialPaymentMethod,
 	}, nil
+}
+
+// fulfillmentTypeFor maps the order_type text to the fulfillment_type enum
+// (collection | delivery | dine_in). pickup/whatsapp/collection all map to
+// 'collection'; dine_in and delivery map to themselves.
+func fulfillmentTypeFor(orderType string) string {
+	switch orderType {
+	case "dine_in":
+		return "dine_in"
+	case "delivery":
+		return "delivery"
+	default:
+		return "collection"
+	}
 }
 
 // fanoutInsideTx performs KDS fanout using an already-open transaction tx.
@@ -349,13 +472,11 @@ func fanoutInsideTx(ctx context.Context, tx pgx.Tx, orderID string) ([]string, e
 		return nil, err
 	}
 
-	// Gather distinct stations from routing.
-	rows, err := tx.Query(ctx, `
-		SELECT DISTINCT isr.station_id
-		FROM order_items oi
-		JOIN item_station_routing isr ON isr.item_id = oi.item_id
-		WHERE oi.order_id = $1
-	`, orderID)
+	// Gather distinct stations using the routing fallback chain
+	// (item routing -> category routing -> location default station). This
+	// guarantees every order_item resolves to a station so the kitchen is
+	// never silently missed when only category-level routing (or none) exists.
+	rows, err := tx.Query(ctx, kdsStationDiscoverySQL, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -400,16 +521,9 @@ func fanoutInsideTx(ctx context.Context, tx pgx.Tx, orderID string) ([]string, e
 			return nil, err
 		}
 
-		// Insert ticket items.
-		itemRows, err := tx.Query(ctx, `
-			INSERT INTO kds_ticket_items (ticket_id, order_item_id, quantity, item_status, notes)
-			SELECT $1, oi.id, oi.quantity, 'fired', oi.special_instructions
-			FROM order_items oi
-			JOIN item_station_routing isr ON isr.item_id = oi.item_id AND isr.station_id = $2
-			WHERE oi.order_id = $3
-			ON CONFLICT (ticket_id, order_item_id) DO NOTHING
-			RETURNING id
-		`, ticketID, stationID, orderID)
+		// Insert ticket items for order_items that resolve to this station via
+		// the same routing fallback chain used for station discovery.
+		itemRows, err := tx.Query(ctx, kdsTicketItemsInsertSQL, orderID, ticketID, stationID)
 		if err != nil {
 			return nil, err
 		}
@@ -441,11 +555,15 @@ func fanoutInsideTx(ctx context.Context, tx pgx.Tx, orderID string) ([]string, e
 
 // GetOrderLocationID returns the location_id for the given order.
 // Returns ErrOrderNotFound when no order with that ID exists.
+// Uses the request's db.Scope so RLS session variables are set.
 func (s *Store) GetOrderLocationID(ctx context.Context, orderID string) (string, error) {
+	scope := db.ScopeFromContext(ctx)
 	var locID string
-	err := s.pool.QueryRow(ctx,
-		`SELECT location_id FROM orders WHERE id = $1`, orderID,
-	).Scan(&locID)
+	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx,
+			`SELECT location_id FROM orders WHERE id = $1`, orderID,
+		).Scan(&locID)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrOrderNotFound
 	}
@@ -455,15 +573,43 @@ func (s *Store) GetOrderLocationID(ctx context.Context, orderID string) (string,
 // GetTableSessionLocationID returns the location_id for the given table session.
 // Returns ErrOrderNotFound when no session with that ID exists (avoids leaking
 // existence of a foreign session via a distinct sentinel).
+// Uses the request's db.Scope so RLS session variables are set.
 func (s *Store) GetTableSessionLocationID(ctx context.Context, sessionID string) (string, error) {
+	scope := db.ScopeFromContext(ctx)
 	var locID string
-	err := s.pool.QueryRow(ctx,
-		`SELECT location_id FROM table_sessions WHERE id = $1`, sessionID,
-	).Scan(&locID)
+	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx,
+			`SELECT location_id FROM table_sessions WHERE id = $1`, sessionID,
+		).Scan(&locID)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrOrderNotFound
 	}
 	return locID, err
+}
+
+// setTxScope writes the request's db.Scope session variables into an already-open
+// transaction so RLS policies can evaluate current_org_id(), current_user_id(),
+// etc. Must be called immediately after BeginTx and before any DML.
+func setTxScope(ctx context.Context, tx pgx.Tx, scope db.Scope) error {
+	vars := []struct{ name, val string }{
+		{"app.current_user_id", scope.UserID},
+		{"app.current_org_id", scope.OrgID},
+		{"app.is_service_role", boolStr(scope.IsServiceRole)},
+	}
+	for _, v := range vars {
+		if _, err := tx.Exec(ctx, `SELECT set_config($1, $2, true)`, v.name, v.val); err != nil {
+			return fmt.Errorf("setTxScope %s: %w", v.name, err)
+		}
+	}
+	return nil
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return ""
 }
 
 // nullStr converts an empty string to nil so optional DB columns receive NULL.

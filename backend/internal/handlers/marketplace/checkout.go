@@ -15,10 +15,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 
+	"github.com/beepbite/backend/internal/locations"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ErrNoPaymentMethod is returned when no active credential and no on-delivery fallback exists.
@@ -104,20 +107,11 @@ func (h *Handler) createCheckoutOrder(w http.ResponseWriter, r *http.Request) {
 
 // CheckoutStore handles marketplace order creation.
 type CheckoutStore struct {
-	pool interface {
-		QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-		BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
-	}
+	pool *pgxpool.Pool
 }
 
-func newCheckoutStore(pool pgxPool) *CheckoutStore {
+func newCheckoutStore(pool *pgxpool.Pool) *CheckoutStore {
 	return &CheckoutStore{pool: pool}
-}
-
-// pgxPool is the subset of pgxpool.Pool used by CheckoutStore (allows test injection).
-type pgxPool interface {
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 }
 
 // CreateCheckoutOrder creates an order from the public checkout surface.
@@ -132,16 +126,18 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	// --- 1. Resolve location by slug ---
-	var locationID string
+	// --- 1. Resolve location by slug — also fetch organization_id ---
+	// organization_id is NOT NULL on orders and the RLS WITH CHECK requires it to
+	// equal current_org_id(), so we must supply it from the owning location.
+	var locationID, orgID string
 	var onDeliveryMethods []string
 	err = tx.QueryRow(ctx, `
-		SELECT id, on_delivery_payment_methods
+		SELECT id, organization_id, on_delivery_payment_methods
 		FROM locations
 		WHERE slug = $1
 		  AND is_marketplace_visible = true
 		  AND is_active = true
-	`, slug).Scan(&locationID, &onDeliveryMethods)
+	`, slug).Scan(&locationID, &orgID, &onDeliveryMethods)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -199,14 +195,34 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		itemCache[line.ItemID] = ir
 	}
 
-	// --- 4. Compute total ---
-	var subtotal float64
-	for _, line := range req.Items {
-		subtotal += itemCache[line.ItemID].price * float64(line.Quantity)
+	// --- 4. Compute totals in integer cents (mirrors pos.CreateOrder) ---
+	// Unit prices are stored as float64 dollars in items.price; convert to cents
+	// via round to avoid floating-point drift.
+	unitPriceCentsByItem := make(map[string]int64, len(itemCache))
+	for id, ir := range itemCache {
+		unitPriceCentsByItem[id] = int64(math.Round(ir.price * 100))
 	}
-	const taxRate = 15.0
-	taxAmount := subtotal * (taxRate / 100.0)
-	total := subtotal + taxAmount
+
+	var subtotalCents int64
+	for _, line := range req.Items {
+		subtotalCents += unitPriceCentsByItem[line.ItemID] * int64(line.Quantity)
+	}
+
+	// Resolve per-store tax rate (5-min cached; fallback chain: tax_rates row →
+	// region default → 0). Uses the real pool (not the tx) to match pos.TaxRateFor.
+	taxRate, err := taxRateFor(ctx, cs.pool, locationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolving tax rate: %w", err)
+	}
+	// Tax-exclusive: tax added on top of subtotal (consistent with POS path).
+	taxCents := int64(math.Round(float64(subtotalCents) * taxRate / 100.0))
+	totalCents := subtotalCents + taxCents
+
+	// --- T8.5: Resolve per-store currency (5-min cached; fallback → ZAR) ---
+	cur, err := locations.CurrencyFor(ctx, cs.pool, locationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolving currency: %w", err)
+	}
 
 	// --- 5. Generate order number ---
 	var maxSeq int
@@ -223,46 +239,43 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 	`, locationID).Scan(&maxSeq)
 	orderNumber := fmt.Sprintf("MKT%04d", maxSeq+1)
 
-	// --- 6. Insert order ---
-	var orderID string
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO orders (location_id, customer_id, order_number, order_type, status)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id
-	`, locationID, nullableStr(req.CustomerID), orderNumber, mapFulfillment(req.FulfillmentType), initialStatus,
-	).Scan(&orderID); err != nil {
-		return nil, err
-	}
-
-	// --- 7. Insert order_details ---
+	// --- 6. Insert order into the consolidated orders table ---
+	// order_details and order_financial_details no longer exist (Wave 0 schema
+	// consolidation folded them into orders). All financial and delivery columns
+	// live directly on the orders row.
 	var dAddr interface{}
 	if req.DeliveryAddress != "" {
 		dAddr = req.DeliveryAddress
 	}
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO order_details (order_id, estimated_prep_time, delivery_address)
-		VALUES ($1, 30, $2)
-	`, orderID, dAddr); err != nil {
+	ft := req.FulfillmentType
+	var orderID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO orders (
+		    organization_id, location_id, customer_id, order_number,
+		    order_type, fulfillment_type, status,
+		    subtotal_cents, tax_cents, total_cents, tax_rate, tax_inclusive,
+		    currency_code, delivery_address, estimated_prep_time
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12, $13, 30)
+		RETURNING id
+	`,
+		orgID, locationID, nullableStr(req.CustomerID), orderNumber,
+		mapFulfillment(ft), ft, initialStatus,
+		subtotalCents, taxCents, totalCents, taxRate,
+		cur.Code, dAddr,
+	).Scan(&orderID); err != nil {
 		return nil, err
 	}
 
-	// --- 8. Insert order_financial_details ---
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO order_financial_details
-		    (order_id, subtotal, delivery_fee, total_amount, tax_rate, tax_amount, tax_inclusive, payment_status, payment_method)
-		VALUES ($1, $2, 0, $3, $4, $5, false, 'pending', $6)
-	`, orderID, subtotal, total, taxRate, taxAmount, initialPaymentMethod); err != nil {
-		return nil, err
-	}
-
-	// --- 9. Insert order items ---
+	// --- 7. Insert order items using bigint cents columns ---
+	// The consolidated schema uses unit_price_cents / total_price_cents (bigint),
+	// not the legacy float unit_price / total_price columns.
 	for _, line := range req.Items {
-		unitPrice := itemCache[line.ItemID].price
-		totalPrice := unitPrice * float64(line.Quantity)
+		unitCents := unitPriceCentsByItem[line.ItemID]
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO order_items (order_id, item_id, quantity, unit_price, total_price, special_instructions)
+			INSERT INTO order_items (order_id, item_id, quantity, unit_price_cents, total_price_cents, special_instructions)
 			VALUES ($1, $2, $3, $4, $5, $6)
-		`, orderID, line.ItemID, line.Quantity, unitPrice, totalPrice, nullableStr(line.Notes)); err != nil {
+		`, orderID, line.ItemID, line.Quantity, unitCents, unitCents*int64(line.Quantity), nullableStr(line.Notes)); err != nil {
 			return nil, err
 		}
 	}
@@ -276,7 +289,7 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		OrderNumber:   orderNumber,
 		Status:        initialStatus,
 		PaymentMethod: initialPaymentMethod,
-		Total:         total,
+		Total:         float64(totalCents) / 100,
 	}, nil
 }
 
@@ -298,4 +311,47 @@ func nullableStr(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+// taxRateFor resolves the effective tax rate (percentage, e.g. 15.0) for the
+// given location using the same fallback chain as pos.TaxRateFor:
+//  1. First active row in tax_rates for the location.
+//  2. Region's default_tax_rate (via locations.region_id).
+//  3. Zero — logged for ops visibility.
+//
+// This is a local copy to avoid a cross-package dependency on the pos package.
+func taxRateFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (float64, error) {
+	// Step 1: location-specific tax_rates row.
+	var rate float64
+	err := pool.QueryRow(ctx, `
+		SELECT CAST(rate AS float8)
+		FROM tax_rates
+		WHERE location_id = $1
+		  AND is_active = true
+		ORDER BY created_at
+		LIMIT 1
+	`, locationID).Scan(&rate)
+	if err == nil {
+		return rate, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return 0, err
+	}
+
+	// Step 2: region default.
+	err = pool.QueryRow(ctx, `
+		SELECT CAST(r.default_tax_rate AS float8)
+		FROM locations l
+		JOIN regions r ON r.id = l.region_id
+		WHERE l.id = $1
+	`, locationID).Scan(&rate)
+	if err == nil {
+		return rate, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return 0, err
+	}
+
+	// Step 3: zero fallback.
+	return 0, nil
 }

@@ -15,6 +15,68 @@ var (
 	ErrOrderNotFound  = errors.New("order not found")
 )
 
+// KDS routing fallback chain.
+//
+// For each order_item we resolve a target kitchen station using, in priority
+// order:
+//  1. item_station_routing  — explicit per-item routing (is_primary first)
+//  2. category_station_routing — routing inherited from the item's category
+//  3. any active kitchen_station in the item's location (lowest sort_order)
+//
+// This ensures every order produces KDS tickets even when only category-level
+// routing exists, or no routing exists at all, so the kitchen is never
+// silently missed.
+const kdsItemRoutesCTE = `
+	WITH item_routes AS (
+		SELECT
+			oi.id AS order_item_id,
+			oi.item_id,
+			oi.quantity,
+			oi.special_instructions,
+			COALESCE(
+				(SELECT isr.station_id
+				   FROM item_station_routing isr
+				  WHERE isr.item_id = oi.item_id
+				  ORDER BY isr.is_primary DESC
+				  LIMIT 1),
+				(SELECT csr.station_id
+				   FROM category_station_routing csr
+				   JOIN items it ON it.id = oi.item_id
+				  WHERE csr.category_id = it.category_id
+				  ORDER BY csr.is_primary DESC
+				  LIMIT 1),
+				(SELECT ks.id
+				   FROM kitchen_stations ks
+				   JOIN items it2 ON it2.id = oi.item_id
+				  WHERE ks.location_id = it2.location_id
+				    AND ks.is_active
+				  ORDER BY ks.sort_order ASC, ks.created_at ASC
+				  LIMIT 1)
+			) AS station_id
+		FROM order_items oi
+		WHERE oi.order_id = $1
+	)`
+
+// kdsStationDiscoverySQL returns the DISTINCT non-null stations an order fans
+// out to. Bind $1 = order_id.
+const kdsStationDiscoverySQL = kdsItemRoutesCTE + `
+	SELECT DISTINCT station_id
+	FROM item_routes
+	WHERE station_id IS NOT NULL`
+
+// kdsTicketItemsInsertReturningSQL inserts kds_ticket_items for order_items
+// that resolve to a given station and returns the full inserted rows.
+// The shared CTE binds $1 = order_id, so this uses $2 = ticket_id, $3 = station_id.
+const kdsTicketItemsInsertReturningSQL = kdsItemRoutesCTE + `
+	INSERT INTO kds_ticket_items (ticket_id, order_item_id, quantity, item_status, notes)
+	SELECT $2, ir.order_item_id, ir.quantity, 'fired', ir.special_instructions
+	FROM item_routes ir
+	WHERE ir.station_id = $3
+	ON CONFLICT (ticket_id, order_item_id) DO NOTHING
+	RETURNING id, ticket_id, order_item_id,
+		quantity::text, item_status, started_at, ready_at, bumped_at,
+		notes, created_at, updated_at`
+
 // ---------------------------------------------------------------------------
 // Wire types (DTOs that map directly to DB rows / query results)
 // ---------------------------------------------------------------------------
@@ -130,12 +192,7 @@ func (s *Store) FanoutOrder(ctx context.Context, orderID string) ([]TicketWithIt
 	type stationGroup struct {
 		stationID string
 	}
-	rows, err := tx.Query(ctx, `
-		SELECT DISTINCT isr.station_id
-		FROM order_items oi
-		JOIN item_station_routing isr ON isr.item_id = oi.item_id
-		WHERE oi.order_id = $1
-	`, orderID)
+	rows, err := tx.Query(ctx, kdsStationDiscoverySQL, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -191,18 +248,9 @@ func (s *Store) FanoutOrder(ctx context.Context, orderID string) ([]TicketWithIt
 			return nil, err
 		}
 
-		// Insert ticket items for order_items routed to this station.
-		itemRows, err := tx.Query(ctx, `
-			INSERT INTO kds_ticket_items (ticket_id, order_item_id, quantity, item_status, notes)
-			SELECT $1, oi.id, oi.quantity, 'fired', oi.special_instructions
-			FROM order_items oi
-			JOIN item_station_routing isr ON isr.item_id = oi.item_id AND isr.station_id = $2
-			WHERE oi.order_id = $3
-			ON CONFLICT (ticket_id, order_item_id) DO NOTHING
-			RETURNING id, ticket_id, order_item_id,
-				quantity::text, item_status, started_at, ready_at, bumped_at,
-				notes, created_at, updated_at
-		`, t.ID, stationID, orderID)
+		// Insert ticket items for order_items that resolve to this station via
+		// the routing fallback chain (item -> category -> location default).
+		itemRows, err := tx.Query(ctx, kdsTicketItemsInsertReturningSQL, orderID, t.ID, stationID)
 		if err != nil {
 			return nil, err
 		}

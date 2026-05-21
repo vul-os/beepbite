@@ -49,9 +49,14 @@ export async function createOrder(payload) {
 // ── Cart helpers (localStorage, keyed by store slug) ──────────────────────────
 
 const CART_PREFIX = 'bb.cart.';
+const CART_META_PREFIX = 'bb.cartmeta.';
 
 export function cartKey(slug) {
   return `${CART_PREFIX}${slug}`;
+}
+
+export function cartMetaKey(slug) {
+  return `${CART_META_PREFIX}${slug}`;
 }
 
 export function readCart(slug) {
@@ -73,4 +78,33 @@ export function writeCart(slug, items) {
 
 export function clearCart(slug) {
   localStorage.removeItem(cartKey(slug));
+}
+
+/**
+ * Read fulfillment metadata (fulfillment_type + delivery_address) for a cart.
+ *
+ * @param {string} slug
+ * @returns {{ fulfillment_type: 'delivery'|'collection'|null, delivery_address: string }}
+ */
+export function readCartMeta(slug) {
+  try {
+    const raw = localStorage.getItem(cartMetaKey(slug));
+    return raw ? JSON.parse(raw) : { fulfillment_type: null, delivery_address: '' };
+  } catch {
+    return { fulfillment_type: null, delivery_address: '' };
+  }
+}
+
+/**
+ * Write fulfillment metadata for a cart.
+ *
+ * @param {string} slug
+ * @param {{ fulfillment_type: string, delivery_address: string }} meta
+ */
+export function writeCartMeta(slug, meta) {
+  if (!meta || !meta.fulfillment_type) {
+    localStorage.removeItem(cartMetaKey(slug));
+  } else {
+    localStorage.setItem(cartMetaKey(slug), JSON.stringify(meta));
+  }
 }

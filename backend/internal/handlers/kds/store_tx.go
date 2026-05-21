@@ -37,13 +37,8 @@ func (s *Store) FanoutOrderTx(ctx context.Context, tx pgx.Tx, orderID string) ([
 		return nil, err
 	}
 
-	// Derive stations from routing.
-	rows, err := tx.Query(ctx, `
-		SELECT DISTINCT isr.station_id
-		FROM order_items oi
-		JOIN item_station_routing isr ON isr.item_id = oi.item_id
-		WHERE oi.order_id = $1
-	`, orderID)
+	// Derive stations from routing (item -> category -> location default).
+	rows, err := tx.Query(ctx, kdsStationDiscoverySQL, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,17 +90,7 @@ func (s *Store) FanoutOrderTx(ctx context.Context, tx pgx.Tx, orderID string) ([
 			return nil, err
 		}
 
-		itemRows, err := tx.Query(ctx, `
-			INSERT INTO kds_ticket_items (ticket_id, order_item_id, quantity, item_status, notes)
-			SELECT $1, oi.id, oi.quantity, 'fired', oi.special_instructions
-			FROM order_items oi
-			JOIN item_station_routing isr ON isr.item_id = oi.item_id AND isr.station_id = $2
-			WHERE oi.order_id = $3
-			ON CONFLICT (ticket_id, order_item_id) DO NOTHING
-			RETURNING id, ticket_id, order_item_id,
-				quantity::text, item_status, started_at, ready_at, bumped_at,
-				notes, created_at, updated_at
-		`, t.ID, stationID, orderID)
+		itemRows, err := tx.Query(ctx, kdsTicketItemsInsertReturningSQL, orderID, t.ID, stationID)
 		if err != nil {
 			return nil, err
 		}

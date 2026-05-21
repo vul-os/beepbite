@@ -191,21 +191,34 @@ func auditMutation(
 		entityIDVal = entityID
 	}
 
-	_, execErr := tx.Exec(ctx, `
+	// organization_id: read from the db.Scope injected by RequireOrgScope / auth middleware.
+	// The Scope.OrgID is the UUID string set via app.current_org_id; empty string → SQL NULL.
+	var orgIDVal any
+	if orgID := db.ScopeFromContext(ctx).OrgID; orgID != "" {
+		orgIDVal = orgID
+	}
+
+	// audit_log INSERT is restricted to service_role (migration 013). The data
+	// handler runs the mutation under the caller's tenant scope, so elevate just
+	// for the audit write, then drop back to tenant scope.
+	return db.WithTxServiceRole(ctx, tx, func() error {
+		_, execErr := tx.Exec(ctx, `
 INSERT INTO audit_log
-    (actor_type, actor_id, action, entity_type, entity_id, before_state, after_state)
+    (organization_id, actor_type, actor_id, action, entity_type, entity_id, before_state, after_state)
 VALUES
-    ($1, $2, $3, $4, $5, $6, $7)
+    ($1, $2, $3, $4, $5, $6, $7, $8)
 `,
-		actorType,
-		actorID,
-		action,
-		cfg.entityType,
-		entityIDVal,
-		nullJSONB(beforeJSON),
-		nullJSONB(afterJSON),
-	)
-	return execErr
+			orgIDVal,
+			actorType,
+			actorID,
+			action,
+			cfg.entityType,
+			entityIDVal,
+			nullJSONB(beforeJSON),
+			nullJSONB(afterJSON),
+		)
+		return execErr
+	})
 }
 
 // nullJSONB returns nil (→ SQL NULL) for an empty slice, otherwise the raw

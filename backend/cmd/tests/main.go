@@ -37,15 +37,22 @@ type flags struct {
 	reset   bool
 	all     bool
 
-	sanity     bool
-	auth       bool
-	pentest    bool
-	menu       bool
-	recipes    bool
-	orders     bool
-	members    bool
-	whatsapp   bool
-	onboarding bool
+	sanity       bool
+	auth         bool
+	pentest      bool
+	menu         bool
+	recipes      bool
+	orders       bool
+	members      bool
+	whatsapp     bool
+	onboarding   bool
+	pos          bool
+	kds          bool
+	cashdrawer   bool
+	adjustments  bool
+	staff        bool
+	audit        bool
+	actorOverlay bool
 }
 
 func main() {
@@ -66,6 +73,13 @@ func main() {
 	flag.BoolVar(&f.members, "members", false, "org members + invite RPCs")
 	flag.BoolVar(&f.whatsapp, "whatsapp", false, "whatsapp webhook verify handshake")
 	flag.BoolVar(&f.onboarding, "onboarding", false, "signup → org → member → profile → location flow")
+	flag.BoolVar(&f.pos, "pos", false, "POS order create + single/split charge + order_payments rows")
+	flag.BoolVar(&f.kds, "kds", false, "KDS ticket fanout + bump → status transition + recall")
+	flag.BoolVar(&f.cashdrawer, "cashdrawer", false, "cash drawer open → movement → close → EOD list")
+	flag.BoolVar(&f.adjustments, "adjustments", false, "void/comp on an order + order_adjustments row")
+	flag.BoolVar(&f.staff, "staff", false, "staff create + set-pin + pin-login + manager-set-password")
+	flag.BoolVar(&f.audit, "audit", false, "financial mutations leave audit_log rows with non-null actor_id")
+	flag.BoolVar(&f.actorOverlay, "actor-overlay", false, "pin-verify happy path + lockout + capability check")
 	flag.Parse()
 
 	cfg := loadCfg(f.env)
@@ -81,7 +95,7 @@ func main() {
 	}
 
 	if !anySelected(f) {
-		fmt.Fprintln(os.Stderr, "no suite selected. Pass --all or one of: --sanity --auth --pentest --menu --recipes --orders --members --whatsapp --onboarding")
+		fmt.Fprintln(os.Stderr, "no suite selected. Pass --all or one of: --sanity --auth --pentest --menu --recipes --orders --members --whatsapp --onboarding --pos --kds --cashdrawer --adjustments")
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -117,6 +131,27 @@ func main() {
 	if f.all || f.onboarding {
 		r.Suite("onboarding", suiteOnboarding)
 	}
+	if f.all || f.pos {
+		r.Suite("pos", suitePOS)
+	}
+	if f.all || f.kds {
+		r.Suite("kds", suiteKDS)
+	}
+	if f.all || f.cashdrawer {
+		r.Suite("cashdrawer", suiteCashDrawer)
+	}
+	if f.all || f.adjustments {
+		r.Suite("adjustments", suiteAdjustments)
+	}
+	if f.all || f.staff {
+		r.Suite("staff", suiteStaff)
+	}
+	if f.all || f.audit {
+		r.Suite("audit", suiteAudit)
+	}
+	if f.all || f.actorOverlay {
+		r.Suite("actor-overlay", suiteActorOverlay)
+	}
 
 	r.Report()
 	if r.failed > 0 {
@@ -146,7 +181,9 @@ func runMigrateReset(env string) error {
 
 func anySelected(f flags) bool {
 	return f.all || f.sanity || f.auth || f.pentest || f.menu || f.recipes ||
-		f.orders || f.members || f.whatsapp || f.onboarding
+		f.orders || f.members || f.whatsapp || f.onboarding ||
+		f.pos || f.kds || f.cashdrawer || f.adjustments ||
+		f.staff || f.audit || f.actorOverlay
 }
 
 func firstNonEmpty(a, b string) string {

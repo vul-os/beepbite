@@ -136,6 +136,9 @@ func (h *Handler) createOrder(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrBadVariation):
 		writeErr(w, http.StatusBadRequest, "one or more variation_option_ids are invalid")
 		return
+	case errors.Is(err, ErrBadModifier):
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
 	case errors.Is(err, ErrNoPaymentMethodAvailable):
 		writeErr(w, http.StatusUnprocessableEntity, "no payment method available — store cannot accept orders right now")
 		return

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/beepbite/backend/internal/auth"
+	"github.com/beepbite/backend/internal/db"
 )
 
 // ---------------------------------------------------------------------------
@@ -139,29 +140,38 @@ func (h *Handler) charge(w http.ResponseWriter, r *http.Request) {
 
 // ChargeOrder records one or more payment legs for the given order and
 // optionally closes the linked table session — all within a single transaction.
+// Uses the request's db.Scope so RLS session variables are set (required for
+// selecting orders and order_financial_details via RLS-protected tables).
 func (s *Store) ChargeOrder(ctx context.Context, orderID string, processedBy string, legs []paymentLeg) (*chargeResp, error) {
+	scope := db.ScopeFromContext(ctx)
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	if err := setTxScope(ctx, tx, scope); err != nil {
+		return nil, err
+	}
 
 	// --- 1. Look up order; check payment status ---
-	var paymentStatus string
+	// payment_status moved off orders in the schema consolidation; an order is
+	// "paid" when it already has a completed order_payments row.
+	var alreadyPaid bool
 	var tableSessionID *string
 	err = tx.QueryRow(ctx, `
-		SELECT ofd.payment_status, o.table_session_id
+		SELECT o.table_session_id,
+		       EXISTS(SELECT 1 FROM order_payments op
+		              WHERE op.order_id = o.id AND op.payment_status = 'completed')
 		FROM orders o
-		JOIN order_financial_details ofd ON ofd.order_id = o.id
 		WHERE o.id = $1
-	`, orderID).Scan(&paymentStatus, &tableSessionID)
+	`, orderID).Scan(&tableSessionID, &alreadyPaid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrOrderNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	if paymentStatus == "paid" {
+	if alreadyPaid {
 		return nil, ErrOrderAlreadyPaid
 	}
 
@@ -203,20 +213,10 @@ func (s *Store) ChargeOrder(ctx context.Context, orderID string, processedBy str
 		paymentIDs = append(paymentIDs, paymentID)
 	}
 
-	// --- 4. Update order_financial_details ---
-	// Use the first leg's method as the canonical payment_method (for reporting).
-	primaryMethod := legs[0].PaymentMethodCode
-	if _, err := tx.Exec(ctx, `
-		UPDATE order_financial_details
-		SET payment_status = 'paid',
-		    payment_method = $2,
-		    updated_at     = timezone('utc'::text, now())
-		WHERE order_id = $1
-	`, orderID, primaryMethod); err != nil {
-		return nil, err
-	}
-
-	// --- 5. Update order status to completed ---
+	// --- 4. Update order status to completed ---
+	// The canonical payment method for reporting is derived from the
+	// order_payments rows inserted above; there is no separate financial-details
+	// row to update in the consolidated schema.
 	if _, err := tx.Exec(ctx, `
 		UPDATE orders
 		SET status = 'completed'

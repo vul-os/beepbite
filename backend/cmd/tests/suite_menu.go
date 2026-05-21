@@ -14,7 +14,7 @@ func suiteMenu(r *Runner) {
 	// Create category
 	catName := "Test Cat " + randomString(6)
 	resp := r.POST("/data/categories",
-		map[string]any{"location_id": r.locationID, "name": catName, "sort_order": 1},
+		map[string]any{"organization_id": r.orgID, "location_id": r.locationID, "name": catName, "sort_order": 1},
 		withBearer(r.token))
 	r.CheckStatus(resp.status, 201, "create category 201")
 	var inserted []map[string]any
@@ -60,23 +60,9 @@ func suiteMenu(r *Runner) {
 	resp = r.GET("/data/items?eq=id,"+r.itemID+"&single=true", withBearer(r.token))
 	r.CheckStatus(resp.status, 200, "fetch item single 200")
 
-	// Create variation + option
-	resp = r.POST("/data/item_variations",
-		map[string]any{"item_id": r.itemID, "name": "Size", "is_required": true},
-		withBearer(r.token))
-	r.CheckStatus(resp.status, 201, "create variation 201")
-	_ = resp.JSON(&inserted)
-	varID := ""
-	if len(inserted) > 0 {
-		varID = fmt.Sprint(inserted[0]["id"])
-	}
-
-	if varID != "" {
-		resp = r.POST("/data/item_variation_options",
-			map[string]any{"variation_id": varID, "name": "Large", "price_modifier": 3.0, "is_default": true},
-			withBearer(r.token))
-		r.CheckStatus(resp.status, 201, "create variation option 201")
-	}
+	// NOTE: item_variations / item_variation_options were removed in the schema
+	// consolidation (Wave 11 replaced them with modifier_groups / modifiers), so
+	// there are no variation CRUD steps here.
 
 	// Deactivate (don't delete — orders suite may still use it)
 	resp = r.PATCH("/data/items?eq=id,"+r.itemID,

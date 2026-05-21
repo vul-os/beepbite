@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 // Sentinel errors bubbled up to the HTTP layer for status-code mapping.
@@ -89,35 +91,31 @@ func (s *Store) OpenSession(
 	isBlindClose bool,
 	denominationsJSON []byte,
 ) (*Session, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
 	var out Session
-	err = scanSession(tx.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		err := scanSession(tx.QueryRow(ctx, `
 INSERT INTO cash_drawer_sessions (cash_drawer_id, opened_by, opening_float_cents, is_blind_close)
 VALUES ($1, $2, $3, $4)
 RETURNING `+sessionCols, drawerID, nullStr(openedBy), openingFloatCents, isBlindClose), &out)
-	if err != nil {
-		var pg *pgconn.PgError
-		if errors.As(err, &pg) && pg.Code == "23505" {
-			return nil, ErrDrawerHasOpen
+		if err != nil {
+			var pg *pgconn.PgError
+			if errors.As(err, &pg) && pg.Code == "23505" {
+				return ErrDrawerHasOpen
+			}
+			return err
 		}
-		return nil, err
-	}
 
-	// Opening count row mirrors the float so reconciliation has a full audit
-	// trail from open→close.
-	if _, err := tx.Exec(ctx, `
+		// Opening count row mirrors the float so reconciliation has a full audit
+		// trail from open→close.
+		if _, err := tx.Exec(ctx, `
 INSERT INTO cash_drawer_counts (cash_drawer_session_id, count_type, total_cents, denominations, counted_by)
 VALUES ($1, 'open', $2, $3, $4)
 `, out.ID, openingFloatCents, nullBytes(denominationsJSON), nullStr(openedBy)); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -125,8 +123,10 @@ VALUES ($1, 'open', $2, $3, $4)
 
 func (s *Store) GetSession(ctx context.Context, sessionID string) (*Session, error) {
 	var out Session
-	err := scanSession(s.pool.QueryRow(ctx,
-		`SELECT `+sessionCols+` FROM cash_drawer_sessions WHERE id = $1`, sessionID), &out)
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return scanSession(tx.QueryRow(ctx,
+			`SELECT `+sessionCols+` FROM cash_drawer_sessions WHERE id = $1`, sessionID), &out)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSessionNotFound
 	}
@@ -137,17 +137,23 @@ func (s *Store) GetSession(ctx context.Context, sessionID string) (*Session, err
 }
 
 func (s *Store) GetSessionDetail(ctx context.Context, sessionID string) (*SessionDetail, error) {
-	sess, err := s.GetSession(ctx, sessionID)
+	var out SessionDetail
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		if err := scanSession(tx.QueryRow(ctx,
+			`SELECT `+sessionCols+` FROM cash_drawer_sessions WHERE id = $1`, sessionID), &out.Session); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx,
+			`SELECT COUNT(*) FROM cash_drawer_movements WHERE cash_drawer_session_id = $1`,
+			sessionID).Scan(&out.MovementsCount)
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrSessionNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	var count int64
-	if err := s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM cash_drawer_movements WHERE cash_drawer_session_id = $1`,
-		sessionID).Scan(&count); err != nil {
-		return nil, err
-	}
-	return &SessionDetail{Session: *sess, MovementsCount: count}, nil
+	return &out, nil
 }
 
 // ListSessions returns up to 50 sessions for a drawer, newest first. An empty
@@ -164,21 +170,27 @@ func (s *Store) ListSessions(ctx context.Context, drawerID, status string) ([]Se
 	}
 	sb.WriteString(" ORDER BY opened_at DESC LIMIT 50")
 
-	rows, err := s.pool.Query(ctx, sb.String(), args...)
+	out := []Session{}
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, sb.String(), args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var sess Session
+			if err := scanSession(rows, &sess); err != nil {
+				return err
+			}
+			out = append(out, sess)
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	out := []Session{}
-	for rows.Next() {
-		var sess Session
-		if err := scanSession(rows, &sess); err != nil {
-			return nil, err
-		}
-		out = append(out, sess)
-	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // InsertMovement records a cash movement against an OPEN session. The session
@@ -190,27 +202,22 @@ func (s *Store) InsertMovement(
 	amountCents int64,
 	reason, referenceType, performedBy, approvedBy, referenceID string,
 ) (*Movement, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	var status string
-	err = tx.QueryRow(ctx,
-		`SELECT status FROM cash_drawer_sessions WHERE id = $1 FOR UPDATE`, sessionID).Scan(&status)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrSessionNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if status != "open" {
-		return nil, ErrSessionNotOpen
-	}
-
 	var m Movement
-	err = tx.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		var status string
+		err := tx.QueryRow(ctx,
+			`SELECT status FROM cash_drawer_sessions WHERE id = $1 FOR UPDATE`, sessionID).Scan(&status)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrSessionNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if status != "open" {
+			return ErrSessionNotOpen
+		}
+
+		return tx.QueryRow(ctx, `
 INSERT INTO cash_drawer_movements (
 	cash_drawer_session_id, movement_type, amount_cents, reason,
 	reference_type, reference_id, performed_by, approved_by
@@ -218,17 +225,14 @@ INSERT INTO cash_drawer_movements (
 RETURNING id, cash_drawer_session_id, movement_type, amount_cents, reason,
 	reference_type, reference_id, performed_by, approved_by, created_at
 `, sessionID, movementType, amountCents,
-		nullStr(reason), nullStr(referenceType), nullStr(referenceID),
-		nullStr(performedBy), nullStr(approvedBy),
-	).Scan(
-		&m.ID, &m.CashDrawerSessionID, &m.MovementType, &m.AmountCents, &m.Reason,
-		&m.ReferenceType, &m.ReferenceID, &m.PerformedBy, &m.ApprovedBy, &m.CreatedAt,
-	)
+			nullStr(reason), nullStr(referenceType), nullStr(referenceID),
+			nullStr(performedBy), nullStr(approvedBy),
+		).Scan(
+			&m.ID, &m.CashDrawerSessionID, &m.MovementType, &m.AmountCents, &m.Reason,
+			&m.ReferenceType, &m.ReferenceID, &m.PerformedBy, &m.ApprovedBy, &m.CreatedAt,
+		)
+	})
 	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &m, nil
@@ -249,54 +253,48 @@ func (s *Store) CloseSession(
 	denominationsJSON []byte,
 	notes string,
 ) (*Session, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
+	var out Session
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		var status string
+		var openingFloat int64
+		err := tx.QueryRow(ctx,
+			`SELECT status, opening_float_cents FROM cash_drawer_sessions WHERE id = $1 FOR UPDATE`,
+			sessionID).Scan(&status, &openingFloat)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrSessionNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if status != "open" {
+			return ErrSessionNotOpen
+		}
 
-	var status string
-	var openingFloat int64
-	err = tx.QueryRow(ctx,
-		`SELECT status, opening_float_cents FROM cash_drawer_sessions WHERE id = $1 FOR UPDATE`,
-		sessionID).Scan(&status, &openingFloat)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrSessionNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if status != "open" {
-		return nil, ErrSessionNotOpen
-	}
-
-	var cashSales int64
-	if err := tx.QueryRow(ctx, `
-SELECT COALESCE(SUM(op.amount_cents), 0)
+		var cashSales int64
+		if err := tx.QueryRow(ctx, `
+SELECT COALESCE(SUM(op.amount_paid_cents), 0)
 FROM cash_drawer_session_payments cdsp
 JOIN order_payments op ON op.id = cdsp.payment_id
-JOIN payment_methods pm ON pm.id = op.payment_method_id
-WHERE cdsp.cash_drawer_session_id = $1 AND pm.code = 'cash'
+WHERE cdsp.cash_drawer_session_id = $1 AND op.payment_method_code = 'cash'
 `, sessionID).Scan(&cashSales); err != nil {
-		return nil, err
-	}
+			return err
+		}
 
-	var movementsSum int64
-	if err := tx.QueryRow(ctx, `
+		var movementsSum int64
+		if err := tx.QueryRow(ctx, `
 SELECT COALESCE(SUM(amount_cents), 0)
 FROM cash_drawer_movements
 WHERE cash_drawer_session_id = $1
 `, sessionID).Scan(&movementsSum); err != nil {
-		return nil, err
-	}
+			return err
+		}
 
-	expected := openingFloat + cashSales + movementsSum
-	overShort := declaredClosingCents - expected
+		expected := openingFloat + cashSales + movementsSum
+		overShort := declaredClosingCents - expected
 
-	var out Session
-	// COALESCE on notes preserves whatever was already there when the caller
-	// passes an empty string.
-	err = scanSession(tx.QueryRow(ctx, `
+		// COALESCE on notes preserves whatever was already there when the caller
+		// passes an empty string.
+		if err := scanSession(tx.QueryRow(ctx, `
 UPDATE cash_drawer_sessions
 SET declared_closing_cents = $2,
     expected_closing_cents = $3,
@@ -308,34 +306,44 @@ SET declared_closing_cents = $2,
     updated_at             = now()
 WHERE id = $1
 RETURNING `+sessionCols,
-		sessionID, declaredClosingCents, expected, overShort, nullStr(closedBy), notes), &out)
-	if err != nil {
-		return nil, err
-	}
+			sessionID, declaredClosingCents, expected, overShort, nullStr(closedBy), notes), &out); err != nil {
+			return err
+		}
 
-	if _, err := tx.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 INSERT INTO cash_drawer_counts (cash_drawer_session_id, count_type, total_cents, denominations, counted_by)
 VALUES ($1, 'close', $2, $3, $4)
 `, sessionID, declaredClosingCents, nullBytes(denominationsJSON), nullStr(closedBy)); err != nil {
-		return nil, err
-	}
+			return err
+		}
 
-	// Audit: write cash_drawer.closed row with over/short delta in after_state.
-	if _, err := tx.Exec(ctx, `
+		// Audit: write cash_drawer.closed row with over/short delta in after_state.
+		// audit_log INSERT is restricted to service_role (migration 013), so elevate
+		// just for this write while the surrounding mutations stay tenant-scoped.
+		if err := db.WithTxServiceRole(ctx, tx, func() error {
+			_, err := tx.Exec(ctx, `
 INSERT INTO audit_log
-    (actor_type, actor_id, action, entity_type, entity_id, after_state)
-VALUES
-    ('staff', $1, 'cash_drawer.closed', 'cash_drawer_session', $2,
-     jsonb_build_object(
-         'declared_closing_cents', $3::bigint,
-         'expected_closing_cents', $4::bigint,
-         'over_short_cents',       $5::bigint
-     ))
-`, nullStr(closedBy), sessionID, declaredClosingCents, expected, overShort); err != nil {
-		return nil, err
-	}
+    (organization_id, actor_type, actor_id, action, entity_type, entity_id, after_state)
+SELECT loc.organization_id,
+       'staff', $1, 'cash_drawer.closed', 'cash_drawer_session', $2,
+       jsonb_build_object(
+           'declared_closing_cents', $3::bigint,
+           'expected_closing_cents', $4::bigint,
+           'over_short_cents',       $5::bigint
+       )
+FROM cash_drawer_sessions cds
+JOIN cash_drawers cd  ON cd.id  = cds.cash_drawer_id
+JOIN locations    loc ON loc.id = cd.location_id
+WHERE cds.id = $2::uuid
+`, nullStr(closedBy), sessionID, declaredClosingCents, expected, overShort)
+			return err
+		}); err != nil {
+			return err
+		}
 
-	if err := tx.Commit(ctx); err != nil {
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -345,9 +353,11 @@ VALUES
 // Used by org-scope checks to verify cross-tenant access before any mutation.
 func (s *Store) DrawerLocationID(ctx context.Context, drawerID string) (string, error) {
 	var locID string
-	err := s.pool.QueryRow(ctx,
-		`SELECT location_id FROM cash_drawers WHERE id = $1`, drawerID,
-	).Scan(&locID)
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx,
+			`SELECT location_id FROM cash_drawers WHERE id = $1`, drawerID,
+		).Scan(&locID)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrDrawerNotFound
 	}
@@ -359,12 +369,14 @@ func (s *Store) DrawerLocationID(ctx context.Context, drawerID string) (string, 
 // Used by org-scope checks to verify cross-tenant access before any mutation.
 func (s *Store) SessionLocationID(ctx context.Context, sessionID string) (string, error) {
 	var locID string
-	err := s.pool.QueryRow(ctx, `
-		SELECT cd.location_id
-		FROM cash_drawer_sessions cds
-		JOIN cash_drawers cd ON cd.id = cds.cash_drawer_id
-		WHERE cds.id = $1
-	`, sessionID).Scan(&locID)
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
+			SELECT cd.location_id
+			FROM cash_drawer_sessions cds
+			JOIN cash_drawers cd ON cd.id = cds.cash_drawer_id
+			WHERE cds.id = $1
+		`, sessionID).Scan(&locID)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrSessionNotFound
 	}

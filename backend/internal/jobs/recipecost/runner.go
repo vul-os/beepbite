@@ -11,7 +11,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 // Runner polls ingredient_price_history every 5 minutes and recomputes the
@@ -21,8 +24,8 @@ type Runner struct {
 }
 
 // NewRunner constructs a Runner backed by the given connection pool.
-func NewRunner(db *pgxpool.Pool) *Runner {
-	return &Runner{db: db}
+func NewRunner(pool *pgxpool.Pool) *Runner {
+	return &Runner{db: pool}
 }
 
 // Start launches the background polling loop in a new goroutine.  It runs
@@ -61,21 +64,33 @@ func (r *Runner) Start(ctx context.Context) {
 func (r *Runner) RunOnce(ctx context.Context) error {
 	startedAt := time.Now().UTC()
 
-	// 1. Load watermark.
-	lastRun, err := loadLastRun(ctx, r.db)
-	if err != nil {
-		return fmt.Errorf("recipecost: load last run: %w", err)
-	}
+	// All DB work runs inside a service-role transaction so that RLS policies
+	// that require is_service_role() are satisfied for recipe_cost_runs,
+	// ingredient_price_history, and items.
+	var historyRows []priceHistoryRow
+	var lastRun costRunRow
 
-	// 2. Fetch new price-history rows since the watermark.
-	historyRows, err := newPriceHistorySince(ctx, r.db, lastRun.LastPriceHistoryID)
-	if err != nil {
-		return fmt.Errorf("recipecost: fetch new price history: %w", err)
+	if err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		var err error
+		// 1. Load watermark.
+		lastRun, err = loadLastRun(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("load last run: %w", err)
+		}
+
+		// 2. Fetch new price-history rows since the watermark.
+		historyRows, err = newPriceHistorySince(ctx, tx, lastRun.LastPriceHistoryID)
+		return err
+	}); err != nil {
+		return fmt.Errorf("recipecost: fetch watermark/history: %w", err)
 	}
 
 	if len(historyRows) == 0 {
 		// Nothing new — write a no-op run record so we keep a heartbeat.
-		if _, wErr := insertRun(ctx, r.db, startedAt, lastRun.LastPriceHistoryID, 0, nil); wErr != nil {
+		if wErr := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+			_, err := insertRun(ctx, tx, startedAt, lastRun.LastPriceHistoryID, 0, nil)
+			return err
+		}); wErr != nil {
 			log.Printf("recipecost: insert no-op run: %v", wErr)
 		}
 		return nil
@@ -115,7 +130,10 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 		errMsg = &s
 	}
 
-	if _, wErr := insertRun(ctx, r.db, startedAt, newWatermark, totalUpdated, errMsg); wErr != nil {
+	if wErr := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := insertRun(ctx, tx, startedAt, newWatermark, totalUpdated, errMsg)
+		return err
+	}); wErr != nil {
 		log.Printf("recipecost: insert run record: %v", wErr)
 	}
 
@@ -141,8 +159,12 @@ func (r *Runner) recomputeForInventoryItem(ctx context.Context, inventoryItemID 
 	// this is safe because calculate_recipe_cost() is idempotent and the set
 	// is usually small.  A more targeted approach would require an explicit
 	// inventory_item_id → item_id mapping table which does not exist today.
-	ids, err := affectedItems(ctx, r.db)
-	if err != nil {
+	var ids []string
+	if err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		var err error
+		ids, err = affectedItems(ctx, tx)
+		return err
+	}); err != nil {
 		return 0, fmt.Errorf("affected items for inventory_item %s: %w", inventoryItemID, err)
 	}
 
@@ -151,8 +173,12 @@ func (r *Runner) recomputeForInventoryItem(ctx context.Context, inventoryItemID 
 		if ctx.Err() != nil {
 			return updated, ctx.Err()
 		}
-		changed, err := recomputeItemCost(ctx, r.db, itemID)
-		if err != nil {
+		var changed bool
+		if err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+			var err error
+			changed, err = recomputeItemCost(ctx, tx, itemID)
+			return err
+		}); err != nil {
 			return updated, err
 		}
 		if changed {

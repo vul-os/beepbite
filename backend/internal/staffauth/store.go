@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 var (
@@ -54,17 +56,22 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // ErrInvalidCredential so attackers can't enumerate usernames.
 func (s *Store) GetByUsername(ctx context.Context, locationID, username string) (*StaffUser, error) {
 	username = strings.TrimSpace(username)
+	// This route runs outside RequireOrgScope, so under FORCE RLS the raw-pool
+	// query would see zero rows. We run as service_role to bypass row visibility;
+	// the explicit (location_id, username) WHERE filter remains the lookup boundary.
 	var u StaffUser
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT id, location_id, username, first_name, last_name, role,
        is_active, must_change_password, password_hash, pin_hash, locked_until
 FROM staff
 WHERE location_id = $1 AND lower(username) = lower($2)
 LIMIT 1
 `, locationID, username).Scan(
-		&u.ID, &u.LocationID, &u.Username, &u.FirstName, &u.LastName, &u.Role,
-		&u.IsActive, &u.MustChangePassword, &u.PasswordHash, &u.PinHash, &u.LockedUntil,
-	)
+			&u.ID, &u.LocationID, &u.Username, &u.FirstName, &u.LastName, &u.Role,
+			&u.IsActive, &u.MustChangePassword, &u.PasswordHash, &u.PinHash, &u.LockedUntil,
+		)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrStaffNotFound
 	}
@@ -75,16 +82,20 @@ LIMIT 1
 }
 
 func (s *Store) GetByID(ctx context.Context, staffID string) (*StaffUser, error) {
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// The id = $1 filter is the lookup boundary and is preserved verbatim.
 	var u StaffUser
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT id, location_id, username, first_name, last_name, role,
        is_active, must_change_password, password_hash, pin_hash, locked_until
 FROM staff
 WHERE id = $1
 `, staffID).Scan(
-		&u.ID, &u.LocationID, &u.Username, &u.FirstName, &u.LastName, &u.Role,
-		&u.IsActive, &u.MustChangePassword, &u.PasswordHash, &u.PinHash, &u.LockedUntil,
-	)
+			&u.ID, &u.LocationID, &u.Username, &u.FirstName, &u.LastName, &u.Role,
+			&u.IsActive, &u.MustChangePassword, &u.PasswordHash, &u.PinHash, &u.LockedUntil,
+		)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrStaffNotFound
 	}
@@ -95,17 +106,24 @@ WHERE id = $1
 }
 
 func (s *Store) UpdateLastLogin(ctx context.Context, staffID string) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE staff SET last_login_at = now(), updated_at = now() WHERE id = $1`,
-		staffID)
-	return err
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// The id = $1 filter is unchanged.
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx,
+			`UPDATE staff SET last_login_at = now(), updated_at = now() WHERE id = $1`,
+			staffID)
+		return err
+	})
 }
 
 // IncrementFailedAttempts bumps the counter and, if we cross the threshold,
 // sets locked_until. Done in a single UPDATE so two parallel failed logins
 // can't race past the threshold without locking.
 func (s *Store) IncrementFailedAttempts(ctx context.Context, staffID string) error {
-	_, err := s.pool.Exec(ctx, `
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// The single-UPDATE lockout logic and threshold are preserved verbatim.
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE staff
 SET failed_login_attempts = failed_login_attempts + 1,
     locked_until = CASE
@@ -115,29 +133,38 @@ SET failed_login_attempts = failed_login_attempts + 1,
     updated_at = now()
 WHERE id = $1
 `, staffID, lockoutThreshold, lockoutDuration.String())
-	return err
+		return err
+	})
 }
 
 func (s *Store) ClearFailedAttempts(ctx context.Context, staffID string) error {
-	_, err := s.pool.Exec(ctx, `
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// The id = $1 filter is unchanged.
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE staff
 SET failed_login_attempts = 0,
     locked_until = NULL,
     updated_at = now()
 WHERE id = $1
 `, staffID)
-	return err
+		return err
+	})
 }
 
 // --- Refresh tokens ---
 
 func (s *Store) InsertRefreshToken(ctx context.Context, staffID, tokenHash, userAgent string, ttl time.Duration) (string, error) {
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS on
+	// staff_refresh_tokens. The inserted values are unchanged.
 	var id string
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 INSERT INTO staff_refresh_tokens (staff_id, token_hash, expires_at, user_agent)
 VALUES ($1, $2, now() + $3::interval, $4)
 RETURNING id
 `, staffID, tokenHash, ttl.String(), nullString(userAgent)).Scan(&id)
+	})
 	return id, err
 }
 
@@ -150,12 +177,16 @@ type RefreshRow struct {
 }
 
 func (s *Store) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (*RefreshRow, error) {
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// The token_hash = $1 filter is the lookup boundary and is unchanged.
 	var r RefreshRow
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT id, staff_id, expires_at, revoked_at, replaced_by
 FROM staff_refresh_tokens
 WHERE token_hash = $1
 `, tokenHash).Scan(&r.ID, &r.StaffID, &r.ExpiresAt, &r.RevokedAt, &r.ReplacedBy)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrRefreshInvalid
 	}
@@ -165,48 +196,57 @@ WHERE token_hash = $1
 // ReplaceRefreshToken inserts the new row and revokes the old one atomically,
 // linking them via replaced_by so reuse detection works.
 func (s *Store) ReplaceRefreshToken(ctx context.Context, oldID, staffID, newHash, userAgent string, ttl time.Duration) (string, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return "", err
-	}
-	defer tx.Rollback(ctx)
-
+	// Runs outside RequireOrgScope; the insert + revoke stay in a SINGLE
+	// service_role transaction so rotation remains atomic. service_role only
+	// changes row visibility under FORCE RLS — the SQL is unchanged.
 	var newID string
-	if err := tx.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, `
 INSERT INTO staff_refresh_tokens (staff_id, token_hash, expires_at, user_agent)
 VALUES ($1, $2, now() + $3::interval, $4)
 RETURNING id
 `, staffID, newHash, ttl.String(), nullString(userAgent)).Scan(&newID); err != nil {
-		return "", err
-	}
-	if _, err := tx.Exec(ctx, `
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
 UPDATE staff_refresh_tokens
 SET revoked_at = now(), replaced_by = $1
 WHERE id = $2
 `, newID, oldID); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return "", err
 	}
 	return newID, nil
 }
 
 func (s *Store) RevokeRefreshToken(ctx context.Context, tokenHash string) error {
-	_, err := s.pool.Exec(ctx, `
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// The token_hash + revoked_at IS NULL filter is unchanged.
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE staff_refresh_tokens
 SET revoked_at = now()
 WHERE token_hash = $1 AND revoked_at IS NULL
 `, tokenHash)
-	return err
+		return err
+	})
 }
 
 // RevokeAllForStaff revokes every outstanding refresh for a staff member —
 // used when we detect reuse and treat it as a session compromise.
 func (s *Store) RevokeAllForStaff(ctx context.Context, staffID string) {
-	_, _ = s.pool.Exec(ctx,
-		`UPDATE staff_refresh_tokens SET revoked_at = now() WHERE staff_id = $1 AND revoked_at IS NULL`,
-		staffID)
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// Best-effort semantics (errors swallowed) preserved; filter unchanged.
+	_ = db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, _ = tx.Exec(ctx,
+			`UPDATE staff_refresh_tokens SET revoked_at = now() WHERE staff_id = $1 AND revoked_at IS NULL`,
+			staffID)
+		return nil
+	})
 }
 
 func nullString(s string) any {
@@ -221,7 +261,15 @@ func nullString(s string) any {
 // ErrStaffNotFound when no such row exists or the org membership check fails
 // (treated identically to prevent enumeration).
 func (s *Store) SetPinHash(ctx context.Context, staffID, callerUserID, newHash string) error {
-	ct, err := s.pool.Exec(ctx, `
+	// This route runs outside RequireOrgScope (no app.current_org_id on the
+	// connection), so under FORCE RLS the membership subquery below would see
+	// zero rows and the UPDATE would silently match nothing. We run it as
+	// service_role to bypass RLS; the owner/manager membership subquery in the
+	// WHERE clause is itself the authorization boundary (a caller can only
+	// touch staff at a location of an org they own/manage).
+	var affected int64
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		ct, err := tx.Exec(ctx, `
 UPDATE staff
 SET pin_hash    = $1,
     updated_at  = now()
@@ -235,10 +283,16 @@ WHERE id = $2
             AND om.role IN ('owner', 'manager')
   )
 `, newHash, staffID, callerUserID)
+		if err != nil {
+			return err
+		}
+		affected = ct.RowsAffected()
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	if ct.RowsAffected() == 0 {
+	if affected == 0 {
 		return ErrStaffNotFound
 	}
 	return nil
@@ -248,7 +302,11 @@ WHERE id = $2
 // flag (set true so the staff member is required to change it on next login).
 // Same org-membership guard as SetPinHash.
 func (s *Store) SetPasswordHashByManager(ctx context.Context, staffID, callerUserID, newHash string) error {
-	ct, err := s.pool.Exec(ctx, `
+	// Same RLS rationale as SetPinHash: service_role bypass with the owner/manager
+	// membership subquery as the authorization boundary.
+	var affected int64
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		ct, err := tx.Exec(ctx, `
 UPDATE staff
 SET password_hash        = $1,
     password_set_at      = now(),
@@ -266,10 +324,16 @@ WHERE id = $2
             AND om.role IN ('owner', 'manager')
   )
 `, newHash, staffID, callerUserID)
+		if err != nil {
+			return err
+		}
+		affected = ct.RowsAffected()
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	if ct.RowsAffected() == 0 {
+	if affected == 0 {
 		return ErrStaffNotFound
 	}
 	return nil
@@ -288,12 +352,16 @@ type ResetTokenRow struct {
 }
 
 func (s *Store) GetResetTokenByHash(ctx context.Context, tokenHash string) (*ResetTokenRow, error) {
+	// Runs outside RequireOrgScope; service_role bypasses FORCE RLS visibility.
+	// The token_hash = $1 filter is the lookup boundary and is unchanged.
 	var r ResetTokenRow
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT id, staff_id, expires_at, consumed_at
 FROM staff_password_reset_tokens
 WHERE token_hash = $1
 `, tokenHash).Scan(&r.ID, &r.StaffID, &r.ExpiresAt, &r.ConsumedAt)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrResetTokenInvalid
 	}
@@ -306,13 +374,13 @@ WHERE token_hash = $1
 // consume step checks row count to defend against two clients racing on the
 // same raw token; the loser gets ErrResetTokenInvalid.
 func (s *Store) ConsumePasswordReset(ctx context.Context, tokenID, staffID, newPasswordHash string) error {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	if _, err := tx.Exec(ctx, `
+	// Runs outside RequireOrgScope; the password update, consume, and refresh
+	// revoke stay in a SINGLE service_role transaction so a partial failure
+	// can't leave a half-rotated account. service_role only changes row
+	// visibility under FORCE RLS — the SQL and the RowsAffected()==0 race-guard
+	// (loser gets ErrResetTokenInvalid) are preserved verbatim.
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `
 UPDATE staff
 SET password_hash = $1,
     password_set_at = now(),
@@ -322,28 +390,29 @@ SET password_hash = $1,
     updated_at = now()
 WHERE id = $2
 `, newPasswordHash, staffID); err != nil {
-		return err
-	}
+			return err
+		}
 
-	ct, err := tx.Exec(ctx, `
+		ct, err := tx.Exec(ctx, `
 UPDATE staff_password_reset_tokens
 SET consumed_at = now()
 WHERE id = $1 AND consumed_at IS NULL
 `, tokenID)
-	if err != nil {
-		return err
-	}
-	if ct.RowsAffected() == 0 {
-		return ErrResetTokenInvalid
-	}
+		if err != nil {
+			return err
+		}
+		if ct.RowsAffected() == 0 {
+			return ErrResetTokenInvalid
+		}
 
-	if _, err := tx.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 UPDATE staff_refresh_tokens
 SET revoked_at = now()
 WHERE staff_id = $1 AND revoked_at IS NULL
 `, staffID); err != nil {
-		return err
-	}
+			return err
+		}
 
-	return tx.Commit(ctx)
+		return nil
+	})
 }

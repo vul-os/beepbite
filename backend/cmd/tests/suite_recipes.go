@@ -80,9 +80,9 @@ func suiteRecipes(r *Runner) {
 	// Insert recipe component linking parent → child.
 	resp = r.POST("/data/item_recipes",
 		map[string]any{
-			"parent_item_id": parentID,
-			"child_item_id":  childID,
-			"quantity":       2.0,
+			"parent_item_id":  parentID,
+			"child_item_id":   childID,
+			"quantity_needed": 2.0,
 		}, withBearer(r.token))
 	r.CheckStatus(resp.status, 201, "create item_recipes component 201")
 

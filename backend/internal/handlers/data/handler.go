@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/auth"
+	"github.com/beepbite/backend/internal/db"
 )
 
 // formatUUIDBytes renders pgx's default uuid representation ([16]byte) as the
@@ -103,11 +104,48 @@ var reportViews = map[string]struct{}{
 	"revenue_by_payment_method":  {},
 }
 
+// tablesWithOrgID is the set of tables that have an organization_id column.
+// When a caller omits organization_id from an INSERT payload and the request
+// scope has a resolved OrgID, the handler auto-injects it so that RLS INSERT
+// WITH CHECK (organization_id = current_org_id()) passes without requiring the
+// frontend to echo back the org ID on every request.
+//
+// ONLY tables in this set get the injection — tables without the column are
+// unaffected. Derived from inspecting the CREATE TABLE DDL in the migration
+// files (look for: organization_id uuid NOT NULL REFERENCES organizations(id)).
+var tablesWithOrgID = map[string]struct{}{
+	"allergens":            {},
+	"bank_accounts":        {},
+	"categories":           {},
+	"customers":            {},
+	"dietary_tags":         {},
+	"gift_cards":           {},
+	"house_accounts":       {},
+	"locations":            {},
+	"loyalty_config":       {},
+	"orders":               {},
+	"organization_invites": {},
+	"organization_members": {},
+	"payout_schedules":     {},
+	"promotions":           {},
+	"suppliers":            {},
+}
+
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	table := chi.URLParam(r, "table")
 	ops, ok := allowed(table)
 	if !ok || !ops.Select {
 		writeErr(w, http.StatusNotFound, "table not exposed")
+		return
+	}
+
+	// Semicolon guard: Go 1.17+ silently returns an empty url.Values when the
+	// raw query string contains a semicolon (it treats it as a parse error).
+	// An attacker can exploit this to smuggle filter bypass payloads like
+	// ?eq=id';DROP TABLE items;--,x that produce no WHERE predicate. Reject
+	// any request whose raw query contains a semicolon before parsing.
+	if strings.Contains(r.URL.RawQuery, ";") {
+		writeErr(w, http.StatusBadRequest, "invalid query string")
 		return
 	}
 
@@ -216,6 +254,21 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-inject organization_id when the table has that column and the
+	// caller omitted it. The scope's OrgID is set by RequireOrgScope
+	// middleware (via db.ScopeFromContext). Skip injection when OrgID is
+	// empty (fresh-signup / onboarding path creating the first org).
+	if _, needsOrg := tablesWithOrgID[table]; needsOrg {
+		scope := db.ScopeFromContext(r.Context())
+		if scope.OrgID != "" {
+			for _, row := range rows {
+				if _, already := row["organization_id"]; !already {
+					row["organization_id"] = scope.OrgID
+				}
+			}
+		}
+	}
+
 	cols := collectCols(rows)
 	sb := &strings.Builder{}
 	fmt.Fprintf(sb, "INSERT INTO %s (", quoteIdent(table))
@@ -270,6 +323,11 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	ops, ok := allowed(table)
 	if !ok || !ops.Update {
 		writeErr(w, http.StatusNotFound, "update not allowed")
+		return
+	}
+
+	if strings.Contains(r.URL.RawQuery, ";") {
+		writeErr(w, http.StatusBadRequest, "invalid query string")
 		return
 	}
 
@@ -345,6 +403,12 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "delete not allowed")
 		return
 	}
+
+	if strings.Contains(r.URL.RawQuery, ";") {
+		writeErr(w, http.StatusBadRequest, "invalid query string")
+		return
+	}
+
 	where, args, err := buildWhere(r.URL.Query(), 0)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
