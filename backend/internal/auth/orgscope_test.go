@@ -209,8 +209,13 @@ func TestRequireOrgScope_ValidMembership(t *testing.T) {
 	}
 }
 
-// TestRequireOrgScope_NoMembership verifies that an authenticated user with no
-// org membership receives 403 (not 401).
+// TestRequireOrgScope_NoMembership verifies the intended pass-through for a
+// fresh signup with zero org memberships: the request proceeds (200) with an
+// EMPTY scope so the user can hit POST /data/organizations to create their
+// first org during onboarding. Security is preserved by defense-in-depth — the
+// empty scope grants no locations and no capabilities, and RLS (current_org_id()
+// = NULL) returns no tenant rows. Handlers needing a real membership enforce it
+// via ScopeAllowsLocation / RequireCapability, both false on an empty scope.
 func TestRequireOrgScope_NoMembership(t *testing.T) {
 	const userID = "user-orphan"
 
@@ -219,10 +224,24 @@ func TestRequireOrgScope_NoMembership(t *testing.T) {
 		locations:   map[string][]string{},
 	}
 
-	rr, _ := runMiddleware(t, q, userID)
+	rr, capturedCtx := runMiddleware(t, q, userID)
 
-	if rr.Code != http.StatusForbidden {
-		t.Errorf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 pass-through, got %d: %s", rr.Code, rr.Body.String())
+	}
+	// Defense-in-depth: the injected scope must grant nothing.
+	scope := OrgScopeFrom(capturedCtx)
+	if scope.UserID != userID {
+		t.Errorf("scope UserID = %q, want %q", scope.UserID, userID)
+	}
+	if len(scope.AllowedLocations) != 0 {
+		t.Errorf("expected empty AllowedLocations, got %v", scope.AllowedLocations)
+	}
+	if scope.AllowsLocation("any-location-id") {
+		t.Error("empty scope must not allow any location")
+	}
+	if caps := Capabilities(capturedCtx); len(caps) != 0 {
+		t.Errorf("expected no capabilities on empty scope, got %v", caps)
 	}
 }
 

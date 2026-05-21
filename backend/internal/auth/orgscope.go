@@ -260,7 +260,10 @@ func (p *poolQuerier) queryLocationIDs(ctx context.Context, orgIDs []string) ([]
 // RequireOrgScope returns an HTTP middleware that:
 //  1. Reads Claims injected by auth.Middleware (returns 401 if absent).
 //  2. Queries organization_members for all org memberships of the user.
-//  3. Returns 403 when the user has no memberships.
+//  3. For a user with NO memberships, passes through with an EMPTY scope (so a
+//     fresh signup can create their first org via POST /data/organizations);
+//     the empty scope grants no locations/capabilities and RLS denies tenant
+//     rows, so downstream access is still blocked.
 //  4. Queries locations to build the full set of location IDs.
 //  5. Injects an OrgScope (with AllowedLocations populated) into context.
 //  6. Injects a db.Scope (using the first membership) into context so
