@@ -7,26 +7,23 @@
 //   3. Optimistic mutations: bump/recall/refire/rush. POST endpoints. On error,
 //      roll back the local state.
 //   4. Live "fired XX:XX ago" + color tier via one shared 1Hz ticker.
-//
-// The SSE payload shape (see backend/internal/handlers/kds/broker.go:
-//   type TicketEvent { ticket_id; station_id; event_type; created_at }
-// is intentionally minimal — it only tells us SOMETHING happened to a ticket.
-// On any event for a ticket we don't already know about, we refetch the
-// station list as a recovery path. For events we recognize against a known
-// ticket we mutate the cached row directly.
+//   5. Bump-bar keyboard hotkeys via useHotkeys (Wave 12):
+//      1-9 bump Nth ticket, Space bump focused, r recall, ? toggle help overlay.
 
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertCircle, Loader2, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { AlertCircle, Keyboard, Loader2, RefreshCw, Wifi, WifiOff, X } from 'lucide-react';
 
 import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 import { TicketCard } from './components/ticket-card';
 import { useSSE } from './hooks/use-sse';
 import { useTick } from './hooks/use-tick';
 import { useTicketDetails } from './hooks/use-ticket-details';
+import { useHotkeys } from './hooks/use-hotkeys';
 
 const RECALL_WINDOW_MS = 30_000;
 
@@ -229,6 +226,20 @@ export default function StationPage() {
   );
   const { getDetails, isLoading: detailsLoading } = useTicketDetails(ticketIds);
 
+  // -------- bump-bar hotkeys --------
+  const {
+    focusedIndex,
+    setFocusedIndex,
+    overlayOpen,
+    setOverlayOpen,
+  } = useHotkeys({
+    tickets: sorted,
+    onBump,
+    onRecall,
+    lastBump,
+    recallVisible,
+  });
+
   // -------- render --------
   return (
     <div className="flex h-screen flex-col bg-background text-[17px]">
@@ -241,6 +252,15 @@ export default function StationPage() {
         </div>
         <div className="flex items-center gap-2">
           <ConnectionPill status={sseStatus} />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setOverlayOpen((v) => !v)}
+            title="Keyboard shortcuts (?)"
+            aria-label="Toggle hotkey help"
+          >
+            <Keyboard className="size-4" />
+          </Button>
           <Button size="sm" variant="ghost" onClick={refetch} disabled={loading}>
             <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} />
           </Button>
@@ -286,25 +306,38 @@ export default function StationPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {sorted.map((t) => (
-              <TicketCard
+            {sorted.map((t, i) => (
+              <div
                 key={t.id}
-                ticket={t}
-                details={getDetails(t.id)}
-                detailsLoading={detailsLoading(t.id)}
-                now={now}
-                onBump={onBump}
-                onRush={onRush}
-                onRefire={onRefire}
-                showRecall={false}
-              />
+                className={cn(
+                  'rounded-lg transition-all',
+                  i === focusedIndex && 'ring-2 ring-orange-500 ring-offset-2 ring-offset-background',
+                )}
+                onClick={() => setFocusedIndex(i)}
+              >
+                <TicketCard
+                  ticket={t}
+                  details={getDetails(t.id)}
+                  detailsLoading={detailsLoading(t.id)}
+                  now={now}
+                  onBump={onBump}
+                  onRush={onRush}
+                  onRefire={onRefire}
+                  showRecall={false}
+                />
+              </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Hotkey help overlay */}
+      {overlayOpen && <HotkeyOverlay onClose={() => setOverlayOpen(false)} />}
     </div>
   );
 }
+
+// ---- ConnectionPill ----
 
 function ConnectionPill({ status }) {
   const map = {
@@ -322,5 +355,66 @@ function ConnectionPill({ status }) {
       <Icon className="size-3" />
       {m.label}
     </span>
+  );
+}
+
+// ---- HotkeyOverlay ----
+//
+// A centered modal-style card listing all bump-bar shortcuts. Dismissed by
+// pressing Escape, clicking the close button, or clicking the backdrop.
+
+const HOTKEYS = [
+  { keys: ['1', '–', '9'], desc: 'Bump the Nth visible ticket' },
+  { keys: ['Space'],        desc: 'Bump the focused ticket' },
+  { keys: ['r'],            desc: 'Recall the last bumped ticket' },
+  { keys: ['←', '→'],      desc: 'Move focus left / right' },
+  { keys: ['↑', '↓'],      desc: 'Move focus up / down' },
+  { keys: ['?'],            desc: 'Toggle this help overlay' },
+  { keys: ['Esc'],          desc: 'Close this overlay' },
+];
+
+function HotkeyOverlay({ onClose }) {
+  return (
+    /* backdrop */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative w-full max-w-sm rounded-xl border bg-background p-6 shadow-2xl">
+        {/* header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Keyboard className="size-5 text-orange-500" />
+            <h2 className="text-lg font-bold">Keyboard shortcuts</h2>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose} aria-label="Close">
+            <X className="size-4" />
+          </Button>
+        </div>
+
+        {/* shortcut rows */}
+        <ul className="space-y-2.5">
+          {HOTKEYS.map(({ keys, desc }) => (
+            <li key={desc} className="flex items-center justify-between gap-4">
+              <span className="text-sm text-muted-foreground">{desc}</span>
+              <span className="flex shrink-0 items-center gap-1">
+                {keys.map((k) => (
+                  <kbd
+                    key={k}
+                    className="inline-flex items-center justify-center rounded border border-border bg-muted px-2 py-0.5 font-mono text-xs font-semibold text-foreground"
+                  >
+                    {k}
+                  </kbd>
+                ))}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-5 text-center text-xs text-muted-foreground">
+          Shortcuts are inactive while an input field is focused.
+        </p>
+      </div>
+    </div>
   );
 }

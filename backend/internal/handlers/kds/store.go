@@ -143,6 +143,34 @@ type ExpoRow struct {
 }
 
 // ---------------------------------------------------------------------------
+// querier — lightweight interface to unify pool and tx for shared query helpers
+// ---------------------------------------------------------------------------
+
+// pgxQuerier is satisfied by both *pgxpool.Pool and pgx.Tx.
+type pgxQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// querier wraps a pgxQuerier and exposes lowercase helpers so internal helpers
+// can call q.query / q.queryRow without caring whether the underlying executor
+// is a pool connection or an open transaction.
+type querier struct {
+	db pgxQuerier
+}
+
+// newQuerier wraps any pgxQuerier.
+func newQuerier(db pgxQuerier) querier { return querier{db: db} }
+
+func (q querier) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return q.db.Query(ctx, sql, args...)
+}
+
+func (q querier) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return q.db.QueryRow(ctx, sql, args...)
+}
+
+// ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
@@ -411,6 +439,8 @@ func (s *Store) RushTicket(ctx context.Context, ticketID, performedBy string) (*
 
 // ListStationTickets returns active (non-bumped, non-cancelled) tickets for a
 // station, ordered by priority desc then fired_at asc.
+// Optimised: single batched query for all ticket items (WHERE ticket_id = ANY($1))
+// instead of 1+N per-ticket queries.
 func (s *Store) ListStationTickets(ctx context.Context, stationID string) ([]TicketWithItems, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, order_id, station_id, ticket_number, status,
@@ -427,6 +457,7 @@ func (s *Store) ListStationTickets(ctx context.Context, stationID string) ([]Tic
 	defer rows.Close()
 
 	var tickets []TicketWithItems
+	var ticketIDs []string
 	for rows.Next() {
 		var t Ticket
 		if err := rows.Scan(
@@ -436,50 +467,56 @@ func (s *Store) ListStationTickets(ctx context.Context, stationID string) ([]Tic
 		); err != nil {
 			return nil, err
 		}
-		tickets = append(tickets, TicketWithItems{Ticket: t})
+		tickets = append(tickets, TicketWithItems{Ticket: t, Items: []TicketItem{}})
+		ticketIDs = append(ticketIDs, t.ID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	// Fetch items for each ticket.
-	for i, tw := range tickets {
-		items, err := s.ticketItems(ctx, tw.ID)
-		if err != nil {
-			return nil, err
-		}
-		tickets[i].Items = items
+	if len(ticketIDs) == 0 {
+		return tickets, nil
 	}
-	return tickets, nil
-}
 
-func (s *Store) ticketItems(ctx context.Context, ticketID string) ([]TicketItem, error) {
-	rows, err := s.pool.Query(ctx, `
+	// Single batched query for all items across all tickets.
+	// ORDER BY ticket_id groups items by ticket; created_at preserves per-ticket order.
+	itemRows, err := s.pool.Query(ctx, `
 		SELECT id, ticket_id, order_item_id,
 			quantity::text, item_status, started_at, ready_at, bumped_at,
 			notes, created_at, updated_at
 		FROM kds_ticket_items
-		WHERE ticket_id = $1
-		ORDER BY created_at
-	`, ticketID)
+		WHERE ticket_id = ANY($1)
+		ORDER BY ticket_id, created_at
+	`, ticketIDs)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer itemRows.Close()
 
-	var items []TicketItem
-	for rows.Next() {
+	// Build a lookup index so we can assign items without a second pass over tickets.
+	ticketIdx := make(map[string]int, len(tickets))
+	for i, tw := range tickets {
+		ticketIdx[tw.ID] = i
+	}
+
+	for itemRows.Next() {
 		var ti TicketItem
-		if err := rows.Scan(
+		if err := itemRows.Scan(
 			&ti.ID, &ti.TicketID, &ti.OrderItemID,
 			&ti.Quantity, &ti.ItemStatus, &ti.StartedAt, &ti.ReadyAt, &ti.BumpedAt,
 			&ti.Notes, &ti.CreatedAt, &ti.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, ti)
+		if idx, ok := ticketIdx[ti.TicketID]; ok {
+			tickets[idx].Items = append(tickets[idx].Items, ti)
+		}
 	}
-	return items, rows.Err()
+	if err := itemRows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tickets, nil
 }
 
 // GetExpoOrder returns the kds_expo_view row(s) for a specific order_id.
@@ -558,10 +595,21 @@ type TicketDetail struct {
 // GetTicketDetail fetches the enriched ticket detail for the given ticket_id.
 // Ingredients come from item_recipes (child_item_id → items.name).
 // Prep steps come from item_prep_steps (added in migration-44).
+//
+// Optimised: the 3N per-item queries (variations, ingredients, prep steps) are
+// replaced with 3 batched ANY($1) queries + Go-side grouping, reducing total
+// queries from 2+3N to 5 regardless of item count.
 func (s *Store) GetTicketDetail(ctx context.Context, ticketID string) (*TicketDetail, error) {
+	return getTicketDetailUsing(ctx, ticketID, newQuerier(s.pool))
+}
+
+// getTicketDetailUsing is the shared implementation used by both the pool and
+// tx variants. q wraps either a *pgxpool.Pool or a pgx.Tx behind a unified
+// Query/QueryRow interface.
+func getTicketDetailUsing(ctx context.Context, ticketID string, q querier) (*TicketDetail, error) {
 	var detail TicketDetail
 	var rawNotes *string // orders.notes may carry "Table: T-12"
-	err := s.pool.QueryRow(ctx, `
+	err := q.queryRow(ctx, `
 		SELECT
 			kt.id,
 			o.order_number,
@@ -595,8 +643,8 @@ func (s *Store) GetTicketDetail(ctx context.Context, ticketID string) (*TicketDe
 		}
 	}
 
-	// --- Ticket items ---
-	itemRows, err := s.pool.Query(ctx, `
+	// --- Ticket items (single query, same as before) ---
+	itemRows, err := q.query(ctx, `
 		SELECT
 			kti.id,
 			i.name,
@@ -639,96 +687,129 @@ func (s *Store) GetTicketDetail(ctx context.Context, ticketID string) (*TicketDe
 	if err := itemRows.Err(); err != nil {
 		return nil, err
 	}
+	itemRows.Close()
 
+	if len(rawItems) == 0 {
+		detail.Items = []TicketDetailItem{}
+		return &detail, nil
+	}
+
+	// Collect the sets of IDs needed for the three batched queries.
+	orderItemIDs := make([]string, len(rawItems))
+	itemIDs := make([]string, len(rawItems))
+	for i, ri := range rawItems {
+		orderItemIDs[i] = ri.orderItemID
+		itemIDs[i] = ri.itemID
+	}
+
+	// --- Batched query 1: variations (keyed by order_item_id) ---
+	// ORDER BY order_item_id, oiv.created_at preserves per-item variation order.
+	variationsByOrderItem := make(map[string][]string, len(orderItemIDs))
+	varRows, err := q.query(ctx, `
+		SELECT oiv.order_item_id, ivo.name
+		FROM order_item_variations oiv
+		JOIN item_variation_options ivo ON ivo.id = oiv.option_id
+		WHERE oiv.order_item_id = ANY($1)
+		ORDER BY oiv.order_item_id, oiv.created_at
+	`, orderItemIDs)
+	if err != nil {
+		return nil, err
+	}
+	for varRows.Next() {
+		var oiID, vname string
+		if err := varRows.Scan(&oiID, &vname); err != nil {
+			varRows.Close()
+			return nil, err
+		}
+		variationsByOrderItem[oiID] = append(variationsByOrderItem[oiID], vname)
+	}
+	varRows.Close()
+	if err := varRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// --- Batched query 2: ingredients (keyed by parent_item_id) ---
+	// ORDER BY parent_item_id, recipe_level, ci.name preserves per-item ingredient order.
+	ingredientsByItem := make(map[string][]Ingredient, len(itemIDs))
+	ingRows, err := q.query(ctx, `
+		SELECT
+			ir.parent_item_id,
+			ci.name,
+			ir.quantity_needed,
+			COALESCE(ir.unit, 'ea')
+		FROM item_recipes ir
+		JOIN items ci ON ci.id = ir.child_item_id
+		WHERE ir.parent_item_id = ANY($1)
+		ORDER BY ir.parent_item_id, ir.recipe_level, ci.name
+	`, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	for ingRows.Next() {
+		var parentID string
+		var ing Ingredient
+		if err := ingRows.Scan(&parentID, &ing.Name, &ing.Quantity, &ing.Unit); err != nil {
+			ingRows.Close()
+			return nil, err
+		}
+		ingredientsByItem[parentID] = append(ingredientsByItem[parentID], ing)
+	}
+	ingRows.Close()
+	if err := ingRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// --- Batched query 3: prep steps (keyed by item_id) ---
+	// ORDER BY item_id, step_number preserves per-item step order.
+	prepStepsByItem := make(map[string][]PrepStep, len(itemIDs))
+	psRows, err := q.query(ctx, `
+		SELECT item_id, step_number, instruction
+		FROM item_prep_steps
+		WHERE item_id = ANY($1)
+		ORDER BY item_id, step_number
+	`, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	for psRows.Next() {
+		var iid string
+		var ps PrepStep
+		if err := psRows.Scan(&iid, &ps.StepNumber, &ps.Instruction); err != nil {
+			psRows.Close()
+			return nil, err
+		}
+		prepStepsByItem[iid] = append(prepStepsByItem[iid], ps)
+	}
+	psRows.Close()
+	if err := psRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Assemble the final detail items in the original order (kti.created_at).
 	detail.Items = make([]TicketDetailItem, 0, len(rawItems))
-
 	for _, ri := range rawItems {
-		di := TicketDetailItem{
+		vars := variationsByOrderItem[ri.orderItemID]
+		if vars == nil {
+			vars = []string{}
+		}
+		ings := ingredientsByItem[ri.itemID]
+		if ings == nil {
+			ings = []Ingredient{}
+		}
+		steps := prepStepsByItem[ri.itemID]
+		if steps == nil {
+			steps = []PrepStep{}
+		}
+		detail.Items = append(detail.Items, TicketDetailItem{
 			TicketItemID: ri.ticketItemID,
 			ItemName:     ri.itemName,
 			Quantity:     ri.quantity,
 			Status:       ri.status,
 			Notes:        ri.notes,
-		}
-
-		// Variations
-		varRows, err := s.pool.Query(ctx, `
-			SELECT ivo.name
-			FROM order_item_variations oiv
-			JOIN item_variation_options ivo ON ivo.id = oiv.option_id
-			WHERE oiv.order_item_id = $1
-			ORDER BY oiv.created_at
-		`, ri.orderItemID)
-		if err != nil {
-			return nil, err
-		}
-		di.Variations = []string{}
-		for varRows.Next() {
-			var vname string
-			if err := varRows.Scan(&vname); err != nil {
-				varRows.Close()
-				return nil, err
-			}
-			di.Variations = append(di.Variations, vname)
-		}
-		varRows.Close()
-		if err := varRows.Err(); err != nil {
-			return nil, err
-		}
-
-		// Ingredients (item_recipes.child_item_id → items.name)
-		ingRows, err := s.pool.Query(ctx, `
-			SELECT
-				ci.name,
-				ir.quantity_needed,
-				COALESCE(ir.unit, 'ea')
-			FROM item_recipes ir
-			JOIN items ci ON ci.id = ir.child_item_id
-			WHERE ir.parent_item_id = $1
-			ORDER BY ir.recipe_level, ci.name
-		`, ri.itemID)
-		if err != nil {
-			return nil, err
-		}
-		di.Ingredients = []Ingredient{}
-		for ingRows.Next() {
-			var ing Ingredient
-			if err := ingRows.Scan(&ing.Name, &ing.Quantity, &ing.Unit); err != nil {
-				ingRows.Close()
-				return nil, err
-			}
-			di.Ingredients = append(di.Ingredients, ing)
-		}
-		ingRows.Close()
-		if err := ingRows.Err(); err != nil {
-			return nil, err
-		}
-
-		// Prep steps (item_prep_steps — migration-44)
-		psRows, err := s.pool.Query(ctx, `
-			SELECT step_number, instruction
-			FROM item_prep_steps
-			WHERE item_id = $1
-			ORDER BY step_number
-		`, ri.itemID)
-		if err != nil {
-			return nil, err
-		}
-		di.PrepSteps = []PrepStep{}
-		for psRows.Next() {
-			var ps PrepStep
-			if err := psRows.Scan(&ps.StepNumber, &ps.Instruction); err != nil {
-				psRows.Close()
-				return nil, err
-			}
-			di.PrepSteps = append(di.PrepSteps, ps)
-		}
-		psRows.Close()
-		if err := psRows.Err(); err != nil {
-			return nil, err
-		}
-
-		detail.Items = append(detail.Items, di)
+			Variations:   vars,
+			Ingredients:  ings,
+			PrepSteps:    steps,
+		})
 	}
 
 	return &detail, nil
