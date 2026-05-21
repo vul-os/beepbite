@@ -99,14 +99,15 @@ LIMIT 1
 	return rate, fetchedAt, nil
 }
 
-// insertInvoice inserts a subscription_invoices row with status 'pending'.
-// status 'pending' is used instead of the table default 'issued' so the
-// billing collection job can later move it to 'issued' once the charge
-// succeeds (see TODO below).
+// insertInvoice inserts a subscription_invoices row with status 'issued'.
+// The subscription_invoices CHECK constraint allows only
+// ('issued','paid','void','overdue'), so 'issued' is the correct initial
+// status for a freshly generated invoice.
 //
-// NOTE: The subscription_invoices CHECK constraint allows only
-// ('issued','paid','void','overdue').  We therefore insert with 'issued'
-// to stay within the constraint — see inline comment below.
+// The INSERT uses ON CONFLICT (org_id, period_start) DO NOTHING so that
+// concurrent job runs are idempotent: if a row for this org+period already
+// exists the statement is a no-op. This requires the unique constraint
+// uq_subscription_invoices_org_period added in migration 034.
 func insertInvoice(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -140,7 +141,7 @@ INSERT INTO subscription_invoices (
     $8,
     'issued'
 )
-ON CONFLICT DO NOTHING
+ON CONFLICT (org_id, period_start) DO NOTHING
 `,
 		orgID, planID,
 		periodStart.Format("2006-01-02"),

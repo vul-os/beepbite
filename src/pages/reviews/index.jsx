@@ -111,7 +111,7 @@ const Reviews = () => {
 
       setReviews(prev => prev.map(review =>
         review.id === reviewId
-          ? { ...review, has_reply: true, reply: replyText, replied_at: new Date().toISOString() }
+          ? { ...review, owner_reply: replyText, owner_replied_at: new Date().toISOString() }
           : review
       ));
 
@@ -128,7 +128,7 @@ const Reviews = () => {
 
   const openReplyModal = (review) => {
     setSelectedReview(review);
-    setReplyText(review.reply || '');
+    setReplyText(review.owner_reply || '');
     setReplyError(null);
     setIsReplyModalOpen(true);
   };
@@ -155,25 +155,24 @@ const Reviews = () => {
   };
 
   const filteredReviews = reviews.filter(review => {
-    const matchesSearch = 
-      review.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.comment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.order_number?.includes(searchTerm);
-    
-    const matchesRating = 
-      ratingFilter === 'all' || 
-      review.rating.toString() === ratingFilter;
-    
+    const matchesSearch =
+      review.text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      searchTerm === '';
+
+    const matchesRating =
+      ratingFilter === 'all' ||
+      (review.stars != null && review.stars.toString() === ratingFilter);
+
     return matchesSearch && matchesRating;
   });
 
   // Use data from service or fallback to calculated stats
   const ratingStats = reviewsData?.ratingStats || {
-    average: reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : '0.0',
+    average: reviews.length > 0 ? (reviews.reduce((sum, r) => sum + (r.stars ?? 0), 0) / reviews.length).toFixed(1) : '0.0',
     distribution: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(rating => ({
       rating,
-      count: reviews.filter(r => r.rating === rating).length,
-      percentage: reviews.length > 0 ? (reviews.filter(r => r.rating === rating).length / reviews.length * 100).toFixed(0) : '0'
+      count: reviews.filter(r => r.stars === rating).length,
+      percentage: reviews.length > 0 ? (reviews.filter(r => r.stars === rating).length / reviews.length * 100).toFixed(0) : '0'
     }))
   };
 
@@ -330,19 +329,19 @@ const Reviews = () => {
               <div className="flex justify-between">
                 <span className="text-xs sm:text-sm text-gray-600">Replied</span>
                 <span className="font-semibold text-sm sm:text-base">
-                  {reviews.filter(r => r.has_reply).length}
+                  {reviews.filter(r => r.owner_reply != null).length}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs sm:text-sm text-gray-600">Pending</span>
                 <span className="font-semibold text-sm sm:text-base">
-                  {reviews.filter(r => !r.has_reply).length}
+                  {reviews.filter(r => r.owner_reply == null).length}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs sm:text-sm text-gray-600">10/10 Rate</span>
                 <span className="font-semibold text-sm sm:text-base text-green-600">
-                  {ratingStats.distribution[0].percentage}%
+                  {ratingStats.distribution[0]?.percentage ?? '0'}%
                 </span>
               </div>
             </CardContent>
@@ -388,24 +387,18 @@ const Reviews = () => {
                         <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
                             <span className="text-orange-600 font-semibold text-sm sm:text-base">
-                              {review.customer_name?.charAt(0) || 'C'}
+                              C
                             </span>
                           </div>
-                          
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 sm:gap-3 mb-1">
                               <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
-                                {review.customer_name}
+                                Customer
                               </h3>
-                              {review.verified && (
-                                <Badge variant="secondary" className="text-xs shrink-0">
-                                  Verified
-                                </Badge>
-                              )}
                             </div>
-                            
+
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
-                              <span className="truncate">Order #{review.order_number}</span>
                               <span className="shrink-0">
                                 {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
                               </span>
@@ -435,20 +428,22 @@ const Reviews = () => {
                       {/* Rating */}
                       <div className="flex items-center gap-2">
                         <div className="flex">
-                          {getStarDisplay(review.rating)}
+                          {getStarDisplay(review.stars)}
                         </div>
-                        <Badge className={`${getRatingColor(review.rating)} border text-xs`}>
-                          {review.rating} / 10
+                        <Badge className={`${getRatingColor(review.stars)} border text-xs`}>
+                          {review.stars} / 10
                         </Badge>
                       </div>
 
                       {/* Comment */}
-                      <div className="text-gray-700 leading-relaxed text-sm sm:text-base">
-                        {review.comment}
-                      </div>
+                      {review.text != null && (
+                        <div className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                          {review.text}
+                        </div>
+                      )}
 
                       {/* Reply */}
-                      {review.has_reply && (
+                      {review.owner_reply != null && (
                         <div className="bg-blue-50 border-l-4 border-blue-200 p-3 sm:p-4 rounded-r-lg">
                           <div className="flex items-center gap-2 mb-2">
                             <Reply className="w-3 sm:w-4 h-3 sm:h-4 text-blue-600" />
@@ -457,14 +452,14 @@ const Reviews = () => {
                             </span>
                           </div>
                           <p className="text-blue-700 text-xs sm:text-sm">
-                            {review.reply}
+                            {review.owner_reply}
                           </p>
                         </div>
                       )}
 
                       {/* Actions */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2">
-                        {!review.has_reply && (
+                        {review.owner_reply == null && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -501,14 +496,16 @@ const Reviews = () => {
               {/* Original Review */}
               <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-medium text-sm sm:text-base">{selectedReview.customer_name}</span>
+                  <span className="font-medium text-sm sm:text-base">Customer</span>
                   <div className="flex">
-                    {getStarDisplay(selectedReview.rating)}
+                    {getStarDisplay(selectedReview.stars)}
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600">
-                  "{selectedReview.comment}"
-                </p>
+                {selectedReview.text != null && (
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    "{selectedReview.text}"
+                  </p>
+                )}
               </div>
 
               {/* Reply Input */}

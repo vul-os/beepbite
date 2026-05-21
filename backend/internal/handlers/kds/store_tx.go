@@ -327,4 +327,3 @@ func (s *Store) GetExpoOrderTx(ctx context.Context, tx pgx.Tx, orderID string) (
 func (s *Store) GetTicketDetailTx(ctx context.Context, tx pgx.Tx, ticketID string) (*TicketDetail, error) {
 	return getTicketDetailUsing(ctx, ticketID, newQuerier(tx))
 }
-

@@ -56,17 +56,17 @@ type PublicReview struct {
 
 // ReviewRow is the full DB row used internally after insert.
 type ReviewRow struct {
-	ID                 string     `json:"id"`
-	LocationID         string     `json:"location_id"`
-	OrderID            string     `json:"order_id"`
-	CustomerProfileID  *string    `json:"customer_profile_id"`
-	Stars              int        `json:"stars"`
-	ReviewText         *string    `json:"text"`
-	Photos             []string   `json:"photos"`
-	VerifiedPurchase   bool       `json:"verified_purchase"`
-	OwnerReply         *string    `json:"owner_reply"`
-	OwnerRepliedAt     *time.Time `json:"owner_replied_at"`
-	CreatedAt          time.Time  `json:"created_at"`
+	ID                string     `json:"id"`
+	LocationID        string     `json:"location_id"`
+	OrderID           string     `json:"order_id"`
+	CustomerProfileID *string    `json:"customer_profile_id"`
+	Stars             int        `json:"stars"`
+	ReviewText        *string    `json:"text"`
+	Photos            []string   `json:"photos"`
+	VerifiedPurchase  bool       `json:"verified_purchase"`
+	OwnerReply        *string    `json:"owner_reply"`
+	OwnerRepliedAt    *time.Time `json:"owner_replied_at"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 // ---------------------------------------------------------------------------
@@ -194,11 +194,20 @@ func (s *Store) SubmitReview(
 		}
 
 		// 3. Insert the review.
+		// Uses INSERT … SELECT to pull organization_id from locations so we
+		// never violate the NOT NULL constraint added by migration 033.
+		// status='visible' is set explicitly because there is no moderation
+		// path and the public-read RLS only exposes status='visible' rows.
+		// Both review_text (legacy) and text (canonical, migration 033) are
+		// written to avoid the canonical column staying NULL forever.
 		err = tx.QueryRow(ctx, `
 			INSERT INTO marketplace_reviews
-				(order_id, customer_profile_id, location_id, stars, review_text,
-				 photos, verified_purchase)
-			VALUES ($1, $2, $3, $4, $5, $6, true)
+				(order_id, customer_profile_id, location_id, organization_id,
+				 stars, review_text, text, photos, verified_purchase, status)
+			SELECT $1, $2, $3, l.organization_id,
+			       $4, $5, $5, $6, true, 'visible'
+			FROM locations l
+			WHERE l.id = $3
 			RETURNING id, location_id, order_id, customer_profile_id,
 			          stars, review_text, photos, verified_purchase,
 			          owner_reply, owner_replied_at, created_at
