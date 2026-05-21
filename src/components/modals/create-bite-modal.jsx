@@ -346,14 +346,6 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
 
       if (orderError) throw orderError;
 
-      // Optionally create order_details record
-      await supabase
-        .from('order_details')
-        .insert({
-          order_id: newOrder.id,
-          estimated_prep_time: 30 // Default 30 minutes
-        });
-      
       setSuccess(true);
       
       // Reset form after short delay

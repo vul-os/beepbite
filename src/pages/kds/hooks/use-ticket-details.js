@@ -29,7 +29,12 @@ export function useTicketDetails(ticketIds) {
   const inFlightRef = useRef(new Set());
   const mountedRef = useRef(true);
 
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // Reset true on mount — React 18 StrictMode unmounts then remounts, and a
+  // cleanup-only guard would stay false on remount (stuck loads / stale data).
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const fetchOne = useCallback(async (ticketId, { force = false } = {}) => {
     if (!ticketId) return null;

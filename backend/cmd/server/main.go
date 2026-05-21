@@ -51,6 +51,7 @@ import (
 	"github.com/beepbite/backend/internal/handlers/tippools"
 	"github.com/beepbite/backend/internal/handlers/tracking"
 	"github.com/beepbite/backend/internal/handlers/transferwebhook"
+	"github.com/beepbite/backend/internal/handlers/wallet"
 	"github.com/beepbite/backend/internal/handlers/waste"
 	"github.com/beepbite/backend/internal/handlers/whatsappsend"
 	"github.com/beepbite/backend/internal/handlers/whatsappwebhook"
@@ -59,9 +60,13 @@ import (
 	"github.com/beepbite/backend/internal/integrations/stripe"
 	"github.com/beepbite/backend/internal/integrations/whatsapp"
 	"github.com/beepbite/backend/internal/jobs/auditretention"
+	"github.com/beepbite/backend/internal/jobs/dunning"
 	"github.com/beepbite/backend/internal/jobs/kdsfanout"
+	"github.com/beepbite/backend/internal/jobs/llmsync"
 	"github.com/beepbite/backend/internal/jobs/payouts"
 	"github.com/beepbite/backend/internal/jobs/recipecost"
+	"github.com/beepbite/backend/internal/jobs/walletrefill"
+	"github.com/beepbite/backend/internal/payments"
 	"github.com/beepbite/backend/internal/secretbox"
 	"github.com/beepbite/backend/internal/staffauth"
 )
@@ -106,6 +111,7 @@ func main() {
 	kdsH := kds.NewHandler(database.Pool)
 	posH := pos.NewHandler(database.Pool)
 	statsH := stats.NewHandler(database.Pool)
+	walletH := wallet.NewHandler(database.Pool)
 	driverH := driver.NewHandler(database.Pool)
 	driverInviteH := driverinvite.NewHandler(database.Pool)
 	trackingH := tracking.NewHandler(database.Pool)
@@ -272,6 +278,9 @@ func main() {
 			// Driver portal (assignments/shifts/pings) + driver invites.
 			r.Route("/driver", driverH.Mount)
 			driverInviteH.Mount(r)
+
+			// Wallet + billing (balance, top-up, ledger, auto-refill).
+			walletH.Mount(r)
 			r.Route("/stats", statsH.Mount)
 
 			// Kitchen Display System.
@@ -326,6 +335,10 @@ func main() {
 	go recipeCostRunner.Start(ctx)
 	go kdsFanoutRunner.Start(ctx)
 	go auditRetentionRunner.Start(ctx)
+	// Wave 19 — billing/LLM background jobs (constructed here so paymentBox exists).
+	go walletrefill.NewRunner(database.Pool, payments.NewDBRegistry(database.Pool, paymentBox)).Start(ctx)
+	go dunning.NewRunner(database.Pool, nil).Start(ctx) // nil → no-op notifier for now
+	go llmsync.NewRunner(database.Pool).Start(ctx)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

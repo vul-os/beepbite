@@ -323,12 +323,11 @@ func (s *Store) GetTicketDetailTx(ctx context.Context, tx pgx.Tx, ticketID strin
 			kt.id,
 			o.order_number,
 			ks.name         AS station_name,
-			od.notes        AS order_notes,
+			o.notes         AS order_notes,
 			kt.fired_at
 		FROM kds_tickets kt
 		JOIN orders           o  ON o.id  = kt.order_id
 		JOIN kitchen_stations ks ON ks.id = kt.station_id
-		LEFT JOIN order_details od ON od.order_id = o.id
 		WHERE kt.id = $1
 	`, ticketID).Scan(
 		&detail.TicketID,
@@ -344,7 +343,7 @@ func (s *Store) GetTicketDetailTx(ctx context.Context, tx pgx.Tx, ticketID strin
 		return nil, err
 	}
 
-	// Extract table number from order_details.notes ("Table: T-12").
+	// Extract table number from orders.notes ("Table: T-12").
 	if rawNotes != nil {
 		const prefix = "Table: "
 		if len(*rawNotes) > len(prefix) && (*rawNotes)[:len(prefix)] == prefix {

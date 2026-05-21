@@ -110,13 +110,6 @@ const OrdersSection = ({
             last_name,
             whatsapp_number,
             email
-          ),
-          order_details (
-            delivery_address,
-            delivery_instructions,
-            notes,
-            kitchen_notes,
-            estimated_prep_time
           )
         `)
         .eq('id', order.id)
@@ -167,11 +160,11 @@ const OrdersSection = ({
   const handleEditOrder = (order) => {
     setSelectedOrder(order);
     setEditFormData({
-      delivery_address: order.order_details?.delivery_address || '',
-      delivery_instructions: order.order_details?.delivery_instructions || '',
-      notes: order.order_details?.notes || '',
-      kitchen_notes: order.order_details?.kitchen_notes || '',
-      estimated_prep_time: order.order_details?.estimated_prep_time || 30,
+      delivery_address: order.delivery_address || '',
+      delivery_instructions: order.delivery_instructions || '',
+      notes: order.notes || '',
+      kitchen_notes: order.kitchen_notes || '',
+      estimated_prep_time: order.estimated_prep_time || 30,
     });
     setCurrentView('edit');
   };
@@ -363,12 +356,12 @@ const OrdersSection = ({
                       {formatDistanceToNow(new Date(selectedOrderDetails.created_at), { addSuffix: true })}
                     </span>
                   </div>
-                  {selectedOrderDetails.order_details?.[0]?.estimated_prep_time && (
+                  {selectedOrderDetails.estimated_prep_time && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Prep Time</span>
                       <span className="text-sm text-gray-900 flex items-center bg-orange-100 px-2 py-1 rounded">
                         <Timer className="w-3 h-3 mr-1" />
-                        {selectedOrderDetails.order_details[0].estimated_prep_time} min
+                        {selectedOrderDetails.estimated_prep_time} min
                       </span>
                     </div>
                   )}
@@ -383,7 +376,7 @@ const OrdersSection = ({
             </Card>
 
             {/* Delivery Information */}
-            {selectedOrderDetails.order_details?.[0]?.delivery_address && (
+            {selectedOrderDetails.delivery_address && (
               <Card className="border border-orange-200">
                 <CardContent className="p-4">
                   <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
@@ -394,14 +387,14 @@ const OrdersSection = ({
                     <div className="flex items-start justify-between">
                       <span className="text-sm font-medium text-gray-700">Address</span>
                       <span className="text-sm text-gray-900 text-right max-w-[60%]">
-                        {selectedOrderDetails.order_details[0].delivery_address}
+                        {selectedOrderDetails.delivery_address}
                       </span>
                     </div>
-                    {selectedOrderDetails.order_details[0].delivery_instructions && (
+                    {selectedOrderDetails.delivery_instructions && (
                       <div className="flex items-start justify-between">
                         <span className="text-sm font-medium text-gray-700">Instructions</span>
                         <span className="text-sm text-gray-900 text-right max-w-[60%] bg-yellow-100 px-2 py-1 rounded">
-                          {selectedOrderDetails.order_details[0].delivery_instructions}
+                          {selectedOrderDetails.delivery_instructions}
                         </span>
                       </div>
                     )}
@@ -411,7 +404,7 @@ const OrdersSection = ({
             )}
 
             {/* Notes */}
-            {(selectedOrderDetails.order_details?.[0]?.notes || selectedOrderDetails.order_details?.[0]?.kitchen_notes) && (
+            {(selectedOrderDetails.notes || selectedOrderDetails.kitchen_notes) && (
               <Card className="border border-orange-200">
                 <CardContent className="p-4">
                   <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
@@ -419,19 +412,19 @@ const OrdersSection = ({
                     Notes
                   </h3>
                   <div className="space-y-3">
-                    {selectedOrderDetails.order_details[0]?.notes && (
+                    {selectedOrderDetails.notes && (
                       <div className="flex items-start justify-between">
                         <span className="text-sm font-medium text-gray-700">General</span>
                         <span className="text-sm text-gray-900 text-right max-w-[60%] bg-gray-100 px-2 py-1 rounded">
-                          {selectedOrderDetails.order_details[0].notes}
+                          {selectedOrderDetails.notes}
                         </span>
                       </div>
                     )}
-                    {selectedOrderDetails.order_details[0]?.kitchen_notes && (
+                    {selectedOrderDetails.kitchen_notes && (
                       <div className="flex items-start justify-between">
                         <span className="text-sm font-medium text-gray-700">Kitchen</span>
                         <span className="text-sm text-gray-900 text-right max-w-[60%] bg-orange-100 px-2 py-1 rounded">
-                          {selectedOrderDetails.order_details[0].kitchen_notes}
+                          {selectedOrderDetails.kitchen_notes}
                         </span>
                       </div>
                     )}

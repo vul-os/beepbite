@@ -80,6 +80,21 @@ Built out Wave 14 testing infra and, by actually *running* the new suites, found
 
 ---
 
+### Round 5 — /data handler fixes + Wave 19 (Wallet/Quotas/LLM/Email) (2026-05-21)
+- ✅ **KDS expo / generic-data fixes** (surfaced while testing the kitchen display): (1) `in=` filter on enum columns 500'd — pgx couldn't encode `[]any` against the enum array → cast to `text` (`filters.go`); (2) `select=` with spaces (supabase-client style `id, name`) → 400 — now trims each column (`handler.go`); (3) `expo.jsx` selected non-existent `orders.table_number` (consolidated to `table_session_id`) → removed. Expo board now loads + shows in-flight orders. (NOTE: these are uncommitted — a server running the committed build still 400s until rebuilt.)
+- ✅ **Wave 19 — Wallet + Quotas + multi-LLM + BYO email** (10 parallel agents + migration 024): 
+  - Backend packages: `internal/handlers/wallet` (balance/topup/ledger/auto-refill — verified 200), `internal/quota` (per-resource usage), `internal/metering` (wallet debit + quota increment, idempotent), `internal/llm` (Provider interface + Anthropic/OpenAI/Gemini/Moonshot adapters + cost-aware router reading `llm_model_pricing`), `internal/email` (Resend/SendGrid/Mailgun/SES/SMTP + BYO per-store creds).
+  - Jobs (wired + started): `walletrefill` (auto-refill cron), `dunning` (failure ladder), `llmsync` (litellm pricing sync + model discovery).
+  - Migration 024: quota_usage, llm_model_pricing, llm_messages, llm_tool_executions, email_providers, location_email_credentials, + org_wallets auto-refill columns.
+  - Frontend: `/settings/billing/wallet` (balance, top-up, auto-refill, ledger).
+  - Integration fix: aligned `PUT /wallet/auto-refill` (handler ↔ frontend `enabled` field + `auto_refill_enabled` column).
+
+**Live e2e: 253/253. Full backend + frontend build green.**
+
+**Wave 19 follow-ups (not blocking):** metering/email/llm packages are built but not yet *called* from request handlers (no metered handler wraps them yet); LLM adapters' live wire formats partly stubbed (TODOs); `llm_model_pricing` seeds at 02:00 / on fetch (empty until then); dunning needs `organizations.service_degraded`/`dunning_stage` columns flagged; walletrefill provider-charge hook needs an org→location resolution; minor `org_wallets` column dup (`saved_payment_method_id` vs migration-024 `payment_method_token`).
+
+---
+
 ## In Progress ⏳
 
 _(none active)_

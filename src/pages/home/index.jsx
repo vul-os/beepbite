@@ -106,11 +106,6 @@ const Home = () => {
             last_name,
             whatsapp_number,
             email
-          ),
-          order_details (
-            delivery_address,
-            notes,
-            kitchen_notes
           )
         `)
         .eq('location_id', locationId)

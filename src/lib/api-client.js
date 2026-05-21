@@ -284,7 +284,7 @@ const auth = {
 
 // ---- embedded-join support ----
 //
-// supabase-js lets callers do `.select('*, customers (id, name), order_details (*)')`
+// supabase-js lets callers do `.select('*, customers (id, name), order_items (*)')`
 // to pull in related rows in one call. Our Go data layer doesn't parse that
 // syntax, so the client peels off joined relations, fetches the parent rows
 // with scalar columns, then does a follow-up IN query per joined table.
@@ -300,8 +300,6 @@ const FK = {
   //   kind 'many': child[col] points at parent.id
   orders: {
     customers:      { table: 'customers',              kind: 'one',  col: 'customer_id' },
-    order_details:  { table: 'order_details',          kind: 'many', col: 'order_id' },
-    order_financial_details: { table: 'order_financial_details', kind: 'many', col: 'order_id' },
     order_items:    { table: 'order_items',            kind: 'many', col: 'order_id' },
   },
   order_items: {
@@ -336,8 +334,8 @@ const FK = {
   },
 };
 
-// parseSelect("*, customers (id, name), order_details (*)") →
-//   { base: '*', joins: [ {name:'customers', cols:'id,name'}, {name:'order_details', cols:'*'} ] }
+// parseSelect("*, customers (id, name), order_items (*)") →
+//   { base: '*', joins: [ {name:'customers', cols:'id,name'}, {name:'order_items', cols:'*'} ] }
 // Whitespace tolerant. Doesn't handle deeper than one level; nested parens
 // inside a join become that join's scalar cols. Good enough for current usage.
 function parseSelect(raw) {

@@ -56,7 +56,7 @@ const BiteCard = ({
   };
 
   const customerWhatsapp = order.customers?.whatsapp_number || 'N/A';
-  const readyAt = order.order_details?.ready_at;
+  const readyAt = order.ready_at ?? null;
 
   return (
     <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-orange-500 min-h-fit">

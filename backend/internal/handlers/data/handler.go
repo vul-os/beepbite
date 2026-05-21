@@ -162,9 +162,22 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	if cols == "" {
 		cols = "*"
 	}
-	if !looksLikeColumnList(cols) {
-		writeErr(w, http.StatusBadRequest, "invalid select")
-		return
+	// supabase-js style clients send the select list with spaces after commas
+	// ("id, order_number, status"). Normalise by trimming each column before
+	// validating, so the spacing doesn't trip the strict ident regex. Each
+	// trimmed token must still be a bare column ident (SQL-injection guard).
+	if cols != "*" {
+		rawCols := strings.Split(cols, ",")
+		trimmed := make([]string, 0, len(rawCols))
+		for _, c := range rawCols {
+			c = strings.TrimSpace(c)
+			if !isColumnIdent(c) {
+				writeErr(w, http.StatusBadRequest, "invalid select")
+				return
+			}
+			trimmed = append(trimmed, c)
+		}
+		cols = strings.Join(trimmed, ", ")
 	}
 
 	sb := &strings.Builder{}

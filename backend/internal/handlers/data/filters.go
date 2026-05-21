@@ -110,12 +110,18 @@ func buildWhere(q url.Values, offset int) (string, []any, error) {
 			return "", nil, errors.New("invalid in filter")
 		}
 		col := parts[0]
-		vals := make([]any, 0, len(parts)-1)
+		// Compare as text so the filter works on enum columns too (e.g.
+		// orders.status is the order_status enum). pgx cannot encode a []any
+		// slice against a custom enum array type, and `enum = ANY(text[])` is a
+		// type mismatch — casting the column to text sidesteps both. Values from
+		// the URL are inherently strings, so a concrete []string encodes cleanly
+		// as text[]; Postgres casts the column side (int/uuid/enum → text).
+		vals := make([]string, 0, len(parts)-1)
 		for _, raw := range parts[1:] {
-			vals = append(vals, parseScalar(raw))
+			vals = append(vals, raw)
 		}
 		args = append(args, vals)
-		preds = append(preds, fmt.Sprintf("%s = ANY($%d)", quoteIdent(col), len(args)+offset))
+		preds = append(preds, fmt.Sprintf("%s::text = ANY($%d)", quoteIdent(col), len(args)+offset))
 	}
 
 	for _, v := range q["is"] {

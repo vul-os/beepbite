@@ -560,18 +560,17 @@ type TicketDetail struct {
 // Prep steps come from item_prep_steps (added in migration-44).
 func (s *Store) GetTicketDetail(ctx context.Context, ticketID string) (*TicketDetail, error) {
 	var detail TicketDetail
-	var rawNotes *string // order_details.notes may carry "Table: T-12"
+	var rawNotes *string // orders.notes may carry "Table: T-12"
 	err := s.pool.QueryRow(ctx, `
 		SELECT
 			kt.id,
 			o.order_number,
 			ks.name         AS station_name,
-			od.notes        AS order_notes,
+			o.notes         AS order_notes,
 			kt.fired_at
 		FROM kds_tickets kt
 		JOIN orders           o  ON o.id  = kt.order_id
 		JOIN kitchen_stations ks ON ks.id = kt.station_id
-		LEFT JOIN order_details od ON od.order_id = o.id
 		WHERE kt.id = $1
 	`, ticketID).Scan(
 		&detail.TicketID,
@@ -587,7 +586,7 @@ func (s *Store) GetTicketDetail(ctx context.Context, ticketID string) (*TicketDe
 		return nil, err
 	}
 
-	// Extract table number stored as "Table: T-12" in order_details.notes.
+	// Extract table number stored as "Table: T-12" in orders.notes.
 	if rawNotes != nil {
 		const prefix = "Table: "
 		if len(*rawNotes) > len(prefix) && (*rawNotes)[:len(prefix)] == prefix {

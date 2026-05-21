@@ -481,9 +481,9 @@ const OrderModals = ({
                 <CardContent className="p-4">
                   <h4 className="font-medium text-gray-900 mb-3">Order Details</h4>
                   <div className="space-y-2 text-sm">
-                    <p><strong>Delivery Address:</strong> {orderDetails.order_details?.[0]?.delivery_address || 'N/A'}</p>
-                    <p><strong>Notes:</strong> {orderDetails.order_details?.[0]?.notes || 'N/A'}</p>
-                    <p><strong>Kitchen Notes:</strong> {orderDetails.order_details?.[0]?.kitchen_notes || 'N/A'}</p>
+                    <p><strong>Delivery Address:</strong> {orderDetails.delivery_address || 'N/A'}</p>
+                    <p><strong>Notes:</strong> {orderDetails.notes || 'N/A'}</p>
+                    <p><strong>Kitchen Notes:</strong> {orderDetails.kitchen_notes || 'N/A'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -534,43 +534,40 @@ const OrderModals = ({
               </Card>
 
               {/* Financial Summary */}
-              {orderDetails.order_financial_details?.[0] && (
+              {(orderDetails.subtotal_cents != null || orderDetails.total_cents != null) && (
                 <Card className="border-gray-200">
                   <CardContent className="p-4">
                     <h4 className="font-medium text-gray-900 mb-3">Order Summary</h4>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Subtotal:</span>
-                        <span>R{parseFloat(orderDetails.order_financial_details[0].subtotal || 0).toFixed(2)}</span>
-                      </div>
-                      {orderDetails.order_financial_details[0].delivery_fee > 0 && (
+                      {orderDetails.subtotal_cents != null && (
                         <div className="flex justify-between">
-                          <span>Delivery Fee:</span>
-                          <span>R{parseFloat(orderDetails.order_financial_details[0].delivery_fee).toFixed(2)}</span>
+                          <span>Subtotal:</span>
+                          <span>R{(orderDetails.subtotal_cents / 100).toFixed(2)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between">
-                        <span>Tax (15%):</span>
-                        <span>R{parseFloat(orderDetails.order_financial_details[0].tax_amount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                        <span>Total:</span>
-                        <span className="text-orange-600">R{parseFloat(orderDetails.order_financial_details[0].total_amount).toFixed(2)}</span>
-                      </div>
-                      <div className="pt-2 border-t">
-                        <p><strong>Payment:</strong> {orderDetails.order_financial_details[0].payment_method} ({orderDetails.order_financial_details[0].payment_status})</p>
-                      </div>
+                      {orderDetails.tax_cents != null && (
+                        <div className="flex justify-between">
+                          <span>Tax:</span>
+                          <span>R{(orderDetails.tax_cents / 100).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {orderDetails.total_cents != null && (
+                        <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                          <span>Total:</span>
+                          <span className="text-orange-600">R{(orderDetails.total_cents / 100).toFixed(2)}</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
               )}
 
               {/* Notes */}
-              {orderDetails.order_details?.[0]?.notes && (
+              {orderDetails.notes && (
                 <Card className="border-gray-200">
                   <CardContent className="p-4">
                     <h4 className="font-medium text-gray-900 mb-2">Notes</h4>
-                    <p className="text-sm text-gray-600">{orderDetails.order_details[0].notes}</p>
+                    <p className="text-sm text-gray-600">{orderDetails.notes}</p>
                   </CardContent>
                 </Card>
               )}
