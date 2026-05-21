@@ -46,12 +46,14 @@ const CURRENCIES = ['ZAR', 'USD', 'EUR', 'GBP', 'KES', 'NGN', 'GHS'];
 const EMPTY_LINE = { description: '', qty: 1, unit_cents: 0 };
 
 const EMPTY_FORM = {
-  issuer:            'tenant',
-  recipient_name:    '',
-  recipient_address: '',
-  currency:          'ZAR',
-  vat_rate_pct:      0,
-  lines:             [{ ...EMPTY_LINE }],
+  issuer:                'tenant',
+  recipient_org_id:      '',
+  recipient_customer_id: '',
+  recipient_name:        '',
+  recipient_address:     '',
+  currency:              'ZAR',
+  vat_rate_pct:          0,
+  lines:                 [{ ...EMPTY_LINE }],
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -102,11 +104,13 @@ export default function InvoiceFormPage() {
     } else if (data) {
       const existingLines = data.lines;
       setForm({
-        issuer:            data.issuer            ?? 'tenant',
-        recipient_name:    data.recipient_name    ?? '',
-        recipient_address: data.recipient_address ?? '',
-        currency:          data.currency          ?? 'ZAR',
-        vat_rate_pct:      data.vat_rate_percent  ?? 0,
+        issuer:                data.issuer                ?? 'tenant',
+        recipient_org_id:      data.recipient_org_id      ?? '',
+        recipient_customer_id: data.recipient_customer_id ?? '',
+        recipient_name:        data.recipient_name        ?? '',
+        recipient_address:     data.recipient_address     ?? '',
+        currency:              data.currency              ?? 'ZAR',
+        vat_rate_pct:          data.vat_rate_percent      ?? 0,
         lines: (existingLines && existingLines.length > 0)
           ? existingLines.map((l) => ({
               description: l.description,
@@ -158,9 +162,12 @@ export default function InvoiceFormPage() {
     setSaving(true);
     setError(null);
 
-    const { lines, vat_rate_pct, ...rest } = form;
+    const { lines, vat_rate_pct, recipient_org_id, recipient_customer_id, ...rest } = form;
     const body = {
       ...rest,
+      // Only send recipient IDs when they are non-empty strings.
+      ...(recipient_org_id      ? { recipient_org_id }      : {}),
+      ...(recipient_customer_id ? { recipient_customer_id } : {}),
       lines,
       vat_rate_pct: parseFloat(vat_rate_pct) || 0,
     };
@@ -297,6 +304,26 @@ export default function InvoiceFormPage() {
             <CardDescription>Your customer's billing details.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Recipient org ID — required for tenant-issued invoices */}
+            {form.issuer === 'tenant' && (
+              <div className="space-y-1">
+                <Label htmlFor="recipient_org_id">
+                  Recipient org ID{' '}
+                  <span className="text-destructive text-xs">*</span>
+                  {' '}
+                  <span className="text-muted-foreground text-xs">
+                    (required — the organisation being billed)
+                  </span>
+                </Label>
+                <Input
+                  id="recipient_org_id"
+                  value={form.recipient_org_id}
+                  onChange={(e) => setField('recipient_org_id', e.target.value)}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  required
+                />
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="recipient_name">Recipient name</Label>
               <Input

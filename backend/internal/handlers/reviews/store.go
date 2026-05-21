@@ -170,13 +170,18 @@ func (s *Store) SubmitReview(
 
 	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		// 1. Validate order ownership and status.
+		// orders.customer_id is a FK to customers(id), which is distinct from the
+		// caller's profile UUID. The link is customers.profile_id = profileID.
+		// We therefore JOIN through the customers table to match the order via
+		// the caller's profile identity.
 		var locationID string
 		var orderStatus string
 		err := tx.QueryRow(ctx, `
-			SELECT location_id, status
-			FROM orders
-			WHERE id = $1
-			  AND customer_id = $2
+			SELECT o.location_id, o.status
+			FROM orders o
+			JOIN customers c ON c.id = o.customer_id
+			WHERE o.id = $1
+			  AND c.profile_id = $2
 		`, orderID, customerProfileID).Scan(&locationID, &orderStatus)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOrderNotEligible
