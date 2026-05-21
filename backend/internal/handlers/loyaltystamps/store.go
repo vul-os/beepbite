@@ -235,7 +235,7 @@ func (s *Store) AccrueStamp(ctx context.Context, customerID string, count int) (
 			INSERT INTO customer_loyalty_stamps
 			            (organization_id, customer_id, location_id, stamps)
 			VALUES      (current_org_id(), $1::uuid, NULL, $2)
-			ON CONFLICT (organization_id, customer_id, location_id)
+			ON CONFLICT (organization_id, customer_id) WHERE location_id IS NULL
 			DO UPDATE SET stamps     = customer_loyalty_stamps.stamps + EXCLUDED.stamps,
 			              updated_at = timezone('utc', now())
 			RETURNING stamps, updated_at

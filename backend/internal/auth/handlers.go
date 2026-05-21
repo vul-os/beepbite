@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -10,7 +11,14 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// PostSignupHook is called after a new user is created (email/password signup
+// and Google OAuth new-user path). profileID and email identify the new user.
+// Returning an error is treated as a warning only — the signup response is
+// already committed and must not be rolled back.
+type PostSignupHook func(ctx context.Context, pool *pgxpool.Pool, profileID, email string) error
 
 type Handler struct {
 	svc    *Service
@@ -20,10 +28,31 @@ type Handler struct {
 	// a successful OAuth exchange. Tokens are appended as URL fragment so the
 	// SPA can pick them up without exposing them in the Referer header.
 	postAuthRedirect string
+
+	// pool + postSignup are set via WithPool to call post-signup hooks
+	// (e.g. driverinvite.AcceptMatchingInvites) without creating an import
+	// cycle (driverinvite/handler.go already imports auth).
+	pool       *pgxpool.Pool
+	postSignup PostSignupHook
 }
 
 func NewHandler(svc *Service, google *Google, postAuthRedirect string) *Handler {
 	return &Handler{svc: svc, google: google, postAuthRedirect: postAuthRedirect}
+}
+
+// WithPool wires a pool and a post-signup hook into the handler.
+// Both must be non-nil to activate the hook.
+//
+// FLAG for orchestrator — add this one call in cmd/server/main.go after
+// constructing authH:
+//
+//	authH.WithPool(database.Pool, driverinvite.AcceptMatchingInvites)
+//
+// where driverinvite is "github.com/beepbite/backend/internal/handlers/driverinvite".
+func (h *Handler) WithPool(pool *pgxpool.Pool, hook PostSignupHook) *Handler {
+	h.pool = pool
+	h.postSignup = hook
+	return h
 }
 
 func (h *Handler) Mount(r chi.Router) {
@@ -88,6 +117,12 @@ func (h *Handler) signUp(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, err.Error())
 		}
 		return
+	}
+	// Accept any pending driver invites for this email (non-fatal).
+	if h.pool != nil && h.postSignup != nil {
+		if err := h.postSignup(r.Context(), h.pool, user.ID, req.Email); err != nil {
+			log.Printf("warn: accept driver invites: %v", err)
+		}
 	}
 	writeJSON(w, http.StatusCreated, toSession(user, tp))
 }
@@ -205,6 +240,15 @@ func (h *Handler) googleCallback(w http.ResponseWriter, r *http.Request) {
 		log.Printf("google signin: %v", err)
 		writeErr(w, http.StatusInternalServerError, "signin failed")
 		return
+	}
+	// Accept any pending driver invites for this email (non-fatal).
+	// SignInGoogle upserts, so this is safe to call on every OAuth login —
+	// AcceptMatchingInvites is a no-op when there are no pending invites,
+	// and its INSERT uses ON CONFLICT DO NOTHING for already-accepted rows.
+	if h.pool != nil && h.postSignup != nil {
+		if err := h.postSignup(r.Context(), h.pool, user.ID, profile.Email); err != nil {
+			log.Printf("warn: accept driver invites (google): %v", err)
+		}
 	}
 
 	if h.postAuthRedirect == "" {

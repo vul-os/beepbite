@@ -288,32 +288,35 @@ func (c *Client) getOrderPaymentData(orderID string) (*OrderPaymentData, error) 
 	defer cancel()
 
 	var (
-		o               OrderPaymentData
-		totalAmount     float64
-		tip             float64
-		email           *string
-		phone           *string
-		firstName       *string
-		lastName        *string
+		o         OrderPaymentData
+		email     *string
+		phone     *string
+		firstName *string
+		lastName  *string
 	)
+	// order_financial_details was dropped in the Wave 0 consolidation (migration 008).
+	// Financial totals are now integer-cent columns directly on orders:
+	//   subtotal_cents, tax_cents, total_cents (bigint, already in minor units / cents).
+	// Paystack's ZAR amount field expects cents (100 = R1.00), so total_cents maps
+	// directly with no multiplication. The old code read ofd.total_amount (a decimal
+	// rands value) via a LEFT JOIN that silently returned NULL → COALESCE → 0, then
+	// multiplied by 100. That join is removed here.
 	err := c.pool.QueryRow(ctx, `
 SELECT o.id, o.customer_id, o.location_id,
-       COALESCE(ofd.total_amount, 0),
-       0::numeric AS driver_tip,
+       o.total_cents,
        c.email, c.whatsapp_number, c.first_name, c.last_name
 FROM orders o
-LEFT JOIN order_financial_details ofd ON ofd.order_id = o.id
 LEFT JOIN customers c ON c.id = o.customer_id
 WHERE o.id = $1
-`, orderID).Scan(&o.OrderID, &o.CustomerID, &o.LocationID, &totalAmount, &tip, &email, &phone, &firstName, &lastName)
+`, orderID).Scan(&o.OrderID, &o.CustomerID, &o.LocationID, &o.TotalAmountCents, &email, &phone, &firstName, &lastName)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("Order not found")
 		}
 		return nil, err
 	}
-	o.TotalAmountCents = int64(math.Round(totalAmount * 100))
-	o.DriverTipCents = int64(math.Round(tip * 100))
+	// Driver tip is not yet stored per-order; default to zero.
+	o.DriverTipCents = 0
 	if email != nil {
 		o.CustomerEmail = *email
 	}

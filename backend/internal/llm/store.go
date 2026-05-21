@@ -36,7 +36,7 @@ SELECT provider, model,
        output_cost_per_1k::float8,
        supports_vision,
        supports_tools,
-       context_length
+       COALESCE(context_length, 0)
 FROM llm_model_pricing
 ORDER BY provider, model
 `)

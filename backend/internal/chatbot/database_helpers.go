@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
 	"github.com/jackc/pgx/v5"
 )
@@ -758,25 +759,10 @@ func (s *Service) createOrder(
 		cur = locations.Currency{Code: "ZAR", Symbol: "R", Decimals: 2}
 	}
 
-	// Step 1: Create order
-	var orderID string
-	err := s.pool.QueryRow(ctx,
-		`INSERT INTO orders (location_id, customer_id, order_number, order_type, status, currency_code)
-		 VALUES ($1, $2, $3, $4, 'pending', $5)
-		 RETURNING id`,
-		locationID, customerID, orderNumber, orderType, cur.Code,
-	).Scan(&orderID)
-	if err != nil {
-		log.Printf("Error creating order: %v", err)
-		return createOrderResult{Success: false, Error: "Failed to create order"}
-	}
-
-	// Step 2: order_details
+	// Resolve delivery fields.
 	var notes interface{}
 	if customerEmail != "" {
 		notes = fmt.Sprintf("Customer email: %s", customerEmail)
-	} else {
-		notes = nil
 	}
 	var dAddr, dInstr interface{}
 	var dLat, dLng interface{}
@@ -795,53 +781,76 @@ func (s *Service) createOrder(
 		}
 	}
 
-	_, err = s.pool.Exec(ctx,
-		`INSERT INTO order_details
-		    (order_id, estimated_prep_time, notes, delivery_address, delivery_latitude, delivery_longitude, delivery_instructions)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		orderID, 30, notes, dAddr, dLat, dLng, dInstr,
-	)
-	if err != nil {
-		log.Printf("Error creating order details: %v", err)
-		_, _ = s.pool.Exec(ctx, `DELETE FROM orders WHERE id = $1`, orderID)
-		return createOrderResult{Success: false, Error: "Failed to create order details"}
+	// Convert financials to integer cents.
+	subtotalCents := int64(math.Round(subtotal * 100))
+	deliveryFeeCents := int64(math.Round(deliveryFee * 100))
+	taxCents := int64(math.Round(taxAmount * 100))
+	totalCents := int64(math.Round(totalAmount * 100))
+
+	// Resolve organization_id from the location (required for the orders NOT NULL FK).
+	var orgID string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT organization_id FROM locations WHERE id = $1`,
+		locationID,
+	).Scan(&orgID); err != nil {
+		log.Printf("Error resolving org for location %s: %v", locationID, err)
+		return createOrderResult{Success: false, Error: "Failed to resolve organization"}
 	}
 
-	// Step 3: financial details
-	_, err = s.pool.Exec(ctx,
-		`INSERT INTO order_financial_details
-		    (order_id, subtotal, delivery_fee, total_amount, tax_rate, tax_amount, tax_inclusive, payment_status, payment_method)
-		 VALUES ($1, $2, $3, $4, $5, $6, true, 'pending', 'card')`,
-		orderID, subtotal, deliveryFee, totalAmount, taxRate, taxAmount,
-	)
-	if err != nil {
-		log.Printf("Error creating financial details: %v", err)
-		_, _ = s.pool.Exec(ctx, `DELETE FROM order_details WHERE order_id = $1`, orderID)
-		_, _ = s.pool.Exec(ctx, `DELETE FROM orders WHERE id = $1`, orderID)
-		return createOrderResult{Success: false, Error: "Failed to create financial details"}
-	}
-
-	// Step 4: order items
-	for _, ci := range cartItems {
-		var specialInstr interface{}
-		if ci.SpecialInstructions != nil {
-			specialInstr = *ci.SpecialInstructions
+	var orderID string
+	// Wrap in a service-role-scoped transaction: orders and order_items have FORCE
+	// RLS and require session vars. The chatbot has no JWT context — service-role
+	// is appropriate for this trusted server path; org/location values are explicit.
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		// Step 1: Insert consolidated order row (order_details + order_financial_details
+		// fields are now directly on orders after the Wave 0 consolidation).
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO orders (
+			    organization_id, location_id, customer_id, order_number,
+			    order_type, fulfillment_type, status,
+			    subtotal_cents, delivery_fee_cents, tax_cents, total_cents, tax_rate,
+			    currency_code, estimated_prep_time,
+			    delivery_address, delivery_latitude, delivery_longitude, delivery_instructions,
+			    notes
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, 30, $13, $14, $15, $16, $17)
+			RETURNING id
+		`,
+			orgID, locationID, customerID, orderNumber,
+			orderType, fulfillmentTypeForChatbot(orderType),
+			subtotalCents, deliveryFeeCents, taxCents, totalCents, taxRate,
+			cur.Code,
+			dAddr, dLat, dLng, dInstr,
+			notes,
+		).Scan(&orderID); err != nil {
+			return fmt.Errorf("insert order: %w", err)
 		}
-		_, err := s.pool.Exec(ctx,
-			`INSERT INTO order_items (order_id, item_id, quantity, unit_price, total_price, special_instructions)
-			 VALUES ($1, $2, $3, $4, $5, $6)`,
-			orderID, ci.ItemID, ci.Quantity, ci.UnitPrice, ci.TotalPrice, specialInstr,
-		)
-		if err != nil {
-			log.Printf("Error creating order item: %v", err)
-			_, _ = s.pool.Exec(ctx, `DELETE FROM order_financial_details WHERE order_id = $1`, orderID)
-			_, _ = s.pool.Exec(ctx, `DELETE FROM order_details WHERE order_id = $1`, orderID)
-			_, _ = s.pool.Exec(ctx, `DELETE FROM orders WHERE id = $1`, orderID)
-			return createOrderResult{Success: false, Error: "Failed to create order items"}
+
+		// Step 2: Insert order_items with integer-cent columns (unit_price/total_price
+		// were renamed to unit_price_cents/total_price_cents in the Wave 0 schema).
+		for _, ci := range cartItems {
+			unitCents := int64(math.Round(ci.UnitPrice * 100))
+			totalItemCents := int64(math.Round(ci.TotalPrice * 100))
+			var specialInstr interface{}
+			if ci.SpecialInstructions != nil {
+				specialInstr = *ci.SpecialInstructions
+			}
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO order_items (order_id, item_id, quantity, unit_price_cents, total_price_cents, special_instructions)
+				VALUES ($1, $2, $3, $4, $5, $6)
+			`, orderID, ci.ItemID, ci.Quantity, unitCents, totalItemCents, specialInstr,
+			); err != nil {
+				return fmt.Errorf("insert order item %s: %w", ci.ItemID, err)
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		log.Printf("Error creating order: %v", err)
+		return createOrderResult{Success: false, Error: "Failed to create order"}
 	}
 
-	// Step 5: clear cart
+	// Step 3: clear cart
 	s.clearCart(ctx, customerID, locationID)
 
 	return createOrderResult{
@@ -851,6 +860,20 @@ func (s *Service) createOrder(
 		TotalAmount: totalAmount,
 	}
 }
+
+// fulfillmentTypeForChatbot maps the chatbot's order_type string to the
+// fulfillment_type enum used by the consolidated orders table.
+func fulfillmentTypeForChatbot(orderType string) string {
+	switch orderType {
+	case "delivery":
+		return "delivery"
+	case "dine_in":
+		return "dine_in"
+	default:
+		return "collection"
+	}
+}
+
 
 type addAddressResult struct {
 	Success bool

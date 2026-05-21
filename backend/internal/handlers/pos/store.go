@@ -462,12 +462,11 @@ func (s *Store) CreateOrder(
 			`, line.Quantity, line.ItemID).Scan(&remaining); err != nil {
 				return nil, fmt.Errorf("daily countdown for item %s: %w", line.ItemID, err)
 			}
-			// remaining reflects the stock BEFORE this order's quantity was added;
-			// the UPDATE above already committed the decrement optimistically.
-			// If remaining < requested we must abort.
-			if remaining < line.Quantity {
-				return nil, fmt.Errorf("%w: only %d left of %q today",
-					ErrItemSoldOut, remaining, item.name)
+			// remaining = daily_quantity - new_sold_count (stock left AFTER this
+			// order's quantity was added). A negative value means we oversold;
+			// reject only in that case to avoid false-rejecting valid orders.
+			if remaining < 0 {
+				return nil, fmt.Errorf("%w: %q is sold out for today", ErrItemSoldOut, item.name)
 			}
 		}
 

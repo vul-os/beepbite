@@ -136,8 +136,8 @@ func TestDispatchSignsAndPosts(t *testing.T) {
 		Payload:       payloadJSON,
 		Status:        "pending",
 		Attempts:      0,
-		EndpointURL:   srv.URL,
-		SigningSecret: secret,
+		EndpointURL:            srv.URL,
+		SigningSecretCiphertext: secret,
 	}
 
 	// dispatch will panic on the nil-pool DB call. Recover and check HTTP side.
