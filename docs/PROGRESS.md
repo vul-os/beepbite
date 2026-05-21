@@ -95,6 +95,29 @@ Built out Wave 14 testing infra and, by actually *running* the new suites, found
 
 ---
 
+### Round 6 — Wave 24 Easy Wins + KDS expo polish (2026-05-21)
+- ✅ **KDS expo redesign + fixes**: base64 station_tickets decode, order numbers (not UUIDs), item NAMES in the expo (migration 025 rebuilds `kds_expo_view` with item names), on-brand card redesign w/ urgency coloring; fixed `GetTicketDetail` dropped-`order_details` join.
+- ✅ **Wave 24 — Easy Wins** (10 sonnet agents + migration 026): customer note + auto-gratuity + item daily-countdown (POS), receipt reprint, quick re-order, customer search by phone, cash-out report at shift close, pickup time slots, loyalty stamps, daily-countdown display (marketplace/POS), order-modification-before-fire (PATCH /pos/orders/:id/items).
+  - All wired into main.go + verified live (endpoints 200). 
+  - Integration fixes during merge: consolidated 3 duplicate `026_*` migrations into one; added missing `orders.gratuity_cents` + `orders.pickup_at`; fixed CreateOrder test signature; resolved a chi route-conflict (two handlers `Route("/customers/{customer_id}")` → full-path registration); fixed pickupslots raw-pool-under-RLS (→ db.Scoped).
+
+**Live e2e: 253/253. Migrations through 026. Full build green.**
+
+⚠️ **Large uncommitted tree**: migrations 021–026, Waves 16/19/24, KDS+dashboard+payment fixes, `order_details` cleanup — all uncommitted on `beepnew`. Recommend committing.
+
+---
+
+### Round 7 — After-payment receipt modal + Wave 22 Public API (2026-05-21)
+- ✅ **After-payment receipt modal** (3 agents): `src/pages/pos/components/receipt-modal.jsx` (reuses Wave 24 receipt endpoint/view, print) auto-opens after a successful tender in the full POS workspace, Quick POS, and marketplace checkout. (Email/WhatsApp send buttons stubbed — no send endpoint yet.)
+- ✅ **Wave 22 — Public API + scoped keys + tenant webhooks** (7 agents + migration 027): `internal/handlers/apikeys` (create/list/revoke, `bb_live_…` keys shown once), `internal/apiauth` (Bearer key → org scope), `internal/ratelimit` (per-key token bucket), `internal/handlers/webhooksub` (webhook endpoint CRUD + deliveries), `internal/webhookdelivery` (Emit + signed HMAC delivery worker, started). New `/api/v1/data/{table}` external surface (apiauth + rate limit, reusing the data layer). Settings UI at `/settings/api-keys`. Verified: key→200 on /api/v1 w/ rate headers, bad key→401, webhook create→201.
+  - Integration fixes during merge: removed duplicate migration 027; **reconciled to the canonical migration-007 schema** (`api_keys`/`webhook_endpoints` already existed with `org_id`/`signing_secret_ciphertext`/`is_active` — agents had invented `organization_id`/`signing_secret`/`active`); migration 027 now only adds `api_keys.environment`, `webhook_endpoints.description`, and the new `webhook_deliveries` table; fixed the API-key prefix-length mismatch (16-char stored vs 12-char lookup → robust prefix LIKE match).
+
+**Live e2e: 253/253. Migrations through 027. Full build green. Receipt modal + Wave 22 verified.**
+
+⚠️ Uncommitted on `beepnew`: migrations 021–027, Waves 16/19/24/22, receipt modal, KDS/dashboard/payment fixes.
+
+---
+
 ## In Progress ⏳
 
 _(none active)_

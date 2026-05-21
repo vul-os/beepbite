@@ -174,6 +174,8 @@ func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
 			{ItemID: itemID, Quantity: 1},
 		},
 		"", // onDeliveryMethod — not applicable for dine_in
+		"", // customerNote
+		0,  // partySize
 	)
 	if err != nil {
 		t.Fatalf("CreateOrder: %v", err)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { createOrder, clearCart, getStore } from '@/services/marketplace';
 import { formatPrice } from '@/lib/currency';
+import ReceiptModal from '@/pages/pos/components/receipt-modal';
 
 const TIP_OPTIONS = [
   { label: '0%', value: 0 },
@@ -109,6 +110,9 @@ export default function CheckoutPage() {
   const [orderRef, setOrderRef] = useState(null);
   const [submitError, setSubmitError] = useState(null);
 
+  // ── Receipt modal state ───────────────────────────────────────────────────
+  const [receiptOpen, setReceiptOpen] = useState(false);
+
   // ── Computed totals ───────────────────────────────────────────────────────
   const tipAmount =
     customTip !== ''
@@ -163,6 +167,7 @@ export default function CheckoutPage() {
         setOrderRef(ref);
         setConfirmedMethod(isOnDelivery ? selectedDeliveryMethod : null);
         setConfirmed(true);
+        setReceiptOpen(true);
       } else {
         setSubmitError(error.message || 'Something went wrong. Please try again.');
       }
@@ -170,12 +175,29 @@ export default function CheckoutPage() {
       return;
     }
 
+    const ref = data?.order_number || data?.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
     clearCart(slug);
-    setOrderRef(data?.order_number || data?.id || `ORD-${Date.now().toString(36).toUpperCase()}`);
+    setOrderRef(ref);
     setConfirmedMethod(isOnDelivery ? selectedDeliveryMethod : null);
     setConfirmed(true);
+    setReceiptOpen(true);
     setSubmitting(false);
   };
+
+  // ── Receipt modal handlers ────────────────────────────────────────────────
+  const handleReceiptClose = useCallback(() => {
+    setReceiptOpen(false);
+  }, []);
+
+  const handleReceiptNewOrder = useCallback(() => {
+    // "Done" — close receipt and navigate back to the store menu
+    setReceiptOpen(false);
+    if (slug) {
+      navigate(`/store/${slug}`);
+    } else {
+      navigate('/discover');
+    }
+  }, [navigate, slug]);
 
   // ── Confirmation screen ───────────────────────────────────────────────────
   if (confirmed) {
@@ -234,6 +256,14 @@ export default function CheckoutPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Receipt modal — shown immediately after order placement */}
+        <ReceiptModal
+          orderId={orderRef}
+          open={receiptOpen}
+          onClose={handleReceiptClose}
+          onNewOrder={handleReceiptNewOrder}
+        />
       </div>
     );
   }

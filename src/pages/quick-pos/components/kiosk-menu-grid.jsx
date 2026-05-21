@@ -3,6 +3,39 @@ import { Search, X, Utensils, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
 
+/**
+ * Compute remaining_today from raw daily countdown columns.
+ * Returns null when daily_quantity is null/undefined (unlimited).
+ */
+function computeRemainingToday(item) {
+  if (item.daily_quantity == null) return null;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const soldToday =
+    item.daily_counter_date === todayStr
+      ? (item.daily_sold_count ?? 0)
+      : 0;
+  return Math.max(item.daily_quantity - soldToday, 0);
+}
+
+/**
+ * Pill badge for daily countdown on a kiosk item card.
+ */
+function KioskCountdownPill({ remaining }) {
+  if (remaining === null || remaining === undefined) return null;
+  if (remaining === 0) {
+    return (
+      <span className="absolute top-2 left-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white leading-none shadow">
+        Sold out
+      </span>
+    );
+  }
+  return (
+    <span className="absolute top-2 left-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white leading-none shadow">
+      {remaining} left
+    </span>
+  );
+}
+
 // Emoji lookup — reuse the same table as pos-section.jsx
 const ITEM_EMOJI_KEYWORDS = [
   { match: /burger|patty|cheeseburger/i, emoji: '🍔' },
@@ -58,6 +91,9 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
     const matchCat = activeCat === 'all' || item.category_id === activeCat;
     return matchSearch && matchCat;
   });
+
+  // Pre-compute remaining counts once per render so we don't redo it per item.
+  const remainingMap = new Map(filtered.map(item => [item.id, computeRemainingToday(item)]));
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -129,34 +165,47 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filtered.map(item => (
-              <button
-                key={item.id}
-                onClick={() => onAddItem(item)}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border-2 border-gray-200 bg-white shadow-sm hover:border-orange-400 hover:shadow-lg active:scale-95 transition-all duration-150 text-left focus:outline-none focus:ring-2 focus:ring-orange-400"
-              >
-                {/* Emoji tile */}
-                <div className="flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 h-24 sm:h-28">
-                  <span className="text-5xl leading-none select-none group-hover:scale-110 transition-transform duration-200">
-                    {emojiForItem(item)}
-                  </span>
-                </div>
-                {/* Details */}
-                <div className="flex flex-col flex-1 p-3">
-                  <p className="font-semibold text-gray-900 text-base line-clamp-2 leading-tight">
-                    {item.name}
-                  </p>
-                  <div className="mt-auto pt-2 flex items-center justify-between">
-                    <span className="text-lg font-bold text-gray-900 tabular-nums">
-                      {formatPrice(parseFloat(item.price || 0) * 100, currency)}
+            {filtered.map(item => {
+              const remaining = remainingMap.get(item.id);
+              const soldOutToday = remaining !== null && remaining === 0;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => !soldOutToday && onAddItem(item)}
+                  disabled={soldOutToday}
+                  className={cn(
+                    'group relative flex flex-col overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-all duration-150 text-left focus:outline-none focus:ring-2 focus:ring-orange-400',
+                    soldOutToday
+                      ? 'border-gray-200 opacity-60 cursor-not-allowed'
+                      : 'border-gray-200 hover:border-orange-400 hover:shadow-lg active:scale-95',
+                  )}
+                >
+                  {/* Emoji tile */}
+                  <div className="relative flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 h-24 sm:h-28">
+                    <span className="text-5xl leading-none select-none group-hover:scale-110 transition-transform duration-200">
+                      {emojiForItem(item)}
                     </span>
-                    <span className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white shrink-0">
-                      <Plus className="w-5 h-5" strokeWidth={2.5} />
-                    </span>
+                    <KioskCountdownPill remaining={remaining} />
                   </div>
-                </div>
-              </button>
-            ))}
+                  {/* Details */}
+                  <div className="flex flex-col flex-1 p-3">
+                    <p className="font-semibold text-gray-900 text-base line-clamp-2 leading-tight">
+                      {item.name}
+                    </p>
+                    <div className="mt-auto pt-2 flex items-center justify-between">
+                      <span className="text-lg font-bold text-gray-900 tabular-nums">
+                        {formatPrice(parseFloat(item.price || 0) * 100, currency)}
+                      </span>
+                      {!soldOutToday && (
+                        <span className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white shrink-0">
+                          <Plus className="w-5 h-5" strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

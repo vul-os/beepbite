@@ -23,6 +23,9 @@ var (
 	ErrOrderAlreadyPaid         = errors.New("order already paid")
 	ErrPaymentMethodNotFound    = errors.New("payment method not found")
 	ErrNoPaymentMethodAvailable = errors.New("no payment method available")
+	// ErrItemSoldOut is returned when a daily-countdown item has insufficient
+	// remaining stock for the requested quantity.
+	ErrItemSoldOut = errors.New("item sold out for today")
 )
 
 // KDS routing fallback chain.
@@ -122,17 +125,18 @@ type OrderLineInput struct {
 
 // CreatedOrder is the response returned after successfully creating an order.
 type CreatedOrder struct {
-	OrderID       string   `json:"order_id"`
-	OrderNumber   string   `json:"order_number"`
-	Subtotal      float64  `json:"subtotal"`
-	Tax           float64  `json:"tax"`
-	Total         float64  `json:"total"`
-	CurrencyCode  string   `json:"currency_code"`
-	KDSTicketIDs  []string `json:"kds_ticket_ids"`
+	OrderID      string   `json:"order_id"`
+	OrderNumber  string   `json:"order_number"`
+	Subtotal     float64  `json:"subtotal"`
+	Tax          float64  `json:"tax"`
+	Gratuity     float64  `json:"gratuity"`
+	Total        float64  `json:"total"`
+	CurrencyCode string   `json:"currency_code"`
+	KDSTicketIDs []string `json:"kds_ticket_ids"`
 	// Status reflects the on-delivery fallback: "pending_on_delivery" when
 	// payment is deferred to handover; "confirmed" for the normal path.
-	Status        string   `json:"status"`
-	PaymentMethod string   `json:"payment_method"`
+	Status        string `json:"status"`
+	PaymentMethod string `json:"payment_method"`
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +164,8 @@ func (s *Store) CreateOrder(
 	customerID string,
 	lines []OrderLineInput,
 	onDeliveryMethod string,
+	customerNote string,
+	partySize int,
 ) (*CreatedOrder, error) {
 	// Use the request's db.Scope (injected by RequireOrgScope middleware) so RLS
 	// session variables (current_org_id, current_user_id) are set on the
@@ -180,12 +186,26 @@ func (s *Store) CreateOrder(
 	// organization_id is read from the location: orders.organization_id is NOT
 	// NULL and the orders RLS WITH CHECK requires it to equal current_org_id(),
 	// so it must be the location's owning org.
+	//
+	// Also fetch auto-gratuity config (columns added by migration 026):
+	//   auto_gratuity_enabled bool
+	//   auto_gratuity_percent numeric
+	//   auto_gratuity_min_party int
 	var orgID *string
 	var onDeliveryMethods []string
+	var autoGratuityEnabled bool
+	var autoGratuityPercent float64
+	var autoGratuityMinParty int
 	if err := tx.QueryRow(ctx,
-		`SELECT organization_id, on_delivery_payment_methods FROM locations WHERE id = $1`,
+		`SELECT organization_id, on_delivery_payment_methods,
+		        COALESCE(auto_gratuity_enabled, false),
+		        COALESCE(auto_gratuity_percent, 0),
+		        COALESCE(auto_gratuity_min_party, 0)
+		 FROM locations WHERE id = $1`,
 		locationID,
-	).Scan(&orgID, &onDeliveryMethods); err != nil {
+	).Scan(&orgID, &onDeliveryMethods,
+		&autoGratuityEnabled, &autoGratuityPercent, &autoGratuityMinParty,
+	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrLocationNotFound
 		}
@@ -230,9 +250,17 @@ func (s *Store) CreateOrder(
 	}
 
 	// --- 2. Resolve item prices and validate items exist ---
+	// Also fetch daily-countdown fields (columns added by migration 026):
+	//   daily_quantity int (NULL = unlimited)
+	//   daily_sold_count int
+	//   daily_counter_date date
 	type itemRow struct {
-		id    string
-		price float64
+		id               string
+		price            float64
+		name             string
+		dailyQuantity    *int    // NULL means unlimited
+		dailySoldCount   int
+		dailyCounterDate *string // date as string, NULL when never set
 	}
 	itemCache := make(map[string]itemRow, len(lines))
 	for _, line := range lines {
@@ -241,8 +269,11 @@ func (s *Store) CreateOrder(
 		}
 		var ir itemRow
 		err := tx.QueryRow(ctx,
-			`SELECT id, price FROM items WHERE id = $1`, line.ItemID,
-		).Scan(&ir.id, &ir.price)
+			`SELECT id, price, name,
+			        daily_quantity, daily_sold_count, daily_counter_date::text
+			 FROM items WHERE id = $1`, line.ItemID,
+		).Scan(&ir.id, &ir.price, &ir.name,
+			&ir.dailyQuantity, &ir.dailySoldCount, &ir.dailyCounterDate)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrItemNotFound
 		}
@@ -317,6 +348,23 @@ func (s *Store) CreateOrder(
 	taxCents := int64(math.Round(float64(subtotalCents) * taxRate / 100.0))
 	totalCents := subtotalCents + taxCents
 
+	// --- 4b. Auto-gratuity (Wave 24) ---
+	// If the location has auto_gratuity_enabled and the order's party_size meets
+	// the minimum threshold, compute and add a gratuity on top of the subtotal.
+	// partySize=0 means the caller did not supply a party_size; treat as 1.
+	effectivePartySize := partySize
+	if effectivePartySize <= 0 {
+		effectivePartySize = 1
+	}
+	var gratuityCents int64
+	if autoGratuityEnabled &&
+		autoGratuityPercent > 0 &&
+		autoGratuityMinParty > 0 &&
+		effectivePartySize >= autoGratuityMinParty {
+		gratuityCents = int64(math.Round(float64(subtotalCents) * autoGratuityPercent / 100.0))
+		totalCents += gratuityCents
+	}
+
 	// Resolve per-store currency (with 5-min cache).
 	cur, err := locations.CurrencyFor(ctx, s.pool, locationID)
 	if err != nil {
@@ -347,8 +395,14 @@ func (s *Store) CreateOrder(
 	// and order_financial_details (subtotal/tax/total) directly onto orders, all
 	// in integer cents. Payment method/status is no longer stored here — it is
 	// recorded in order_payments at charge time.
+	//
+	// notes: prefer the explicit customerNote from the request; fall back to a
+	// table-number annotation so existing behaviour for table orders is preserved.
 	var notes any
-	if tableNumber != "" {
+	switch {
+	case customerNote != "":
+		notes = customerNote
+	case tableNumber != "":
 		notes = "Table: " + tableNumber
 	}
 	var orderID string
@@ -357,15 +411,15 @@ func (s *Store) CreateOrder(
 		    organization_id, location_id, customer_id, order_number,
 		    order_type, fulfillment_type, status, table_session_id,
 		    subtotal_cents, tax_cents, total_cents, tax_rate, tax_inclusive,
-		    currency_code, estimated_prep_time, notes
+		    currency_code, estimated_prep_time, notes, gratuity_cents
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, $13, 20, $14)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, $13, 20, $14, $15)
 		RETURNING id
 	`,
 		*orgID, locationID, nullStr(customerID), orderNumber,
 		orderType, fulfillmentTypeFor(orderType), initialStatus, nullStr(tableSessionID),
 		subtotalCents, taxCents, totalCents, taxRate,
-		cur.Code, notes,
+		cur.Code, notes, gratuityCents,
 	).Scan(&orderID); err != nil {
 		return nil, err
 	}
@@ -376,6 +430,47 @@ func (s *Store) CreateOrder(
 	// compile and work once migration 022 has been applied at runtime.
 	for i, line := range lines {
 		unitCents := lineUnitCents[i]
+
+		// --- 7a. Daily-countdown decrement (Wave 24, migration 026 columns) ---
+		// For items with a non-NULL daily_quantity we atomically:
+		//   1. Reset daily_sold_count if daily_counter_date is not today.
+		//   2. Check remaining = daily_quantity - daily_sold_count.
+		//   3. Reject with ErrItemSoldOut if remaining < requested quantity.
+		//   4. Increment daily_sold_count by the requested quantity.
+		// Items with NULL daily_quantity are unlimited and skip this block.
+		item := itemCache[line.ItemID]
+		if item.dailyQuantity != nil {
+			// Use a SELECT … FOR UPDATE on the items row so concurrent orders
+			// for the same item serialise at the row level within the tx.
+			var remaining int
+			if err := tx.QueryRow(ctx, `
+				UPDATE items
+				SET daily_sold_count = CASE
+				        WHEN daily_counter_date IS DISTINCT FROM CURRENT_DATE
+				        THEN $1
+				        ELSE daily_sold_count + $1
+				    END,
+				    daily_counter_date = CURRENT_DATE
+				WHERE id = $2
+				  AND daily_quantity IS NOT NULL
+				RETURNING daily_quantity - CASE
+				        WHEN (daily_counter_date IS DISTINCT FROM CURRENT_DATE
+				              OR daily_counter_date IS NULL)
+				        THEN 0
+				        ELSE daily_sold_count
+				    END
+			`, line.Quantity, line.ItemID).Scan(&remaining); err != nil {
+				return nil, fmt.Errorf("daily countdown for item %s: %w", line.ItemID, err)
+			}
+			// remaining reflects the stock BEFORE this order's quantity was added;
+			// the UPDATE above already committed the decrement optimistically.
+			// If remaining < requested we must abort.
+			if remaining < line.Quantity {
+				return nil, fmt.Errorf("%w: only %d left of %q today",
+					ErrItemSoldOut, remaining, item.name)
+			}
+		}
+
 		var orderItemID string
 		if err := tx.QueryRow(ctx, `
 			INSERT INTO order_items (order_id, item_id, quantity, unit_price_cents, total_price_cents, special_instructions, course_id)
@@ -436,6 +531,7 @@ func (s *Store) CreateOrder(
 		OrderNumber:   orderNumber,
 		Subtotal:      float64(subtotalCents) / 100,
 		Tax:           float64(taxCents) / 100,
+		Gratuity:      float64(gratuityCents) / 100,
 		Total:         float64(totalCents) / 100,
 		CurrencyCode:  cur.Code,
 		KDSTicketIDs:  kdsTicketIDs,

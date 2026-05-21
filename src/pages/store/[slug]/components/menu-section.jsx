@@ -22,6 +22,28 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
     (cat.items || []).map((item) => ({ ...item, category: cat.name }))
   );
 
+  /**
+   * Render the daily-countdown pill for an item.
+   * remaining_today === null  → unlimited, show nothing.
+   * remaining_today === 0     → sold out today (red).
+   * remaining_today > 0       → "N left today" (amber/orange).
+   */
+  function CountdownBadge({ remaining }) {
+    if (remaining === null || remaining === undefined) return null;
+    if (remaining === 0) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">
+          Sold out today
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+        {remaining} left today
+      </span>
+    );
+  }
+
   const categories = menu.map((cat) => cat.name).filter(Boolean);
   const [activeTab, setActiveTab] = useState(categories[0] || 'all');
 
@@ -69,11 +91,15 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
         {visibleItems.map((item) => {
           const qty = cartMap.get(item.id) || 0;
           const unavailable = item.is_available === false;
+          // remaining_today: null = unlimited, 0 = sold out, N = N left
+          const remaining = item.remaining_today ?? null;
+          const soldOutToday = remaining !== null && remaining === 0;
+          const effectivelyUnavailable = unavailable || soldOutToday;
 
           return (
             <div
               key={item.id}
-              className={`flex gap-3 rounded-lg border p-3 bg-card ${unavailable ? 'opacity-50' : ''}`}
+              className={`flex gap-3 rounded-lg border p-3 bg-card ${effectivelyUnavailable ? 'opacity-50' : ''}`}
             >
               {/* Image */}
               {item.image_url && (
@@ -101,15 +127,18 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
                     {item.description}
                   </p>
                 )}
-                {unavailable && (
-                  <Badge variant="secondary" className="text-xs">
-                    Unavailable
-                  </Badge>
-                )}
+                <div className="flex flex-wrap gap-1">
+                  {unavailable && (
+                    <Badge variant="secondary" className="text-xs">
+                      Unavailable
+                    </Badge>
+                  )}
+                  <CountdownBadge remaining={remaining} />
+                </div>
               </div>
 
               {/* Qty controls */}
-              {!unavailable && (
+              {!effectivelyUnavailable && (
                 <div className="flex items-center gap-1 shrink-0 self-end">
                   {qty > 0 ? (
                     <>

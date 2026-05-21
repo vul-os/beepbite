@@ -190,6 +190,39 @@ export async function submitPosOrder({
   return data;
 }
 
+// ---- Order modification (Wave 24) ------------------------------------------
+
+/**
+ * Replace the full set of line items on an order that has not yet been
+ * accepted by the kitchen (no KDS ticket past 'fired').
+ *
+ * Contract:
+ *   PATCH /pos/orders/{orderId}/items
+ *   { items: [{ item_id, quantity, modifiers?, course_id?, notes? }, ...] }
+ *   200 → { order_id, subtotal, tax, total, currency_code, kds_ticket_ids }
+ *   409 → order already in preparation, cannot modify
+ *
+ * @param {string} orderId
+ * @param {Array<{item_id: string, quantity: number, modifiers?: Array<{modifier_id: string}>, course_id?: string, notes?: string}>} items
+ * @returns {Promise<{order_id: string, subtotal: number, tax: number, total: number, currency_code: string, kds_ticket_ids: string[]}>}
+ */
+export async function modifyOrder(orderId, items) {
+  if (!orderId) throw new Error('orderId required');
+  if (!Array.isArray(items) || items.length === 0) throw new Error('items must be a non-empty array');
+
+  const { data, error } = await api.request(
+    'PATCH',
+    `/pos/orders/${encodeURIComponent(orderId)}/items`,
+    { body: { items } },
+  );
+  if (error) {
+    const e = new Error(error.message || 'Failed to modify order');
+    e.status = error.status;
+    throw e;
+  }
+  return data;
+}
+
 // ---- Adjustment endpoints (return / void) ----------------------------------
 
 /**

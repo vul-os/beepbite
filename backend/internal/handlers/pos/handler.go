@@ -49,6 +49,12 @@ type createOrderReq struct {
 	// online payment credential exists for the location.
 	// Accepted values: "cash" | "card_machine".
 	OnDeliveryMethod string `json:"on_delivery_method"`
+	// Notes is an optional customer-facing note persisted to orders.notes.
+	Notes string `json:"notes"`
+	// PartySize is the number of guests; used to trigger auto-gratuity when
+	// the location has auto_gratuity_enabled and party_size >= auto_gratuity_min_party.
+	// Zero means not supplied (treated as 1 for auto-gratuity comparison).
+	PartySize int `json:"party_size"`
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +131,8 @@ func (h *Handler) createOrder(w http.ResponseWriter, r *http.Request) {
 		req.CustomerID,
 		req.Items,
 		req.OnDeliveryMethod,
+		req.Notes,
+		req.PartySize,
 	)
 	switch {
 	case errors.Is(err, ErrLocationNotFound):
@@ -138,6 +146,9 @@ func (h *Handler) createOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, ErrBadModifier):
 		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	case errors.Is(err, ErrItemSoldOut):
+		writeErr(w, http.StatusConflict, err.Error())
 		return
 	case errors.Is(err, ErrNoPaymentMethodAvailable):
 		writeErr(w, http.StatusUnprocessableEntity, "no payment method available — store cannot accept orders right now")

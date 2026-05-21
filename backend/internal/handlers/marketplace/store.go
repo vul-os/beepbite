@@ -77,6 +77,10 @@ type Item struct {
 	Calories         *int     `json:"calories"`
 	SpiceLevel       *int     `json:"spice_level"`
 	SortOrder        int      `json:"sort_order"`
+	// RemainingToday is NULL when daily_quantity is not set (unlimited).
+	// When set, it is GREATEST(daily_quantity - today's sold count, 0).
+	// A value of 0 means sold out for the day.
+	RemainingToday   *int     `json:"remaining_today"`
 }
 
 // ListParams collects the query-string parameters for GET /stores.
@@ -253,6 +257,9 @@ func (s *Store) GetStoreBySlug(ctx context.Context, tx pgx.Tx, slug string) (*St
 
 	// Fetch available items: must be active, not 86ed, and within availability
 	// window (available_from <= now AND (available_until IS NULL OR available_until > now)).
+	// remaining_today is computed from the daily countdown columns added in migration 026:
+	//   NULL when daily_quantity is NULL (unlimited), otherwise
+	//   GREATEST(daily_quantity - (sold today), 0).
 	const itemSQL = `
 		SELECT
 			i.id,
@@ -264,7 +271,17 @@ func (s *Store) GetStoreBySlug(ctx context.Context, tx pgx.Tx, slug string) (*St
 			i.preparation_time,
 			i.calories,
 			i.spice_level,
-			i.sort_order
+			i.sort_order,
+			CASE
+				WHEN i.daily_quantity IS NULL THEN NULL
+				ELSE GREATEST(
+					i.daily_quantity - CASE
+						WHEN i.daily_counter_date = CURRENT_DATE THEN COALESCE(i.daily_sold_count, 0)
+						ELSE 0
+					END,
+					0
+				)
+			END AS remaining_today
 		FROM items i
 		WHERE i.location_id = $1
 		  AND i.is_active   = true
@@ -285,6 +302,7 @@ func (s *Store) GetStoreBySlug(ctx context.Context, tx pgx.Tx, slug string) (*St
 		if err := itemRows.Scan(
 			&it.ID, &catID, &it.Name, &it.Description, &it.Price,
 			&it.ImageURL, &it.PreparationTime, &it.Calories, &it.SpiceLevel, &it.SortOrder,
+			&it.RemainingToday,
 		); err != nil {
 			return nil, err
 		}

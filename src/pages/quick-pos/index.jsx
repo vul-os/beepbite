@@ -17,6 +17,7 @@ import KioskMenuGrid from './components/kiosk-menu-grid';
 import KioskCartStrip from './components/kiosk-cart-strip';
 import KioskTenderModal from './components/kiosk-tender-modal';
 import KioskModifierPrompt from './components/kiosk-modifier-prompt';
+import ReceiptModal from '@/pages/pos/components/receipt-modal';
 
 // ---- cart helpers -------------------------------------------------------
 
@@ -67,6 +68,10 @@ const QuickPOS = () => {
   const [tenderLoading, setTenderLoading] = useState(false);
   const [tenderError, setTenderError] = useState('');
   const [lastOrderNumber, setLastOrderNumber] = useState(null);
+
+  // Receipt modal — shown after a successful tender
+  const [receiptOrderId, setReceiptOrderId] = useState(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   // ---- Resolve store by slug -------------------------------------------
   useEffect(() => {
@@ -274,6 +279,14 @@ const QuickPOS = () => {
       const orderNum = result?.order_number || result?.id || '?';
       setLastOrderNumber(orderNum);
       clearCart();
+
+      // Open receipt modal with the returned order id (prefer uuid id; fall back to order_number)
+      const orderId = result?.id || result?.order_number || null;
+      if (orderId) {
+        setReceiptOrderId(String(orderId));
+        setTenderOpen(false);
+        setReceiptOpen(true);
+      }
     } catch (err) {
       setTenderError(err.message || 'Failed to place order. Please try again.');
     } finally {
@@ -286,6 +299,20 @@ const QuickPOS = () => {
     setLastOrderNumber(null);
     setTenderError('');
   }, []);
+
+  // Receipt modal handlers
+  const handleReceiptClose = useCallback(() => {
+    setReceiptOpen(false);
+    setReceiptOrderId(null);
+  }, []);
+
+  const handleReceiptNewOrder = useCallback(() => {
+    // Reset kiosk for next customer — clear cart + close receipt
+    setReceiptOpen(false);
+    setReceiptOrderId(null);
+    setLastOrderNumber(null);
+    clearCart();
+  }, [clearCart]);
 
   // ---- Render ----------------------------------------------------------
 
@@ -366,6 +393,14 @@ const QuickPOS = () => {
           lastOrderNumber={lastOrderNumber}
         />
       )}
+
+      {/* Receipt modal — shown after a successful payment */}
+      <ReceiptModal
+        orderId={receiptOrderId}
+        open={receiptOpen}
+        onClose={handleReceiptClose}
+        onNewOrder={handleReceiptNewOrder}
+      />
     </div>
   );
 };

@@ -90,6 +90,7 @@ import AdjustmentModal from '@/components/order-adjustments/adjustment-modal';
 import TenderModal from './components/tender-modal';
 import SplitBySeat from './components/split-by-seat';
 import ModifierPicker, { useItemHasModifiers } from './components/modifier-picker';
+import ReceiptModal from './components/receipt-modal';
 
 // ---------------------------------------------------------------------------
 // Constants & helpers
@@ -121,6 +122,41 @@ const uuid = () =>
     `cli-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
 
 const priceCents = (p) => Math.round((parseFloat(p) || 0) * 100);
+
+/**
+ * Compute remaining_today from the raw daily countdown columns.
+ * Returns null when daily_quantity is null/undefined (unlimited).
+ * Returns GREATEST(daily_quantity - today's sold count, 0) otherwise.
+ */
+function computeRemainingToday(item) {
+  if (item.daily_quantity == null) return null;
+  const todayStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  const soldToday =
+    item.daily_counter_date === todayStr
+      ? (item.daily_sold_count ?? 0)
+      : 0;
+  return Math.max(item.daily_quantity - soldToday, 0);
+}
+
+/**
+ * Small inline pill showing the daily countdown for an item tile.
+ * Defensive: renders nothing when remaining is null/undefined.
+ */
+function ItemCountdownPill({ remaining }) {
+  if (remaining === null || remaining === undefined) return null;
+  if (remaining === 0) {
+    return (
+      <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-500 text-white leading-none">
+        Sold out
+      </span>
+    );
+  }
+  return (
+    <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white leading-none">
+      {remaining} left
+    </span>
+  );
+}
 
 // Build a fresh client-side ticket for a walk-in / takeaway.
 function makeWalkInTicket(n) {
@@ -298,6 +334,10 @@ export default function PosWorkspacePage() {
   const [showTenderModal, setShowTenderModal] = useState(false);
   const [tenderError, setTenderError] = useState('');
 
+  // ----- receipt modal state ----------------------------------------------
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptOrderId, setReceiptOrderId] = useState(null);
+
   // ----- split-by-seat state ----------------------------------------------
   const [showSplitBySeat, setShowSplitBySeat] = useState(false);
 
@@ -368,6 +408,7 @@ export default function PosWorkspacePage() {
             .order('sort_order', { ascending: true }).order('name', { ascending: true }),
           supabase.from('items').select(`
             id, name, description, price, category_id,
+            daily_quantity, daily_sold_count, daily_counter_date,
             categories ( id, name )
           `).eq('location_id', activeLocation.id).eq('is_active', true)
             .order('sort_order', { ascending: true }).order('name', { ascending: true }),
@@ -709,6 +750,9 @@ export default function PosWorkspacePage() {
     setTenderError('');
     try {
       const unpaid = activeTicket.sentOrders.filter((o) => o.payment_status !== 'paid');
+      // Capture the first order id now, before state is cleared, so we can
+      // pass it to the receipt modal after the tender modal closes.
+      const firstOrderId = unpaid[0]?.id || activeTicket.sentOrders[0]?.id || null;
       const results = await chargeOrdersWithLegs({
         orders: unpaid,
         legs,
@@ -724,7 +768,15 @@ export default function PosWorkspacePage() {
         title: 'Payment received ✓',
         description: sessionClosed ? 'Table closed.' : 'Order marked paid.',
       });
+      // Close tender modal first, then open receipt after a brief delay so the
+      // two dialogs don't stack on top of each other.
       setShowTenderModal(false);
+      if (firstOrderId) {
+        setTimeout(() => {
+          setReceiptOrderId(firstOrderId);
+          setReceiptOpen(true);
+        }, 150);
+      }
       // If table-bound ticket and session closed, drop the ticket and refresh tables.
       if (sessionClosed && activeTicket.kind === 'table') {
         setTickets((prev) => {
@@ -1087,34 +1139,39 @@ export default function PosWorkspacePage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
-                {filteredItems.map((it) => (
-                  <button
-                    key={it.id}
-                    type="button"
-                    onClick={() => handleAddItem(it)}
-                    disabled={!activeTicket || !canTakeOrders}
-                    className={cn(
-                      'group relative flex flex-col rounded-xl bg-white border border-gray-200 overflow-hidden text-left',
-                      'shadow-sm hover:shadow-lg hover:border-orange-300 hover:-translate-y-0.5 transition-all duration-200',
-                      'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-sm',
-                    )}
-                  >
-                    <div className="h-20 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60">
-                      <span className="text-4xl group-hover:scale-110 transition-transform">{emojiFor(it)}</span>
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
-                      <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{it.name}</h3>
-                      <div className="flex items-end justify-between mt-2">
-                        <span className="text-base font-bold text-gray-900 tabular-nums">
-                          R{parseFloat(it.price || 0).toFixed(2)}
-                        </span>
-                        <span className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center shadow group-hover:scale-110 transition">
-                          <Plus className="w-4 h-4" strokeWidth={2.5} />
-                        </span>
+                {filteredItems.map((it) => {
+                  const remaining = computeRemainingToday(it);
+                  const soldOutToday = remaining !== null && remaining === 0;
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => handleAddItem(it)}
+                      disabled={!activeTicket || !canTakeOrders || soldOutToday}
+                      className={cn(
+                        'group relative flex flex-col rounded-xl bg-white border border-gray-200 overflow-hidden text-left',
+                        'shadow-sm hover:shadow-lg hover:border-orange-300 hover:-translate-y-0.5 transition-all duration-200',
+                        'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-sm',
+                      )}
+                    >
+                      <div className="h-20 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60">
+                        <span className="text-4xl group-hover:scale-110 transition-transform">{emojiFor(it)}</span>
+                        <ItemCountdownPill remaining={remaining} />
                       </div>
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
+                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{it.name}</h3>
+                        <div className="flex items-end justify-between mt-2">
+                          <span className="text-base font-bold text-gray-900 tabular-nums">
+                            R{parseFloat(it.price || 0).toFixed(2)}
+                          </span>
+                          <span className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center shadow group-hover:scale-110 transition">
+                            <Plus className="w-4 h-4" strokeWidth={2.5} />
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1280,6 +1337,23 @@ export default function PosWorkspacePage() {
         ticket={activeTicket}
         onChargeSplit={handleChargeSplit}
         staffId={staff?.id || actor?.staff_id || undefined}
+      />
+
+      {/* Receipt modal — shown after a successful payment */}
+      <ReceiptModal
+        orderId={receiptOrderId}
+        open={receiptOpen}
+        onClose={() => {
+          setReceiptOpen(false);
+          setReceiptOrderId(null);
+        }}
+        onNewOrder={() => {
+          setReceiptOpen(false);
+          setReceiptOrderId(null);
+          // Start a fresh walk-in ticket so the cashier can immediately take
+          // the next order without any extra tap.
+          handleAddWalkIn();
+        }}
       />
     </div>
   );

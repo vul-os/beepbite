@@ -118,6 +118,7 @@ const InventoryGRNs = lazyImport(() => import('./pages/inventory/grns'));
 const InventoryInvoiceMatch = lazyImport(() => import('./pages/inventory/invoice-match'));
 const SettingsBilling = lazyImport(() => import('./pages/settings/billing'));
 const SettingsWallet = lazyImport(() => import('./pages/settings/billing/wallet'));
+const SettingsApiKeys = lazyImport(() => import('./pages/settings/api-keys'));
 const SettingsDeliveryZones = lazyImport(() => import('./pages/settings/delivery-zones'));
 const ManagerDashboard = lazyImport(() => import('./pages/manager'));
 const StaffManage = lazyImport(() => import('./pages/staff/manage'));
@@ -289,6 +290,7 @@ const AppRoutes = () => {
           <Route path="/settings/promotions" element={<Protected><SettingsPromotions /></Protected>} />
           <Route path="/settings/billing" element={<Protected><SettingsBilling /></Protected>} />
           <Route path="/settings/billing/wallet" element={<Protected><SettingsWallet /></Protected>} />
+          <Route path="/settings/api-keys" element={<Protected><SettingsApiKeys /></Protected>} />
 
           {/* House accounts */}
           <Route path="/house-accounts" element={<Protected><HouseAccounts /></Protected>} />

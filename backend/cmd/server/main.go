@@ -20,14 +20,18 @@ import (
 	"github.com/go-chi/cors"
 
 	"github.com/beepbite/backend/internal/ai"
+	"github.com/beepbite/backend/internal/apiauth"
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/chatbot"
 	"github.com/beepbite/backend/internal/config"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/handlers/adjustments"
 	"github.com/beepbite/backend/internal/handlers/aimenu"
+	"github.com/beepbite/backend/internal/handlers/apikeys"
 	"github.com/beepbite/backend/internal/handlers/bankaccounts"
 	"github.com/beepbite/backend/internal/handlers/cashdrawer"
+	"github.com/beepbite/backend/internal/handlers/cashout"
+	"github.com/beepbite/backend/internal/handlers/customersearch"
 	"github.com/beepbite/backend/internal/handlers/data"
 	"github.com/beepbite/backend/internal/handlers/deliveryzones"
 	"github.com/beepbite/backend/internal/handlers/driver"
@@ -37,13 +41,17 @@ import (
 	"github.com/beepbite/backend/internal/handlers/houseaccounts"
 	"github.com/beepbite/backend/internal/handlers/inventory"
 	"github.com/beepbite/backend/internal/handlers/kds"
+	"github.com/beepbite/backend/internal/handlers/loyaltystamps"
 	"github.com/beepbite/backend/internal/handlers/marketplace"
 	"github.com/beepbite/backend/internal/handlers/paymentcredentials"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhook"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhooks"
 	"github.com/beepbite/backend/internal/handlers/payroll"
+	"github.com/beepbite/backend/internal/handlers/pickupslots"
 	"github.com/beepbite/backend/internal/handlers/pos"
 	"github.com/beepbite/backend/internal/handlers/promotions"
+	"github.com/beepbite/backend/internal/handlers/receipts"
+	"github.com/beepbite/backend/internal/handlers/reorder"
 	"github.com/beepbite/backend/internal/handlers/reservations"
 	"github.com/beepbite/backend/internal/handlers/stats"
 	"github.com/beepbite/backend/internal/handlers/storecredit"
@@ -53,6 +61,7 @@ import (
 	"github.com/beepbite/backend/internal/handlers/transferwebhook"
 	"github.com/beepbite/backend/internal/handlers/wallet"
 	"github.com/beepbite/backend/internal/handlers/waste"
+	"github.com/beepbite/backend/internal/handlers/webhooksub"
 	"github.com/beepbite/backend/internal/handlers/whatsappsend"
 	"github.com/beepbite/backend/internal/handlers/whatsappwebhook"
 	"github.com/beepbite/backend/internal/integrations/mapbox"
@@ -67,8 +76,10 @@ import (
 	"github.com/beepbite/backend/internal/jobs/recipecost"
 	"github.com/beepbite/backend/internal/jobs/walletrefill"
 	"github.com/beepbite/backend/internal/payments"
+	"github.com/beepbite/backend/internal/ratelimit"
 	"github.com/beepbite/backend/internal/secretbox"
 	"github.com/beepbite/backend/internal/staffauth"
+	"github.com/beepbite/backend/internal/webhookdelivery"
 )
 
 func main() {
@@ -112,6 +123,17 @@ func main() {
 	posH := pos.NewHandler(database.Pool)
 	statsH := stats.NewHandler(database.Pool)
 	walletH := wallet.NewHandler(database.Pool)
+	// Wave 24 — easy wins
+	receiptsH := receipts.NewHandler(database.Pool)
+	reorderH := reorder.NewHandler(database.Pool)
+	customerSearchH := customersearch.NewHandler(database.Pool)
+	cashoutH := cashout.NewHandler(database.Pool)
+	loyaltyStampsH := loyaltystamps.NewHandler(database.Pool)
+	pickupSlotsH := pickupslots.NewHandler(database.Pool)
+	// Wave 22 — public API + scoped keys + tenant webhooks
+	apiKeysH := apikeys.NewHandler(database.Pool)
+	webhookSubH := webhooksub.NewHandler(database.Pool)
+	apiRateLimiter := ratelimit.New(1000, 3000) // 1000 req/min, burst 3000, per key
 	driverH := driver.NewHandler(database.Pool)
 	driverInviteH := driverinvite.NewHandler(database.Pool)
 	trackingH := tracking.NewHandler(database.Pool)
@@ -235,6 +257,17 @@ func main() {
 	// access key; the SQL gate + pings_visible_to_customer enforce privacy).
 	trackingH.Mount(r)
 
+	// Wave 22 — external public API, authenticated by scoped API keys
+	// (Authorization: Bearer bb_live_…) + per-key rate limiting. Reuses the same
+	// data layer as the JWT app (no parallel handlers): /api/v1/data/{table}.
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(apiauth.RequireAPIKey(database.Pool))
+		r.Use(apiRateLimiter.Middleware(func(req *http.Request) string {
+			return apiauth.APIKeyIDFromContext(req.Context())
+		}))
+		dataH.MountWithIdempotency(r, database.Pool)
+	})
+
 	// Authenticated app surface — JWT required for all sub-groups below.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(svc))
@@ -281,6 +314,18 @@ func main() {
 
 			// Wallet + billing (balance, top-up, ledger, auto-refill).
 			walletH.Mount(r)
+
+			// Wave 24 — easy wins.
+			posH.MountModify(r)      // PATCH /pos/orders/{id}/items (modify before fire)
+			receiptsH.Mount(r)       // GET /orders/{id}/receipt (reprint)
+			reorderH.Mount(r)        // GET /customers/{id}/recent-orders
+			customerSearchH.Mount(r) // GET /customers/search
+			cashoutH.Mount(r)        // GET /cash-out/{session_id}
+			loyaltyStampsH.Mount(r)  // /loyalty/stamps/* + /customers/{id}/stamps
+			pickupSlotsH.Mount(r)    // GET /locations/{id}/pickup-slots (org-scoped; public customer variant TODO)
+			// Wave 22 — API key + webhook management (dashboard, JWT-authed).
+			apiKeysH.Mount(r)    // /api-keys
+			webhookSubH.Mount(r) // /webhook-endpoints
 			r.Route("/stats", statsH.Mount)
 
 			// Kitchen Display System.
@@ -339,6 +384,7 @@ func main() {
 	go walletrefill.NewRunner(database.Pool, payments.NewDBRegistry(database.Pool, paymentBox)).Start(ctx)
 	go dunning.NewRunner(database.Pool, nil).Start(ctx) // nil → no-op notifier for now
 	go llmsync.NewRunner(database.Pool).Start(ctx)
+	go webhookdelivery.NewRunner(database.Pool).Start(ctx) // Wave 22 — outbound webhook delivery
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
