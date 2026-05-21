@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "الرئيسية",
+      "pos": "نقطة البيع",
+      "kitchen": "المطبخ",
+      "reviews": "المراجعات",
+      "selectLocation": "اختر الموقع",
+      "switchLocation": "تغيير الموقع",
+      "noLocations": "لا توجد مواقع متاحة"
+    },
+    "sideBar": {
+      "frontOfHouse": "قاعة الخدمة",
+      "operations": "العمليات",
+      "team": "الفريق",
+      "settings": "الإعدادات",
+      "organization": "المنظمة",
+      "yourOrganizations": "منظماتك",
+      "noOrganizations": "لا توجد منظمات",
+      "noOrganizationsHint": "أنشئ منظمة للبدء",
+      "currentOrganization": "المنظمة الحالية",
+      "posWorkspace": "مساحة عمل نقطة البيع",
+      "kitchenDisplay": "شاشة المطبخ",
+      "reports": "التقارير",
+      "menu": "القائمة",
+      "categories": "الفئات",
+      "members": "الأعضاء",
+      "staff": "الموظفون",
+      "orgSettings": "إعدادات المنظمة",
+      "account": "الحساب"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "تسجيل الدخول",
+      "subtitle": "مرحباً بعودتك",
+      "emailLabel": "البريد الإلكتروني",
+      "passwordLabel": "كلمة المرور",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "submitButton": "تسجيل الدخول",
+      "noAccount": "ليس لديك حساب؟",
+      "signUpLink": "إنشاء حساب"
+    },
+    "signUp": {
+      "title": "إنشاء حسابك",
+      "subtitle": "ابدأ تجربتك المجانية",
+      "nameLabel": "الاسم الكامل",
+      "emailLabel": "البريد الإلكتروني",
+      "passwordLabel": "كلمة المرور",
+      "submitButton": "ابدأ",
+      "hasAccount": "لديك حساب بالفعل؟",
+      "signInLink": "تسجيل الدخول"
+    },
+    "signOut": "تسجيل الخروج",
+    "signOutHint": "إنهاء جلستك",
+    "openNavMenu": "فتح قائمة التنقل"
+  },
+  "onboarding": {
+    "welcome": "مرحباً بك في BeepBite",
+    "step": "الخطوة {{current}} من {{total}}",
+    "next": "التالي",
+    "back": "رجوع",
+    "finish": "إنهاء الإعداد",
+    "skip": "تخطي الآن",
+    "createOrg": "إنشاء منظمتك",
+    "createLocation": "إضافة موقعك الأول",
+    "inviteStaff": "دعوة أعضاء الفريق",
+    "setupMenu": "إعداد قائمتك"
+  },
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "add": "إضافة",
+    "close": "إغلاق",
+    "confirm": "تأكيد",
+    "loading": "جارٍ التحميل…",
+    "error": "حدث خطأ ما",
+    "retry": "حاول مرة أخرى",
+    "search": "بحث",
+    "noResults": "لا توجد نتائج",
+    "required": "مطلوب",
+    "optional": "اختياري",
+    "language": "اللغة"
+  }
+}

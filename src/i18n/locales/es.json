@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "Inicio",
+      "pos": "TPV",
+      "kitchen": "Cocina",
+      "reviews": "Reseñas",
+      "selectLocation": "Seleccionar ubicación",
+      "switchLocation": "Cambiar ubicación",
+      "noLocations": "No hay ubicaciones disponibles"
+    },
+    "sideBar": {
+      "frontOfHouse": "Sala",
+      "operations": "Operaciones",
+      "team": "Equipo",
+      "settings": "Configuración",
+      "organization": "Organización",
+      "yourOrganizations": "Tus organizaciones",
+      "noOrganizations": "Sin organizaciones",
+      "noOrganizationsHint": "Crea una organización para empezar",
+      "currentOrganization": "Organización actual",
+      "posWorkspace": "Área de trabajo TPV",
+      "kitchenDisplay": "Pantalla de cocina",
+      "reports": "Informes",
+      "menu": "Menú",
+      "categories": "Categorías",
+      "members": "Miembros",
+      "staff": "Personal",
+      "orgSettings": "Configuración de la organización",
+      "account": "Cuenta"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Iniciar sesión",
+      "subtitle": "Bienvenido de nuevo",
+      "emailLabel": "Correo electrónico",
+      "passwordLabel": "Contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "submitButton": "Iniciar sesión",
+      "noAccount": "¿No tienes cuenta?",
+      "signUpLink": "Regístrate"
+    },
+    "signUp": {
+      "title": "Crea tu cuenta",
+      "subtitle": "Comienza tu prueba gratuita",
+      "nameLabel": "Nombre completo",
+      "emailLabel": "Correo electrónico",
+      "passwordLabel": "Contraseña",
+      "submitButton": "Comenzar",
+      "hasAccount": "¿Ya tienes cuenta?",
+      "signInLink": "Iniciar sesión"
+    },
+    "signOut": "Cerrar sesión",
+    "signOutHint": "Terminar tu sesión",
+    "openNavMenu": "Abrir menú de navegación"
+  },
+  "onboarding": {
+    "welcome": "Bienvenido a BeepBite",
+    "step": "Paso {{current}} de {{total}}",
+    "next": "Siguiente",
+    "back": "Atrás",
+    "finish": "Finalizar configuración",
+    "skip": "Saltar por ahora",
+    "createOrg": "Crear tu organización",
+    "createLocation": "Añadir tu primera ubicación",
+    "inviteStaff": "Invitar miembros del personal",
+    "setupMenu": "Configurar tu menú"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Añadir",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "loading": "Cargando…",
+    "error": "Algo salió mal",
+    "retry": "Intentar de nuevo",
+    "search": "Buscar",
+    "noResults": "Sin resultados",
+    "required": "Requerido",
+    "optional": "Opcional",
+    "language": "Idioma"
+  }
+}

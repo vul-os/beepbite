@@ -25,6 +25,15 @@ func Middleware(svc *Service) func(http.Handler) http.Handler {
 				http.Error(w, "invalid token", http.StatusUnauthorized)
 				return
 			}
+			// Audience boundary: member/owner email-auth tokens carry NO audience.
+			// Staff ("staff"), actor-overlay ("actor-overlay") and elevation
+			// ("manager-elevation") tokens are signed with the same secret but are
+			// NOT valid as a member bearer — reject them here so a staff JWT can't
+			// reach member endpoints (defense against audience-claim confusion).
+			if len(claims.Audience) > 0 {
+				http.Error(w, "invalid token audience", http.StatusUnauthorized)
+				return
+			}
 			ctx := context.WithValue(r.Context(), claimsKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

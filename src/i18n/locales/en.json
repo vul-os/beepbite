@@ -1,0 +1,89 @@
+{
+  "_comment": "Key-naming convention: <namespace>.<section>.<key> — e.g. nav.topBar.home, auth.signIn.title.",
+  "_usage": "import { useTranslation } from 'react-i18next'; const { t } = useTranslation(); t('nav.topBar.home')",
+  "nav": {
+    "topBar": {
+      "home": "Home",
+      "pos": "POS",
+      "kitchen": "Kitchen",
+      "reviews": "Reviews",
+      "selectLocation": "Select Location",
+      "switchLocation": "Switch Location",
+      "noLocations": "No locations available"
+    },
+    "sideBar": {
+      "frontOfHouse": "Front of House",
+      "operations": "Operations",
+      "team": "Team",
+      "settings": "Settings",
+      "organization": "Organization",
+      "yourOrganizations": "Your Organizations",
+      "noOrganizations": "No organizations",
+      "noOrganizationsHint": "Create an organization to get started",
+      "currentOrganization": "Current organization",
+      "posWorkspace": "POS Workspace",
+      "kitchenDisplay": "Kitchen Display",
+      "reports": "Reports",
+      "menu": "Menu",
+      "categories": "Categories",
+      "members": "Members",
+      "staff": "Staff",
+      "orgSettings": "Organization Settings",
+      "account": "Account"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Sign in",
+      "subtitle": "Welcome back",
+      "emailLabel": "Email address",
+      "passwordLabel": "Password",
+      "forgotPassword": "Forgot password?",
+      "submitButton": "Sign in",
+      "noAccount": "Don't have an account?",
+      "signUpLink": "Sign up"
+    },
+    "signUp": {
+      "title": "Create your account",
+      "subtitle": "Start your free trial",
+      "nameLabel": "Full name",
+      "emailLabel": "Email address",
+      "passwordLabel": "Password",
+      "submitButton": "Get started",
+      "hasAccount": "Already have an account?",
+      "signInLink": "Sign in"
+    },
+    "signOut": "Sign Out",
+    "signOutHint": "End your session",
+    "openNavMenu": "Open navigation menu"
+  },
+  "onboarding": {
+    "welcome": "Welcome to BeepBite",
+    "step": "Step {{current}} of {{total}}",
+    "next": "Next",
+    "back": "Back",
+    "finish": "Finish setup",
+    "skip": "Skip for now",
+    "createOrg": "Create your organisation",
+    "createLocation": "Add your first location",
+    "inviteStaff": "Invite staff members",
+    "setupMenu": "Set up your menu"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "search": "Search",
+    "noResults": "No results found",
+    "required": "Required",
+    "optional": "Optional",
+    "language": "Language"
+  }
+}

@@ -25,17 +25,22 @@ import (
 	"github.com/beepbite/backend/internal/chatbot"
 	"github.com/beepbite/backend/internal/config"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/email"
 	"github.com/beepbite/backend/internal/handlers/adjustments"
 	"github.com/beepbite/backend/internal/handlers/admin"
 	"github.com/beepbite/backend/internal/handlers/aimenu"
 	"github.com/beepbite/backend/internal/handlers/apikeys"
+	"github.com/beepbite/backend/internal/handlers/auditviewer"
 	"github.com/beepbite/backend/internal/handlers/bankaccounts"
 	"github.com/beepbite/backend/internal/handlers/billinginvoices"
 	"github.com/beepbite/backend/internal/handlers/cashdrawer"
 	"github.com/beepbite/backend/internal/handlers/cashout"
 	"github.com/beepbite/backend/internal/handlers/category86"
+	"github.com/beepbite/backend/internal/handlers/customdomains"
+	"github.com/beepbite/backend/internal/handlers/customerchat"
 	"github.com/beepbite/backend/internal/handlers/customersearch"
 	"github.com/beepbite/backend/internal/handlers/data"
+	"github.com/beepbite/backend/internal/handlers/datarights"
 	"github.com/beepbite/backend/internal/handlers/deliveryzones"
 	"github.com/beepbite/backend/internal/handlers/driver"
 	"github.com/beepbite/backend/internal/handlers/driverinvite"
@@ -43,11 +48,17 @@ import (
 	"github.com/beepbite/backend/internal/handlers/favorites"
 	"github.com/beepbite/backend/internal/handlers/fiscal"
 	"github.com/beepbite/backend/internal/handlers/giftcards"
+	"github.com/beepbite/backend/internal/handlers/hardware"
 	"github.com/beepbite/backend/internal/handlers/houseaccounts"
+	"github.com/beepbite/backend/internal/handlers/imageupload"
 	"github.com/beepbite/backend/internal/handlers/inventory"
+	"github.com/beepbite/backend/internal/handlers/invoicing"
 	"github.com/beepbite/backend/internal/handlers/kds"
+	"github.com/beepbite/backend/internal/handlers/legal"
 	"github.com/beepbite/backend/internal/handlers/loyaltystamps"
 	"github.com/beepbite/backend/internal/handlers/marketplace"
+	"github.com/beepbite/backend/internal/handlers/onboarding"
+	"github.com/beepbite/backend/internal/handlers/ownerassistant"
 	"github.com/beepbite/backend/internal/handlers/paymentcredentials"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhook"
 	"github.com/beepbite/backend/internal/handlers/paymentwebhooks"
@@ -56,6 +67,7 @@ import (
 	"github.com/beepbite/backend/internal/handlers/pos"
 	"github.com/beepbite/backend/internal/handlers/promotions"
 	"github.com/beepbite/backend/internal/handlers/quickcoupon"
+	"github.com/beepbite/backend/internal/handlers/receiptdelivery"
 	"github.com/beepbite/backend/internal/handlers/receipts"
 	"github.com/beepbite/backend/internal/handlers/reorder"
 	"github.com/beepbite/backend/internal/handlers/reservations"
@@ -65,28 +77,39 @@ import (
 	"github.com/beepbite/backend/internal/handlers/storecredit"
 	"github.com/beepbite/backend/internal/handlers/tables"
 	"github.com/beepbite/backend/internal/handlers/tabs"
+	"github.com/beepbite/backend/internal/handlers/timeclock"
 	"github.com/beepbite/backend/internal/handlers/tippools"
 	"github.com/beepbite/backend/internal/handlers/tracking"
 	"github.com/beepbite/backend/internal/handlers/transferwebhook"
+	"github.com/beepbite/backend/internal/handlers/twofa"
+	"github.com/beepbite/backend/internal/handlers/userprefs"
 	"github.com/beepbite/backend/internal/handlers/waittime"
 	"github.com/beepbite/backend/internal/handlers/wallet"
+	"github.com/beepbite/backend/internal/handlers/wanumbers"
 	"github.com/beepbite/backend/internal/handlers/waste"
 	"github.com/beepbite/backend/internal/handlers/webhooksub"
+	"github.com/beepbite/backend/internal/handlers/whatsapplink"
 	"github.com/beepbite/backend/internal/handlers/whatsappsend"
 	"github.com/beepbite/backend/internal/handlers/whatsappwebhook"
 	"github.com/beepbite/backend/internal/integrations/mapbox"
 	"github.com/beepbite/backend/internal/integrations/paystack"
 	"github.com/beepbite/backend/internal/integrations/stripe"
 	"github.com/beepbite/backend/internal/integrations/whatsapp"
+	"github.com/beepbite/backend/internal/jobs/activityalerts"
 	"github.com/beepbite/backend/internal/jobs/auditretention"
 	"github.com/beepbite/backend/internal/jobs/dunning"
+	"github.com/beepbite/backend/internal/jobs/eodemail"
 	"github.com/beepbite/backend/internal/jobs/fxrates"
 	"github.com/beepbite/backend/internal/jobs/kdsfanout"
 	"github.com/beepbite/backend/internal/jobs/llmsync"
 	"github.com/beepbite/backend/internal/jobs/payouts"
 	"github.com/beepbite/backend/internal/jobs/recipecost"
+	"github.com/beepbite/backend/internal/jobs/softdelete"
 	"github.com/beepbite/backend/internal/jobs/subscriptionbilling"
 	"github.com/beepbite/backend/internal/jobs/walletrefill"
+	"github.com/beepbite/backend/internal/llm"
+	"github.com/beepbite/backend/internal/middleware/hostresolve"
+	"github.com/beepbite/backend/internal/obs"
 	"github.com/beepbite/backend/internal/payments"
 	"github.com/beepbite/backend/internal/ratelimit"
 	"github.com/beepbite/backend/internal/secretbox"
@@ -186,6 +209,36 @@ func main() {
 	wa := whatsapp.NewClient(cfg.WhatsAppAccessToken, cfg.WhatsAppPhoneNumberID)
 	waSendH := whatsappsend.NewHandler(wa)
 
+	// Remaining-roadmap waves (17/20/21/13/15/19/27/29/30/31/35/28/37/39/40 + T7.6).
+	llmRouter := llm.NewRouter(database.Pool)
+	emailRegistry, emailErr := email.NewDBRegistryFromEnv(database.Pool)
+	if emailErr != nil {
+		log.Printf("email registry unavailable: %v (receipt-email / EOD / activity-alert email disabled)", emailErr)
+		emailRegistry = nil
+	}
+	obsLogger := obs.NewLogger()
+	obsReg := obs.NewRegistry()
+	hostResolver := hostresolve.NewResolver(database.Pool)
+	whatsappLinkH := whatsapplink.NewHandler(database.Pool)
+	customerChatH := customerchat.NewHandler(database.Pool, llmRouter)
+	ownerAssistantH := ownerassistant.NewHandler(database.Pool, llmRouter, aiSvc)
+	customDomainsH := customdomains.NewHandler(database.Pool, &customdomains.StubFlyCerts{})
+	hardwareH := hardware.NewHandler(database.Pool)
+	dataRightsH := datarights.NewHandler(database.Pool)
+	userPrefsH := userprefs.NewHandler(database.Pool)
+	onboardingH := onboarding.NewHandler(database.Pool)
+	waNumbersH := wanumbers.NewHandler(database.Pool)
+	twofaH := twofa.NewHandler(database.Pool)
+	auditViewerH := auditviewer.NewHandler(database.Pool)
+	imageUploadH := imageupload.NewHandler(nil) // nil → StubStorer until R2 env is set
+	timeClockH := timeclock.NewHandler(database.Pool)
+	legalH := legal.NewHandler(database.Pool)
+	invoicingH := invoicing.NewHandlerFromEnv(database.Pool)
+	var receiptDeliveryH *receiptdelivery.Handler
+	if emailRegistry != nil {
+		receiptDeliveryH = receiptdelivery.NewHandler(database.Pool, emailRegistry, wa)
+	}
+
 	var mbClient *mapbox.Client
 	mapboxToken := os.Getenv("MAPBOX_TOKEN")
 	if mapboxToken == "" {
@@ -257,9 +310,16 @@ func main() {
 		MaxAge:           300,
 	}))
 
+	// Wave 25 — observability: structured request log + request-id + metrics.
+	r.Use(obs.Middleware(obsLogger, obsReg))
+	// Wave 23 / T7.6 — resolve Host header (custom domain or *.beepbite.io slug)
+	// to a location_id in context; reserved subdomains pass through.
+	r.Use(hostresolve.Middleware(hostResolver))
+
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "env": cfg.Env})
 	})
+	r.Handle("/metrics", obsReg.Handler()) // Prometheus scrape
 
 	r.Route("/auth", func(r chi.Router) {
 		authH.Mount(r)
@@ -283,11 +343,16 @@ func main() {
 		reviewsH.MountPublic(r) // GET /stores/{slug}/reviews (public)
 	})
 
+	// Public: WhatsApp link-token lookup (Wave 17) + legal documents (Wave 42).
+	r.Get("/link-whatsapp/{token}", whatsappLinkH.GetPhone)
+	r.Route("/legal", legalH.MountPublic) // GET /legal/{kind}/current
+
 	// Platform-admin tool (JWT + is_platform_admin gate; cross-org).
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(svc))
 		r.Use(admin.RequirePlatformAdmin(database.Pool))
-		adminH.Mount(r) // /admin/*
+		adminH.Mount(r)     // /admin/*
+		waNumbersH.Mount(r) // /admin/wa-numbers/* (Wave 37)
 	})
 
 	// Public customer live-tracking (no auth — the order_tracking_token is the
@@ -316,6 +381,14 @@ func main() {
 		staffAuthH.MountPinVerify(r)
 		r.Post("/ai/menu", aiH)
 		r.Post("/chatbot/whatsapp/send", waSendH)
+
+		// JWT-only (user-scoped, no org membership required).
+		r.Post("/link-whatsapp/{token}", whatsappLinkH.Bind) // Wave 17 bind a number
+		r.Get("/link-whatsapp", whatsappLinkH.ListLinks)
+		customerChatH.Mount(r)        // POST /chat (Wave 20 customer assistant)
+		r.Route("/2fa", twofaH.Mount) // Wave 39 TOTP enroll/verify/disable
+		userPrefsH.Mount(r)           // GET/PUT /me/preferences (Wave 35)
+		legalH.MountAuthed(r)         // POST /legal/accept (Wave 42)
 
 		// Authenticated + org-scoped sub-group.
 		//
@@ -377,6 +450,20 @@ func main() {
 			favoritesH.Mount(r)                         // /customers/{id}/favorites
 			r.Route("/stats", statsH.Mount)
 
+			// Remaining-roadmap org-scoped surfaces.
+			ownerAssistantH.Mount(r)                      // /assistant (+/draft/{id}) — Wave 21
+			r.Route("/domains", customDomainsH.Mount)     // Wave 23 custom domains
+			r.Route("/hardware", hardwareH.Mount)         // Wave 29 printers
+			dataRightsH.Mount(r)                          // Wave 31 account-delete/export/forget
+			onboardingH.Mount(r)                          // Wave 28 onboarding progress
+			r.Route("/manager/audit", auditViewerH.Mount) // Wave 39 tenant audit viewer
+			r.Route("/invoicing", invoicingH.Mount)       // Wave 34 invoicing (canonical schema)
+			imageUploadH.Mount(r)                         // Wave 40 image upload
+			timeClockH.Mount(r)                           // Wave 40 time-clock
+			if receiptDeliveryH != nil {
+				receiptDeliveryH.Mount(r) // Wave 27 receipt PDF/email/WhatsApp
+			}
+
 			// Kitchen Display System.
 			r.Route("/kds", kdsH.Mount)
 
@@ -436,6 +523,11 @@ func main() {
 	go webhookdelivery.NewRunner(database.Pool).Start(ctx)     // Wave 22 — outbound webhook delivery
 	go fxrates.NewRunner(database.Pool).Start(ctx)             // Wave 10 — FX rate fetch
 	go subscriptionbilling.NewRunner(database.Pool).Start(ctx) // Wave 10 — subscription invoice generation
+	go softdelete.NewRunner(database.Pool).Start(ctx)          // Wave 31 — GDPR purge of soft-deleted orgs
+	if emailRegistry != nil {
+		go eodemail.NewRunner(database.Pool, emailRegistry).Start(ctx)       // Wave 40 — end-of-day owner email
+		go activityalerts.NewRunner(database.Pool, emailRegistry).Start(ctx) // Wave 30 — suspicious-activity alerts
+	}
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
