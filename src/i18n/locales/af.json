@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "Tuis",
+      "pos": "POS",
+      "kitchen": "Kombuis",
+      "reviews": "Resensies",
+      "selectLocation": "Kies Ligging",
+      "switchLocation": "Wissel Ligging",
+      "noLocations": "Geen liggings beskikbaar nie"
+    },
+    "sideBar": {
+      "frontOfHouse": "Voorkant van Huis",
+      "operations": "Bedrywighede",
+      "team": "Span",
+      "settings": "Instellings",
+      "organization": "Organisasie",
+      "yourOrganizations": "Jou Organisasies",
+      "noOrganizations": "Geen organisasies nie",
+      "noOrganizationsHint": "Skep 'n organisasie om te begin",
+      "currentOrganization": "Huidige organisasie",
+      "posWorkspace": "POS-werkspasie",
+      "kitchenDisplay": "Kombuisvertoning",
+      "reports": "Verslae",
+      "menu": "Spyskaart",
+      "categories": "Kategorieë",
+      "members": "Lede",
+      "staff": "Personeel",
+      "orgSettings": "Organisasie-instellings",
+      "account": "Rekening"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Teken in",
+      "subtitle": "Welkom terug",
+      "emailLabel": "E-posadres",
+      "passwordLabel": "Wagwoord",
+      "forgotPassword": "Wagwoord vergeet?",
+      "submitButton": "Teken in",
+      "noAccount": "Het jy nie 'n rekening nie?",
+      "signUpLink": "Registreer"
+    },
+    "signUp": {
+      "title": "Skep jou rekening",
+      "subtitle": "Begin jou gratis proeftydperk",
+      "nameLabel": "Volle naam",
+      "emailLabel": "E-posadres",
+      "passwordLabel": "Wagwoord",
+      "submitButton": "Begin",
+      "hasAccount": "Het jy al 'n rekening?",
+      "signInLink": "Teken in"
+    },
+    "signOut": "Teken Uit",
+    "signOutHint": "Beëindig jou sessie",
+    "openNavMenu": "Maak navigasiemenu oop"
+  },
+  "onboarding": {
+    "welcome": "Welkom by BeepBite",
+    "step": "Stap {{current}} van {{total}}",
+    "next": "Volgende",
+    "back": "Terug",
+    "finish": "Voltooi opstelling",
+    "skip": "Slaan oor vir nou",
+    "createOrg": "Skep jou organisasie",
+    "createLocation": "Voeg jou eerste ligging by",
+    "inviteStaff": "Nooi personeellede uit",
+    "setupMenu": "Stel jou spyskaart op"
+  },
+  "common": {
+    "save": "Stoor",
+    "cancel": "Kanselleer",
+    "delete": "Vee uit",
+    "edit": "Wysig",
+    "add": "Voeg by",
+    "close": "Sluit",
+    "confirm": "Bevestig",
+    "loading": "Laai…",
+    "error": "Iets het verkeerd gegaan",
+    "retry": "Probeer weer",
+    "search": "Soek",
+    "noResults": "Geen resultate gevind nie",
+    "required": "Verplig",
+    "optional": "Opsioneel",
+    "language": "Taal"
+  }
+}

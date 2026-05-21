@@ -136,11 +136,16 @@ func (s *Store) ListStores(ctx context.Context, tx pgx.Tx, p ListParams) ([]Stor
 		  AND ($3 = '' OR lower(l.country) = lower($3))
 		  AND (
 		      $4::float8 IS NULL OR $5::float8 IS NULL OR $6::float8 IS NULL
+		      OR l.latitude IS NULL OR l.longitude IS NULL
 		      OR (
-		          earth_distance(
-		              ll_to_earth(l.latitude::float8, l.longitude::float8),
-		              ll_to_earth($4::float8, $5::float8)
-		          ) <= $6::float8 * 1000
+		          -- Haversine great-circle distance in km (no earthdistance ext).
+		          6371 * acos(
+		              least(1, greatest(-1,
+		                  cos(radians($4::float8)) * cos(radians(l.latitude::float8))
+		                  * cos(radians(l.longitude::float8) - radians($5::float8))
+		                  + sin(radians($4::float8)) * sin(radians(l.latitude::float8))
+		              ))
+		          ) <= $6::float8
 		      )
 		  )
 		GROUP BY l.id

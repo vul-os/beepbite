@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "होम",
+      "pos": "पीओएस",
+      "kitchen": "रसोई",
+      "reviews": "समीक्षाएँ",
+      "selectLocation": "स्थान चुनें",
+      "switchLocation": "स्थान बदलें",
+      "noLocations": "कोई स्थान उपलब्ध नहीं"
+    },
+    "sideBar": {
+      "frontOfHouse": "हॉल क्षेत्र",
+      "operations": "संचालन",
+      "team": "टीम",
+      "settings": "सेटिंग्स",
+      "organization": "संगठन",
+      "yourOrganizations": "आपके संगठन",
+      "noOrganizations": "कोई संगठन नहीं",
+      "noOrganizationsHint": "शुरू करने के लिए एक संगठन बनाएँ",
+      "currentOrganization": "वर्तमान संगठन",
+      "posWorkspace": "पीओएस कार्यक्षेत्र",
+      "kitchenDisplay": "रसोई प्रदर्शन",
+      "reports": "रिपोर्ट",
+      "menu": "मेनू",
+      "categories": "श्रेणियाँ",
+      "members": "सदस्य",
+      "staff": "स्टाफ",
+      "orgSettings": "संगठन सेटिंग्स",
+      "account": "खाता"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "साइन इन करें",
+      "subtitle": "वापस स्वागत है",
+      "emailLabel": "ईमेल पता",
+      "passwordLabel": "पासवर्ड",
+      "forgotPassword": "पासवर्ड भूल गए?",
+      "submitButton": "साइन इन करें",
+      "noAccount": "खाता नहीं है?",
+      "signUpLink": "साइन अप करें"
+    },
+    "signUp": {
+      "title": "अपना खाता बनाएँ",
+      "subtitle": "अपना निःशुल्क परीक्षण शुरू करें",
+      "nameLabel": "पूरा नाम",
+      "emailLabel": "ईमेल पता",
+      "passwordLabel": "पासवर्ड",
+      "submitButton": "शुरू करें",
+      "hasAccount": "पहले से खाता है?",
+      "signInLink": "साइन इन करें"
+    },
+    "signOut": "साइन आउट",
+    "signOutHint": "अपना सत्र समाप्त करें",
+    "openNavMenu": "नेविगेशन मेनू खोलें"
+  },
+  "onboarding": {
+    "welcome": "BeepBite में आपका स्वागत है",
+    "step": "चरण {{current}} / {{total}}",
+    "next": "अगला",
+    "back": "वापस",
+    "finish": "सेटअप पूरा करें",
+    "skip": "अभी के लिए छोड़ें",
+    "createOrg": "अपना संगठन बनाएँ",
+    "createLocation": "अपना पहला स्थान जोड़ें",
+    "inviteStaff": "स्टाफ सदस्यों को आमंत्रित करें",
+    "setupMenu": "अपना मेनू सेट करें"
+  },
+  "common": {
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "delete": "हटाएँ",
+    "edit": "संपादित करें",
+    "add": "जोड़ें",
+    "close": "बंद करें",
+    "confirm": "पुष्टि करें",
+    "loading": "लोड हो रहा है…",
+    "error": "कुछ गलत हुआ",
+    "retry": "पुनः प्रयास करें",
+    "search": "खोजें",
+    "noResults": "कोई परिणाम नहीं मिला",
+    "required": "आवश्यक",
+    "optional": "वैकल्पिक",
+    "language": "भाषा"
+  }
+}

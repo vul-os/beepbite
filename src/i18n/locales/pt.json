@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "Início",
+      "pos": "PDV",
+      "kitchen": "Cozinha",
+      "reviews": "Avaliações",
+      "selectLocation": "Selecionar Local",
+      "switchLocation": "Trocar Local",
+      "noLocations": "Nenhum local disponível"
+    },
+    "sideBar": {
+      "frontOfHouse": "Área do Cliente",
+      "operations": "Operações",
+      "team": "Equipe",
+      "settings": "Configurações",
+      "organization": "Organização",
+      "yourOrganizations": "Suas Organizações",
+      "noOrganizations": "Nenhuma organização",
+      "noOrganizationsHint": "Crie uma organização para começar",
+      "currentOrganization": "Organização atual",
+      "posWorkspace": "Área de Trabalho PDV",
+      "kitchenDisplay": "Exibição de Cozinha",
+      "reports": "Relatórios",
+      "menu": "Cardápio",
+      "categories": "Categorias",
+      "members": "Membros",
+      "staff": "Funcionários",
+      "orgSettings": "Configurações da Organização",
+      "account": "Conta"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Entrar",
+      "subtitle": "Bem-vindo de volta",
+      "emailLabel": "Endereço de e-mail",
+      "passwordLabel": "Senha",
+      "forgotPassword": "Esqueceu a senha?",
+      "submitButton": "Entrar",
+      "noAccount": "Não tem uma conta?",
+      "signUpLink": "Cadastre-se"
+    },
+    "signUp": {
+      "title": "Crie sua conta",
+      "subtitle": "Comece seu teste grátis",
+      "nameLabel": "Nome completo",
+      "emailLabel": "Endereço de e-mail",
+      "passwordLabel": "Senha",
+      "submitButton": "Começar",
+      "hasAccount": "Já tem uma conta?",
+      "signInLink": "Entrar"
+    },
+    "signOut": "Sair",
+    "signOutHint": "Encerrar sua sessão",
+    "openNavMenu": "Abrir menu de navegação"
+  },
+  "onboarding": {
+    "welcome": "Bem-vindo ao BeepBite",
+    "step": "Passo {{current}} de {{total}}",
+    "next": "Próximo",
+    "back": "Voltar",
+    "finish": "Concluir configuração",
+    "skip": "Pular por agora",
+    "createOrg": "Criar sua organização",
+    "createLocation": "Adicionar seu primeiro local",
+    "inviteStaff": "Convidar membros da equipe",
+    "setupMenu": "Configurar seu cardápio"
+  },
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "add": "Adicionar",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "loading": "Carregando…",
+    "error": "Algo deu errado",
+    "retry": "Tentar novamente",
+    "search": "Pesquisar",
+    "noResults": "Nenhum resultado encontrado",
+    "required": "Obrigatório",
+    "optional": "Opcional",
+    "language": "Idioma"
+  }
+}

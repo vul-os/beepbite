@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "Accueil",
+      "pos": "PDV",
+      "kitchen": "Cuisine",
+      "reviews": "Avis",
+      "selectLocation": "Choisir un lieu",
+      "switchLocation": "Changer de lieu",
+      "noLocations": "Aucun lieu disponible"
+    },
+    "sideBar": {
+      "frontOfHouse": "Salle",
+      "operations": "Opérations",
+      "team": "Équipe",
+      "settings": "Paramètres",
+      "organization": "Organisation",
+      "yourOrganizations": "Vos organisations",
+      "noOrganizations": "Aucune organisation",
+      "noOrganizationsHint": "Créez une organisation pour commencer",
+      "currentOrganization": "Organisation actuelle",
+      "posWorkspace": "Espace de travail PDV",
+      "kitchenDisplay": "Affichage cuisine",
+      "reports": "Rapports",
+      "menu": "Menu",
+      "categories": "Catégories",
+      "members": "Membres",
+      "staff": "Personnel",
+      "orgSettings": "Paramètres de l'organisation",
+      "account": "Compte"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Se connecter",
+      "subtitle": "Bon retour",
+      "emailLabel": "Adresse e-mail",
+      "passwordLabel": "Mot de passe",
+      "forgotPassword": "Mot de passe oublié ?",
+      "submitButton": "Se connecter",
+      "noAccount": "Pas encore de compte ?",
+      "signUpLink": "S'inscrire"
+    },
+    "signUp": {
+      "title": "Créer votre compte",
+      "subtitle": "Démarrez votre essai gratuit",
+      "nameLabel": "Nom complet",
+      "emailLabel": "Adresse e-mail",
+      "passwordLabel": "Mot de passe",
+      "submitButton": "Commencer",
+      "hasAccount": "Vous avez déjà un compte ?",
+      "signInLink": "Se connecter"
+    },
+    "signOut": "Se déconnecter",
+    "signOutHint": "Terminer votre session",
+    "openNavMenu": "Ouvrir le menu de navigation"
+  },
+  "onboarding": {
+    "welcome": "Bienvenue sur BeepBite",
+    "step": "Étape {{current}} sur {{total}}",
+    "next": "Suivant",
+    "back": "Retour",
+    "finish": "Terminer la configuration",
+    "skip": "Passer pour l'instant",
+    "createOrg": "Créer votre organisation",
+    "createLocation": "Ajouter votre premier lieu",
+    "inviteStaff": "Inviter des membres du personnel",
+    "setupMenu": "Configurer votre menu"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "loading": "Chargement…",
+    "error": "Une erreur est survenue",
+    "retry": "Réessayer",
+    "search": "Rechercher",
+    "noResults": "Aucun résultat trouvé",
+    "required": "Requis",
+    "optional": "Facultatif",
+    "language": "Langue"
+  }
+}

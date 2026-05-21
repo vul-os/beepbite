@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "Ikhaya",
+      "pos": "POS",
+      "kitchen": "Ikhishi",
+      "reviews": "Izibuyekezo",
+      "selectLocation": "Khetha Indawo",
+      "switchLocation": "Shintsha Indawo",
+      "noLocations": "Azikho izindawo ezitholakala"
+    },
+    "sideBar": {
+      "frontOfHouse": "Phambili Kwendlu",
+      "operations": "Ukusebenza",
+      "team": "Ithimba",
+      "settings": "Izilungiselelo",
+      "organization": "Inhlangano",
+      "yourOrganizations": "Izinhlangano Zakho",
+      "noOrganizations": "Azikho izinhlangano",
+      "noOrganizationsHint": "Dala inhlangano ukuqala",
+      "currentOrganization": "Inhlangano yamanje",
+      "posWorkspace": "Indawo yokusebenza ye-POS",
+      "kitchenDisplay": "Ukuboniswa kwekhishi",
+      "reports": "Imibiko",
+      "menu": "Imenyu",
+      "categories": "Izigaba",
+      "members": "Amalungu",
+      "staff": "Abasebenzi",
+      "orgSettings": "Izilungiselelo zenhlangano",
+      "account": "I-akhawunti"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Ngena",
+      "subtitle": "Siyakwamukela futhi",
+      "emailLabel": "Ikheli le-imeyili",
+      "passwordLabel": "Iphasiwedi",
+      "forgotPassword": "Ukhohlwe iphasiwedi?",
+      "submitButton": "Ngena",
+      "noAccount": "Awunayo i-akhawunti?",
+      "signUpLink": "Bhalisa"
+    },
+    "signUp": {
+      "title": "Dala i-akhawunti yakho",
+      "subtitle": "Qala isikhathi sakho sokulinganisa simahala",
+      "nameLabel": "Igama eligcwele",
+      "emailLabel": "Ikheli le-imeyili",
+      "passwordLabel": "Iphasiwedi",
+      "submitButton": "Qala",
+      "hasAccount": "Unayo i-akhawunti?",
+      "signInLink": "Ngena"
+    },
+    "signOut": "Phuma",
+    "signOutHint": "Qeda iseshini yakho",
+    "openNavMenu": "Vula imenyu yokuzulazula"
+  },
+  "onboarding": {
+    "welcome": "Siyakwamukela ku-BeepBite",
+    "step": "Isinyathelo {{current}} ku-{{total}}",
+    "next": "Okulandelayo",
+    "back": "Emuva",
+    "finish": "Qeda ukusetha",
+    "skip": "Dlula okwamanje",
+    "createOrg": "Dala inhlangano yakho",
+    "createLocation": "Engeza indawo yakho yokuqala",
+    "inviteStaff": "Mema amalungu abasebenzi",
+    "setupMenu": "Setha imenyu yakho"
+  },
+  "common": {
+    "save": "Londoloza",
+    "cancel": "Khansela",
+    "delete": "Susa",
+    "edit": "Hlela",
+    "add": "Engeza",
+    "close": "Vala",
+    "confirm": "Qinisekisa",
+    "loading": "Iyalayisha…",
+    "error": "Kukhona okwenze iphutha",
+    "retry": "Zama futhi",
+    "search": "Sesha",
+    "noResults": "Azikho imiphumela etholakaliyo",
+    "required": "Kudingeka",
+    "optional": "Okukhethekile",
+    "language": "Ulimi"
+  }
+}

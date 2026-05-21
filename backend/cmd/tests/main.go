@@ -53,6 +53,7 @@ type flags struct {
 	staff        bool
 	audit        bool
 	actorOverlay bool
+	crosstenant  bool
 }
 
 func main() {
@@ -80,6 +81,7 @@ func main() {
 	flag.BoolVar(&f.staff, "staff", false, "staff create + set-pin + pin-login + manager-set-password")
 	flag.BoolVar(&f.audit, "audit", false, "financial mutations leave audit_log rows with non-null actor_id")
 	flag.BoolVar(&f.actorOverlay, "actor-overlay", false, "pin-verify happy path + lockout + capability check")
+	flag.BoolVar(&f.crosstenant, "crosstenant", false, "adversarial cross-tenant isolation probes (org A token vs org B resources)")
 	flag.Parse()
 
 	cfg := loadCfg(f.env)
@@ -152,6 +154,9 @@ func main() {
 	if f.all || f.actorOverlay {
 		r.Suite("actor-overlay", suiteActorOverlay)
 	}
+	if f.all || f.crosstenant {
+		r.Suite("crosstenant", suiteCrossTenant)
+	}
 
 	r.Report()
 	if r.failed > 0 {
@@ -183,7 +188,7 @@ func anySelected(f flags) bool {
 	return f.all || f.sanity || f.auth || f.pentest || f.menu || f.recipes ||
 		f.orders || f.members || f.whatsapp || f.onboarding ||
 		f.pos || f.kds || f.cashdrawer || f.adjustments ||
-		f.staff || f.audit || f.actorOverlay
+		f.staff || f.audit || f.actorOverlay || f.crosstenant
 }
 
 func firstNonEmpty(a, b string) string {

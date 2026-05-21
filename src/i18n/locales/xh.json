@@ -1,0 +1,87 @@
+{
+  "nav": {
+    "topBar": {
+      "home": "Ekhaya",
+      "pos": "POS",
+      "kitchen": "Ikhitshi",
+      "reviews": "Iimbono",
+      "selectLocation": "Khetha Indawo",
+      "switchLocation": "Tshintsha Indawo",
+      "noLocations": "Akukho ndawo ifumanekayo"
+    },
+    "sideBar": {
+      "frontOfHouse": "Phambili Kwendlu",
+      "operations": "Imisebenzi",
+      "team": "Iqela",
+      "settings": "Izicwangciso",
+      "organization": "Umbutho",
+      "yourOrganizations": "Imibutho Yakho",
+      "noOrganizations": "Akukho mibutho",
+      "noOrganizationsHint": "Yenza umbutho ukuqala",
+      "currentOrganization": "Umbutho wangoku",
+      "posWorkspace": "Indawo yokusebenza ye-POS",
+      "kitchenDisplay": "Umboniso wekhitshi",
+      "reports": "Iingxelo",
+      "menu": "Imenyu",
+      "categories": "Iintlobo",
+      "members": "Amalungu",
+      "staff": "Abasebenzi",
+      "orgSettings": "Izicwangciso zombutho",
+      "account": "I-akhawunti"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "title": "Ngena",
+      "subtitle": "Wamkelekile futhi",
+      "emailLabel": "Idilesi ye-imeyile",
+      "passwordLabel": "Igama lokugqitha",
+      "forgotPassword": "Ulityele igama lokugqitha?",
+      "submitButton": "Ngena",
+      "noAccount": "Awunayo i-akhawunti?",
+      "signUpLink": "Bhalisa"
+    },
+    "signUp": {
+      "title": "Yenza i-akhawunti yakho",
+      "subtitle": "Qala ixesha lakho lokuvavanyo simahla",
+      "nameLabel": "Igama eligcweleyo",
+      "emailLabel": "Idilesi ye-imeyile",
+      "passwordLabel": "Igama lokugqitha",
+      "submitButton": "Qala",
+      "hasAccount": "Unayo i-akhawunti?",
+      "signInLink": "Ngena"
+    },
+    "signOut": "Phuma",
+    "signOutHint": "Gqiba iseshini yakho",
+    "openNavMenu": "Vula imenyu yokukhangela"
+  },
+  "onboarding": {
+    "welcome": "Wamkelekile ku-BeepBite",
+    "step": "Inyathelo {{current}} ku-{{total}}",
+    "next": "Okulandelayo",
+    "back": "Emva",
+    "finish": "Gqiba ukuseta",
+    "skip": "Seza ngoku",
+    "createOrg": "Yenza umbutho wakho",
+    "createLocation": "Yongeza indawo yakho yokuqala",
+    "inviteStaff": "Mema amalungu abasebenzi",
+    "setupMenu": "Seta imenyu yakho"
+  },
+  "common": {
+    "save": "Gcina",
+    "cancel": "Rhoxisa",
+    "delete": "Cima",
+    "edit": "Hlela",
+    "add": "Yongeza",
+    "close": "Vala",
+    "confirm": "Qinisekisa",
+    "loading": "Iyalayisha…",
+    "error": "Kukho into eyenzekileyo engalunganga",
+    "retry": "Zama kwakhona",
+    "search": "Khangela",
+    "noResults": "Akukho ziphumo ezifunyenweyo",
+    "required": "Iyafuneka",
+    "optional": "Nokhetho",
+    "language": "Ulwimi"
+  }
+}

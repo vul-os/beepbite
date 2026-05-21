@@ -121,6 +121,26 @@ const SettingsWallet = lazyImport(() => import('./pages/settings/billing/wallet'
 const SettingsApiKeys = lazyImport(() => import('./pages/settings/api-keys'));
 const SettingsKitchen = lazyImport(() => import('./pages/settings/kitchen'));
 const PlatformAdmin = lazyImport(() => import('./pages/admin'));
+// Remaining-roadmap pages.
+const LinkWhatsApp = lazyImport(() => import('./pages/link-whatsapp'));
+const LegalTerms = lazyImport(() => import('./pages/legal/terms'));
+const LegalPrivacy = lazyImport(() => import('./pages/legal/privacy'));
+const CustomerChat = lazyImport(() => import('./pages/chat'));
+const CustomerDisplay = lazyImport(() => import('./pages/pos/customer-display'));
+const SettingsDomains = lazyImport(() => import('./pages/settings/domains'));
+const SettingsHardware = lazyImport(() => import('./pages/settings/hardware'));
+const SettingsSecurity = lazyImport(() => import('./pages/settings/security'));
+const SettingsBusinessInfo = lazyImport(() => import('./pages/settings/business-info'));
+const SettingsAccount = lazyImport(() => import('./pages/settings/account'));
+const Invoices = lazyImport(() => import('./pages/invoices'));
+const InvoiceDetail = lazyImport(() => import('./pages/invoices/detail'));
+const InvoiceForm = lazyImport(() => import('./pages/invoices/form'));
+const Workspace = lazyImport(() => import('./pages/work'));
+const Onboard = lazyImport(() => import('./pages/onboard'));
+const TimeClock = lazyImport(() => import('./pages/timeclock'));
+const OwnerAssistant = lazyImport(() => import('./pages/assistant'));
+const ManagerAudit = lazyImport(() => import('./pages/manager/audit'));
+const AdminWANumbers = lazyImport(() => import('./pages/admin/wa-numbers'));
 const SettingsDeliveryZones = lazyImport(() => import('./pages/settings/delivery-zones'));
 const ManagerDashboard = lazyImport(() => import('./pages/manager'));
 const StaffManage = lazyImport(() => import('./pages/staff/manage'));
@@ -201,6 +221,12 @@ const AppRoutes = () => {
           <Route path="/track/:token" element={<CustomerTracking />} />
           {/* Central driver portal — requires sign-in, chrome-less (mobile) */}
           <Route path="/driver" element={<Protected><DriverPortal /></Protected>} />
+          {/* Remaining-roadmap public/customer-facing surfaces */}
+          <Route path="/link-whatsapp/:token" element={<Protected><LinkWhatsApp /></Protected>} />
+          <Route path="/legal/terms" element={<LegalTerms />} />
+          <Route path="/legal/privacy" element={<LegalPrivacy />} />
+          <Route path="/chat" element={<Protected><CustomerChat /></Protected>} />
+          <Route path="/pos/customer-display" element={<CustomerDisplay />} />
         </Route>
 
         {/* Protected app routes */}
@@ -295,6 +321,22 @@ const AppRoutes = () => {
           <Route path="/settings/api-keys" element={<Protected><SettingsApiKeys /></Protected>} />
           <Route path="/settings/kitchen" element={<Protected><SettingsKitchen /></Protected>} />
           <Route path="/admin" element={<Protected><PlatformAdmin /></Protected>} />
+          {/* Remaining-roadmap protected app surfaces */}
+          <Route path="/admin/wa-numbers" element={<Protected><AdminWANumbers /></Protected>} />
+          <Route path="/settings/domains" element={<Protected><SettingsDomains /></Protected>} />
+          <Route path="/settings/hardware" element={<Protected><SettingsHardware /></Protected>} />
+          <Route path="/settings/security" element={<Protected><SettingsSecurity /></Protected>} />
+          <Route path="/settings/business-info" element={<Protected><SettingsBusinessInfo /></Protected>} />
+          <Route path="/settings/account" element={<Protected><SettingsAccount /></Protected>} />
+          <Route path="/invoices" element={<Protected><Invoices /></Protected>} />
+          <Route path="/invoices/new" element={<Protected><InvoiceForm /></Protected>} />
+          <Route path="/invoices/:id" element={<Protected><InvoiceDetail /></Protected>} />
+          <Route path="/invoices/:id/edit" element={<Protected><InvoiceForm /></Protected>} />
+          <Route path="/work" element={<Protected><Workspace /></Protected>} />
+          <Route path="/onboard" element={<Protected><Onboard /></Protected>} />
+          <Route path="/timeclock" element={<Protected><TimeClock /></Protected>} />
+          <Route path="/assistant" element={<Protected><OwnerAssistant /></Protected>} />
+          <Route path="/manager/audit" element={<Protected><ManagerAudit /></Protected>} />
 
           {/* House accounts */}
           <Route path="/house-accounts" element={<Protected><HouseAccounts /></Protected>} />
