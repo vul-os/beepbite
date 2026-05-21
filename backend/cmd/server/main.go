@@ -31,11 +31,14 @@ import (
 	"github.com/beepbite/backend/internal/handlers/bankaccounts"
 	"github.com/beepbite/backend/internal/handlers/cashdrawer"
 	"github.com/beepbite/backend/internal/handlers/cashout"
+	"github.com/beepbite/backend/internal/handlers/category86"
 	"github.com/beepbite/backend/internal/handlers/customersearch"
 	"github.com/beepbite/backend/internal/handlers/data"
 	"github.com/beepbite/backend/internal/handlers/deliveryzones"
 	"github.com/beepbite/backend/internal/handlers/driver"
 	"github.com/beepbite/backend/internal/handlers/driverinvite"
+	"github.com/beepbite/backend/internal/handlers/dualdrawer"
+	"github.com/beepbite/backend/internal/handlers/favorites"
 	"github.com/beepbite/backend/internal/handlers/fiscal"
 	"github.com/beepbite/backend/internal/handlers/giftcards"
 	"github.com/beepbite/backend/internal/handlers/houseaccounts"
@@ -50,15 +53,19 @@ import (
 	"github.com/beepbite/backend/internal/handlers/pickupslots"
 	"github.com/beepbite/backend/internal/handlers/pos"
 	"github.com/beepbite/backend/internal/handlers/promotions"
+	"github.com/beepbite/backend/internal/handlers/quickcoupon"
 	"github.com/beepbite/backend/internal/handlers/receipts"
 	"github.com/beepbite/backend/internal/handlers/reorder"
 	"github.com/beepbite/backend/internal/handlers/reservations"
+	"github.com/beepbite/backend/internal/handlers/specials"
 	"github.com/beepbite/backend/internal/handlers/stats"
 	"github.com/beepbite/backend/internal/handlers/storecredit"
 	"github.com/beepbite/backend/internal/handlers/tables"
+	"github.com/beepbite/backend/internal/handlers/tabs"
 	"github.com/beepbite/backend/internal/handlers/tippools"
 	"github.com/beepbite/backend/internal/handlers/tracking"
 	"github.com/beepbite/backend/internal/handlers/transferwebhook"
+	"github.com/beepbite/backend/internal/handlers/waittime"
 	"github.com/beepbite/backend/internal/handlers/wallet"
 	"github.com/beepbite/backend/internal/handlers/waste"
 	"github.com/beepbite/backend/internal/handlers/webhooksub"
@@ -105,6 +112,9 @@ func main() {
 	svc := auth.NewService(store, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	google := auth.NewGoogle(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
 	authH := auth.NewHandler(svc, google, postAuthRedirect(cfg))
+	// Wire driver-invite auto-accept on signup (Wave 16): when a new user signs
+	// up with an email that has a pending driver invite, grant the membership.
+	authH.WithPool(database.Pool, driverinvite.AcceptMatchingInvites)
 
 	// Staff (POS username+password) auth. Shares the JWT signing secret with
 	// email auth for now; the audience claim ("staff" vs unset) keeps the two
@@ -134,6 +144,14 @@ func main() {
 	apiKeysH := apikeys.NewHandler(database.Pool)
 	webhookSubH := webhooksub.NewHandler(database.Pool)
 	apiRateLimiter := ratelimit.New(1000, 3000) // 1000 req/min, burst 3000, per key
+	// Wave 32 — easy wins extended
+	tabsH := tabs.NewHandler(database.Pool)
+	specialsH := specials.NewHandler(database.Pool)
+	waitTimeH := waittime.NewHandler(database.Pool)
+	category86H := category86.NewHandler(database.Pool)
+	dualDrawerH := dualdrawer.NewHandler(database.Pool)
+	quickCouponH := quickcoupon.NewHandler(database.Pool)
+	favoritesH := favorites.NewHandler(database.Pool)
 	driverH := driver.NewHandler(database.Pool)
 	driverInviteH := driverinvite.NewHandler(database.Pool)
 	trackingH := tracking.NewHandler(database.Pool)
@@ -326,6 +344,15 @@ func main() {
 			// Wave 22 — API key + webhook management (dashboard, JWT-authed).
 			apiKeysH.Mount(r)    // /api-keys
 			webhookSubH.Mount(r) // /webhook-endpoints
+			// Wave 32 — easy wins extended.
+			posH.MountHold(r)                          // /pos/orders/{id}/hold|release, /pos/orders/held
+			tabsH.Mount(r)                             // /tabs
+			specialsH.Mount(r)                         // /specials, /items/{id}/special
+			waitTimeH.Mount(r)                         // /locations/{id}/wait-time
+			category86H.Mount(r)                       // /categories/{id}/eighty-six
+			r.Route("/dual-drawer", dualDrawerH.Mount) // /dual-drawer/sessions, /open
+			quickCouponH.Mount(r)                      // /quick-coupons
+			favoritesH.Mount(r)                        // /customers/{id}/favorites
 			r.Route("/stats", statsH.Mount)
 
 			// Kitchen Display System.

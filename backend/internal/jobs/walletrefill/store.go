@@ -60,7 +60,8 @@ FROM org_wallets ow
 JOIN customer_payment_authorizations cpa
     ON cpa.id = ow.saved_payment_method_id
    AND cpa.is_active = true
-WHERE ow.auto_refill_threshold_cents IS NOT NULL
+WHERE ow.auto_refill_enabled          = true
+  AND ow.auto_refill_threshold_cents IS NOT NULL
   AND ow.auto_refill_target_cents    IS NOT NULL
   AND ow.balance_cents < ow.auto_refill_threshold_cents
 ORDER BY ow.org_id

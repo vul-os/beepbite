@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/beepbite/backend/internal/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -82,17 +83,24 @@ var fetchCurrency = func(ctx context.Context, pool *pgxpool.Pool, locationID str
 	return fetchCurrencyFromDB(ctx, pool, locationID)
 }
 
+// fetchCurrencyFromDB queries the DB for currency info without touching the cache.
+// Both queries use db.Scoped with ServiceRoleScope to bypass FORCE-RLS on
+// locations (no app.current_org_id is set on a fresh pooled connection, which
+// would silently block every row). The lookup is keyed to a location_id the
+// caller is already authorised for, so this does not widen the security boundary.
 func fetchCurrencyFromDB(ctx context.Context, pool *pgxpool.Pool, locationID string) (Currency, error) {
 	// --- Step 1: locations.currency_code → JOIN currencies ---
 	var code, symbol string
 	var decimals int
 
-	err := pool.QueryRow(ctx, `
-		SELECT c.code, c.symbol, c.decimal_digits
-		FROM locations l
-		JOIN currencies c ON c.code = l.currency_code
-		WHERE l.id = $1
-	`, locationID).Scan(&code, &symbol, &decimals)
+	err := db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
+			SELECT c.code, c.symbol, c.decimal_digits
+			FROM locations l
+			JOIN currencies c ON c.code = l.currency_code
+			WHERE l.id = $1
+		`, locationID).Scan(&code, &symbol, &decimals)
+	})
 	if err == nil {
 		return Currency{Code: code, Symbol: symbol, Decimals: decimals}, nil
 	}
@@ -101,13 +109,16 @@ func fetchCurrencyFromDB(ctx context.Context, pool *pgxpool.Pool, locationID str
 	}
 
 	// --- Step 2: regions.currency → JOIN currencies ---
-	err = pool.QueryRow(ctx, `
-		SELECT c.code, c.symbol, c.decimal_digits
-		FROM locations l
-		JOIN regions r ON r.id = l.region_id
-		JOIN currencies c ON c.code = r.currency
-		WHERE l.id = $1
-	`, locationID).Scan(&code, &symbol, &decimals)
+	// Same service-role wrap for the locations/regions join.
+	err = db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
+			SELECT c.code, c.symbol, c.decimal_digits
+			FROM locations l
+			JOIN regions r ON r.id = l.region_id
+			JOIN currencies c ON c.code = r.currency
+			WHERE l.id = $1
+		`, locationID).Scan(&code, &symbol, &decimals)
+	})
 	if err == nil {
 		return Currency{Code: code, Symbol: symbol, Decimals: decimals}, nil
 	}

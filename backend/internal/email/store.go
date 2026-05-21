@@ -12,6 +12,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/beepbite/backend/internal/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -43,14 +44,24 @@ LIMIT 1`
 	defer cancel()
 
 	var row locationEmailCred
-	err := pool.QueryRow(ctx, q, locationID).Scan(
-		&row.providerCode,
-		&row.encryptedKeys,
-		&row.senderDomain,
-		&row.senderEmail,
-	)
+	var scanErr error
+	err := db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		scanErr = tx.QueryRow(ctx, q, locationID).Scan(
+			&row.providerCode,
+			&row.encryptedKeys,
+			&row.senderDomain,
+			&row.senderEmail,
+		)
+		if scanErr == pgx.ErrNoRows {
+			return nil // let caller handle ErrNoRows via scanErr
+		}
+		return scanErr
+	})
 	if err != nil {
-		return locationEmailCred{}, err // includes pgx.ErrNoRows
+		return locationEmailCred{}, err
+	}
+	if scanErr != nil {
+		return locationEmailCred{}, scanErr // includes pgx.ErrNoRows
 	}
 	return row, nil
 }
@@ -64,12 +75,22 @@ func isProviderActive(ctx context.Context, pool *pgxpool.Pool, code string) (boo
 	defer cancel()
 
 	var active bool
-	err := pool.QueryRow(ctx, q, code).Scan(&active)
+	var scanErr error
+	err := db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		scanErr = tx.QueryRow(ctx, q, code).Scan(&active)
+		if scanErr == pgx.ErrNoRows {
+			return nil
+		}
+		return scanErr
+	})
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		return false, err
+	}
+	if scanErr != nil {
+		if scanErr == pgx.ErrNoRows {
 			return false, nil
 		}
-		return false, err
+		return false, scanErr
 	}
 	return active, nil
 }

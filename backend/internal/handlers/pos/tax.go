@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/beepbite/backend/internal/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -60,17 +61,24 @@ func TaxRateFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (flo
 }
 
 // fetchTaxRate performs the actual DB queries without touching the cache.
+// Both queries use db.Scoped with ServiceRoleScope to bypass FORCE-RLS on
+// tax_rates and locations; the lookup is already keyed to a location_id the
+// caller is authorised for, so this does not widen the security boundary.
 func fetchTaxRate(ctx context.Context, pool *pgxpool.Pool, locationID string) (float64, error) {
 	// --- Step 1: location-specific tax_rates row ---
+	// ServiceRoleScope bypasses FORCE-RLS on tax_rates (no app.current_org_id
+	// is set on a fresh pooled connection, which would silently block every row).
 	var locRate float64
-	err := pool.QueryRow(ctx, `
-		SELECT CAST(rate AS float8)
-		FROM tax_rates
-		WHERE location_id = $1
-		  AND is_active = true
-		ORDER BY created_at
-		LIMIT 1
-	`, locationID).Scan(&locRate)
+	err := db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
+			SELECT CAST(rate AS float8)
+			FROM tax_rates
+			WHERE location_id = $1
+			  AND is_active = true
+			ORDER BY created_at
+			LIMIT 1
+		`, locationID).Scan(&locRate)
+	})
 	if err == nil {
 		return locRate, nil
 	}
@@ -80,13 +88,16 @@ func fetchTaxRate(ctx context.Context, pool *pgxpool.Pool, locationID string) (f
 	}
 
 	// --- Step 2: region default ---
+	// Same service-role wrap for the locations/regions join.
 	var regionRate float64
-	err = pool.QueryRow(ctx, `
-		SELECT CAST(r.default_tax_rate AS float8)
-		FROM locations l
-		JOIN regions r ON r.id = l.region_id
-		WHERE l.id = $1
-	`, locationID).Scan(&regionRate)
+	err = db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
+			SELECT CAST(r.default_tax_rate AS float8)
+			FROM locations l
+			JOIN regions r ON r.id = l.region_id
+			WHERE l.id = $1
+		`, locationID).Scan(&regionRate)
+	})
 	if err == nil {
 		return regionRate, nil
 	}

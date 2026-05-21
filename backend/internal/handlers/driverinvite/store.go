@@ -63,22 +63,30 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // and ErrAlreadyInvited when a pending driver invite for that email exists.
 func (s *Store) CreateInvite(ctx context.Context, orgID, email, invitedByProfileID string) (*DriverInvite, error) {
 	var inv DriverInvite
-	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		// Reject if the email is already a member of this org.
-		var isMember bool
-		if err := tx.QueryRow(ctx, `
+	// Check membership existence under service-role scope so the query is not
+	// blocked by the FORCE RLS policy on profiles (which restricts rows to
+	// id = current_user_id() OR is_service_role()). The manager can only see
+	// their own profile row under tenant scope, making the guard a no-op for
+	// any other email. Bypassing RLS here is safe: email is only the lookup
+	// key and no row data is returned.
+	var isMember bool
+	if err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT EXISTS(
     SELECT 1
       FROM organization_members om
       JOIN profiles p ON om.profile_id = p.id
      WHERE om.organization_id = $1
        AND lower(p.email) = lower($2)
-)`, orgID, email).Scan(&isMember); err != nil {
-			return err
-		}
-		if isMember {
-			return ErrAlreadyMember
-		}
+)`, orgID, email).Scan(&isMember)
+	}); err != nil {
+		return nil, err
+	}
+	if isMember {
+		return nil, ErrAlreadyMember
+	}
+
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
 
 		// Reject if a pending driver invite already exists for this email+org.
 		var exists bool

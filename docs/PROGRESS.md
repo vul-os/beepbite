@@ -118,6 +118,30 @@ Built out Wave 14 testing infra and, by actually *running* the new suites, found
 
 ---
 
+### Round 8 — Wave 32 Easy Wins Extended (2026-05-21)
+- ✅ **Wave 32** (10 agents + migration 028): held tickets (hold/release w/ KDS re-fanout), open tabs, daily-specials banner, bar quick-pour mode, wait-time estimation, quick category-86 (recursive), dual cash drawer, quick coupon (reuses promotions/coupon_codes), customer favorites. All 8 backend handlers wired + verified (endpoints 200). Frontend components built (banner, bar-mode, cat86 button, coupon button, favorites row) — embedding into POS/store/menu pages is a light follow-up.
+  - Integration fixes during merge: **6 agents wrote migration files** → collapsed to the single comprehensive `028_wave32_easy_wins_extended.sql` (deleted 5 redundant). Runtime fixes: tabs filtered on `'paid'` (not a valid order_status enum) → 500; tabs read `items.price_cents` (column is `price`); dual-drawer registered relative paths → needed `r.Route("/dual-drawer", …)`.
+
+**Live e2e: 253/253. Migration through 028. Full build green.**
+
+⚠️ Uncommitted on `beepnew`: migrations 021–028, Waves 16/19/22/24/32, receipt modal, KDS/dashboard/payment fixes — **8 waves, no checkpoint.**
+
+---
+
+### Round 9 — 5-agent audit of Waves 16/19/22/24/32 + fixes (2026-05-21)
+Read-only audit found real bugs (the recurring classes); all P0/P1 fixed + verified:
+- **P0 Paystack charged $0** — `paystack.go` LEFT JOIN dropped `order_financial_details` → always 0; now reads `orders.total_cents`.
+- **P0 WhatsApp chatbot order flow** — `chatbot/database_helpers.go` inserted into dropped tables + wrong `order_items` columns + raw pool under RLS; rewritten to `orders`/`order_items` `_cents` columns under service-role scope.
+- **P0 loyalty stamp accrue** — `customer_loyalty_stamps.location_id` NOT NULL but code inserted NULL → 500; migration 029 makes it nullable + partial unique indexes; store ON CONFLICT fixed. Verified accrue→201.
+- **P0 POS daily-countdown** — guard used post-update remaining → false-rejected valid orders; fixed to `remaining < 0`. Verified qty-7-of-10→201.
+- **P1 tax/currency always default** — `pos/tax.go` + `locations/currency.go` raw pool under RLS → every order taxed 0% / forced ZAR; wrapped in service-role scope.
+- **P1** walletrefill ignored `auto_refill_enabled=false`; BYO email raw-pool-under-RLS; llm `context_length` NULL-scan crash; webhookdelivery test field; driverinvite `ErrAlreadyMember` dead (profiles RLS) + `AcceptMatchingInvites` now wired into signup (`authH.WithPool`); `data/allowlist.go` dropped-table entries removed.
+- **P2 (noted, not fixed)**: loyalty config PUT body-shape; `expo.jsx` table_number; misc stale comments; `api_keys_safe` view missing `environment`.
+
+**Live e2e: 253/253. Migrations through 029. Full build green.**
+
+---
+
 ## In Progress ⏳
 
 _(none active)_
