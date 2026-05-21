@@ -291,7 +291,7 @@ function StationsTab({ locationId }) {
               {stations.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{s.display_order ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{s.sort_order ?? '—'}</TableCell>
                   <TableCell className="text-center">
                     <Switch
                       checked={s.is_active ?? true}
@@ -352,13 +352,13 @@ function StationsTab({ locationId }) {
 
 function StationForm({ initial, onSubmit, onCancel, saving }) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [displayOrder, setDisplayOrder] = useState(initial?.display_order ?? '');
+  const [sortOrder, setSortOrder] = useState(initial?.sort_order ?? '');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({
       name: name.trim(),
-      display_order: displayOrder !== '' ? Number(displayOrder) : null,
+      sort_order: sortOrder !== '' ? Number(sortOrder) : null,
     });
   };
 
@@ -379,8 +379,8 @@ function StationForm({ initial, onSubmit, onCancel, saving }) {
         <Input
           id="st-order"
           type="number"
-          value={displayOrder}
-          onChange={(e) => setDisplayOrder(e.target.value)}
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
           placeholder="0"
           min={0}
         />

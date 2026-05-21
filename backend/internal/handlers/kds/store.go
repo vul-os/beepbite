@@ -123,23 +123,23 @@ type TicketWithItems struct {
 
 // TicketEventRow mirrors a kds_ticket_events row.
 type TicketEventRow struct {
-	ID           string     `json:"id"`
-	TicketID     string     `json:"ticket_id"`
-	TicketItemID *string    `json:"ticket_item_id"`
-	EventType    string     `json:"event_type"`
-	PerformedBy  *string    `json:"performed_by"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID           string    `json:"id"`
+	TicketID     string    `json:"ticket_id"`
+	TicketItemID *string   `json:"ticket_item_id"`
+	EventType    string    `json:"event_type"`
+	PerformedBy  *string   `json:"performed_by"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // ExpoRow mirrors one row from kds_expo_view.
 type ExpoRow struct {
-	OrderID        string    `json:"order_id"`
-	LocationID     string    `json:"location_id"`
+	OrderID         string    `json:"order_id"`
+	LocationID      string    `json:"location_id"`
 	EarliestFiredAt time.Time `json:"earliest_fired_at"`
-	AllReady       bool      `json:"all_ready"`
-	AnyInProgress  bool      `json:"any_in_progress"`
-	StationTickets []byte    `json:"station_tickets"` // raw jsonb
-	MaxPriority    int       `json:"max_priority"`
+	AllReady        bool      `json:"all_ready"`
+	AnyInProgress   bool      `json:"any_in_progress"`
+	StationTickets  []byte    `json:"station_tickets"` // raw jsonb
+	MaxPriority     int       `json:"max_priority"`
 }
 
 // ---------------------------------------------------------------------------
@@ -702,15 +702,17 @@ func getTicketDetailUsing(ctx context.Context, ticketID string, q querier) (*Tic
 		itemIDs[i] = ri.itemID
 	}
 
-	// --- Batched query 1: variations (keyed by order_item_id) ---
-	// ORDER BY order_item_id, oiv.created_at preserves per-item variation order.
+	// --- Batched query 1: modifiers (keyed by order_item_id) ---
+	// order_item_variations and item_variation_options were dropped in the
+	// consolidated schema (migration 004). Modifier names are now stored in
+	// order_item_modifiers.name_snapshot (denormalised at order time).
+	// ORDER BY order_item_id, oim.created_at preserves per-item modifier order.
 	variationsByOrderItem := make(map[string][]string, len(orderItemIDs))
 	varRows, err := q.query(ctx, `
-		SELECT oiv.order_item_id, ivo.name
-		FROM order_item_variations oiv
-		JOIN item_variation_options ivo ON ivo.id = oiv.option_id
-		WHERE oiv.order_item_id = ANY($1)
-		ORDER BY oiv.order_item_id, oiv.created_at
+		SELECT oim.order_item_id, oim.name_snapshot
+		FROM order_item_modifiers oim
+		WHERE oim.order_item_id = ANY($1)
+		ORDER BY oim.order_item_id, oim.created_at
 	`, orderItemIDs)
 	if err != nil {
 		return nil, err

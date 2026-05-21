@@ -18,6 +18,7 @@ package kds
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -245,25 +246,30 @@ func (h *Handler) listStationTickets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If ?details=1, enrich each ticket with full item detail.
+	// A single db.Scoped transaction is opened for the entire loop to avoid
+	// N separate scope-setup round-trips (one per ticket).
 	if wantDetails {
 		type enrichedTicket struct {
 			Ticket
 			Items []TicketDetailItem `json:"items"`
 		}
 		enriched := make([]enrichedTicket, 0, len(tickets))
-		for _, tw := range tickets {
-			var detail *TicketDetail
-			_ = db.Scoped(r.Context(), h.pool, scopeFromAuth(r), func(tx pgx.Tx) error {
-				var err error
-				detail, err = h.store.GetTicketDetailTx(r.Context(), tx, tw.ID)
-				return err
-			})
-			if detail == nil {
-				// Partial failure: fall back to bare ticket.
-				enriched = append(enriched, enrichedTicket{Ticket: tw.Ticket, Items: []TicketDetailItem{}})
-				continue
+		scopeErr := db.Scoped(r.Context(), h.pool, scopeFromAuth(r), func(tx pgx.Tx) error {
+			for _, tw := range tickets {
+				detail, err := h.store.GetTicketDetailTx(r.Context(), tx, tw.ID)
+				if err != nil {
+					log.Printf("kds: GetTicketDetail ticket=%s: %v", tw.ID, err)
+					// Partial failure: fall back to bare ticket items for this one.
+					enriched = append(enriched, enrichedTicket{Ticket: tw.Ticket, Items: []TicketDetailItem{}})
+					continue
+				}
+				enriched = append(enriched, enrichedTicket{Ticket: tw.Ticket, Items: detail.Items})
 			}
-			enriched = append(enriched, enrichedTicket{Ticket: tw.Ticket, Items: detail.Items})
+			return nil
+		})
+		if scopeErr != nil {
+			writeErr(w, http.StatusInternalServerError, scopeErr.Error())
+			return
 		}
 		writeJSON(w, http.StatusOK, enriched)
 		return
