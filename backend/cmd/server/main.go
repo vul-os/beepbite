@@ -26,9 +26,11 @@ import (
 	"github.com/beepbite/backend/internal/config"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/handlers/adjustments"
+	"github.com/beepbite/backend/internal/handlers/admin"
 	"github.com/beepbite/backend/internal/handlers/aimenu"
 	"github.com/beepbite/backend/internal/handlers/apikeys"
 	"github.com/beepbite/backend/internal/handlers/bankaccounts"
+	"github.com/beepbite/backend/internal/handlers/billinginvoices"
 	"github.com/beepbite/backend/internal/handlers/cashdrawer"
 	"github.com/beepbite/backend/internal/handlers/cashout"
 	"github.com/beepbite/backend/internal/handlers/category86"
@@ -57,6 +59,7 @@ import (
 	"github.com/beepbite/backend/internal/handlers/receipts"
 	"github.com/beepbite/backend/internal/handlers/reorder"
 	"github.com/beepbite/backend/internal/handlers/reservations"
+	"github.com/beepbite/backend/internal/handlers/reviews"
 	"github.com/beepbite/backend/internal/handlers/specials"
 	"github.com/beepbite/backend/internal/handlers/stats"
 	"github.com/beepbite/backend/internal/handlers/storecredit"
@@ -77,10 +80,12 @@ import (
 	"github.com/beepbite/backend/internal/integrations/whatsapp"
 	"github.com/beepbite/backend/internal/jobs/auditretention"
 	"github.com/beepbite/backend/internal/jobs/dunning"
+	"github.com/beepbite/backend/internal/jobs/fxrates"
 	"github.com/beepbite/backend/internal/jobs/kdsfanout"
 	"github.com/beepbite/backend/internal/jobs/llmsync"
 	"github.com/beepbite/backend/internal/jobs/payouts"
 	"github.com/beepbite/backend/internal/jobs/recipecost"
+	"github.com/beepbite/backend/internal/jobs/subscriptionbilling"
 	"github.com/beepbite/backend/internal/jobs/walletrefill"
 	"github.com/beepbite/backend/internal/payments"
 	"github.com/beepbite/backend/internal/ratelimit"
@@ -152,6 +157,10 @@ func main() {
 	dualDrawerH := dualdrawer.NewHandler(database.Pool)
 	quickCouponH := quickcoupon.NewHandler(database.Pool)
 	favoritesH := favorites.NewHandler(database.Pool)
+	// Waves 10/26/28
+	billingInvoicesH := billinginvoices.NewHandler(database.Pool)
+	adminH := admin.NewHandler(database.Pool)
+	reviewsH := reviews.NewHandler(database.Pool)
 	driverH := driver.NewHandler(database.Pool)
 	driverInviteH := driverinvite.NewHandler(database.Pool)
 	trackingH := tracking.NewHandler(database.Pool)
@@ -269,7 +278,17 @@ func main() {
 
 	// Public marketplace store directory (no auth required).
 	// RLS is enforced at the DB layer via MarketplaceScope (is_marketplace_visible=true only).
-	r.Route("/stores", marketplaceH.Mount)
+	r.Route("/stores", func(r chi.Router) {
+		marketplaceH.Mount(r)
+		reviewsH.MountPublic(r) // GET /stores/{slug}/reviews (public)
+	})
+
+	// Platform-admin tool (JWT + is_platform_admin gate; cross-org).
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(svc))
+		r.Use(admin.RequirePlatformAdmin(database.Pool))
+		adminH.Mount(r) // /admin/*
+	})
 
 	// Public customer live-tracking (no auth — the order_tracking_token is the
 	// access key; the SQL gate + pings_visible_to_customer enforce privacy).
@@ -351,8 +370,11 @@ func main() {
 			waitTimeH.Mount(r)                         // /locations/{id}/wait-time
 			category86H.Mount(r)                       // /categories/{id}/eighty-six
 			r.Route("/dual-drawer", dualDrawerH.Mount) // /dual-drawer/sessions, /open
-			quickCouponH.Mount(r)                      // /quick-coupons
-			favoritesH.Mount(r)                        // /customers/{id}/favorites
+			// Waves 10/28 (org-scoped).
+			r.Route("/billing", billingInvoicesH.Mount) // GET /billing/invoices
+			r.Route("/reviews", reviewsH.MountAuthed)   // POST /reviews, POST /reviews/{id}/reply
+			quickCouponH.Mount(r)                       // /quick-coupons
+			favoritesH.Mount(r)                         // /customers/{id}/favorites
 			r.Route("/stats", statsH.Mount)
 
 			// Kitchen Display System.
@@ -411,7 +433,9 @@ func main() {
 	go walletrefill.NewRunner(database.Pool, payments.NewDBRegistry(database.Pool, paymentBox)).Start(ctx)
 	go dunning.NewRunner(database.Pool, nil).Start(ctx) // nil → no-op notifier for now
 	go llmsync.NewRunner(database.Pool).Start(ctx)
-	go webhookdelivery.NewRunner(database.Pool).Start(ctx) // Wave 22 — outbound webhook delivery
+	go webhookdelivery.NewRunner(database.Pool).Start(ctx)     // Wave 22 — outbound webhook delivery
+	go fxrates.NewRunner(database.Pool).Start(ctx)             // Wave 10 — FX rate fetch
+	go subscriptionbilling.NewRunner(database.Pool).Start(ctx) // Wave 10 — subscription invoice generation
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

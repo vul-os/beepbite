@@ -220,6 +220,8 @@ func (s *Store) RushTicketTx(ctx context.Context, tx pgx.Tx, ticketID, performed
 }
 
 // ListStationTicketsTx returns active tickets for a station within an open transaction.
+// Optimised: single batched query for all ticket items (WHERE ticket_id = ANY($1))
+// instead of 1+N per-ticket queries.
 func (s *Store) ListStationTicketsTx(ctx context.Context, tx pgx.Tx, stationID string) ([]TicketWithItems, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT id, order_id, station_id, ticket_number, status,
@@ -236,6 +238,7 @@ func (s *Store) ListStationTicketsTx(ctx context.Context, tx pgx.Tx, stationID s
 	defer rows.Close()
 
 	var tickets []TicketWithItems
+	var ticketIDs []string
 	for rows.Next() {
 		var t Ticket
 		if err := rows.Scan(
@@ -245,50 +248,56 @@ func (s *Store) ListStationTicketsTx(ctx context.Context, tx pgx.Tx, stationID s
 		); err != nil {
 			return nil, err
 		}
-		tickets = append(tickets, TicketWithItems{Ticket: t})
+		tickets = append(tickets, TicketWithItems{Ticket: t, Items: []TicketItem{}})
+		ticketIDs = append(ticketIDs, t.ID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	// Fetch items for each ticket using the same transaction.
-	for i, tw := range tickets {
-		items, err := s.ticketItemsTx(ctx, tx, tw.ID)
-		if err != nil {
-			return nil, err
-		}
-		tickets[i].Items = items
+	if len(ticketIDs) == 0 {
+		return tickets, nil
 	}
-	return tickets, nil
-}
 
-func (s *Store) ticketItemsTx(ctx context.Context, tx pgx.Tx, ticketID string) ([]TicketItem, error) {
-	rows, err := tx.Query(ctx, `
+	// Single batched query for all items across all tickets.
+	// ORDER BY ticket_id groups items by ticket; created_at preserves per-ticket order.
+	itemRows, err := tx.Query(ctx, `
 		SELECT id, ticket_id, order_item_id,
 			quantity::text, item_status, started_at, ready_at, bumped_at,
 			notes, created_at, updated_at
 		FROM kds_ticket_items
-		WHERE ticket_id = $1
-		ORDER BY created_at
-	`, ticketID)
+		WHERE ticket_id = ANY($1)
+		ORDER BY ticket_id, created_at
+	`, ticketIDs)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer itemRows.Close()
 
-	var items []TicketItem
-	for rows.Next() {
+	// Build a lookup index so we can assign items without a second pass over tickets.
+	ticketIdx := make(map[string]int, len(tickets))
+	for i, tw := range tickets {
+		ticketIdx[tw.ID] = i
+	}
+
+	for itemRows.Next() {
 		var ti TicketItem
-		if err := rows.Scan(
+		if err := itemRows.Scan(
 			&ti.ID, &ti.TicketID, &ti.OrderItemID,
 			&ti.Quantity, &ti.ItemStatus, &ti.StartedAt, &ti.ReadyAt, &ti.BumpedAt,
 			&ti.Notes, &ti.CreatedAt, &ti.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
-		items = append(items, ti)
+		if idx, ok := ticketIdx[ti.TicketID]; ok {
+			tickets[idx].Items = append(tickets[idx].Items, ti)
+		}
 	}
-	return items, rows.Err()
+	if err := itemRows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tickets, nil
 }
 
 // GetExpoOrderTx returns the expo view row for an order within an open transaction.
@@ -313,181 +322,9 @@ func (s *Store) GetExpoOrderTx(ctx context.Context, tx pgx.Tx, orderID string) (
 }
 
 // GetTicketDetailTx returns the enriched ticket detail within an open transaction.
-// This is a tx-aware shim for GetTicketDetail; all pool.Query/pool.QueryRow calls
-// are replaced with tx.Query/tx.QueryRow so they participate in the Scoped transaction.
+// Delegates to the shared getTicketDetailUsing helper so pool and tx variants
+// stay in sync. Queries from 2+3N to 5 regardless of item count.
 func (s *Store) GetTicketDetailTx(ctx context.Context, tx pgx.Tx, ticketID string) (*TicketDetail, error) {
-	var detail TicketDetail
-	var rawNotes *string
-	err := tx.QueryRow(ctx, `
-		SELECT
-			kt.id,
-			o.order_number,
-			ks.name         AS station_name,
-			o.notes         AS order_notes,
-			kt.fired_at
-		FROM kds_tickets kt
-		JOIN orders           o  ON o.id  = kt.order_id
-		JOIN kitchen_stations ks ON ks.id = kt.station_id
-		WHERE kt.id = $1
-	`, ticketID).Scan(
-		&detail.TicketID,
-		&detail.OrderNumber,
-		&detail.StationName,
-		&rawNotes,
-		&detail.FiredAt,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrTicketNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Extract table number from orders.notes ("Table: T-12").
-	if rawNotes != nil {
-		const prefix = "Table: "
-		if len(*rawNotes) > len(prefix) && (*rawNotes)[:len(prefix)] == prefix {
-			t := (*rawNotes)[len(prefix):]
-			detail.TableNumber = &t
-		}
-	}
-
-	// Ticket items.
-	itemRows, err := tx.Query(ctx, `
-		SELECT
-			kti.id,
-			i.name,
-			kti.quantity::text,
-			kti.item_status,
-			kti.notes,
-			oi.id AS order_item_id,
-			oi.item_id
-		FROM kds_ticket_items kti
-		JOIN order_items oi ON oi.id = kti.order_item_id
-		JOIN items        i  ON i.id  = oi.item_id
-		WHERE kti.ticket_id = $1
-		ORDER BY kti.created_at
-	`, ticketID)
-	if err != nil {
-		return nil, err
-	}
-	defer itemRows.Close()
-
-	type rawItem struct {
-		ticketItemID string
-		itemName     string
-		quantity     string
-		status       string
-		notes        *string
-		orderItemID  string
-		itemID       string
-	}
-	var rawItems []rawItem
-	for itemRows.Next() {
-		var ri rawItem
-		if err := itemRows.Scan(
-			&ri.ticketItemID, &ri.itemName, &ri.quantity,
-			&ri.status, &ri.notes, &ri.orderItemID, &ri.itemID,
-		); err != nil {
-			return nil, err
-		}
-		rawItems = append(rawItems, ri)
-	}
-	if err := itemRows.Err(); err != nil {
-		return nil, err
-	}
-
-	detail.Items = make([]TicketDetailItem, 0, len(rawItems))
-
-	for _, ri := range rawItems {
-		di := TicketDetailItem{
-			TicketItemID: ri.ticketItemID,
-			ItemName:     ri.itemName,
-			Quantity:     ri.quantity,
-			Status:       ri.status,
-			Notes:        ri.notes,
-		}
-
-		// Variations (order_item_variations → item_variation_options).
-		varRows, err := tx.Query(ctx, `
-			SELECT ivo.name
-			FROM order_item_variations oiv
-			JOIN item_variation_options ivo ON ivo.id = oiv.option_id
-			WHERE oiv.order_item_id = $1
-			ORDER BY oiv.created_at
-		`, ri.orderItemID)
-		if err != nil {
-			return nil, err
-		}
-		di.Variations = []string{}
-		for varRows.Next() {
-			var vname string
-			if err := varRows.Scan(&vname); err != nil {
-				varRows.Close()
-				return nil, err
-			}
-			di.Variations = append(di.Variations, vname)
-		}
-		varRows.Close()
-		if err := varRows.Err(); err != nil {
-			return nil, err
-		}
-
-		// Ingredients (item_recipes).
-		ingRows, err := tx.Query(ctx, `
-			SELECT
-				ci.name,
-				ir.quantity_needed,
-				COALESCE(ir.unit, 'ea')
-			FROM item_recipes ir
-			JOIN items ci ON ci.id = ir.child_item_id
-			WHERE ir.parent_item_id = $1
-			ORDER BY ir.recipe_level, ci.name
-		`, ri.itemID)
-		if err != nil {
-			return nil, err
-		}
-		di.Ingredients = []Ingredient{}
-		for ingRows.Next() {
-			var ing Ingredient
-			if err := ingRows.Scan(&ing.Name, &ing.Quantity, &ing.Unit); err != nil {
-				ingRows.Close()
-				return nil, err
-			}
-			di.Ingredients = append(di.Ingredients, ing)
-		}
-		ingRows.Close()
-		if err := ingRows.Err(); err != nil {
-			return nil, err
-		}
-
-		// Prep steps (item_prep_steps, from legacy migration 44).
-		stepRows, err := tx.Query(ctx, `
-			SELECT step_number, instruction
-			FROM item_prep_steps
-			WHERE item_id = $1
-			ORDER BY step_number
-		`, ri.itemID)
-		if err != nil {
-			return nil, err
-		}
-		di.PrepSteps = []PrepStep{}
-		for stepRows.Next() {
-			var ps PrepStep
-			if err := stepRows.Scan(&ps.StepNumber, &ps.Instruction); err != nil {
-				stepRows.Close()
-				return nil, err
-			}
-			di.PrepSteps = append(di.PrepSteps, ps)
-		}
-		stepRows.Close()
-		if err := stepRows.Err(); err != nil {
-			return nil, err
-		}
-
-		detail.Items = append(detail.Items, di)
-	}
-
-	return &detail, nil
+	return getTicketDetailUsing(ctx, ticketID, newQuerier(tx))
 }
 
