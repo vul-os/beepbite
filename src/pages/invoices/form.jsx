@@ -50,8 +50,7 @@ const EMPTY_FORM = {
   recipient_name:    '',
   recipient_address: '',
   currency:          'ZAR',
-  vat_applied:       false,
-  vat_rate_percent:  0,
+  vat_rate_pct:      0,
   lines:             [{ ...EMPTY_LINE }],
 };
 
@@ -101,14 +100,13 @@ export default function InvoiceFormPage() {
     if (err) {
       setError(err.message || 'Failed to load invoice.');
     } else if (data) {
-      const existingLines = data.metadata?.lines;
+      const existingLines = data.lines;
       setForm({
         issuer:            data.issuer            ?? 'tenant',
         recipient_name:    data.recipient_name    ?? '',
         recipient_address: data.recipient_address ?? '',
         currency:          data.currency          ?? 'ZAR',
-        vat_applied:       data.vat_applied       ?? false,
-        vat_rate_percent:  data.vat_rate_percent  ?? 0,
+        vat_rate_pct:      data.vat_rate_percent  ?? 0,
         lines: (existingLines && existingLines.length > 0)
           ? existingLines.map((l) => ({
               description: l.description,
@@ -160,12 +158,11 @@ export default function InvoiceFormPage() {
     setSaving(true);
     setError(null);
 
-    const { lines, vat_rate_percent, vat_applied, ...rest } = form;
+    const { lines, vat_rate_pct, ...rest } = form;
     const body = {
       ...rest,
-      vat_applied:      !!vat_applied,
-      vat_rate_percent: parseFloat(vat_rate_percent) || 0,
-      metadata:         { lines },
+      lines,
+      vat_rate_pct: parseFloat(vat_rate_pct) || 0,
     };
 
     let result;
@@ -187,8 +184,8 @@ export default function InvoiceFormPage() {
   // ── Computed ──────────────────────────────────────────────────────────────
 
   const sub = subtotal(form.lines);
-  const vatCents = form.vat_applied && form.vat_rate_percent > 0
-    ? Math.round(sub * parseFloat(form.vat_rate_percent) / 100)
+  const vatCents = form.vat_rate_pct > 0
+    ? Math.round(sub * parseFloat(form.vat_rate_pct) / 100)
     : 0;
   const totalCents = sub + vatCents;
   const currency = form.currency || 'ZAR';
@@ -270,39 +267,26 @@ export default function InvoiceFormPage() {
               </Select>
             </div>
 
-            {/* VAT applied toggle */}
-            <div className="flex items-center gap-2">
-              <input
-                id="vat_applied"
-                type="checkbox"
-                checked={!!form.vat_applied}
-                onChange={(e) => setField('vat_applied', e.target.checked)}
-                className="h-4 w-4 cursor-pointer"
-              />
-              <Label htmlFor="vat_applied" className="cursor-pointer">
-                Apply VAT
-              </Label>
-            </div>
-
             {/* VAT rate */}
-            {form.vat_applied && (
-              <div className="space-y-1">
-                <Label htmlFor="vat_rate_percent">
-                  VAT rate %
-                </Label>
-                <Input
-                  id="vat_rate_percent"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={form.vat_rate_percent}
-                  onChange={(e) => setField('vat_rate_percent', e.target.value)}
-                  placeholder="15"
-                  className="max-w-[120px]"
-                />
-              </div>
-            )}
+            <div className="space-y-1">
+              <Label htmlFor="vat_rate_pct">
+                VAT rate %{' '}
+                <span className="text-muted-foreground text-xs">
+                  (applied automatically when VAT number is set in Business Info)
+                </span>
+              </Label>
+              <Input
+                id="vat_rate_pct"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={form.vat_rate_pct}
+                onChange={(e) => setField('vat_rate_pct', e.target.value)}
+                placeholder="15"
+                className="max-w-[120px]"
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -400,7 +384,7 @@ export default function InvoiceFormPage() {
               </div>
               {vatCents > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>VAT ({form.vat_rate_percent}%)</span>
+                  <span>VAT ({form.vat_rate_pct}%)</span>
                   <span className="tabular-nums">{fmtCents(vatCents, currency)}</span>
                 </div>
               )}

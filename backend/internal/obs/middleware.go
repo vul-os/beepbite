@@ -88,9 +88,20 @@ func Middleware(logger *slog.Logger, reg *Registry) func(http.Handler) http.Hand
 			start := time.Now()
 
 			// 1. Request ID — propagate or generate.
+			//    This must be injected BEFORE next.ServeHTTP so it propagates
+			//    down to handlers (and any logging they perform).
 			reqID := requestID(r, w)
+			ctx := WithRequestAttrs(r.Context(), reqID, "", "")
+			r = r.WithContext(ctx)
 
-			// 2. Pull tenant / actor from auth context if already injected.
+			// Wrap the response writer to capture the status code.
+			wrapped := &responseWriter{ResponseWriter: w, status: 0}
+
+			// 2. Delegate to the next handler. The auth middleware runs
+			//    downstream, so tenant/actor are only present AFTER this returns.
+			next.ServeHTTP(wrapped, r)
+
+			// 3. Pull tenant / actor from the (downstream-enriched) context.
 			//    These are empty strings for unauthenticated routes — that is fine.
 			var tenantID, actorID string
 			if scope := auth.OrgScopeFrom(r.Context()); scope.UserID != "" {
@@ -108,15 +119,8 @@ func Middleware(logger *slog.Logger, reg *Registry) func(http.Handler) http.Hand
 				}
 			}
 
-			// 3. Inject request-scoped attrs into context.
-			ctx := WithRequestAttrs(r.Context(), reqID, tenantID, actorID)
-			r = r.WithContext(ctx)
-
-			// Wrap the response writer to capture the status code.
-			wrapped := &responseWriter{ResponseWriter: w, status: 0}
-
-			// 4. Delegate to the next handler.
-			next.ServeHTTP(wrapped, r)
+			// Enrich the request-scoped attrs now that auth has run.
+			r = r.WithContext(WithRequestAttrs(r.Context(), reqID, tenantID, actorID))
 
 			// Ensure we have a sensible status even if the handler never called
 			// WriteHeader (implicit 200).

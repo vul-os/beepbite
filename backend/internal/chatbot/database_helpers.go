@@ -63,10 +63,10 @@ type Item struct {
 }
 
 type ItemVariation struct {
-	ID                   string                 `json:"id"`
-	Name                 string                 `json:"name"`
-	IsRequired           bool                   `json:"is_required"`
-	ItemVariationOptions []ItemVariationOption  `json:"item_variation_options"`
+	ID                   string                `json:"id"`
+	Name                 string                `json:"name"`
+	IsRequired           bool                  `json:"is_required"`
+	ItemVariationOptions []ItemVariationOption `json:"item_variation_options"`
 }
 
 type ItemVariationOption struct {
@@ -76,16 +76,16 @@ type ItemVariationOption struct {
 }
 
 type CartItem struct {
-	ID                  string                 `json:"id"`
-	CustomerID          string                 `json:"customer_id"`
-	LocationID          string                 `json:"location_id"`
-	ItemID              string                 `json:"item_id"`
-	Quantity            int                    `json:"quantity"`
-	UnitPrice           float64                `json:"unit_price"`
-	TotalPrice          float64                `json:"total_price"`
-	SpecialInstructions *string                `json:"special_instructions"`
-	Items               *CartItemRef           `json:"items"`
-	CartItemVariations  []CartItemVariation    `json:"cart_item_variations"`
+	ID                  string              `json:"id"`
+	CustomerID          string              `json:"customer_id"`
+	LocationID          string              `json:"location_id"`
+	ItemID              string              `json:"item_id"`
+	Quantity            int                 `json:"quantity"`
+	UnitPrice           float64             `json:"unit_price"`
+	TotalPrice          float64             `json:"total_price"`
+	SpecialInstructions *string             `json:"special_instructions"`
+	Items               *CartItemRef        `json:"items"`
+	CartItemVariations  []CartItemVariation `json:"cart_item_variations"`
 }
 
 type CartItemRef struct {
@@ -110,32 +110,32 @@ type CartItemVariationOption struct {
 }
 
 type CartSummary struct {
-	CustomerID        string   `json:"customer_id"`
-	LocationID        string   `json:"location_id"`
-	ItemCount         int      `json:"item_count"`
-	TotalQuantity     int      `json:"total_quantity"`
-	Subtotal          float64  `json:"subtotal"`
-	DeliveryFee       float64  `json:"delivery_fee"`
-	DeliveryFeeAmount float64  `json:"delivery_fee_amount"`
-	TotalAmount       float64  `json:"total_amount"`
+	CustomerID        string  `json:"customer_id"`
+	LocationID        string  `json:"location_id"`
+	ItemCount         int     `json:"item_count"`
+	TotalQuantity     int     `json:"total_quantity"`
+	Subtotal          float64 `json:"subtotal"`
+	DeliveryFee       float64 `json:"delivery_fee"`
+	DeliveryFeeAmount float64 `json:"delivery_fee_amount"`
+	TotalAmount       float64 `json:"total_amount"`
 }
 
 type PaymentMethod struct {
-	ID             string  `json:"id"`
-	CardLastFour   *string `json:"card_last_four"`
-	CardType       *string `json:"card_type"`
-	CardExpMonth   *string `json:"card_exp_month"`
-	CardExpYear    *string `json:"card_exp_year"`
-	Nickname       *string `json:"nickname"`
-	IsDefault      bool    `json:"is_default"`
+	ID              string  `json:"id"`
+	CardLastFour    *string `json:"card_last_four"`
+	CardType        *string `json:"card_type"`
+	CardExpMonth    *string `json:"card_exp_month"`
+	CardExpYear     *string `json:"card_exp_year"`
+	Nickname        *string `json:"nickname"`
+	IsDefault       bool    `json:"is_default"`
 	GatewayProvider string  `json:"gateway_provider"`
 }
 
 type OrderRef struct {
-	ID          string    `json:"id"`
-	OrderNumber string    `json:"order_number"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string            `json:"id"`
+	OrderNumber string            `json:"order_number"`
+	Status      string            `json:"status"`
+	CreatedAt   time.Time         `json:"created_at"`
 	Locations   *OrderLocationRef `json:"locations"`
 }
 
@@ -366,8 +366,9 @@ func (s *Service) loadItemsForCategory(ctx context.Context, categoryID string) (
 }
 
 func (s *Service) loadVariations(ctx context.Context, itemID string) ([]ItemVariation, error) {
+	// Variations are modeled as modifier_groups (group) + modifiers (options).
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, name, is_required FROM item_variations WHERE item_id = $1`,
+		`SELECT id, name, is_required FROM modifier_groups WHERE item_id = $1 ORDER BY sort_order`,
 		itemID,
 	)
 	if err != nil {
@@ -396,9 +397,10 @@ func (s *Service) loadVariations(ctx context.Context, itemID string) ([]ItemVari
 }
 
 func (s *Service) loadVariationOptions(ctx context.Context, variationID string) ([]ItemVariationOption, error) {
+	// modifiers store price_delta_cents (cents); convert to dollars.
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, name, COALESCE(price_modifier, 0)::float8
-		 FROM item_variation_options WHERE variation_id = $1`,
+		`SELECT id, name, COALESCE(price_delta_cents, 0)
+		 FROM modifiers WHERE modifier_group_id = $1 AND is_active = true ORDER BY sort_order`,
 		variationID,
 	)
 	if err != nil {
@@ -409,10 +411,12 @@ func (s *Service) loadVariationOptions(ctx context.Context, variationID string) 
 	var opts []ItemVariationOption
 	for rows.Next() {
 		o := ItemVariationOption{}
-		if err := rows.Scan(&o.ID, &o.Name, &o.PriceModifier); err != nil {
+		var priceDeltaCents int64
+		if err := rows.Scan(&o.ID, &o.Name, &priceDeltaCents); err != nil {
 			log.Printf("Error scanning option: %v", err)
 			continue
 		}
+		o.PriceModifier = float64(priceDeltaCents) / 100.0
 		opts = append(opts, o)
 	}
 	return opts, nil
@@ -446,14 +450,16 @@ func (s *Service) addToCart(ctx context.Context, customerID, locationID, itemID 
 	}
 	totalPrice := price * float64(quantity)
 
-	// Sum variation price modifiers
+	// Sum variation price modifiers. variations is keyed
+	// modifier_group_id -> modifier_id; price lives on modifiers as
+	// price_delta_cents (cents), converted to dollars here.
 	for _, optionID := range variations {
-		var modifier float64
+		var priceDeltaCents int64
 		if err := s.pool.QueryRow(ctx,
-			`SELECT COALESCE(price_modifier, 0)::float8 FROM item_variation_options WHERE id = $1`,
+			`SELECT COALESCE(price_delta_cents, 0) FROM modifiers WHERE id = $1`,
 			optionID,
-		).Scan(&modifier); err == nil {
-			totalPrice += modifier * float64(quantity)
+		).Scan(&priceDeltaCents); err == nil {
+			totalPrice += (float64(priceDeltaCents) / 100.0) * float64(quantity)
 		}
 	}
 
@@ -477,13 +483,16 @@ func (s *Service) addToCart(ctx context.Context, customerID, locationID, itemID 
 		return false
 	}
 
-	// Insert variations
+	// Insert variations. cart_item_variations keeps its own column names:
+	// variation_id holds the modifier_group_id, option_id holds the
+	// modifier_id, and price_modifier stores the per-option delta in dollars.
 	for variationID, optionID := range variations {
-		var modifier float64
+		var priceDeltaCents int64
 		if err := s.pool.QueryRow(ctx,
-			`SELECT COALESCE(price_modifier, 0)::float8 FROM item_variation_options WHERE id = $1`,
+			`SELECT COALESCE(price_delta_cents, 0) FROM modifiers WHERE id = $1`,
 			optionID,
-		).Scan(&modifier); err == nil {
+		).Scan(&priceDeltaCents); err == nil {
+			modifier := float64(priceDeltaCents) / 100.0
 			_, insErr := s.pool.Exec(ctx,
 				`INSERT INTO cart_item_variations (cart_item_id, variation_id, option_id, price_modifier)
 				 VALUES ($1, $2, $3, $4)`,
@@ -533,11 +542,14 @@ func (s *Service) getCartItems(ctx context.Context, customerID, locationID strin
 
 	// Load variations per item
 	for idx := range items {
+		// cart_item_variations.variation_id -> modifier_groups.id and
+		// option_id -> modifiers.id. price_modifier on cart_item_variations is
+		// already stored in dollars.
 		varRows, err := s.pool.Query(ctx,
-			`SELECT iv.name, ivo.name, COALESCE(ivo.price_modifier, 0)::float8
+			`SELECT mg.name, m.name, COALESCE(civ.price_modifier, 0)::float8
 			 FROM cart_item_variations civ
-			 JOIN item_variations iv ON civ.variation_id = iv.id
-			 JOIN item_variation_options ivo ON civ.option_id = ivo.id
+			 JOIN modifier_groups mg ON civ.variation_id = mg.id
+			 JOIN modifiers m ON civ.option_id = m.id
 			 WHERE civ.cart_item_id = $1`,
 			items[idx].ID,
 		)
@@ -873,7 +885,6 @@ func fulfillmentTypeForChatbot(orderType string) string {
 		return "collection"
 	}
 }
-
 
 type addAddressResult struct {
 	Success bool

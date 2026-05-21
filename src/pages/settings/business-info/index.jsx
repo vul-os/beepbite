@@ -74,7 +74,9 @@ export default function BusinessInfoPage() {
 
   function handleChange(e) {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    // country must be a 2-letter ISO code — enforce uppercase at input time.
+    const coerced = name === 'country' ? value.toUpperCase().slice(0, 2) : value;
+    setForm((prev) => ({ ...prev, [name]: coerced }));
     setSuccess(false);
   }
 
@@ -91,6 +93,8 @@ export default function BusinessInfoPage() {
       ...form,
       vat_number:     form.vat_number     || null,
       company_number: form.company_number || null,
+      contact_email:  form.contact_email  || null,
+      contact_phone:  form.contact_phone  || null,
     };
 
     const { error: err } = await saveTaxProfile(body);
@@ -183,8 +187,13 @@ export default function BusinessInfoPage() {
                 name="country"
                 value={form.country}
                 onChange={handleChange}
-                placeholder="South Africa"
+                placeholder="ZA"
+                maxLength={2}
+                className="max-w-[80px] uppercase"
               />
+              <p className="text-xs text-muted-foreground">
+                2-letter ISO code, e.g. ZA
+              </p>
             </div>
 
             {/* Company number */}

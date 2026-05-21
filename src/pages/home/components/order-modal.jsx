@@ -510,20 +510,23 @@ const OrderModals = ({
                           </div>
                         </div>
                         
-                        {/* Variations */}
-                        {orderItem.order_item_variations && orderItem.order_item_variations.length > 0 && (
+                        {/* Modifiers */}
+                        {orderItem.order_item_modifiers && orderItem.order_item_modifiers.length > 0 && (
                           <div className="mt-2">
                             <div className="flex flex-wrap gap-1">
-                              {orderItem.order_item_variations.map((variation, index) => (
-                                <span key={index} className="inline-block bg-blue-100 rounded-full px-2 py-1 text-xs text-blue-700">
-                                  <span className="font-medium">{variation.item_variations?.name}:</span> {variation.item_variation_options?.name}
-                                  {variation.price_modifier !== 0 && (
-                                    <span className="text-blue-600 ml-1">
-                                      {variation.price_modifier > 0 ? '+' : ''}R{parseFloat(variation.price_modifier).toFixed(2)}
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
+                              {orderItem.order_item_modifiers.map((modifier, index) => {
+                                const priceDelta = (modifier.price_cents_snapshot || 0) / 100;
+                                return (
+                                  <span key={index} className="inline-block bg-blue-100 rounded-full px-2 py-1 text-xs text-blue-700">
+                                    <span className="font-medium">{modifier.name_snapshot}</span>
+                                    {priceDelta !== 0 && (
+                                      <span className="text-blue-600 ml-1">
+                                        {priceDelta > 0 ? '+' : ''}R{priceDelta.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         )}

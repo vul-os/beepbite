@@ -68,9 +68,9 @@ export async function listInvoices() {
 /**
  * Fetch a single invoice with its line items.
  * @param {string} invoiceId
- * @returns {{ data: Invoice & { metadata: { lines: InvoiceLine[] } }|null, error: object|null }}
+ * @returns {{ data: Invoice & { lines: InvoiceLine[] }|null, error: object|null }}
  *
- * InvoiceLine shape (under metadata.lines):
+ * InvoiceLine shape (top-level inv.lines):
  * {
  *   description:     string,
  *   qty:             number,
@@ -92,11 +92,10 @@ export async function getInvoice(invoiceId) {
  *   recipient_name:    string,
  *   recipient_address: string,
  *   currency?:         string,
- *   vat_applied?:      boolean,
- *   vat_rate_percent?: number,
- *   metadata:          { lines: Array<{ description: string, qty: number, unit_cents: number }> },
+ *   vat_rate_pct?:     number,
+ *   lines:             Array<{ description: string, qty: number, unit_cents: number }>,
  * }} body
- * @returns {{ data: Invoice & { metadata: { lines: InvoiceLine[] } }|null, error: object|null }}
+ * @returns {{ data: Invoice & { lines: InvoiceLine[] }|null, error: object|null }}
  */
 export async function createInvoice(body) {
   return api.request('POST', '/invoicing/invoices', { body });
@@ -110,11 +109,10 @@ export async function createInvoice(body) {
  *   recipient_name?:    string,
  *   recipient_address?: string,
  *   currency?:          string,
- *   vat_applied?:       boolean,
- *   vat_rate_percent?:  number,
- *   metadata?:          { lines: Array<{ description: string, qty: number, unit_cents: number }> },
+ *   vat_rate_pct?:      number,
+ *   lines?:             Array<{ description: string, qty: number, unit_cents: number }>,
  * }} changes
- * @returns {{ data: Invoice & { metadata: { lines: InvoiceLine[] } }|null, error: object|null }}
+ * @returns {{ data: Invoice & { lines: InvoiceLine[] }|null, error: object|null }}
  */
 export async function updateInvoice(invoiceId, changes) {
   if (!invoiceId) return { data: null, error: { message: 'invoiceId required' } };
@@ -182,17 +180,8 @@ export async function voidInvoice(invoiceId) {
 export async function downloadInvoicePDF(invoiceId) {
   if (!invoiceId) return;
 
-  const { api: _api } = await import('@/lib/api-client');
-  const res = await _api.request(
-    'GET',
-    `/invoicing/invoices/${encodeURIComponent(invoiceId)}.pdf`,
-    // Tell the raw fetch not to parse JSON — we need the raw response.
-    // api.request always returns { data, error } so we use a workaround:
-    // call the low-level fetch through the api client.
-  );
-
-  // api.request already consumed the body as text and tried to JSON parse.
-  // For PDF we need the raw binary. Use a second raw fetch.
+  // api.request parses JSON; for PDF we need the raw binary blob.
+  // Use a direct fetch with the stored Bearer token.
   const STORAGE_KEY = 'bb.auth';
   let token = null;
   try {
