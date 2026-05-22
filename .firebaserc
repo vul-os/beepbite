@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "beepbite-e43e6"
+  },
+  "targets": {
+    "beepbite-e43e6": {
+      "hosting": {
+        "main": [
+          "beepbite"
+        ],
+        "dev": [
+          "beepbite-dev"
+        ]
+      }
+    }
+  }
+}
