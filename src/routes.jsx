@@ -129,9 +129,9 @@ const CustomerChat = lazyImport(() => import('./pages/chat'));
 const CustomerDisplay = lazyImport(() => import('./pages/pos/customer-display'));
 const SettingsDomains = lazyImport(() => import('./pages/settings/domains'));
 const SettingsHardware = lazyImport(() => import('./pages/settings/hardware'));
-const SettingsSecurity = lazyImport(() => import('./pages/settings/security'));
 const SettingsBusinessInfo = lazyImport(() => import('./pages/settings/business-info'));
-const SettingsAccount = lazyImport(() => import('./pages/settings/account'));
+// Security (2FA) + Data & Privacy (export/delete) now live as tabs inside /account;
+// the standalone routes below redirect there for backwards-compatible links.
 const Invoices = lazyImport(() => import('./pages/invoices'));
 const InvoiceDetail = lazyImport(() => import('./pages/invoices/detail'));
 const InvoiceForm = lazyImport(() => import('./pages/invoices/form'));
@@ -325,9 +325,9 @@ const AppRoutes = () => {
           <Route path="/admin/wa-numbers" element={<Protected><AdminWANumbers /></Protected>} />
           <Route path="/settings/domains" element={<Protected><SettingsDomains /></Protected>} />
           <Route path="/settings/hardware" element={<Protected><SettingsHardware /></Protected>} />
-          <Route path="/settings/security" element={<Protected><SettingsSecurity /></Protected>} />
+          <Route path="/settings/security" element={<Navigate to="/account" replace />} />
           <Route path="/settings/business-info" element={<Protected><SettingsBusinessInfo /></Protected>} />
-          <Route path="/settings/account" element={<Protected><SettingsAccount /></Protected>} />
+          <Route path="/settings/account" element={<Navigate to="/account" replace />} />
           <Route path="/invoices" element={<Protected><Invoices /></Protected>} />
           <Route path="/invoices/new" element={<Protected><InvoiceForm /></Protected>} />
           <Route path="/invoices/:id" element={<Protected><InvoiceDetail /></Protected>} />

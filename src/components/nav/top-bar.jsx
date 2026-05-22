@@ -22,7 +22,8 @@ import {
   Store,
   Folder,
   Receipt,
-  MonitorPlay
+  MonitorPlay,
+  Truck
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -182,6 +183,13 @@ const TopBar = () => {
           path: '/staff',
           icon: UserCircle,
           description: 'Staff management'
+        },
+        {
+          name: 'Driver Portal',
+          path: '/driver',
+          icon: Truck,
+          description: 'Active deliveries & online toggle',
+          capability: 'can_drive',
         }
       ]
     },
