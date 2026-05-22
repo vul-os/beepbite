@@ -208,7 +208,7 @@ func main() {
 	kdsFanoutRunner := kdsfanout.NewRunner(database.Pool, kds.NewStore(database.Pool))
 	auditRetentionRunner := auditretention.NewRunner(database.Pool, 90)
 
-	aiSvc := ai.New(database.Pool, cfg.OpenAIAPIKey)
+	aiSvc := ai.New(database.Pool, cfg.GeminiAPIKey)
 	aiH := aimenu.NewHandler(aiSvc)
 
 	wa := whatsapp.NewClient(cfg.WhatsAppAccessToken, cfg.WhatsAppPhoneNumberID)
@@ -437,7 +437,6 @@ func main() {
 		// are internal tooling that doesn't operate on per-location records.)
 		staffAuthH.MountManagerRoutes(r)
 		staffAuthH.MountPinVerify(r)
-		r.Post("/ai/menu", aiH)
 		r.Post("/chatbot/whatsapp/send", waSendH)
 
 		// JWT-only (user-scoped, no org membership required).
@@ -510,6 +509,7 @@ func main() {
 			r.Route("/stats", statsH.Mount)
 
 			// Remaining-roadmap org-scoped surfaces.
+			r.Post("/ai/menu", aiH)                       // AI menu creator (org-scoped: reads location + writes items under RLS)
 			ownerAssistantH.Mount(r)                      // /assistant (+/draft/{id}) — Wave 21
 			r.Route("/domains", customDomainsH.Mount)     // Wave 23 custom domains
 			r.Route("/hardware", hardwareH.Mount)         // Wave 29 printers
