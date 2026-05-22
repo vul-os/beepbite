@@ -29,6 +29,7 @@ import (
 	"github.com/beepbite/backend/internal/email"
 	"github.com/beepbite/backend/internal/handlers/adjustments"
 	"github.com/beepbite/backend/internal/handlers/admin"
+	"github.com/beepbite/backend/internal/handlers/aifloor"
 	"github.com/beepbite/backend/internal/handlers/aimenu"
 	"github.com/beepbite/backend/internal/handlers/apikeys"
 	"github.com/beepbite/backend/internal/handlers/auditviewer"
@@ -210,6 +211,7 @@ func main() {
 
 	aiSvc := ai.New(database.Pool, cfg.GeminiAPIKey)
 	aiH := aimenu.NewHandler(aiSvc)
+	aiFloorH := aifloor.NewHandler(aiSvc) // AI floor-plan generator
 
 	wa := whatsapp.NewClient(cfg.WhatsAppAccessToken, cfg.WhatsAppPhoneNumberID)
 	waSendH := whatsappsend.NewHandler(wa)
@@ -510,6 +512,7 @@ func main() {
 
 			// Remaining-roadmap org-scoped surfaces.
 			r.Post("/ai/menu", aiH)                       // AI menu creator (org-scoped: reads location + writes items under RLS)
+			r.Post("/ai/floor", aiFloorH)                 // AI floor-plan generator (org-scoped: writes sections/tables under RLS)
 			ownerAssistantH.Mount(r)                      // /assistant (+/draft/{id}) — Wave 21
 			r.Route("/domains", customDomainsH.Mount)     // Wave 23 custom domains
 			r.Route("/hardware", hardwareH.Mount)         // Wave 29 printers
