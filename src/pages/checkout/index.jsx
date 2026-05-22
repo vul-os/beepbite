@@ -20,6 +20,7 @@ import {
 import { createOrder, clearCart, getStore } from '@/services/marketplace';
 import { formatPrice } from '@/lib/currency';
 import ReceiptModal from '@/pages/pos/components/receipt-modal';
+import AddressAutocomplete from '@/components/address-autocomplete';
 
 const TIP_OPTIONS = [
   { label: '0%', value: 0 },
@@ -349,11 +350,21 @@ export default function CheckoutPage() {
               <TabsContent value="delivery" className="pt-4 space-y-3">
                 <div>
                   <Label htmlFor="street" className="text-xs font-medium">Street address <span className="text-orange-500">*</span></Label>
-                  <Input
+                  <AddressAutocomplete
                     id="street"
                     placeholder="123 Main Road"
                     value={address.street}
-                    onChange={(e) => setAddress((a) => ({ ...a, street: e.target.value }))}
+                    onChange={(text) => setAddress((a) => ({ ...a, street: text }))}
+                    onSelect={(s) =>
+                      setAddress((a) => ({
+                        ...a,
+                        street: s.street || s.place_name || a.street,
+                        suburb: s.suburb || a.suburb,
+                        city: s.city || a.city,
+                        lat: s.lat ?? null,
+                        lng: s.lng ?? null,
+                      }))
+                    }
                     required={fulfillment === 'delivery'}
                     className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-orange-400"
                   />
