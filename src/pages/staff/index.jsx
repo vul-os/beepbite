@@ -58,6 +58,7 @@ import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
+import DriverInvitesPanel from '@/components/driver-invites-panel';
 
 const Staff = () => {
   const { activeLocation, activeOrganization } = useAuth();
@@ -1210,6 +1211,9 @@ const Staff = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Drivers — invite by email + manage pending driver invites */}
+      <DriverInvitesPanel />
     </div>
   );
 };
