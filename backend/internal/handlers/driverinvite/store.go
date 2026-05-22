@@ -26,6 +26,7 @@ var (
 	ErrInviteNotFound   = errors.New("driver invite not found")
 	ErrAlreadyMember    = errors.New("user is already a member of this organization")
 	ErrAlreadyInvited   = errors.New("a pending driver invite already exists for this email")
+	ErrDriverNotFound   = errors.New("driver not found in this organization")
 )
 
 // DriverInvite mirrors the organization_invites row (role='driver' subset).
@@ -170,6 +171,72 @@ UPDATE organization_invites
 		}
 		if tag.RowsAffected() == 0 {
 			return ErrInviteNotFound
+		}
+		return nil
+	})
+}
+
+// ActiveDriver is an accepted driver member (role='driver') joined to its
+// profile for display.
+type ActiveDriver struct {
+	ProfileID string    `json:"profile_id"`
+	Email     string    `json:"email"`
+	FullName  string    `json:"full_name"`
+	JoinedAt  time.Time `json:"joined_at"`
+}
+
+// ListActiveDrivers returns the org's accepted driver members. It runs under
+// ServiceRoleScope because profiles RLS is per-user (an owner can't read a
+// co-member's profile under their own scope); access is bounded by filtering
+// strictly on the caller's resolved orgID — the same pattern used by the
+// data-export / admin reads.
+func (s *Store) ListActiveDrivers(ctx context.Context, orgID string) ([]ActiveDriver, error) {
+	out := []ActiveDriver{}
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
+SELECT m.profile_id, COALESCE(p.email, ''), COALESCE(p.full_name, ''), m.created_at
+  FROM organization_members m
+  JOIN profiles p ON p.id = m.profile_id
+ WHERE m.organization_id = $1
+   AND m.role = 'driver'
+ ORDER BY p.email
+ LIMIT 500`, orgID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var d ActiveDriver
+			if err := rows.Scan(&d.ProfileID, &d.Email, &d.FullName, &d.JoinedAt); err != nil {
+				return err
+			}
+			out = append(out, d)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RemoveDriver deletes the driver-role membership for profileID in orgID,
+// revoking that user's driver access (and can_drive). Only role='driver' rows
+// are touched, so it never removes an owner/manager membership. Returns
+// ErrDriverNotFound when no matching driver membership exists. Service-role +
+// strict org filter.
+func (s *Store) RemoveDriver(ctx context.Context, orgID, profileID string) error {
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `
+DELETE FROM organization_members
+ WHERE organization_id = $1
+   AND profile_id = $2
+   AND role = 'driver'`, orgID, profileID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrDriverNotFound
 		}
 		return nil
 	})

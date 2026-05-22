@@ -31,3 +31,15 @@ export async function revokeDriverInvite(id) {
   const { error } = await api.request('POST', `/driver-invites/${id}/revoke`);
   if (error) throw new Error(error.message || 'Failed to revoke invite');
 }
+
+// Active drivers (accepted members with role=driver).
+export async function listActiveDrivers() {
+  const { data, error } = await api.request('GET', '/drivers');
+  if (error) throw new Error(error.message || 'Failed to load drivers');
+  return Array.isArray(data) ? data : (data?.drivers ?? []);
+}
+
+export async function removeDriver(profileId) {
+  const { error } = await api.request('DELETE', `/drivers/${profileId}`);
+  if (error) throw new Error(error.message || 'Failed to remove driver');
+}
