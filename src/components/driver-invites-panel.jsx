@@ -3,14 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Loader2, Mail, X, CheckCircle, AlertCircle } from 'lucide-react';
-import { listDriverInvites, inviteDriver, revokeDriverInvite } from '@/services/driver-invites';
+import { Truck, Loader2, Mail, X, CheckCircle, AlertCircle, UserMinus } from 'lucide-react';
+import {
+  listDriverInvites, inviteDriver, revokeDriverInvite,
+  listActiveDrivers, removeDriver,
+} from '@/services/driver-invites';
 
 // DriverInvitesPanel — owner/manager surface to invite drivers by email and
 // manage pending invites. Drop it on the Staff management page.
 export default function DriverInvitesPanel() {
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [drivers, setDrivers] = useState([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(true);
+  const [removingId, setRemovingId] = useState(null);
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState(null); // { kind: 'ok'|'err', text }
@@ -27,7 +33,33 @@ export default function DriverInvitesPanel() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadDrivers = useCallback(async () => {
+    setLoadingDrivers(true);
+    try {
+      setDrivers(await listActiveDrivers());
+    } catch {
+      setDrivers([]);
+    } finally {
+      setLoadingDrivers(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); loadDrivers(); }, [load, loadDrivers]);
+
+  const handleRemoveDriver = async (driver) => {
+    if (!window.confirm(`Remove driver access for ${driver.email}? They will lose access to the Driver Portal.`)) return;
+    setRemovingId(driver.profile_id);
+    setMsg(null);
+    try {
+      await removeDriver(driver.profile_id);
+      setMsg({ kind: 'ok', text: `Removed driver access for ${driver.email}.` });
+      await loadDrivers();
+    } catch (err) {
+      setMsg({ kind: 'err', text: err.message || 'Failed to remove driver' });
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -122,6 +154,39 @@ export default function DriverInvitesPanel() {
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <h4 className="text-sm font-semibold text-gray-700 mb-2">Active drivers</h4>
+          {loadingDrivers ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+          ) : drivers.length === 0 ? (
+            <p className="text-sm text-gray-500">No active drivers yet. Invited drivers appear here once they sign up.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+              {drivers.map((d) => (
+                <li key={d.profile_id} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{d.full_name || d.email}</p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {d.full_name ? d.email : 'driver'}
+                      {d.joined_at ? ` · since ${new Date(d.joined_at).toLocaleDateString()}` : ''}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={removingId === d.profile_id}
+                    onClick={() => handleRemoveDriver(d)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    aria-label={`Remove driver ${d.email}`}
+                  >
+                    {removingId === d.profile_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                  </Button>
                 </li>
               ))}
             </ul>

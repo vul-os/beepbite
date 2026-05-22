@@ -40,11 +40,17 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 //	POST   /driver-invites              — create a driver invite
 //	GET    /driver-invites              — list pending driver invites for the org
 //	POST   /driver-invites/{id}/revoke  — revoke a pending driver invite
+//	GET    /drivers                     — list active driver members for the org
+//	DELETE /drivers/{profile_id}        — remove a driver's access
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/driver-invites", func(r chi.Router) {
 		r.Post("/", h.createInvite)
 		r.Get("/", h.listInvites)
 		r.Post("/{id}/revoke", h.revokeInvite)
+	})
+	r.Route("/drivers", func(r chi.Router) {
+		r.Get("/", h.listDrivers)
+		r.Delete("/{profile_id}", h.removeDriver)
 	})
 }
 
@@ -153,6 +159,63 @@ func (h *Handler) revokeInvite(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.RevokeInvite(r.Context(), scope.OrgID, inviteID); err != nil {
 		if errors.Is(err, ErrInviteNotFound) {
 			writeErr(w, http.StatusNotFound, "invite not found or already processed")
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GET /drivers
+//
+// Returns the active driver members (role='driver') for the caller's org.
+// Requires: owner or manager role.
+func (h *Handler) listDrivers(w http.ResponseWriter, r *http.Request) {
+	if !callerIsOwnerOrManager(r) {
+		writeErr(w, http.StatusForbidden, "requires owner or manager role")
+		return
+	}
+	scope := db.ScopeFromContext(r.Context())
+	if scope.OrgID == "" {
+		writeErr(w, http.StatusBadRequest, "no org scope resolved")
+		return
+	}
+	drivers, err := h.store.ListActiveDrivers(r.Context(), scope.OrgID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, drivers)
+}
+
+// DELETE /drivers/{profile_id}
+//
+// Removes a driver's membership (revoking driver access + can_drive).
+// Returns 204 on success. Requires: owner or manager role. A caller cannot
+// remove their own membership through this path.
+func (h *Handler) removeDriver(w http.ResponseWriter, r *http.Request) {
+	if !callerIsOwnerOrManager(r) {
+		writeErr(w, http.StatusForbidden, "requires owner or manager role")
+		return
+	}
+	profileID := chi.URLParam(r, "profile_id")
+	if profileID == "" {
+		writeErr(w, http.StatusBadRequest, "profile_id required")
+		return
+	}
+	scope := db.ScopeFromContext(r.Context())
+	if scope.OrgID == "" {
+		writeErr(w, http.StatusBadRequest, "no org scope resolved")
+		return
+	}
+	if profileID == scope.UserID {
+		writeErr(w, http.StatusBadRequest, "cannot remove yourself")
+		return
+	}
+	if err := h.store.RemoveDriver(r.Context(), scope.OrgID, profileID); err != nil {
+		if errors.Is(err, ErrDriverNotFound) {
+			writeErr(w, http.StatusNotFound, "driver not found in this organization")
 			return
 		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
