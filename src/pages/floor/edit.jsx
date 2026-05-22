@@ -18,6 +18,7 @@ import {
   LayoutGrid,
   Loader2,
   Plus,
+  Sparkles,
   Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ import { api } from '@/lib/api-client';
 import { useTables } from './hooks/use-tables';
 import SectionTabs from './components/section-tabs';
 import FloorCanvas from './components/floor-canvas';
+import AIFloorModal from './components/ai-floor-modal';
 
 const PATCH_DEBOUNCE_MS = 500;
 const DEFAULT_DROP = { pos_x: 32, pos_y: 32 };
@@ -67,6 +69,7 @@ export default function FloorEditor() {
   const [savingIds, setSavingIds] = useState(() => new Set());
   const [flash, setFlash] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Per-table debounce timers for PATCH calls.
   const patchTimers = useRef(new Map());
@@ -171,6 +174,15 @@ export default function FloorEditor() {
             Undo {undoStack.length ? `(${undoStack.length})` : ''}
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAiOpen(true)}
+            className="border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            AI floor plan
+          </Button>
+          <Button
             size="sm"
             onClick={() => setAddOpen(true)}
             disabled={sections.length === 0}
@@ -262,6 +274,16 @@ export default function FloorEditor() {
         onCreated={(row) => {
           addTableLocal(row);
           setFlash({ type: 'ok', message: `Added ${row.label}` });
+        }}
+      />
+
+      <AIFloorModal
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        locationId={locationId}
+        onApplied={() => {
+          refresh();
+          setFlash({ type: 'ok', message: 'AI floor plan applied — new sections & tables added.' });
         }}
       />
     </div>
