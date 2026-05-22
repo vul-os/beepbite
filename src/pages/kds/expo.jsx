@@ -20,7 +20,6 @@ import { AlertCircle, ChefHat, Loader2, RefreshCw } from 'lucide-react';
 
 import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ExpoOrderCard } from './components/expo-order-card';
 import { useTick } from './hooks/use-tick';
 
@@ -138,76 +137,144 @@ export default function ExpoPage() {
     return () => clearInterval(id);
   }, [load]);
 
+  // Derive counts for header summary
+  const blockedCount = orders.filter((o) => {
+    const st = Array.isArray(o.station_tickets) ? o.station_tickets : [];
+    const anyDone = st.some((s) => s.status === 'bumped' || s.status === 'ready');
+    const anyOpen = st.some((s) => s.status === 'fired' || s.status === 'in_progress');
+    return anyDone && anyOpen;
+  }).length;
+
+  const readyCount = orders.filter((o) => {
+    const st = Array.isArray(o.station_tickets) ? o.station_tickets : [];
+    return st.length > 0 && st.every((s) => s.status === 'ready' || s.status === 'bumped');
+  }).length;
+
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-950 text-gray-50">
       {/* ------------------------------------------------------------------ */}
       {/* Header                                                              */}
       {/* ------------------------------------------------------------------ */}
-      <header className="relative flex items-center justify-between gap-4 border-b border-orange-100 bg-white px-5 py-4 shadow-sm">
-        {/* Orange left accent bar */}
-        <div className="absolute left-0 inset-y-0 w-1 bg-orange-500 rounded-r" />
+      <header className="relative flex items-center justify-between gap-4 border-b border-gray-800 bg-gray-900 px-5 py-4">
+        {/* Orange left accent */}
+        <div className="absolute inset-y-0 left-0 w-1.5 rounded-r bg-orange-500" aria-hidden="true" />
 
-        <div className="flex items-center gap-3 pl-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50">
-            <ChefHat className="size-5 text-orange-600" />
+        <div className="flex items-center gap-4 pl-4">
+          {/* Icon */}
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+            <ChefHat className="size-6 text-orange-400" aria-hidden="true" />
           </div>
+
+          {/* Title + subtitle */}
           <div>
-            <h1 className="text-xl font-bold leading-tight text-gray-900">Expo</h1>
-            <p className="text-xs text-gray-500">
-              {loading ? 'Loading…' : `${orders.length} open order${orders.length === 1 ? '' : 's'}`}
+            <h1 className="text-xl font-extrabold leading-tight text-white">Expo</h1>
+            <p className="text-xs text-gray-400">
+              {loading
+                ? 'Loading…'
+                : `${orders.length} open order${orders.length === 1 ? '' : 's'}`}
             </p>
           </div>
+
+          {/* Status pills — only when we have data */}
+          {!loading && !error && orders.length > 0 && (
+            <div className="flex items-center gap-2">
+              {readyCount > 0 && (
+                <span className="rounded-full bg-emerald-700 px-3 py-0.5 text-xs font-bold text-emerald-100">
+                  {readyCount} ready
+                </span>
+              )}
+              {blockedCount > 0 && (
+                <span className="rounded-full bg-amber-600 px-3 py-0.5 text-xs font-bold text-amber-50">
+                  {blockedCount} waiting
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => load({ background: true })}
-          disabled={refreshing || loading}
-          className="gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
-        >
-          <RefreshCw className={refreshing ? 'size-4 animate-spin' : 'size-4'} />
-          Refresh
-        </Button>
+        {/* Refresh button + polling indicator */}
+        <div className="flex items-center gap-3">
+          {refreshing && (
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              Refreshing…
+            </span>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => load({ background: true })}
+            disabled={refreshing || loading}
+            className="gap-1.5 border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
+          >
+            <RefreshCw className={refreshing ? 'size-4 animate-spin' : 'size-4'} aria-hidden="true" />
+            Refresh
+          </Button>
+        </div>
       </header>
 
       {/* ------------------------------------------------------------------ */}
       {/* Main content                                                        */}
       {/* ------------------------------------------------------------------ */}
-      <main className="flex-1 overflow-auto p-4">
+      <main className="flex-1 overflow-auto p-5">
         {loading ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
-            <Loader2 className="size-8 animate-spin text-orange-500" />
-            <p className="text-sm">Loading orders…</p>
-          </div>
-
+          <ExpoLoadingState />
         ) : error ? (
-          <Alert variant="destructive" className="mx-auto max-w-md mt-8">
-            <AlertCircle className="size-4" />
-            <AlertTitle>Could not load expo</AlertTitle>
-            <AlertDescription className="flex flex-col gap-3 mt-1">
-              <span>{error}</span>
-              <Button size="sm" variant="outline" onClick={() => load()} className="self-start">
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
-
+          <ExpoErrorState error={error} onRetry={() => load()} />
         ) : orders.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-            <ChefHat className="size-12 text-orange-200" />
-            <p className="text-lg font-semibold text-gray-500">All caught up!</p>
-            <p className="text-sm text-gray-400">No open orders right now. New tickets will appear here.</p>
-          </div>
-
+          <ExpoEmptyState />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {orders.map((o) => (
               <ExpoOrderCard key={o.order_id} order={o} now={now} />
             ))}
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+// ---- Internal state components ----
+
+function ExpoLoadingState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-gray-400">
+      <Loader2 className="size-10 animate-spin text-orange-500" aria-hidden="true" />
+      <p className="text-lg font-medium">Loading orders…</p>
+    </div>
+  );
+}
+
+function ExpoEmptyState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+      <div className="flex size-20 items-center justify-center rounded-full bg-emerald-900/40">
+        <ChefHat className="size-10 text-emerald-400" aria-hidden="true" />
+      </div>
+      <p className="text-2xl font-extrabold text-gray-200">All caught up!</p>
+      <p className="max-w-xs text-base text-gray-400">
+        No open orders right now. New tickets will appear automatically every 10 seconds.
+      </p>
+    </div>
+  );
+}
+
+function ExpoErrorState({ error, onRetry }) {
+  return (
+    <div className="mx-auto mt-12 flex max-w-md flex-col items-center gap-4 rounded-xl border border-red-800 bg-red-950/60 p-8 text-center">
+      <AlertCircle className="size-10 text-red-400" aria-hidden="true" />
+      <div>
+        <p className="text-lg font-bold text-red-300">Could not load expo</p>
+        <p className="mt-1 text-sm text-red-400">{error}</p>
+      </div>
+      <Button
+        variant="outline"
+        onClick={onRetry}
+        className="border-red-700 text-red-300 hover:bg-red-900"
+      >
+        <RefreshCw className="mr-2 size-4" aria-hidden="true" /> Retry
+      </Button>
     </div>
   );
 }

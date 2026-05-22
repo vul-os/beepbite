@@ -319,9 +319,11 @@ const QuickPOS = () => {
   if (storeLoading) {
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-orange-500">
-          <Loader2 className="w-12 h-12 animate-spin" />
-          <p className="text-lg font-medium text-gray-600">Loading menu…</p>
+        <div className="flex flex-col items-center gap-4 text-orange-500" role="status" aria-label="Loading menu">
+          <div className="w-20 h-20 rounded-full bg-orange-500/10 flex items-center justify-center">
+            <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+          </div>
+          <p className="text-lg font-semibold text-gray-600">Loading menu…</p>
         </div>
       </div>
     );
@@ -330,10 +332,12 @@ const QuickPOS = () => {
   if (storeError || !store) {
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
-          <AlertCircle className="w-16 h-16 text-orange-400" />
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm" role="alert">
+          <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
+            <AlertCircle className="w-10 h-10 text-red-400" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900">Store not found</h1>
-          <p className="text-gray-500">{storeError || `No store found at "${slug}"`}</p>
+          <p className="text-gray-500 text-sm">{storeError || `No store found at "${slug}"`}</p>
         </div>
       </div>
     );
@@ -345,8 +349,8 @@ const QuickPOS = () => {
     // Full-screen, no scrollbars, kiosk-friendly
     <div className="fixed inset-0 bg-gradient-to-br from-orange-50 to-amber-50 flex flex-col overflow-hidden">
       {/* Minimal header strip — store name only, no nav */}
-      <header className="shrink-0 bg-orange-500 px-5 py-3 flex items-center gap-3 shadow-sm">
-        <h1 className="text-white text-xl font-bold truncate">{storeName}</h1>
+      <header className="shrink-0 bg-orange-500 px-5 py-3.5 flex items-center gap-3 shadow-md">
+        <h1 className="text-white text-xl font-bold tracking-tight truncate">{storeName}</h1>
       </header>
 
       {/* Menu grid — fills remaining space above cart strip */}

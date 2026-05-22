@@ -7,14 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from '@/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Mail, 
-  Lock,
-  AlertCircle,
-  Utensils,
-  Bell
-} from 'lucide-react';
-import Logo from '@/components/ui/logo';
+import { Mail, Lock, AlertCircle, Utensils, Bell, CheckCircle2 } from 'lucide-react';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
@@ -24,41 +17,39 @@ const SignUpPage = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    agreeToTerms: false
+    agreeToTerms: false,
   });
+
+  // Live password requirement checks for visual feedback
+  const pwChecks = {
+    length: formData.password.length >= 8,
+    upper: /[A-Z]/.test(formData.password),
+    number: /\d/.test(formData.password),
+  };
+  const pwStarted = formData.password.length > 0;
 
   const validateForm = () => {
     const newErrors = {};
-    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       newErrors.password = 'Password must be at least 8 characters with 1 number and 1 uppercase letter';
     }
-    
     if (!formData.agreeToTerms) {
       newErrors.agreeToTerms = 'You must accept the terms and conditions';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: undefined
-      }));
+      setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
@@ -68,16 +59,10 @@ const SignUpPage = () => {
       setIsLoading(true);
       try {
         await signUp(formData.email, formData.password);
-        // signUp() calls the Go backend which issues tokens immediately —
-        // there is no email-verification gate. The SIGNED_IN event fired inside
-        // signUp() will trigger handleAuthStateChange which navigates to /home
-        // via its 100ms setTimeout. We do NOT navigate ourselves here; doing so
-        // would race with (and potentially override) that redirect.
+        // signUp() calls the Go backend which issues tokens immediately.
+        // Navigation is handled by auth context after SIGNED_IN event.
       } catch (error) {
-        setErrors(prev => ({
-          ...prev,
-          submit: error.message
-        }));
+        setErrors(prev => ({ ...prev, submit: error.message }));
       } finally {
         setIsLoading(false);
       }
@@ -88,140 +73,161 @@ const SignUpPage = () => {
     try {
       setIsLoading(true);
       await signInWithGoogle();
-      // The redirect will be handled by the OAuth provider
     } catch (error) {
-      setErrors(prev => ({
-        ...prev,
-        submit: error.message
-      }));
+      setErrors(prev => ({ ...prev, submit: error.message }));
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="h-screen flex flex-col justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-4 relative overflow-hidden">
-      {/* Background decorations - mobile optimized */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-3"></div>
-      <div className="absolute top-10 right-10 w-12 sm:w-20 h-12 sm:h-20 bg-primary/5 rounded-full opacity-50"></div>
-      <div className="absolute bottom-10 left-10 w-10 sm:w-16 h-10 sm:h-16 bg-primary/5 rounded-full opacity-50"></div>
-      <div className="absolute top-1/4 right-20 w-8 sm:w-12 h-8 sm:h-12 bg-primary/10 rounded-full opacity-30"></div>
-      
-      <div className="w-full max-w-sm mx-auto space-y-4 relative z-10">
-        {/* Mobile-optimized Logo */}
-        <div className="flex justify-center mb-2">
-          <div className="text-center">
-            <div className="flex justify-center items-center mb-2">
-              <div className="w-12 sm:w-16 h-12 sm:h-16 beepbite-gradient rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg border-2 sm:border-4 border-white">
-                <img 
-                  src="/icon.svg" 
-                  alt="BeepBite" 
-                  className="w-6 sm:w-10 h-6 sm:h-10 filter brightness-0 invert"
-                />
-                <div className="absolute -top-0.5 sm:-top-1 -right-0.5 sm:-right-1 w-3 sm:w-4 h-3 sm:h-4 bg-red-500 rounded-full animate-pulse shadow-lg"></div>
-              </div>
+    <div className="min-h-screen flex flex-col justify-center bg-gradient-to-br from-slate-50 via-white to-orange-50 px-4 py-8 relative overflow-hidden">
+      {/* Subtle background blobs */}
+      <div aria-hidden="true" className="absolute top-0 right-0 w-64 h-64 bg-orange-100 rounded-full opacity-30 translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+      <div aria-hidden="true" className="absolute bottom-0 left-0 w-80 h-80 bg-orange-50 rounded-full opacity-40 -translate-x-1/3 translate-y-1/3 pointer-events-none" />
+
+      <div className="w-full max-w-sm mx-auto space-y-6 relative z-10">
+
+        {/* Brand mark */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="relative">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+              <img src="/icon.svg" alt="" aria-hidden="true" className="w-8 h-8 filter brightness-0 invert" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              <span className="beepbite-gradient-text">Beep</span>
-              <span className="text-gray-900">Bite</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-600 font-medium">Restaurant Management</p>
+            <span aria-hidden="true" className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold tracking-tight leading-none">
+              <span className="text-orange-500">Beep</span><span className="text-gray-900">Bite</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">Restaurant Management</p>
           </div>
         </div>
 
-        <Card className="border border-gray-200 shadow-xl bg-white/95 backdrop-blur-sm">
-          <CardHeader className="space-y-1 pb-4 text-center px-4 pt-4">
-            <CardTitle className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
-              Create Your Account
-            </CardTitle>
-            <CardDescription className="text-sm text-gray-600">
-              Join thousands using BeepBite for WhatsApp notifications
+        {/* Card */}
+        <Card className="border border-gray-200 shadow-xl bg-white">
+          <CardHeader className="pb-4 pt-6 px-6 text-center space-y-1">
+            <CardTitle className="text-xl font-bold text-gray-900">Create your account</CardTitle>
+            <CardDescription className="text-sm text-gray-500">
+              Join thousands of restaurants using BeepBite
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {errors.submit && (
-              <Alert variant="destructive" className="mb-4 border-l-4 border-red-500 bg-red-50/80">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">{errors.submit}</AlertDescription>
-              </Alert>
-            )}
 
-            <div className="space-y-4">
-              <Button 
-                variant="outline" 
-                className="w-full flex items-center justify-center gap-2 h-11 border-gray-300 bg-white hover:bg-gray-50 transition-all duration-200 shadow-sm text-sm font-medium"
-                onClick={handleGoogleSignUp}
-                disabled={isLoading}
-              >
-                <div className="w-4 h-4 bg-white rounded flex items-center justify-center">
-                  <img 
-                    src="/google.png" 
-                    alt="Google" 
-                    className="w-4 h-4"
+          <CardContent className="px-6 pb-6 space-y-4">
+            {/* Submit error */}
+            <div aria-live="assertive" aria-atomic="true">
+              {errors.submit && (
+                <Alert variant="destructive" className="border-l-4 border-red-500 bg-red-50">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <AlertDescription className="text-sm">{errors.submit}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            {/* Google SSO */}
+            <Button
+              variant="outline"
+              className="w-full h-11 flex items-center justify-center gap-2 border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium shadow-sm transition-all"
+              onClick={handleGoogleSignUp}
+              disabled={isLoading}
+              aria-label="Continue with Google"
+            >
+              <img src="/google.png" alt="" aria-hidden="true" className="w-4 h-4" />
+              Continue with Google
+            </Button>
+
+            {/* Divider */}
+            <div className="relative flex items-center">
+              <span className="flex-1 border-t border-gray-200" />
+              <span className="px-3 text-xs text-gray-400 font-medium">or</span>
+              <span className="flex-1 border-t border-gray-200" />
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label htmlFor="signup-email" className="text-sm font-medium text-gray-700">
+                  Email address
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" aria-hidden="true" />
+                  <Input
+                    id="signup-email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@restaurant.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    required
+                    aria-invalid={!!errors.email}
+                    aria-describedby={errors.email ? 'signup-email-error' : undefined}
+                    className={`pl-10 h-11 text-base border-gray-300 focus-visible:ring-orange-500 focus-visible:border-orange-500 transition-colors ${errors.email ? 'border-red-400 bg-red-50/30' : ''}`}
                   />
                 </div>
-                <span>Continue with Google</span>
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-3 bg-white text-gray-500 font-medium">OR</span>
+                <div aria-live="polite" aria-atomic="true">
+                  {errors.email && (
+                    <p id="signup-email-error" className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 text-base ${errors.email ? "border-red-400" : ""}`}
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isLoading}
-                      placeholder="your.email@restaurant.com"
-                    />
-                  </div>
-                  {errors.email && (
-                    <p className="text-xs text-red-500">{errors.email}</p>
-                  )}
+              {/* Password */}
+              <div className="space-y-1.5">
+                <Label htmlFor="signup-password" className="text-sm font-medium text-gray-700">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" aria-hidden="true" />
+                  <Input
+                    id="signup-password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Create a secure password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    required
+                    aria-invalid={!!errors.password}
+                    aria-describedby="signup-password-reqs"
+                    className={`pl-10 h-11 text-base border-gray-300 focus-visible:ring-orange-500 focus-visible:border-orange-500 transition-colors ${errors.password ? 'border-red-400 bg-red-50/30' : ''}`}
+                  />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      autoComplete="new-password"
-                      className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-200 text-base ${errors.password ? "border-red-400" : ""}`}
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isLoading}
-                      placeholder="Create a secure password"
-                    />
-                  </div>
+                {/* Live password strength checklist */}
+                <ul id="signup-password-reqs" className="space-y-0.5" aria-label="Password requirements">
+                  {[
+                    { key: 'length', label: 'At least 8 characters', met: pwChecks.length },
+                    { key: 'upper', label: '1 uppercase letter', met: pwChecks.upper },
+                    { key: 'number', label: '1 number', met: pwChecks.number },
+                  ].map(({ key, label, met }) => (
+                    <li key={key} className={`text-xs flex items-center gap-1.5 transition-colors ${pwStarted ? (met ? 'text-green-600' : 'text-red-500') : 'text-gray-400'}`}>
+                      <CheckCircle2 className={`w-3 h-3 shrink-0 transition-colors ${pwStarted && met ? 'text-green-500' : 'text-gray-300'}`} aria-hidden="true" />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+
+                <div aria-live="polite" aria-atomic="true">
                   {errors.password && (
-                    <p className="text-xs text-red-500">{errors.password}</p>
+                    <p id="signup-password-error" className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      {errors.password}
+                    </p>
                   )}
-                  <p className="text-xs text-gray-500">
-                    8+ characters, 1 number, 1 uppercase letter
-                  </p>
                 </div>
+              </div>
 
-                <div className="flex items-start space-x-3">
-                  <Checkbox 
-                    id="agreeToTerms"
+              {/* Terms checkbox */}
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="signup-terms"
                     checked={formData.agreeToTerms}
                     onCheckedChange={(checked) => {
                       setFormData(prev => ({ ...prev, agreeToTerms: checked }));
@@ -229,92 +235,88 @@ const SignUpPage = () => {
                         setErrors(prev => ({ ...prev, agreeToTerms: undefined }));
                       }
                     }}
-                    className={`mt-0.5 ${errors.agreeToTerms ? "border-red-400" : ""}`}
                     disabled={isLoading}
+                    aria-invalid={!!errors.agreeToTerms}
+                    aria-describedby={errors.agreeToTerms ? 'signup-terms-error' : undefined}
+                    className={`mt-0.5 ${errors.agreeToTerms ? 'border-red-400' : ''}`}
                   />
-                  <div className="space-y-1">
-                    <label
-                      htmlFor="agreeToTerms"
-                      className="text-sm text-gray-700 leading-relaxed cursor-pointer"
-                    >
-                      I agree to the{' '}
-                      <a href="/docs/terms" className="text-primary hover:text-primary/80 font-medium underline">
-                        Terms
-                      </a>{' '}
-                      and{' '}
-                      <a href="/docs/privacy" className="text-primary hover:text-primary/80 font-medium underline">
-                        Privacy Policy
-                      </a>
-                    </label>
-                    {errors.agreeToTerms && (
-                      <p className="text-xs text-red-500">{errors.agreeToTerms}</p>
-                    )}
-                  </div>
+                  <Label htmlFor="signup-terms" className="text-sm text-gray-700 leading-relaxed cursor-pointer font-normal">
+                    I agree to the{' '}
+                    <a href="/docs/terms" className="text-orange-500 hover:text-orange-700 font-medium underline underline-offset-1">Terms</a>
+                    {' '}and{' '}
+                    <a href="/docs/privacy" className="text-orange-500 hover:text-orange-700 font-medium underline underline-offset-1">Privacy Policy</a>
+                  </Label>
                 </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 text-base"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Creating account...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Utensils className="w-4 h-4" />
-                      <span>Create Account</span>
-                    </div>
+                <div aria-live="polite" aria-atomic="true">
+                  {errors.agreeToTerms && (
+                    <p id="signup-terms-error" className="text-xs text-red-500 flex items-center gap-1 ml-7">
+                      <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      {errors.agreeToTerms}
+                    </p>
                   )}
-                </Button>
-              </form>
-
-              <div className="text-center pt-2 space-y-2">
-                <div>
-                  <span className="text-sm text-gray-600">Already have an account?{' '}</span>
-                  <Button
-                    variant="link"
-                    className="text-primary hover:text-primary/80 p-0 h-auto font-medium text-sm underline"
-                    onClick={() => navigate('/signin')}
-                    disabled={isLoading}
-                  >
-                    Sign in
-                  </Button>
-                </div>
-                
-                <div>
-                  <Button
-                    variant="link"
-                    className="text-gray-500 hover:text-gray-700 p-0 h-auto text-xs"
-                    onClick={() => navigate('/forgot-password')}
-                    disabled={isLoading}
-                  >
-                    Forgot your password?
-                  </Button>
                 </div>
               </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-11 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold shadow-md hover:shadow-lg transition-all text-sm"
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" aria-hidden="true" />
+                    Creating account…
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Utensils className="w-4 h-4" aria-hidden="true" />
+                    Create Account
+                  </span>
+                )}
+              </Button>
+            </form>
+
+            {/* Links */}
+            <div className="text-center space-y-1.5">
+              <p className="text-sm text-gray-500">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  className="text-orange-500 hover:text-orange-700 font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange-500 rounded"
+                  onClick={() => navigate('/signin')}
+                  disabled={isLoading}
+                >
+                  Sign in
+                </button>
+              </p>
+              <p className="text-xs">
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 underline underline-offset-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange-500 rounded"
+                  onClick={() => navigate('/forgot-password')}
+                  disabled={isLoading}
+                >
+                  Forgot your password?
+                </button>
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Mobile-optimized footer */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center space-x-4 text-xs text-gray-600">
-            <div className="flex items-center space-x-1.5">
-              <Bell className="w-3 h-3 text-primary" />
-              <span>WhatsApp Alerts</span>
-            </div>
-            <div className="flex items-center space-x-1.5">
-              <Utensils className="w-3 h-3 text-primary" />
-              <span>Order Tracking</span>
-            </div>
+        {/* Footer */}
+        <footer className="text-center space-y-1">
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
+            <span className="flex items-center gap-1">
+              <Bell className="w-3 h-3 text-orange-400" aria-hidden="true" />
+              WhatsApp Alerts
+            </span>
+            <span className="flex items-center gap-1">
+              <Utensils className="w-3 h-3 text-orange-400" aria-hidden="true" />
+              Order Tracking
+            </span>
           </div>
-          <p className="text-xs text-gray-500">
-            © {new Date().getFullYear()} BeepBite
-          </p>
-        </div>
+          <p className="text-xs text-gray-400">© {new Date().getFullYear()} BeepBite</p>
+        </footer>
       </div>
     </div>
   );

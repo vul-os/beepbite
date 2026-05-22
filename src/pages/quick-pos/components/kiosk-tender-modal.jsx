@@ -103,29 +103,35 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
           {/* Method selector */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3" role="group" aria-label="Select payment method">
             <button
               onClick={() => setMethod('cash')}
+              aria-pressed={method === 'cash'}
+              aria-label="Pay with cash"
               className={cn(
-                'h-16 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 font-semibold text-base transition-colors',
+                'h-16 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 font-semibold text-base transition-all',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
                 method === 'cash'
-                  ? 'border-orange-500 bg-orange-500 text-white shadow-md'
-                  : 'border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+                  ? 'border-orange-500 bg-orange-500 text-white shadow-md scale-[1.02]'
+                  : 'border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50 active:bg-orange-100'
               )}
             >
-              <Banknote className="w-6 h-6" />
+              <Banknote className="w-6 h-6" aria-hidden="true" />
               Cash
             </button>
             <button
               onClick={() => { setMethod('card'); setCashEntry(''); }}
+              aria-pressed={method === 'card'}
+              aria-label="Pay with card"
               className={cn(
-                'h-16 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 font-semibold text-base transition-colors',
+                'h-16 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 font-semibold text-base transition-all',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
                 method === 'card'
-                  ? 'border-orange-500 bg-orange-500 text-white shadow-md'
-                  : 'border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+                  ? 'border-orange-500 bg-orange-500 text-white shadow-md scale-[1.02]'
+                  : 'border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50 active:bg-orange-100'
               )}
             >
-              <CreditCard className="w-6 h-6" />
+              <CreditCard className="w-6 h-6" aria-hidden="true" />
               Card
             </button>
           </div>
@@ -218,29 +224,37 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
           )}
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-              {error}
-            </p>
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="flex items-start gap-2.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3"
+            >
+              <span className="mt-0.5 shrink-0 text-red-500" aria-hidden="true">⚠</span>
+              <span className="font-medium">{error}</span>
+            </div>
           )}
         </div>
 
         {/* Confirm button */}
-        <div className="px-6 pb-6 pt-2 shrink-0">
+        <div className="px-6 pb-safe pb-6 pt-2 shrink-0">
           <button
             onClick={handleConfirm}
             disabled={loading || (!canConfirmCash && !canConfirmCard)}
+            aria-label={loading ? 'Placing order' : 'Confirm and send to kitchen'}
+            aria-busy={loading}
             className={cn(
-              'w-full h-16 rounded-2xl text-xl font-bold shadow-md transition-colors flex items-center justify-center gap-2',
+              'w-full h-16 rounded-2xl text-xl font-bold shadow-md transition-all flex items-center justify-center gap-2',
+              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-400 focus-visible:ring-offset-2',
               (canConfirmCash || canConfirmCard) && !loading
                 ? 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed',
             )}
           >
             {loading ? (
-              <>
-                <Loader2 className="w-6 h-6 animate-spin" />
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin" aria-hidden="true" />
                 Placing order…
-              </>
+              </span>
             ) : (
               'Confirm & Send to Kitchen'
             )}

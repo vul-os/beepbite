@@ -13,12 +13,23 @@ import CartWidget from './components/cart-widget';
 
 function StoreHeaderSkeleton() {
   return (
-    <div className="space-y-4">
-      <Skeleton className="h-40 sm:h-56 w-full rounded-none" />
-      <div className="px-4 space-y-2">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-32" />
+    <div className="space-y-4 animate-pulse">
+      <Skeleton className="h-44 sm:h-60 w-full rounded-none" />
+      <div className="px-4 space-y-2.5">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-3/4" />
+        <div className="flex gap-3 pt-1">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-24" />
+        </div>
       </div>
     </div>
   );
@@ -84,17 +95,17 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
   const showToggle = offersDelivery && offersCollection;
 
   return (
-    <div className="border rounded-lg px-4 py-3 space-y-3">
+    <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 space-y-3">
       {/* Tab-style toggle — only shown when both modes are available */}
       {showToggle && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit">
           <button
             type="button"
             onClick={() => onChange('delivery')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
               value === 'delivery'
-                ? 'bg-orange-500 text-white border-orange-500'
-                : 'bg-background text-muted-foreground border-border hover:border-orange-300 hover:text-orange-600'
+                ? 'bg-orange-500 text-white shadow-sm'
+                : 'text-muted-foreground hover:text-orange-600'
             }`}
           >
             <Truck className="h-3.5 w-3.5" />
@@ -103,10 +114,10 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
           <button
             type="button"
             onClick={() => onChange('collection')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
               value === 'collection'
-                ? 'bg-orange-500 text-white border-orange-500'
-                : 'bg-background text-muted-foreground border-border hover:border-orange-300 hover:text-orange-600'
+                ? 'bg-orange-500 text-white shadow-sm'
+                : 'text-muted-foreground hover:text-orange-600'
             }`}
           >
             <Store className="h-3.5 w-3.5" />
@@ -135,7 +146,7 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
       {/* Delivery address input */}
       {value === 'delivery' && (
         <div className="space-y-1.5">
-          <Label htmlFor="delivery-address" className="text-xs text-muted-foreground">
+          <Label htmlFor="delivery-address" className="text-xs text-muted-foreground font-medium">
             Delivery address
           </Label>
           <Input
@@ -144,7 +155,7 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
             placeholder="Enter your delivery address"
             value={deliveryAddress}
             onChange={(e) => onAddressChange(e.target.value)}
-            className="h-8 text-sm focus-visible:ring-orange-400"
+            className="h-9 text-sm focus-visible:ring-orange-400 bg-background"
           />
         </div>
       )}
@@ -152,7 +163,7 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
       {/* Collection note */}
       {value === 'collection' && (
         <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-          <MapPin className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
+          <MapPin className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             Collect at{' '}
             <span className="font-medium text-foreground">
@@ -268,34 +279,39 @@ export default function StoreDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Back nav */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-4 h-12 flex items-center justify-between">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b px-4 h-13 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          aria-label="Go back"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -ml-1 px-2 py-2 rounded-lg hover:bg-muted"
         >
           <ChevronLeft className="h-4 w-4" />
-          Back
+          <span className="hidden xs:inline">Back</span>
         </button>
 
-        {/* Mobile cart trigger */}
+        {/* Mobile cart trigger — floating pill */}
         <Sheet open={cartOpen} onOpenChange={setCartOpen}>
           <SheetTrigger asChild>
             <Button
-              variant="outline"
               size="sm"
-              className="relative gap-2 border-orange-300 text-orange-600 hover:bg-orange-50 sm:hidden"
+              className={`relative gap-2 sm:hidden rounded-full px-4 transition-all ${
+                cartQty > 0
+                  ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200'
+                  : 'bg-muted text-muted-foreground border border-border'
+              }`}
+              aria-label={`View cart${cartQty > 0 ? `, ${cartQty} items` : ''}`}
             >
               <ShoppingCart className="h-4 w-4" />
-              {cartQty > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                  {cartQty}
-                </span>
+              {cartQty > 0 ? (
+                <span className="font-semibold text-sm">{cartQty}</span>
+              ) : (
+                <span className="text-sm">Cart</span>
               )}
-              Cart
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-auto max-h-[80vh] overflow-y-auto rounded-t-xl">
-            <div className="pt-2 pb-4">
+          <SheetContent side="bottom" className="h-auto max-h-[85vh] overflow-y-auto rounded-t-2xl px-0">
+            <div className="pt-1 pb-6 px-4">
+              <div className="mx-auto w-10 h-1 bg-muted rounded-full mb-4" />
               <CartWidget
                 slug={slug}
                 items={cartItems}
@@ -324,8 +340,8 @@ export default function StoreDetailPage() {
         </div>
       ) : store ? (
         <>
-          {/* Cover image */}
-          <div className="relative h-40 sm:h-56 bg-orange-100 overflow-hidden">
+          {/* Hero cover image */}
+          <div className="relative h-44 sm:h-64 bg-orange-100 overflow-hidden">
             {store.cover_image_url ? (
               <img
                 src={store.cover_image_url}
@@ -333,65 +349,81 @@ export default function StoreDetailPage() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-orange-200">
-                <span className="text-6xl">🍽️</span>
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-100">
+                <span className="text-7xl" role="img" aria-hidden="true">🍽️</span>
               </div>
+            )}
+            {/* Bottom gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+
+            {/* Open/closed pill over hero */}
+            {store.is_open !== undefined && (
+              <span
+                className={`absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg ${
+                  store.is_open
+                    ? 'bg-green-500 text-white'
+                    : 'bg-black/70 text-white/80'
+                }`}
+              >
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-white' : 'bg-gray-400'}`} />
+                {store.is_open ? 'Open now' : 'Closed'}
+              </span>
             )}
           </div>
 
-          {/* Store info */}
-          <div className="px-4 pt-4 pb-3 border-b space-y-2">
+          {/* Store info card */}
+          <div className="px-4 pt-4 pb-4 border-b space-y-3 bg-background">
             <div className="flex items-start gap-3">
               {store.logo_url && (
                 <img
                   src={store.logo_url}
                   alt={`${store.name} logo`}
-                  className="h-12 w-12 rounded-full border object-cover shrink-0 -mt-6 shadow"
+                  className="h-14 w-14 rounded-2xl border-2 border-white object-cover shrink-0 -mt-8 shadow-md"
                 />
               )}
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-bold leading-tight">{store.name}</h1>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <h1 className="text-xl sm:text-2xl font-extrabold leading-tight tracking-tight">{store.name}</h1>
                 {store.cuisine_type && (
-                  <Badge variant="outline" className="text-xs border-orange-300 text-orange-600 mt-1">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs mt-1 bg-orange-50 text-orange-700 border border-orange-200"
+                  >
                     {store.cuisine_type}
                   </Badge>
                 )}
               </div>
-              {store.is_open !== undefined && (
-                <Badge className={store.is_open ? 'bg-green-500 shrink-0' : 'bg-gray-400 shrink-0'}>
-                  {store.is_open ? 'Open' : 'Closed'}
-                </Badge>
-              )}
             </div>
 
             {store.description && (
-              <p className="text-sm text-muted-foreground">{store.description}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{store.description}</p>
             )}
 
-            {/* Meta */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {/* Meta chips */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
               {store.city && (
                 <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3 text-orange-500" />
+                  <MapPin className="h-3 w-3 text-orange-500" aria-hidden="true" />
                   {store.city}
                 </span>
               )}
               {store.rating && (
-                <span className="flex items-center gap-1">
-                  <Star className="h-3 w-3 fill-orange-400 text-orange-400" />
-                  {Number(store.rating).toFixed(1)}
-                  {store.review_count ? ` (${store.review_count} reviews)` : ''}
+                <span className="flex items-center gap-1 font-medium">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  <span className="text-foreground">{Number(store.rating).toFixed(1)}</span>
+                  {store.review_count ? (
+                    <span className="text-muted-foreground">({store.review_count} reviews)</span>
+                  ) : null}
                 </span>
               )}
               {store.delivery_time_min && (
                 <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-orange-500" />
+                  <Clock className="h-3 w-3 text-orange-500" aria-hidden="true" />
                   {store.delivery_time_min}–{store.delivery_time_max ?? store.delivery_time_min + 10} min
                 </span>
               )}
             </div>
 
-            {/* Fulfillment selector — shown below store meta, above the menu */}
+            {/* Fulfillment selector */}
             {fulfillmentType && (
               <div className="pt-1">
                 <FulfillmentSelector
@@ -406,7 +438,7 @@ export default function StoreDetailPage() {
           </div>
 
           {/* Two-column layout: menu + sidebar cart */}
-          <div className="max-w-5xl mx-auto px-4 py-4 flex gap-6">
+          <div className="max-w-5xl mx-auto px-4 py-5 flex gap-6">
             {/* Menu */}
             <div className="flex-1 min-w-0">
               <MenuSection
@@ -419,7 +451,7 @@ export default function StoreDetailPage() {
             </div>
 
             {/* Desktop sticky cart */}
-            <div className="hidden sm:block w-72 shrink-0">
+            <aside className="hidden sm:block w-72 shrink-0" aria-label="Your cart">
               <div className="sticky top-16">
                 <CartWidget
                   slug={slug}
@@ -433,7 +465,7 @@ export default function StoreDetailPage() {
                   deliveryAddress={deliveryAddress}
                 />
               </div>
-            </div>
+            </aside>
           </div>
         </>
       ) : null}

@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Star, Clock } from 'lucide-react';
+import { MapPin, Star, Clock, Navigation } from 'lucide-react';
 import { formatPrice } from '@/lib/currency';
 
 /**
@@ -26,86 +25,108 @@ export default function StoreCard({ store }) {
     : null;
 
   return (
-    <Card
-      className="cursor-pointer overflow-hidden hover:shadow-md transition-shadow group"
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={`View ${store.name}`}
       onClick={handleClick}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick()}
+      className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
     >
       {/* Cover image */}
-      <div className="relative h-36 sm:h-44 bg-orange-50 overflow-hidden">
+      <div className="relative h-40 sm:h-48 bg-orange-50 overflow-hidden">
         {store.cover_image_url ? (
           <img
             src={store.cover_image_url}
             alt={store.name}
+            loading="lazy"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-orange-200">
-            <span className="text-4xl">🍽️</span>
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-100">
+            <span className="text-5xl" role="img" aria-hidden="true">🍽️</span>
           </div>
         )}
 
-        {/* Open/closed badge */}
-        <Badge
-          className={`absolute top-2 right-2 text-xs ${
+        {/* Gradient overlay for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
+
+        {/* Open/closed pill — bottom-left over the gradient */}
+        <span
+          className={`absolute bottom-2 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold shadow ${
             store.is_open
-              ? 'bg-green-500 hover:bg-green-500'
-              : 'bg-gray-500 hover:bg-gray-500'
+              ? 'bg-green-500 text-white'
+              : 'bg-black/60 text-white/80'
           }`}
         >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-white' : 'bg-gray-400'}`} />
           {store.is_open ? 'Open' : 'Closed'}
-        </Badge>
+        </span>
+
+        {/* Cuisine badge — top-right */}
+        {store.cuisine_type && (
+          <Badge
+            variant="secondary"
+            className="absolute top-2 right-2 text-[11px] bg-white/90 text-orange-700 border-0 shadow-sm"
+          >
+            {store.cuisine_type}
+          </Badge>
+        )}
       </div>
 
-      <CardContent className="p-3 sm:p-4 space-y-1">
-        {/* Name + cuisine */}
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-1">
-            {store.name}
-          </h3>
-          {store.cuisine_type && (
-            <Badge variant="outline" className="text-xs shrink-0 border-orange-300 text-orange-600">
-              {store.cuisine_type}
-            </Badge>
-          )}
-        </div>
+      <div className="p-3 sm:p-4 space-y-2">
+        {/* Name */}
+        <h3 className="font-bold text-sm sm:text-base leading-tight line-clamp-1 text-foreground">
+          {store.name}
+        </h3>
 
         {/* Description */}
         {store.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2">
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
             {store.description}
           </p>
         )}
 
-        {/* Meta row */}
-        <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground flex-wrap">
-          {store.city && (
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3 w-3 text-orange-500" />
-              {store.city}
+        {/* Meta chips row */}
+        <div className="flex items-center gap-2.5 pt-0.5 flex-wrap">
+          {ratingDisplay && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+              {ratingDisplay}
+              {store.review_count ? (
+                <span className="text-muted-foreground font-normal">({store.review_count})</span>
+              ) : null}
             </span>
           )}
           {store.distance_km != null && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3 text-orange-500" />
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Navigation className="h-3 w-3 text-orange-400" aria-hidden="true" />
               {store.distance_km < 1
-                ? `${Math.round(store.distance_km * 1000)}m`
-                : `${Number(store.distance_km).toFixed(1)}km`}
+                ? `${Math.round(store.distance_km * 1000)} m`
+                : `${Number(store.distance_km).toFixed(1)} km`}
             </span>
           )}
-          {ratingDisplay && (
-            <span className="flex items-center gap-1">
-              <Star className="h-3 w-3 fill-orange-400 text-orange-400" />
-              {ratingDisplay}
-              {store.review_count ? ` (${store.review_count})` : ''}
+          {store.city && !store.distance_km && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 text-orange-400" aria-hidden="true" />
+              {store.city}
             </span>
           )}
-          {store.min_price_cents != null && store.max_price_cents != null && (
-            <span className="flex items-center gap-1">
-              {formatPrice(store.min_price_cents, currency)}–{formatPrice(store.max_price_cents, currency)}
+          {store.delivery_time_min && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3 text-orange-400" aria-hidden="true" />
+              {store.delivery_time_min}–{store.delivery_time_max ?? store.delivery_time_min + 10} min
             </span>
           )}
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Price range footer */}
+        {store.min_price_cents != null && store.max_price_cents != null && (
+          <p className="text-xs text-muted-foreground pt-0.5">
+            {formatPrice(store.min_price_cents, currency)}–{formatPrice(store.max_price_cents, currency)}
+          </p>
+        )}
+      </div>
+    </article>
   );
 }

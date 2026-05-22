@@ -1001,9 +1001,9 @@ export default function PosWorkspacePage() {
           <div className="flex items-center gap-1.5">
             {activeTicket && (
               <Button size="sm" variant="outline" onClick={() => setShowTablePicker(true)}
-                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8"
-                title={activeTicket.kind === 'walkin' ? 'Assign this ticket to a table' : 'Move to a different table'}>
-                <MapPin className="w-3.5 h-3.5 mr-1.5" />
+                aria-label={activeTicket.kind === 'walkin' ? 'Assign this ticket to a table' : 'Move to a different table'}
+                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+                <MapPin className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">
                   {activeTicket.kind === 'walkin' ? 'Assign Table' : 'Move Table'}
                 </span>
@@ -1011,34 +1011,37 @@ export default function PosWorkspacePage() {
             )}
             {activeTicket?.kind === 'table' && activeTicket?.sentOrders?.length > 0 && (
               <Button size="sm" variant="outline" onClick={() => setShowSplitBySeat(true)}
-                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8"
-                title="Split check by seat">
-                <Scissors className="w-3.5 h-3.5 mr-1.5" />
+                aria-label="Split check by seat"
+                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+                <Scissors className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">Split</span>
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={() => setIsReturnOpen(true)} disabled={isStaffSession && !registerSession}
-              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8">
-              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              aria-label="Process a return"
+              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Return</span>
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate('/kds/expo')}
-              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-8" title="Open Kitchen Display">
-              <ChefHat className="w-3.5 h-3.5 mr-1.5" />
+              aria-label="Open Kitchen Display System"
+              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+              <ChefHat className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Kitchen</span>
             </Button>
             {/* End shift / Switch user — shown when an actor overlay is active. */}
             {actor && (
               <Button size="sm" variant="outline" onClick={handleEndShift}
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-8"
-                title="End shift and return to PIN screen">
-                <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+                aria-label="End shift and return to PIN screen"
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-9 focus-visible:ring-2 focus-visible:ring-emerald-400">
+                <UserCheck className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">End shift</span>
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={handleSignOut}
-              className="text-gray-500 hover:text-gray-900 h-8">
-              <LogOut className="w-3.5 h-3.5 mr-1.5" />
+              aria-label="Sign out"
+              className="text-gray-500 hover:text-gray-900 h-9 focus-visible:ring-2 focus-visible:ring-gray-400">
+              <LogOut className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Sign Out</span>
             </Button>
           </div>
@@ -1063,35 +1066,53 @@ export default function PosWorkspacePage() {
         <section className="flex-1 flex flex-col min-w-0 bg-white">
           <div className="px-4 py-3 border-b border-orange-100">
             <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input
                 placeholder="Search menu…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 h-11 border-orange-200 focus:border-orange-400"
+                aria-label="Search menu items"
+                className="pl-10 h-11 border-orange-200 focus:border-orange-400 focus-visible:ring-1 focus-visible:ring-orange-400 rounded-xl text-sm"
               />
             </div>
           </div>
 
-          <div className="px-3 py-2 border-b border-orange-100 overflow-x-auto">
-            <div className="flex gap-1.5">
-              <Button size="sm" variant={categoryId === 'all' ? 'default' : 'outline'}
+          {/* Category filter — horizontally scrollable pill row */}
+          <div
+            role="group"
+            aria-label="Filter by category"
+            className="px-3 py-2 border-b border-orange-100 overflow-x-auto scrollbar-none"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            <div className="flex gap-1.5 min-w-max">
+              <button
+                type="button"
                 onClick={() => setCategoryId('all')}
-                className={cn('h-8 rounded-full px-3 text-xs whitespace-nowrap',
+                aria-pressed={categoryId === 'all'}
+                className={cn(
+                  'inline-flex items-center gap-1 h-9 rounded-full px-3.5 text-xs font-semibold whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
                   categoryId === 'all'
-                    ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                    : 'border-orange-200 text-gray-700 hover:bg-orange-50')}>
-                <Filter className="w-3 h-3 mr-1" /> All
-              </Button>
+                    ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
+                    : 'border-orange-200 text-gray-700 bg-white hover:bg-orange-50 hover:border-orange-300',
+                )}
+              >
+                <Filter className="w-3 h-3" /> All
+              </button>
               {categories.map((c) => (
-                <Button key={c.id} size="sm" variant={categoryId === c.id ? 'default' : 'outline'}
+                <button
+                  key={c.id}
+                  type="button"
                   onClick={() => setCategoryId(c.id)}
-                  className={cn('h-8 rounded-full px-3 text-xs whitespace-nowrap',
+                  aria-pressed={categoryId === c.id}
+                  className={cn(
+                    'h-9 rounded-full px-3.5 text-xs font-semibold whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
                     categoryId === c.id
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                      : 'border-orange-200 text-gray-700 hover:bg-orange-50')}>
+                      ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
+                      : 'border-orange-200 text-gray-700 bg-white hover:bg-orange-50 hover:border-orange-300',
+                  )}
+                >
                   {c.name}
-                </Button>
+                </button>
               ))}
             </div>
           </div>
@@ -1099,7 +1120,7 @@ export default function PosWorkspacePage() {
           <div className="flex-1 overflow-y-auto p-3">
             {!activeTicket && (
               <div className="mb-4 rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-orange-500 mb-3 text-center">
+                <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-3 text-center">
                   How will the customer be ordering?
                 </p>
                 <div className="grid grid-cols-2 gap-3">
@@ -1107,21 +1128,23 @@ export default function PosWorkspacePage() {
                   <button
                     type="button"
                     onClick={() => setShowTablePicker(true)}
-                    className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-green-200 bg-white hover:bg-green-50 hover:border-green-400 transition-all shadow-sm"
+                    aria-label="Start eat-in order — select a table"
+                    className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 bg-white hover:bg-green-50 hover:border-green-400 active:bg-green-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
                   >
-                    <Utensils className="w-9 h-9 text-green-600" />
+                    <Utensils className="w-10 h-10 text-green-600" />
                     <span className="text-base font-bold text-gray-900">Eat-in</span>
-                    <span className="text-[11px] text-gray-500">Select a table</span>
+                    <span className="text-[11px] text-gray-400">Select a table</span>
                   </button>
                   {/* Takeaway */}
                   <button
                     type="button"
                     onClick={handleAddWalkIn}
-                    className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 transition-all shadow-sm"
+                    aria-label="Start takeaway / walk-in order"
+                    className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 active:bg-orange-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                   >
-                    <ShoppingBag className="w-9 h-9 text-orange-500" />
+                    <ShoppingBag className="w-10 h-10 text-orange-500" />
                     <span className="text-base font-bold text-gray-900">Takeaway</span>
-                    <span className="text-[11px] text-gray-500">Walk-in / counter</span>
+                    <span className="text-[11px] text-gray-400">Walk-in / counter</span>
                   </button>
                 </div>
               </div>
@@ -1129,33 +1152,49 @@ export default function PosWorkspacePage() {
             {loadingMenu ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="h-40 rounded-xl bg-gray-100 animate-pulse" />
+                  <div key={i} className="h-40 rounded-2xl bg-gray-100 animate-pulse" />
                 ))}
               </div>
             ) : filteredItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                <Search className="w-10 h-10 mb-2 opacity-40" />
-                <p className="text-sm">No items match your search.</p>
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <Search className="w-7 h-7 text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-500">No items match</p>
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="mt-2 text-xs text-orange-500 hover:text-orange-600 underline"
+                  >
+                    Clear search
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filteredItems.map((it) => {
                   const remaining = computeRemainingToday(it);
                   const soldOutToday = remaining !== null && remaining === 0;
+                  const isDisabled = !activeTicket || !canTakeOrders || soldOutToday;
                   return (
                     <button
                       key={it.id}
                       type="button"
                       onClick={() => handleAddItem(it)}
-                      disabled={!activeTicket || !canTakeOrders || soldOutToday}
+                      disabled={isDisabled}
+                      aria-label={`Add ${it.name} — R${parseFloat(it.price || 0).toFixed(2)}${soldOutToday ? ' (sold out)' : ''}`}
                       className={cn(
-                        'group relative flex flex-col rounded-xl bg-white border border-gray-200 overflow-hidden text-left',
-                        'shadow-sm hover:shadow-lg hover:border-orange-300 hover:-translate-y-0.5 transition-all duration-200',
-                        'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-sm',
+                        'group relative flex flex-col rounded-2xl bg-white border-2 overflow-hidden text-left',
+                        'transition-all duration-150',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
+                        isDisabled
+                          ? 'border-gray-100 opacity-50 cursor-not-allowed shadow-none'
+                          : 'border-gray-200 shadow-sm hover:shadow-lg hover:border-orange-400 hover:-translate-y-0.5 active:scale-95 active:shadow-sm',
                       )}
                     >
-                      <div className="h-20 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60">
-                        <span className="text-4xl group-hover:scale-110 transition-transform">{emojiFor(it)}</span>
+                      <div className="h-24 sm:h-28 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 relative">
+                        <span className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform duration-200 select-none">{emojiFor(it)}</span>
                         <ItemCountdownPill remaining={remaining} />
                       </div>
                       <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
@@ -1164,9 +1203,14 @@ export default function PosWorkspacePage() {
                           <span className="text-base font-bold text-gray-900 tabular-nums">
                             R{parseFloat(it.price || 0).toFixed(2)}
                           </span>
-                          <span className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center shadow group-hover:scale-110 transition">
-                            <Plus className="w-4 h-4" strokeWidth={2.5} />
-                          </span>
+                          {!isDisabled && (
+                            <span
+                              aria-hidden="true"
+                              className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:bg-orange-600 transition-all"
+                            >
+                              <Plus className="w-4 h-4" strokeWidth={2.5} />
+                            </span>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -1229,20 +1273,22 @@ export default function PosWorkspacePage() {
             <button
               type="button"
               onClick={() => handlePickMethod('cash')}
-              className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 hover:border-green-400 transition"
+              aria-label="Pay with cash — numpad and change calculator"
+              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 bg-green-50 hover:bg-green-100 hover:border-green-400 active:bg-green-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
             >
-              <Banknote className="w-8 h-8 text-green-600" />
+              <Banknote className="w-9 h-9 text-green-600" />
               <span className="text-base font-bold text-gray-900">Cash</span>
-              <span className="text-[11px] text-gray-500">Numpad + change calc</span>
+              <span className="text-[11px] text-gray-400">Numpad + change calc</span>
             </button>
             <button
               type="button"
               onClick={() => handlePickMethod('card_in_person')}
-              className="flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition"
+              aria-label="Pay with card — external terminal"
+              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 active:bg-blue-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              <CreditCard className="w-8 h-8 text-blue-600" />
+              <CreditCard className="w-9 h-9 text-blue-600" />
               <span className="text-base font-bold text-gray-900">Card</span>
-              <span className="text-[11px] text-gray-500">External terminal</span>
+              <span className="text-[11px] text-gray-400">External terminal</span>
             </button>
           </div>
         </DialogContent>

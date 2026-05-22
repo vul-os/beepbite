@@ -13,11 +13,10 @@
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertCircle, Keyboard, Loader2, RefreshCw, Wifi, WifiOff, X } from 'lucide-react';
+import { AlertCircle, Keyboard, Loader2, RefreshCw, RotateCcw, Wifi, WifiOff, X } from 'lucide-react';
 
 import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { TicketCard } from './components/ticket-card';
 import { useSSE } from './hooks/use-sse';
@@ -240,81 +239,163 @@ export default function StationPage() {
     recallVisible,
   });
 
+  // Derive whether the SSE connection is degraded for the banner.
+  const sseOffline = sseStatus === 'error' || sseStatus === 'closed';
+  const sseReconnecting = sseStatus === 'reconnecting';
+
   // -------- render --------
   return (
-    <div className="flex h-screen flex-col bg-background text-[17px]">
-      <header className="flex items-center justify-between border-b px-5 py-3">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Kitchen Display</h1>
-          <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            station {stationId?.slice(0, 8) || '—'}
-          </span>
+    <div className="flex h-screen flex-col bg-gray-950 text-gray-50">
+      {/* ------------------------------------------------------------------ */}
+      {/* SSE disconnection banner — sits above the header so it's impossible */}
+      {/* to miss on a wall-mounted screen.                                   */}
+      {/* ------------------------------------------------------------------ */}
+      {(sseOffline || sseReconnecting) && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className={cn(
+            'flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-semibold',
+            sseOffline
+              ? 'bg-red-700 text-white'
+              : 'bg-amber-500 text-amber-950',
+          )}
+        >
+          <WifiOff className="size-4 shrink-0" />
+          {sseOffline
+            ? 'Live feed disconnected — tickets may be stale. Attempting to reconnect…'
+            : 'Reconnecting to live feed…'}
+          <button
+            type="button"
+            className="ml-2 rounded-md border border-current/40 px-2.5 py-0.5 text-xs font-bold transition-colors hover:bg-white/10"
+            onClick={refetch}
+          >
+            Refresh now
+          </button>
         </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                              */}
+      {/* ------------------------------------------------------------------ */}
+      <header className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-5 py-3">
+        <div className="flex items-center gap-4">
+          {/* Orange left accent */}
+          <div className="h-8 w-1.5 rounded-full bg-orange-500" aria-hidden="true" />
+          <div className="flex flex-col leading-tight">
+            <h1 className="text-xl font-extrabold tracking-tight text-white">
+              Kitchen Display
+            </h1>
+            <span className="font-mono text-xs uppercase tracking-wider text-gray-400">
+              station {stationId?.slice(0, 8) || '—'}
+            </span>
+          </div>
+          {/* Ticket count pill */}
+          {!loading && sorted.length > 0 && (
+            <span className="rounded-full bg-orange-500 px-2.5 py-0.5 text-sm font-bold tabular-nums text-white">
+              {sorted.length}
+            </span>
+          )}
+        </div>
+
         <div className="flex items-center gap-2">
-          <ConnectionPill status={sseStatus} />
+          {/* Quiet connection indicator when connected */}
+          {!sseOffline && !sseReconnecting && (
+            <ConnectionPill status={sseStatus} />
+          )}
+
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setOverlayOpen((v) => !v)}
             title="Keyboard shortcuts (?)"
             aria-label="Toggle hotkey help"
+            className="text-gray-300 hover:bg-gray-800 hover:text-white"
           >
             <Keyboard className="size-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={refetch} disabled={loading}>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={refetch}
+            disabled={loading}
+            className="text-gray-300 hover:bg-gray-800 hover:text-white"
+          >
             <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} />
           </Button>
+
           {recallVisible && lastBump && (
             <Button
               size="sm"
               variant="outline"
               onClick={() => onRecall(lastBump.ticket)}
+              className="gap-1.5 border-amber-500 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
             >
+              <RotateCcw className="size-3.5" />
               Recall #{lastBump.ticket.ticket_number}
+              <RecallCountdown bumpedAtMs={lastBump.bumpedAtMs} now={now} totalMs={RECALL_WINDOW_MS} />
             </Button>
           )}
         </div>
       </header>
 
+      {/* Action error toast */}
       {actionError && (
-        <Alert variant="destructive" className="mx-4 mt-3">
-          <AlertCircle className="size-4" />
-          <AlertTitle>Action failed</AlertTitle>
-          <AlertDescription>{actionError}</AlertDescription>
-        </Alert>
+        <div
+          role="alert"
+          className="mx-4 mt-3 flex items-center gap-3 rounded-lg border border-red-700 bg-red-950 px-4 py-3 text-sm text-red-300"
+        >
+          <AlertCircle className="size-4 shrink-0 text-red-400" />
+          <span className="flex-1">{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className="rounded p-0.5 transition-colors hover:bg-red-900"
+            aria-label="Dismiss error"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
       )}
 
-      <main className="flex-1 overflow-auto p-3">
+      {/* ------------------------------------------------------------------ */}
+      {/* Main ticket grid                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <main className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" />
-            Loading tickets…
-          </div>
+          <LoadingState />
         ) : fetchError ? (
-          <Alert variant="destructive" className="mx-auto max-w-md">
-            <AlertCircle className="size-4" />
-            <AlertTitle>Could not load station</AlertTitle>
-            <AlertDescription className="flex flex-col gap-2">
-              <span>{fetchError}</span>
-              <Button size="sm" variant="outline" onClick={refetch}>Retry</Button>
-            </AlertDescription>
-          </Alert>
+          <ErrorState error={fetchError} onRetry={refetch} />
         ) : sorted.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
-            <p className="text-lg">No active tickets.</p>
-            <p className="text-sm">New orders will appear here in real time.</p>
-          </div>
+          <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {sorted.map((t, i) => (
               <div
                 key={t.id}
                 className={cn(
-                  'rounded-lg transition-all',
-                  i === focusedIndex && 'ring-2 ring-orange-500 ring-offset-2 ring-offset-background',
+                  'relative rounded-xl transition-all duration-150',
+                  i === focusedIndex
+                    ? 'ring-4 ring-orange-500 ring-offset-2 ring-offset-gray-950'
+                    : 'ring-0',
                 )}
                 onClick={() => setFocusedIndex(i)}
               >
+                {/* Slot number badge — shown so bump-bar operators know which key to press */}
+                {sorted.length > 1 && (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'absolute -top-2.5 -left-2.5 z-10 flex size-6 items-center justify-center rounded-full text-xs font-extrabold tabular-nums ring-2 ring-gray-950',
+                      i === focusedIndex
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-gray-700 text-gray-300',
+                    )}
+                  >
+                    {i < 9 ? i + 1 : '…'}
+                  </span>
+                )}
                 <TicketCard
                   ticket={t}
                   details={getDetails(t.id)}
@@ -337,24 +418,96 @@ export default function StationPage() {
   );
 }
 
+// ---- RecallCountdown ----
+// Small countdown bar showing how many seconds remain in the recall window.
+
+function RecallCountdown({ bumpedAtMs, now, totalMs }) {
+  const remaining = Math.max(0, totalMs - (now - bumpedAtMs));
+  const pct = Math.round((remaining / totalMs) * 100);
+  const secs = Math.ceil(remaining / 1000);
+  return (
+    <span
+      className="flex items-center gap-1 text-xs tabular-nums text-amber-400"
+      aria-label={`${secs}s to recall`}
+    >
+      ({secs}s)
+    </span>
+  );
+}
+
 // ---- ConnectionPill ----
 
 function ConnectionPill({ status }) {
   const map = {
-    open:         { icon: Wifi,    label: 'live',         cls: 'text-emerald-600' },
-    connecting:   { icon: Loader2, label: 'connecting',   cls: 'text-muted-foreground animate-pulse' },
-    reconnecting: { icon: Loader2, label: 'reconnecting', cls: 'text-amber-600 animate-pulse' },
-    error:        { icon: WifiOff, label: 'offline',      cls: 'text-red-600' },
-    closed:       { icon: WifiOff, label: 'closed',       cls: 'text-muted-foreground' },
-    idle:         { icon: WifiOff, label: 'idle',         cls: 'text-muted-foreground' },
+    open:         { icon: Wifi,    label: 'Live',         cls: 'text-emerald-400' },
+    connecting:   { icon: Loader2, label: 'Connecting',   cls: 'text-gray-400 animate-pulse' },
+    reconnecting: { icon: Loader2, label: 'Reconnecting', cls: 'text-amber-400 animate-pulse' },
+    error:        { icon: WifiOff, label: 'Offline',      cls: 'text-red-400' },
+    closed:       { icon: WifiOff, label: 'Closed',       cls: 'text-gray-500' },
+    idle:         { icon: WifiOff, label: 'Idle',         cls: 'text-gray-500' },
   };
   const m = map[status] || map.idle;
   const Icon = m.icon;
   return (
-    <span className={`flex items-center gap-1 text-xs ${m.cls}`}>
-      <Icon className="size-3" />
+    <span className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${m.cls}`}>
+      <Icon className={status === 'connecting' || status === 'reconnecting' ? 'size-3 animate-spin' : 'size-3'} />
       {m.label}
     </span>
+  );
+}
+
+// ---- Loading / Empty / Error states ----
+
+function LoadingState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-gray-400">
+      <Loader2 className="size-10 animate-spin text-orange-500" />
+      <p className="text-lg font-medium">Loading tickets…</p>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+      {/* Big check: nothing to cook */}
+      <div className="flex size-20 items-center justify-center rounded-full bg-emerald-900/40">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="size-10 text-emerald-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <p className="text-2xl font-bold text-gray-200">All clear!</p>
+      <p className="max-w-xs text-base text-gray-400">
+        No active tickets on this station. New orders will appear here in real time.
+      </p>
+    </div>
+  );
+}
+
+function ErrorState({ error, onRetry }) {
+  return (
+    <div className="mx-auto mt-12 flex max-w-md flex-col items-center gap-4 rounded-xl border border-red-800 bg-red-950/60 p-8 text-center">
+      <AlertCircle className="size-10 text-red-400" aria-hidden="true" />
+      <div>
+        <p className="text-lg font-bold text-red-300">Could not load station</p>
+        <p className="mt-1 text-sm text-red-400">{error}</p>
+      </div>
+      <Button
+        variant="outline"
+        onClick={onRetry}
+        className="border-red-700 text-red-300 hover:bg-red-900"
+      >
+        <RefreshCw className="mr-2 size-4" /> Retry
+      </Button>
+    </div>
   );
 }
 
@@ -377,31 +530,42 @@ function HotkeyOverlay({ onClose }) {
   return (
     /* backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Keyboard shortcuts"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="relative w-full max-w-sm rounded-xl border bg-background p-6 shadow-2xl">
+      <div className="relative w-full max-w-sm rounded-2xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
         {/* header */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Keyboard className="size-5 text-orange-500" />
-            <h2 className="text-lg font-bold">Keyboard shortcuts</h2>
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-orange-500/20">
+              <Keyboard className="size-4 text-orange-400" />
+            </div>
+            <h2 className="text-lg font-bold text-white">Keyboard shortcuts</h2>
           </div>
-          <Button size="icon" variant="ghost" onClick={onClose} aria-label="Close">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-gray-400 hover:bg-gray-800 hover:text-white"
+          >
             <X className="size-4" />
           </Button>
         </div>
 
         {/* shortcut rows */}
-        <ul className="space-y-2.5">
+        <ul className="space-y-3">
           {HOTKEYS.map(({ keys, desc }) => (
             <li key={desc} className="flex items-center justify-between gap-4">
-              <span className="text-sm text-muted-foreground">{desc}</span>
+              <span className="text-sm text-gray-300">{desc}</span>
               <span className="flex shrink-0 items-center gap-1">
                 {keys.map((k) => (
                   <kbd
                     key={k}
-                    className="inline-flex items-center justify-center rounded border border-border bg-muted px-2 py-0.5 font-mono text-xs font-semibold text-foreground"
+                    className="inline-flex items-center justify-center rounded-md border border-gray-600 bg-gray-800 px-2.5 py-1 font-mono text-xs font-bold text-gray-100 shadow-sm"
                   >
                     {k}
                   </kbd>
@@ -411,7 +575,7 @@ function HotkeyOverlay({ onClose }) {
           ))}
         </ul>
 
-        <p className="mt-5 text-center text-xs text-muted-foreground">
+        <p className="mt-6 text-center text-xs text-gray-500">
           Shortcuts are inactive while an input field is focused.
         </p>
       </div>

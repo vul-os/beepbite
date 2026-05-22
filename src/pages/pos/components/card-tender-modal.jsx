@@ -130,19 +130,27 @@ export function CardTenderModal({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
+            aria-label="Cancel card payment"
+            className="h-12 focus-visible:ring-2 focus-visible:ring-gray-400"
           >
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!confirmed || submitting}
-            className="bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-50"
+            aria-label={submitting ? 'Processing card payment' : 'Mark card payment as paid'}
+            aria-busy={submitting}
+            className={cn(
+              "h-12 font-bold text-base bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white",
+              "focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1",
+              "disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+            )}
           >
             {submitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                 Processing…
-              </>
+              </span>
             ) : (
               "Mark as Paid"
             )}

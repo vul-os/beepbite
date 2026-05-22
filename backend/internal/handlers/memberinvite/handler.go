@@ -1,14 +1,13 @@
-// Package driverinvite exposes driver-invite REST endpoints (Wave 16).
+// Package memberinvite exposes organisation member-invite REST endpoints.
 //
 // Mount under an already-authenticated + org-scoped chi.Router group:
 //
-//	h := driverinvite.NewHandler(pool)
-//	h.Mount(r) // registers /driver-invites and /driver-invites/{id}/revoke
+//	h := memberinvite.NewHandler(pool)
+//	h.Mount(r) // registers /member-invites, /member-invites/{id}/revoke, /members, /members/{id}
 //
-// All three mutating endpoints require the caller to have role 'owner' or
-// 'manager' in the request's org scope. Capability checks use the OrgScope
-// Memberships resolved by auth.RequireOrgScope.
-package driverinvite
+// All mutating endpoints require role 'owner' or 'manager' in the org scope.
+// Capability checks use the OrgScope Memberships resolved by auth.RequireOrgScope.
+package memberinvite
 
 import (
 	"encoding/json"
@@ -27,7 +26,7 @@ import (
 type Handler struct {
 	store *Store
 	// Notifier, when set, is called best-effort after a successful invite
-	// create to send the invite email (email, role="driver", orgID). Optional.
+	// create to send the invite email (email, role, orgID). Optional.
 	Notifier func(email, role, orgID string)
 }
 
@@ -36,24 +35,24 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{store: NewStore(pool)}
 }
 
-// Mount registers driver-invite routes on r.
+// Mount registers member-invite routes on r.
 //
 // Routes:
 //
-//	POST   /driver-invites              — create a driver invite
-//	GET    /driver-invites              — list pending driver invites for the org
-//	POST   /driver-invites/{id}/revoke  — revoke a pending driver invite
-//	GET    /drivers                     — list active driver members for the org
-//	DELETE /drivers/{profile_id}        — remove a driver's access
+//	POST   /member-invites              — create a member invite
+//	GET    /member-invites              — list pending non-driver invites for the org
+//	POST   /member-invites/{id}/revoke  — revoke a pending member invite
+//	GET    /members                     — list active non-driver members for the org
+//	DELETE /members/{profile_id}        — remove a member's access
 func (h *Handler) Mount(r chi.Router) {
-	r.Route("/driver-invites", func(r chi.Router) {
+	r.Route("/member-invites", func(r chi.Router) {
 		r.Post("/", h.createInvite)
 		r.Get("/", h.listInvites)
 		r.Post("/{id}/revoke", h.revokeInvite)
 	})
-	r.Route("/drivers", func(r chi.Router) {
-		r.Get("/", h.listDrivers)
-		r.Delete("/{profile_id}", h.removeDriver)
+	r.Route("/members", func(r chi.Router) {
+		r.Get("/", h.listMembers)
+		r.Delete("/{profile_id}", h.removeMember)
 	})
 }
 
@@ -61,13 +60,15 @@ func (h *Handler) Mount(r chi.Router) {
 
 type createInviteReq struct {
 	Email string `json:"email"`
+	Role  string `json:"role"`
 }
 
 // ---- handlers ----------------------------------------------------------------
 
-// POST /driver-invites
+// POST /member-invites
 //
-// Body: {"email":"driver@example.com"}
+// Body: {"email":"user@example.com","role":"staff"}
+// role must be one of: manager, staff, kitchen, pos.
 // Requires: owner or manager role in the caller's org.
 func (h *Handler) createInvite(w http.ResponseWriter, r *http.Request) {
 	if !callerIsOwnerOrManager(r) {
@@ -80,8 +81,7 @@ func (h *Handler) createInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	// Normalise to lowercase so stored invites match the case-insensitive
-	// lookup/accept logic (lower(email) = lower(...)) and display consistently.
+
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if req.Email == "" {
 		writeErr(w, http.StatusBadRequest, "email is required")
@@ -92,33 +92,40 @@ func (h *Handler) createInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Role = strings.ToLower(strings.TrimSpace(req.Role))
+	if !allowedRoles[req.Role] {
+		writeErr(w, http.StatusBadRequest, "role must be one of: manager, staff, kitchen, pos")
+		return
+	}
+
 	scope := db.ScopeFromContext(r.Context())
 	if scope.OrgID == "" {
 		writeErr(w, http.StatusBadRequest, "no org scope resolved")
 		return
 	}
 
-	inv, err := h.store.CreateInvite(r.Context(), scope.OrgID, req.Email, scope.UserID)
+	inv, err := h.store.CreateInvite(r.Context(), scope.OrgID, req.Email, req.Role, scope.UserID)
 	switch {
 	case errors.Is(err, ErrAlreadyMember):
 		writeErr(w, http.StatusConflict, "user is already a member of this organization")
 		return
 	case errors.Is(err, ErrAlreadyInvited):
-		writeErr(w, http.StatusConflict, "a pending driver invite already exists for this email")
+		writeErr(w, http.StatusConflict, "a pending invite already exists for this email")
 		return
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	if h.Notifier != nil {
 		h.Notifier(inv.Email, inv.Role, inv.OrganizationID)
 	}
 	writeJSON(w, http.StatusCreated, inv)
 }
 
-// GET /driver-invites
+// GET /member-invites
 //
-// Returns pending driver invites for the caller's org.
+// Returns pending non-driver invites for the caller's org.
 // Requires: owner or manager role.
 func (h *Handler) listInvites(w http.ResponseWriter, r *http.Request) {
 	if !callerIsOwnerOrManager(r) {
@@ -140,7 +147,7 @@ func (h *Handler) listInvites(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, invites)
 }
 
-// POST /driver-invites/{id}/revoke
+// POST /member-invites/{id}/revoke
 //
 // Marks the invite as rejected. Returns 204 on success.
 // Requires: owner or manager role.
@@ -173,11 +180,11 @@ func (h *Handler) revokeInvite(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GET /drivers
+// GET /members
 //
-// Returns the active driver members (role='driver') for the caller's org.
+// Returns active non-driver members for the caller's org.
 // Requires: owner or manager role.
-func (h *Handler) listDrivers(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) listMembers(w http.ResponseWriter, r *http.Request) {
 	if !callerIsOwnerOrManager(r) {
 		writeErr(w, http.StatusForbidden, "requires owner or manager role")
 		return
@@ -187,20 +194,20 @@ func (h *Handler) listDrivers(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "no org scope resolved")
 		return
 	}
-	drivers, err := h.store.ListActiveDrivers(r.Context(), scope.OrgID)
+	members, err := h.store.ListActiveMembers(r.Context(), scope.OrgID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, drivers)
+	writeJSON(w, http.StatusOK, members)
 }
 
-// DELETE /drivers/{profile_id}
+// DELETE /members/{profile_id}
 //
-// Removes a driver's membership (revoking driver access + can_drive).
-// Returns 204 on success. Requires: owner or manager role. A caller cannot
-// remove their own membership through this path.
-func (h *Handler) removeDriver(w http.ResponseWriter, r *http.Request) {
+// Removes a member's org membership. Returns 204 on success.
+// Requires: owner or manager role. A caller cannot remove their own membership.
+// Removing the last owner is rejected with 409.
+func (h *Handler) removeMember(w http.ResponseWriter, r *http.Request) {
 	if !callerIsOwnerOrManager(r) {
 		writeErr(w, http.StatusForbidden, "requires owner or manager role")
 		return
@@ -219,12 +226,15 @@ func (h *Handler) removeDriver(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "cannot remove yourself")
 		return
 	}
-	if err := h.store.RemoveDriver(r.Context(), scope.OrgID, profileID); err != nil {
-		if errors.Is(err, ErrDriverNotFound) {
-			writeErr(w, http.StatusNotFound, "driver not found in this organization")
-			return
+	if err := h.store.RemoveMember(r.Context(), scope.OrgID, profileID); err != nil {
+		switch {
+		case errors.Is(err, ErrMemberNotFound):
+			writeErr(w, http.StatusNotFound, "member not found in this organization")
+		case errors.Is(err, ErrLastOwner):
+			writeErr(w, http.StatusConflict, "cannot remove the last owner")
+		default:
+			writeErr(w, http.StatusInternalServerError, err.Error())
 		}
-		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -233,10 +243,7 @@ func (h *Handler) removeDriver(w http.ResponseWriter, r *http.Request) {
 // ---- authorization helper ----------------------------------------------------
 
 // callerIsOwnerOrManager returns true when the OrgScope in context contains at
-// least one membership with role 'owner' or 'manager'. This matches the
-// permission gate used by the legacy send_invitation / cancel_invitation DB
-// functions (which also permit 'admin'), but for driver invites we restrict to
-// owner/manager only per the Wave 16 spec.
+// least one membership with role 'owner' or 'manager'.
 func callerIsOwnerOrManager(r *http.Request) bool {
 	scope := auth.OrgScopeFrom(r.Context())
 	for _, m := range scope.Memberships {

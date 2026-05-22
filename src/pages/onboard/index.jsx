@@ -36,12 +36,11 @@ import {
   ExternalLink,
   Sparkles,
   RefreshCw,
+  BookOpen,
 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 import { useAuth } from '@/context/auth-context';
@@ -51,8 +50,6 @@ import { getProgress, putProgress, getStatus } from '@/services/onboarding';
 // Step definitions
 // ---------------------------------------------------------------------------
 
-const STEP_KEYS = ['email', 'location', 'menu', 'staff', 'payment', 'order'];
-
 const STEPS = [
   {
     key: 'email',
@@ -61,9 +58,9 @@ const STEPS = [
     description:
       'Confirm your email address so we can send you important notifications about your account.',
     hint: 'Check your inbox for a verification link from BeepBite. Once verified, continue to the next step.',
-    actionLabel: null,      // no external navigation needed
+    actionLabel: null,
     actionPath: null,
-    statusKey: null,        // no live status for email (always starts done once logged in)
+    statusKey: null,
   },
   {
     key: 'location',
@@ -134,7 +131,6 @@ function useOnboardingProgress() {
   const [saving, setSaving] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
 
-  // Load saved progress on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -150,7 +146,6 @@ function useOnboardingProgress() {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch live status from the backend.
   const refreshStatus = useCallback(async () => {
     setStatusLoading(true);
     const { data, error } = await getStatus();
@@ -161,14 +156,12 @@ function useOnboardingProgress() {
     return data;
   }, []);
 
-  // Load status once progress has loaded.
   useEffect(() => {
     if (!loading) {
       refreshStatus();
     }
   }, [loading, refreshStatus]);
 
-  // Advance to a step and persist.
   const advanceTo = useCallback(async (newStep, newCompleted) => {
     setSaving(true);
     const { data, error } = await putProgress({
@@ -196,12 +189,57 @@ function useOnboardingProgress() {
 }
 
 // ---------------------------------------------------------------------------
+// Small presentational helpers
+// ---------------------------------------------------------------------------
+
+/** Shared brand mark used in the loading screen */
+function BrandMark() {
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow">
+          <img src="/icon.svg" alt="" aria-hidden="true" className="w-7 h-7 filter brightness-0 invert" />
+        </div>
+        <span aria-hidden="true" className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+      </div>
+      <p className="text-lg font-bold tracking-tight leading-none">
+        <span className="text-orange-500">Beep</span><span className="text-gray-900">Bite</span>
+      </p>
+    </div>
+  );
+}
+
+/** Step number badge in the sidebar list */
+function StepBadge({ index, done, isCurrent }) {
+  if (done) {
+    return (
+      <span className="w-6 h-6 rounded-full flex items-center justify-center bg-green-100 shrink-0">
+        <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border',
+        isCurrent
+          ? 'bg-orange-500 text-white border-orange-500'
+          : 'bg-white text-gray-400 border-gray-300'
+      )}
+      aria-hidden="true"
+    >
+      {index + 1}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Wizard page component
 // ---------------------------------------------------------------------------
 
 export default function OnboardPage() {
   const navigate = useNavigate();
-  const { activeOrganization, user } = useAuth();
+  const { activeOrganization } = useAuth();
 
   const {
     step,
@@ -214,17 +252,13 @@ export default function OnboardPage() {
     refreshStatus,
   } = useOnboardingProgress();
 
-  // Derive which steps are actually done using live status where available.
   const isStepDone = useCallback(
     (stepKey, stepIndex) => {
-      // Email step: always done once the user is logged in (JWT implies verified).
       if (stepKey === 'email') return true;
-      // Check live status first.
       const def = STEPS[stepIndex];
       if (def.statusKey && status) {
         return !!status[def.statusKey];
       }
-      // Fall back to completed_steps array.
       return completedSteps.includes(stepKey);
     },
     [status, completedSteps]
@@ -235,7 +269,6 @@ export default function OnboardPage() {
   const progressPct = Math.round((doneCount / totalCount) * 100);
   const allDone = doneCount === totalCount;
 
-  // Mark current step complete and advance.
   const handleMarkDoneAndNext = useCallback(async () => {
     const currentKey = STEPS[step]?.key;
     const newCompleted = completedSteps.includes(currentKey)
@@ -246,265 +279,331 @@ export default function OnboardPage() {
     await refreshStatus();
   }, [step, completedSteps, advanceTo, refreshStatus, totalCount]);
 
-  // Go back.
   const handleBack = useCallback(async () => {
     const prevStep = Math.max(step - 1, 0);
     await advanceTo(prevStep, completedSteps);
   }, [step, completedSteps, advanceTo]);
 
-  // Jump to any step.
   const handleJumpTo = useCallback(async (idx) => {
     await advanceTo(idx, completedSteps);
   }, [completedSteps, advanceTo]);
 
-  // Navigate to the action path for the current step.
   const handleNavigate = useCallback((path) => {
     navigate(path);
   }, [navigate]);
 
+  // ── Loading screen ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-slate-50 via-white to-orange-50">
+        <BrandMark />
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin text-orange-500" aria-hidden="true" />
+          Loading your setup progress…
+        </div>
       </div>
     );
   }
 
   const currentStepDef = STEPS[step];
   const StepIcon = currentStepDef?.icon || Sparkles;
+  const stepDone = isStepDone(currentStepDef?.key, step);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8 pb-16 px-4">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-6 pb-16 px-4">
+      <div className="max-w-2xl mx-auto space-y-5">
 
-        {/* ── Hero / progress card ── */}
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white overflow-hidden relative">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white -translate-y-1/2 translate-x-1/2" />
-          </div>
-          <CardContent className="p-6 sm:p-8 relative">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm shrink-0">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold leading-tight">
-                  {allDone
-                    ? `${activeOrganization?.name || 'Your business'} is ready!`
-                    : `Set up ${activeOrganization?.name || 'your business'}`}
-                </h1>
-                <p className="text-orange-100 text-sm mt-1">
-                  {allDone
-                    ? 'All steps complete. You can start taking orders.'
-                    : 'Complete each step to unlock the full BeepBite experience.'}
-                </p>
-              </div>
-            </div>
+        {/* ── Hero / progress card ─────────────────────────────────────────── */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white relative">
+            {/* Decorative circle */}
+            <div aria-hidden="true" className="absolute top-0 right-0 w-48 h-48 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/4" />
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-orange-100">Setup progress</span>
-                <span className="font-semibold tabular-nums">
-                  {doneCount} of {totalCount} complete
-                </span>
+            <div className="relative p-6 sm:p-8">
+              {/* Header row */}
+              <div className="flex items-start gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0" aria-hidden="true">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-lg sm:text-xl font-bold leading-snug">
+                    {allDone
+                      ? `${activeOrganization?.name || 'Your business'} is ready!`
+                      : `Set up ${activeOrganization?.name || 'your business'}`}
+                  </h1>
+                  <p className="text-orange-100 text-sm mt-0.5">
+                    {allDone
+                      ? 'All steps complete. You can start taking orders.'
+                      : 'Complete each step to unlock the full BeepBite experience.'}
+                  </p>
+                </div>
               </div>
-              <div className="h-2.5 rounded-full bg-white/20 overflow-hidden">
+
+              {/* Progress bar */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-orange-100">Setup progress</span>
+                  <span className="font-semibold tabular-nums">
+                    {doneCount} / {totalCount} complete
+                  </span>
+                </div>
                 <div
-                  className="h-full rounded-full bg-white transition-all duration-700 ease-out"
-                  style={{ width: `${progressPct}%` }}
-                />
+                  className="h-2.5 rounded-full bg-white/25 overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={doneCount}
+                  aria-valuemin={0}
+                  aria-valuemax={totalCount}
+                  aria-label={`${doneCount} of ${totalCount} steps complete`}
+                >
+                  <div
+                    className="h-full rounded-full bg-white transition-all duration-700 ease-out"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
               </div>
-            </div>
 
-            {allDone && (
-              <div className="mt-4 flex items-center gap-2 text-sm font-medium bg-white/20 rounded-lg px-4 py-2">
-                <CheckCircle2 className="w-4 h-4" />
-                All set! Head to the POS to start serving customers.
-              </div>
-            )}
-          </CardContent>
+              {/* All-done CTA */}
+              {allDone && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/pos')}
+                  className="mt-4 w-full sm:w-auto flex items-center justify-center gap-2 text-sm font-semibold bg-white text-orange-600 rounded-lg px-5 py-2.5 hover:bg-orange-50 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <ShoppingBag className="w-4 h-4" aria-hidden="true" />
+                  Open POS and start serving
+                  <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Resumability cue */}
+          <div className="bg-orange-50 border-t border-orange-100 px-6 py-2.5 flex items-center gap-2 text-xs text-orange-700">
+            <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 shrink-0" aria-hidden="true" />
+            <span>Your progress is automatically saved — you can leave and come back anytime.</span>
+          </div>
         </Card>
 
-        {/* ── Step list (overview) ── */}
-        <div className="space-y-2">
-          {STEPS.map((s, idx) => {
-            const done = isStepDone(s.key, idx);
-            const isCurrent = idx === step;
-            const Icon = s.icon;
+        {/* ── Step list (nav overview) ──────────────────────────────────────── */}
+        <nav aria-label="Onboarding steps">
+          <ol className="space-y-2">
+            {STEPS.map((s, idx) => {
+              const done = isStepDone(s.key, idx);
+              const isCurrent = idx === step;
+              const Icon = s.icon;
 
-            return (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => handleJumpTo(idx)}
-                disabled={saving}
-                className={cn(
-                  'w-full text-left rounded-xl border px-4 py-3 flex items-center gap-3 transition-all duration-150',
-                  isCurrent
-                    ? 'border-orange-300 bg-white shadow-md ring-1 ring-orange-100'
-                    : done
-                    ? 'border-green-200 bg-green-50/60'
-                    : 'border-gray-200 bg-white opacity-70 hover:opacity-100',
-                  saving && 'cursor-not-allowed'
-                )}
-              >
-                <span className="shrink-0">
-                  {done ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <Circle
-                      className={cn(
-                        'w-5 h-5',
-                        isCurrent ? 'text-orange-400' : 'text-gray-300'
-                      )}
-                    />
-                  )}
-                </span>
-                <span
-                  className={cn(
-                    'flex items-center gap-2 flex-1 min-w-0',
-                    done ? 'text-green-700' : isCurrent ? 'text-gray-900 font-semibold' : 'text-gray-600'
-                  )}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="text-sm truncate">{s.title}</span>
-                </span>
-                {isCurrent && (
-                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 border text-xs shrink-0">
-                    Current
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
-        </div>
+              return (
+                <li key={s.key}>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(idx)}
+                    disabled={saving}
+                    aria-current={isCurrent ? 'step' : undefined}
+                    aria-label={`Step ${idx + 1}: ${s.title}${done ? ' (complete)' : isCurrent ? ' (current)' : ''}`}
+                    className={cn(
+                      'w-full text-left rounded-xl border px-4 py-3 flex items-center gap-3 transition-all duration-150 group',
+                      isCurrent
+                        ? 'border-orange-300 bg-white shadow-md ring-2 ring-orange-100'
+                        : done
+                        ? 'border-green-200 bg-green-50/70 hover:bg-green-50'
+                        : 'border-gray-200 bg-white opacity-75 hover:opacity-100 hover:border-gray-300',
+                      saving && 'cursor-not-allowed opacity-60'
+                    )}
+                  >
+                    {/* Step number / check */}
+                    <StepBadge index={idx} done={done} isCurrent={isCurrent} />
 
-        {/* ── Active step detail card ── */}
+                    {/* Step icon + title */}
+                    <span className={cn(
+                      'flex items-center gap-2 flex-1 min-w-0 text-sm',
+                      done ? 'text-green-700' : isCurrent ? 'text-gray-900 font-semibold' : 'text-gray-500'
+                    )}>
+                      <Icon className={cn('w-4 h-4 shrink-0', done ? 'text-green-500' : isCurrent ? 'text-orange-500' : 'text-gray-400')} aria-hidden="true" />
+                      <span className="truncate">{s.title}</span>
+                    </span>
+
+                    {/* Right-side indicator */}
+                    {done && !isCurrent && (
+                      <span className="text-xs text-green-600 font-medium shrink-0">Done</span>
+                    )}
+                    {isCurrent && (
+                      <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full shrink-0">
+                        Current
+                      </span>
+                    )}
+                    {!done && !isCurrent && (
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0 group-hover:text-gray-400 transition-colors" aria-hidden="true" />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+
+        {/* ── Active step detail card ───────────────────────────────────────── */}
         {currentStepDef && (
-          <Card className="border border-orange-200 shadow-sm">
-            <CardContent className="p-6 space-y-4">
+          <Card className={cn(
+            'border shadow-sm transition-all',
+            stepDone ? 'border-green-200' : 'border-orange-200'
+          )}>
+            <CardContent className="p-6 space-y-5">
+              {/* Step header */}
               <div className="flex items-start gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-orange-100 shrink-0">
-                  <StepIcon className="w-5 h-5 text-orange-600" />
+                <div className={cn(
+                  'flex items-center justify-center w-11 h-11 rounded-xl shrink-0',
+                  stepDone ? 'bg-green-100' : 'bg-orange-100'
+                )}>
+                  <StepIcon className={cn('w-5 h-5', stepDone ? 'text-green-600' : 'text-orange-600')} aria-hidden="true" />
                 </div>
-                <div>
-                  <h2 className="font-semibold text-gray-900 text-base">
-                    Step {step + 1} — {currentStepDef.title}
-                  </h2>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-semibold text-gray-900">
+                      Step {step + 1} — {currentStepDef.title}
+                    </h2>
+                    {stepDone && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                        Complete
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 mt-1 leading-relaxed">
                     {currentStepDef.description}
                   </p>
                 </div>
               </div>
 
-              {/* Hint */}
-              <div className="rounded-lg bg-orange-50 border border-orange-100 px-4 py-3 text-sm text-orange-800 leading-relaxed">
-                {currentStepDef.hint}
+              {/* Hint box */}
+              <div className="rounded-lg bg-orange-50 border border-orange-100 px-4 py-3">
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">How to complete this step</p>
+                <p className="text-sm text-orange-800 leading-relaxed">{currentStepDef.hint}</p>
               </div>
 
               {/* Live status indicator */}
               {currentStepDef.statusKey && status && (
                 <div
                   className={cn(
-                    'flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
-                    isStepDone(currentStepDef.key, step)
-                      ? 'bg-green-50 text-green-700 border border-green-200'
-                      : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                    'flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium border',
+                    stepDone
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
                   )}
+                  role="status"
+                  aria-live="polite"
                 >
-                  {isStepDone(currentStepDef.key, step) ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  {stepDone ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" aria-hidden="true" />
                   ) : (
-                    <Circle className="w-4 h-4 shrink-0" />
+                    <Circle className="w-4 h-4 shrink-0 text-amber-500" aria-hidden="true" />
                   )}
-                  {isStepDone(currentStepDef.key, step)
-                    ? 'Completed — verified from your account data.'
-                    : 'Not yet complete — follow the steps above, then refresh.'}
+                  <span className="flex-1">
+                    {stepDone
+                      ? 'Verified — this step is complete based on your account data.'
+                      : 'Not yet complete — follow the instructions above, then refresh to check.'}
+                  </span>
                   <button
                     type="button"
                     onClick={refreshStatus}
                     disabled={statusLoading}
-                    className="ml-auto flex items-center gap-1 text-xs opacity-70 hover:opacity-100"
-                    title="Re-check status"
+                    className="ml-auto flex items-center gap-1 text-xs opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current rounded"
+                    aria-label="Re-check status"
                   >
-                    <RefreshCw className={cn('w-3 h-3', statusLoading && 'animate-spin')} />
+                    <RefreshCw className={cn('w-3.5 h-3.5', statusLoading && 'animate-spin')} aria-hidden="true" />
                     Refresh
                   </button>
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                {/* Back */}
+              {/* Empty / next-step encouragement when not done */}
+              {!stepDone && (
+                <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600">
+                  <p>
+                    <span className="font-medium text-gray-800">Not done yet?</span>{' '}
+                    {currentStepDef.actionPath
+                      ? 'Use the button below to go to the right place, complete the task, then come back and mark it done.'
+                      : 'Complete the step above then click "Mark done & continue".'}
+                  </p>
+                </div>
+              )}
+
+              {/* Action row */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 {step > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleBack}
                     disabled={saving}
-                    className="gap-1"
+                    className="gap-1 border-gray-300 text-gray-600 hover:bg-gray-50"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                     Back
                   </Button>
                 )}
 
-                {/* External action link */}
                 {currentStepDef.actionPath && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleNavigate(currentStepDef.actionPath)}
-                    className="gap-1"
+                    className="gap-1 border-orange-300 text-orange-700 hover:bg-orange-50"
                   >
                     {currentStepDef.actionLabel}
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
                   </Button>
                 )}
 
-                {/* Mark done / continue */}
-                {step < totalCount - 1 ? (
-                  <Button
-                    size="sm"
-                    onClick={handleMarkDoneAndNext}
-                    disabled={saving}
-                    className="gap-1 bg-orange-500 hover:bg-orange-600 text-white ml-auto"
-                  >
-                    {saving ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        Mark done &amp; continue
-                        <ChevronRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => navigate('/pos')}
-                    className="gap-1 bg-orange-500 hover:bg-orange-600 text-white ml-auto"
-                  >
-                    Open POS
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                )}
+                <div className="ml-auto">
+                  {step < totalCount - 1 ? (
+                    <Button
+                      size="sm"
+                      onClick={handleMarkDoneAndNext}
+                      disabled={saving}
+                      className="gap-1.5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold shadow-sm"
+                    >
+                      {saving ? (
+                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <>
+                          {stepDone ? 'Continue' : 'Mark done & continue'}
+                          <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => navigate('/pos')}
+                      className="gap-1.5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold shadow-sm"
+                    >
+                      <ShoppingBag className="w-4 h-4" aria-hidden="true" />
+                      Open POS
+                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* ── Help footer ── */}
-        <p className="text-center text-xs text-gray-400 px-4">
-          Need help?{' '}
-          <a
-            href="/docs/getting-started"
-            className="underline hover:text-orange-500"
-          >
-            Read the Getting Started guide
-          </a>
-          . You can return to this wizard any time.
-        </p>
+        {/* ── Help footer ──────────────────────────────────────────────────── */}
+        <footer className="text-center space-y-1 px-4">
+          <p className="text-xs text-gray-400">
+            Need help?{' '}
+            <a
+              href="/docs/getting-started"
+              className="inline-flex items-center gap-1 underline hover:text-orange-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange-500 rounded"
+            >
+              <BookOpen className="w-3 h-3" aria-hidden="true" />
+              Read the Getting Started guide
+            </a>
+          </p>
+          <p className="text-xs text-gray-400">
+            You can return to this wizard any time from your dashboard.
+          </p>
+        </footer>
       </div>
     </div>
   );

@@ -118,8 +118,8 @@ function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }) {
         <button
           type="button"
           onClick={() => onRemove(leg.id)}
-          className="text-gray-400 hover:text-red-500 transition"
-          aria-label="Remove payment"
+          aria-label="Remove this payment method"
+          className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -332,28 +332,33 @@ export default function TenderModal({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
-            className="flex-1"
+            aria-label="Cancel payment"
+            className="flex-1 h-12 focus-visible:ring-2 focus-visible:ring-gray-400"
           >
-            <X className="w-4 h-4 mr-1" /> Cancel
+            <X className="w-4 h-4 mr-1" aria-hidden="true" /> Cancel
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!canConfirm}
+            aria-label={submitting ? 'Processing payment' : isFullyTendered ? 'Confirm payment' : 'Enter full amount to confirm'}
+            aria-busy={submitting}
             className={cn(
-              'flex-1 bg-orange-500 hover:bg-orange-600 text-white',
-              'disabled:bg-orange-200 disabled:text-orange-400',
+              'flex-1 h-12 font-bold text-base bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white',
+              'focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
+              'disabled:bg-orange-200 disabled:text-orange-400 disabled:cursor-not-allowed',
+              'transition-all',
             )}
           >
             {submitting ? (
-              <>
-                <Loader2 className="animate-spin mr-1" size={16} />
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="animate-spin" size={18} aria-hidden="true" />
                 Processing…
-              </>
+              </span>
             ) : isFullyTendered ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 mr-1" />
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                 Confirm Payment
-              </>
+              </span>
             ) : (
               'Enter Full Amount'
             )}
