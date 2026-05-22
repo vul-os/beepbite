@@ -1,43 +1,56 @@
 package templates
 
 // MemberInviteHTML is the HTML template for the member_invite action.
-// Data fields: Subject string, OrgName string, Role string, InviteURL string, InviterName string.
+// Data fields: Subject, LogoURL, Preheader, Year (from baseData),
+//
+//	OrgName string, Role string, InviteURL string, InviterName string.
 const MemberInviteHTML = htmlHeader + `
             <h1 style="` + h1Style + `">You&apos;ve been invited to {{.OrgName}}</h1>
+            <p style="` + bodyStyle + `">Hello!</p>
             <p style="` + bodyStyle + `">
               <strong>{{.InviterName}}</strong> has invited you to join
-              <strong>{{.OrgName}}</strong> on BeepBite as a <strong>{{.Role}}</strong>.
+              <strong>{{.OrgName}}</strong> on BeepBite as a
+              <strong style="color:#f97316;">{{.Role}}</strong>.
             </p>
             <p style="` + bodyStyle + `">
-              Click the button below to accept the invitation and set up your account.
+              Accept the invitation below to set up your account and get access
+              to your team&apos;s BeepBite workspace.
             </p>
 
             <table role="presentation" cellpadding="0" cellspacing="0" border="0"
-                   style="margin:24px auto;">
+                   style="margin:28px auto;">
               <tr>
-                <td style="border-radius:6px;background-color:#f97316;">
+                <td style="border-radius:6px;background-color:#f97316;
+                           box-shadow:0 2px 4px rgba(249,115,22,0.35);">
                   <a href="{{.InviteURL}}"
-                     style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;
+                     style="display:inline-block;padding:14px 36px;font-size:15px;font-weight:700;
                             color:#ffffff;text-decoration:none;border-radius:6px;
-                            background-color:#f97316;mso-padding-alt:12px 28px;">
+                            background-color:#f97316;mso-padding-alt:14px 36px;
+                            letter-spacing:0.01em;">
                     Accept Invitation
                   </a>
                 </td>
               </tr>
             </table>
 
-            <p style="` + bodyStyle + `">Or paste this link into your browser:</p>
-            <p style="font-size:13px;color:#6b7280;word-break:break-all;margin:0 0 16px 0;">
-              {{.InviteURL}}
+            <p style="` + bodyStyle + `font-size:13px;color:#9ca3af;">
+              Or paste this link into your browser:
             </p>
+            <p style="` + fallbackLinkStyle + `">
+              <a href="{{.InviteURL}}" style="color:#f97316;text-decoration:none;">{{.InviteURL}}</a>
+            </p>
+
+            <hr style="` + dividerStyle + `">
             <p style="` + noteStyle + `">
-              This invitation link expires in 7 days. If you were not expecting this invitation,
-              you can safely ignore this email.
+              This invitation expires in <strong>7 days</strong>. If you were not expecting
+              this invitation, you can safely ignore this email.
             </p>
 ` + htmlFooter
 
 // MemberInviteText is the plain-text fallback for member_invite.
-const MemberInviteText = `{{.InviterName}} has invited you to join {{.OrgName}} on BeepBite as a {{.Role}}.
+const MemberInviteText = `Hello!
+
+{{.InviterName}} has invited you to join {{.OrgName}} on BeepBite as a {{.Role}}.
 
 Accept the invitation by visiting:
 
@@ -47,5 +60,5 @@ This link expires in 7 days.
 
 If you were not expecting this invitation, you can safely ignore this email.
 
--- BeepBite Team
+-- The BeepBite Team
 `
