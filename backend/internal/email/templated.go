@@ -30,6 +30,7 @@ import (
 	"os"
 	"strings"
 	texttpl "text/template"
+	"time"
 
 	"github.com/beepbite/backend/internal/email/templates"
 )
@@ -160,26 +161,43 @@ func renderText(tmplSrc string, tplData any) (string, error) {
 // Each struct carries both the computed Subject (used by htmlHeader's
 // {{.Subject}} reference) and the template-specific fields.
 
-type verifyEmailData struct {
+// baseData holds fields shared by every template (header + footer).
+type baseData struct {
 	Subject   string
+	LogoURL   string
+	Preheader string
+	Year      int
+}
+
+func sharedBase(subject, preheader string) baseData {
+	return baseData{
+		Subject:   subject,
+		LogoURL:   templates.LogoURL(),
+		Preheader: preheader,
+		Year:      time.Now().Year(),
+	}
+}
+
+type verifyEmailData struct {
+	baseData
 	Name      string
 	VerifyURL string
 }
 
 type passwordResetData struct {
-	Subject        string
+	baseData
 	Name           string
 	ResetURL       string
 	ExpiresMinutes int
 }
 
 type welcomeData struct {
-	Subject string
-	Name    string
+	baseData
+	Name string
 }
 
 type memberInviteData struct {
-	Subject     string
+	baseData
 	OrgName     string
 	Role        string
 	InviteURL   string
@@ -187,14 +205,14 @@ type memberInviteData struct {
 }
 
 type driverInviteData struct {
-	Subject     string
+	baseData
 	OrgName     string
 	InviteURL   string
 	InviterName string
 }
 
 type staffCredentialsData struct {
-	Subject      string
+	baseData
 	Name         string
 	StoreName    string
 	Username     string
@@ -227,7 +245,7 @@ func Render(name string, data map[string]any) (Message, error) {
 		url = absURL(url)
 
 		d := verifyEmailData{
-			Subject:   "Verify your BeepBite email",
+			baseData:  sharedBase("Verify your BeepBite email", "Confirm your email address to activate your BeepBite account."),
 			Name:      strVal(data, "name"),
 			VerifyURL: url,
 		}
@@ -255,7 +273,7 @@ func Render(name string, data map[string]any) (Message, error) {
 		}
 
 		d := passwordResetData{
-			Subject:        "Reset your BeepBite password",
+			baseData:       sharedBase("Reset your BeepBite password", "Click inside to choose a new password for your BeepBite account."),
 			Name:           strVal(data, "name"),
 			ResetURL:       url,
 			ExpiresMinutes: exp,
@@ -273,8 +291,8 @@ func Render(name string, data map[string]any) (Message, error) {
 	// ── welcome ───────────────────────────────────────────────────────────────
 	case "welcome":
 		d := welcomeData{
-			Subject: "Welcome to BeepBite!",
-			Name:    strVal(data, "name"),
+			baseData: sharedBase("Welcome to BeepBite!", "Your BeepBite account is confirmed and ready to go!"),
+			Name:     strVal(data, "name"),
 		}
 		html, err := renderHTML(templates.WelcomeHTML, d)
 		if err != nil {
@@ -296,7 +314,7 @@ func Render(name string, data map[string]any) (Message, error) {
 
 		orgName := strVal(data, "orgName")
 		d := memberInviteData{
-			Subject:     fmt.Sprintf("You're invited to %s on BeepBite", orgName),
+			baseData:    sharedBase(fmt.Sprintf("You're invited to %s on BeepBite", orgName), fmt.Sprintf("You've been invited to join %s on BeepBite as a team member.", orgName)),
 			OrgName:     orgName,
 			Role:        strVal(data, "role"),
 			InviteURL:   url,
@@ -322,7 +340,7 @@ func Render(name string, data map[string]any) (Message, error) {
 
 		orgName := strVal(data, "orgName")
 		d := driverInviteData{
-			Subject:     fmt.Sprintf("You're invited to drive for %s on BeepBite", orgName),
+			baseData:    sharedBase(fmt.Sprintf("You're invited to drive for %s on BeepBite", orgName), fmt.Sprintf("You've been invited to join the %s delivery team on BeepBite.", orgName)),
 			OrgName:     orgName,
 			InviteURL:   url,
 			InviterName: strVal(data, "inviterName"),
@@ -346,7 +364,7 @@ func Render(name string, data map[string]any) (Message, error) {
 		url = absURL(url)
 
 		d := staffCredentialsData{
-			Subject:      "Your BeepBite staff account details",
+			baseData:     sharedBase("Your BeepBite staff account details", "Your staff login credentials for BeepBite are ready inside."),
 			Name:         strVal(data, "name"),
 			StoreName:    strVal(data, "storeName"),
 			Username:     strVal(data, "username"),
