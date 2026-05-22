@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // PostSignupHook is called after a new user is created (email/password signup
@@ -34,6 +35,15 @@ type Handler struct {
 	// cycle (driverinvite/handler.go already imports auth).
 	pool       *pgxpool.Pool
 	postSignup PostSignupHook
+
+	// EmailNotifier, if non-nil, is called to send transactional emails.
+	// The orchestrator wires this after construction:
+	//
+	//   authH.EmailNotifier = emailNotify
+	//
+	// where emailNotify is a closure that calls email.Render then Provider.Send.
+	// Guard every call with `if h.EmailNotifier != nil`.
+	EmailNotifier func(to, template string, data map[string]any)
 }
 
 func NewHandler(svc *Service, google *Google, postAuthRedirect string) *Handler {
@@ -64,6 +74,14 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Get("/google", h.googleStart)
 	r.Get("/google/callback", h.googleCallback)
 
+	// Password reset (public — no auth required).
+	r.Post("/password/forgot", h.passwordForgot)
+	r.Post("/password/reset", h.passwordReset)
+
+	// Email verification.
+	r.Post("/verify/send", h.verifySend)       // public (accepts {email}) or authed
+	r.Post("/verify/confirm", h.verifyConfirm) // public
+
 	r.Group(func(r chi.Router) {
 		r.Use(Middleware(h.svc))
 		r.Get("/me", h.me)
@@ -83,11 +101,11 @@ type refreshReq struct {
 }
 
 type sessionResp struct {
-	User        userDTO    `json:"user"`
-	AccessToken string     `json:"access_token"`
+	User         userDTO   `json:"user"`
+	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
-	ExpiresAt   time.Time  `json:"expires_at"`
-	TokenType   string     `json:"token_type"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	TokenType    string    `json:"token_type"`
 }
 
 type userDTO struct {
@@ -124,6 +142,9 @@ func (h *Handler) signUp(w http.ResponseWriter, r *http.Request) {
 			log.Printf("warn: accept driver invites: %v", err)
 		}
 	}
+	// Fire a verification email for new email/password signups (non-blocking).
+	// Signup/login are not gated on verification — the session is issued above.
+	go h.sendVerifyEmail(context.Background(), user.ID, req.Email)
 	writeJSON(w, http.StatusCreated, toSession(user, tp))
 }
 
@@ -262,6 +283,227 @@ func (h *Handler) googleCallback(w http.ResponseWriter, r *http.Request) {
 		"&refresh_token=" + tp.RefreshToken +
 		"&expires_at=" + tp.ExpiresAt.UTC().Format(time.RFC3339)
 	http.Redirect(w, r, redirect, http.StatusFound)
+}
+
+// --- Password reset ---
+
+type forgotReq struct {
+	Email string `json:"email"`
+}
+
+type resetReq struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+// passwordForgot handles POST /auth/password/forgot.
+// Always returns 200 — never reveals whether the email exists.
+func (h *Handler) passwordForgot(w http.ResponseWriter, r *http.Request) {
+	var req forgotReq
+	if err := decodeJSON(r, &req); err != nil {
+		// Still 200 — caller may be probing.
+		writeJSON(w, http.StatusOK, map[string]string{"message": "if that email exists, a reset link has been sent"})
+		return
+	}
+	go func() {
+		ctx := context.Background()
+		user, err := h.svc.Store().FindByEmail(ctx, req.Email)
+		if err != nil {
+			// User not found or other error — silently drop.
+			return
+		}
+		raw, hash, err := newRawToken()
+		if err != nil {
+			log.Printf("passwordForgot: generate token: %v", err)
+			return
+		}
+		expiresAt := time.Now().UTC().Add(60 * time.Minute)
+		if err := h.svc.Store().InsertPasswordResetToken(ctx, user.ID, hash, expiresAt); err != nil {
+			log.Printf("passwordForgot: insert token: %v", err)
+			return
+		}
+		if h.EmailNotifier != nil {
+			_, name, _ := h.svc.Store().FindByIDForEmail(ctx, user.ID)
+			h.EmailNotifier(user.Email, "password_reset", map[string]any{
+				"name":           name,
+				"resetURL":       "/auth/update-password?token=" + raw,
+				"expiresMinutes": 60,
+			})
+		}
+	}()
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "if that email exists, a reset link has been sent"})
+}
+
+// passwordReset handles POST /auth/password/reset.
+func (h *Handler) passwordReset(w http.ResponseWriter, r *http.Request) {
+	var req resetReq
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Token == "" {
+		writeErr(w, http.StatusBadRequest, "token required")
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		writeErr(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+
+	hash := HashToken(req.Token)
+	userID, expiresAt, consumedAt, err := h.svc.Store().FindPasswordResetToken(r.Context(), hash)
+	if errors.Is(err, ErrRefreshInvalid) || err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid or unknown token")
+		return
+	}
+	if consumedAt != nil {
+		writeErr(w, http.StatusGone, "token already used")
+		return
+	}
+	if time.Now().UTC().After(expiresAt) {
+		writeErr(w, http.StatusGone, "token expired")
+		return
+	}
+
+	pwHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("passwordReset: bcrypt: %v", err)
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if err := h.svc.Store().UpdatePassword(r.Context(), userID, string(pwHash)); err != nil {
+		log.Printf("passwordReset: update password: %v", err)
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if err := h.svc.Store().ConsumePasswordResetToken(r.Context(), hash); err != nil {
+		log.Printf("passwordReset: consume token: %v", err)
+		// Non-fatal — password is already updated.
+	}
+	// Revoke all refresh tokens for the user so existing sessions are invalidated.
+	h.svc.Store().RevokeAllForUser(r.Context(), userID)
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "password updated"})
+}
+
+// --- Email verification ---
+
+type verifyEmailReq struct {
+	Email string `json:"email"`
+}
+
+type verifyConfirmReq struct {
+	Token string `json:"token"`
+}
+
+// verifySend handles POST /auth/verify/send.
+// Accepts either a JWT-authenticated request or a public {email} body.
+func (h *Handler) verifySend(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var userID, email string
+
+	// Try JWT auth first.
+	if claims, ok := ClaimsFrom(ctx); ok && claims.UserID != "" {
+		userID = claims.UserID
+		var name string
+		var err error
+		email, name, err = h.svc.Store().FindByIDForEmail(ctx, userID)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, "user not found")
+			return
+		}
+		_ = name
+	} else {
+		// Fall back to public body.
+		// We must not use decodeJSON (DisallowUnknownFields would reject tokens).
+		var req verifyEmailReq
+		if jsonErr := json.NewDecoder(r.Body).Decode(&req); jsonErr != nil || req.Email == "" {
+			writeErr(w, http.StatusBadRequest, "email required")
+			return
+		}
+		user, err := h.svc.Store().FindByEmail(ctx, req.Email)
+		if err != nil {
+			// Don't leak whether email exists.
+			writeJSON(w, http.StatusOK, map[string]string{"message": "if that email exists, a verification link has been sent"})
+			return
+		}
+		userID = user.ID
+		email = user.Email
+	}
+
+	go h.sendVerifyEmail(context.Background(), userID, email)
+	writeJSON(w, http.StatusOK, map[string]string{"message": "verification email sent"})
+}
+
+// verifyConfirm handles POST /auth/verify/confirm.
+func (h *Handler) verifyConfirm(w http.ResponseWriter, r *http.Request) {
+	var req verifyConfirmReq
+	if err := decodeJSON(r, &req); err != nil || req.Token == "" {
+		writeErr(w, http.StatusBadRequest, "token required")
+		return
+	}
+
+	hash := HashToken(req.Token)
+	userID, expiresAt, consumedAt, err := h.svc.Store().FindEmailVerificationToken(r.Context(), hash)
+	if errors.Is(err, ErrTokenInvalid) || err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid or unknown token")
+		return
+	}
+	if consumedAt != nil {
+		writeErr(w, http.StatusGone, "token already used")
+		return
+	}
+	if time.Now().UTC().After(expiresAt) {
+		writeErr(w, http.StatusGone, "token expired")
+		return
+	}
+
+	if err := h.svc.Store().ConsumeEmailVerificationToken(r.Context(), hash, userID); err != nil {
+		log.Printf("verifyConfirm: consume: %v", err)
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "email verified"})
+}
+
+// sendVerifyEmail is a shared helper (called from signUp and verifySend).
+// It creates an email_verification_tokens row and fires EmailNotifier.
+// Safe to call in a goroutine — all errors are logged and dropped.
+func (h *Handler) sendVerifyEmail(ctx context.Context, userID, email string) {
+	raw, hash, err := newRawToken()
+	if err != nil {
+		log.Printf("sendVerifyEmail: generate token: %v", err)
+		return
+	}
+	expiresAt := time.Now().UTC().Add(24 * time.Hour)
+	if err := h.svc.Store().InsertEmailVerificationToken(ctx, userID, hash, expiresAt); err != nil {
+		log.Printf("sendVerifyEmail: insert token: %v", err)
+		return
+	}
+	if h.EmailNotifier != nil {
+		_, name, _ := h.svc.Store().FindByIDForEmail(ctx, userID)
+		if name == "" {
+			name = email
+		}
+		h.EmailNotifier(email, "verify_email", map[string]any{
+			"name":      name,
+			"verifyURL": "/auth/verify-email?token=" + raw,
+		})
+	}
+}
+
+// newRawToken returns (raw, sha256Hex) using the same mechanic as NewRefreshToken.
+func newRawToken() (raw, hashed string, err error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", err
+	}
+	raw = base64.RawURLEncoding.EncodeToString(b)
+	hashed = HashToken(raw)
+	return raw, hashed, nil
 }
 
 // --- helpers ---

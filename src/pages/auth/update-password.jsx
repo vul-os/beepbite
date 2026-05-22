@@ -5,10 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock, AlertCircle, Eye, EyeOff, CheckCircle2, Utensils } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '@/lib/api-client';
 
 const UpdatePasswordPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({ password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -53,8 +55,23 @@ const UpdatePasswordPage = () => {
 
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Password updated successfully');
+      const token = searchParams.get('token');
+      if (!token) {
+        setErrors(prev => ({ ...prev, submit: 'Reset link is missing or invalid. Please request a new one.' }));
+        return;
+      }
+      const { error } = await api.request('POST', '/auth/password/reset', {
+        auth: false,
+        body: { token, new_password: formData.password },
+      });
+      if (error) {
+        const msg =
+          error.status === 410
+            ? 'This reset link has already been used or has expired. Please request a new one.'
+            : (error.message || 'Failed to update password. Please try again.');
+        setErrors(prev => ({ ...prev, submit: msg }));
+        return;
+      }
       setIsUpdated(true);
     } catch (err) {
       setErrors(prev => ({ ...prev, submit: 'Failed to update password. Please try again.' }));
