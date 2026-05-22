@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
@@ -14,6 +14,26 @@ import SalesTrendChart from './components/sales-trend-chart';
 import BusyHeatmap from './components/busy-heatmap';
 import LiveOrdersPanel from './components/live-orders-panel';
 import OnboardingChecklist from './components/onboarding-checklist';
+
+// ── Full-screen guard states ────────────────────────────────────────────────
+
+function GuardScreen({ icon: Icon, iconClass, title, subtitle }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 px-4"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center max-w-sm w-full text-center">
+        <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mb-4">
+          <Icon className={`w-8 h-8 ${iconClass}`} />
+        </div>
+        {title && <h2 className="text-lg font-semibold text-gray-900 mb-1">{title}</h2>}
+        {subtitle && <p className="text-sm text-gray-500 leading-relaxed">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
 
 const Home = () => {
   const { activeOrganization, activeLocation, locations, hasLoadedLocations } = useAuth();
@@ -167,24 +187,23 @@ const Home = () => {
   // ── Guard: no org ────────────────────────────────────────────────────────
   if (!activeOrganization) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-orange-50 to-orange-100">
-        <AlertCircle className="w-16 h-16 text-orange-400 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Organization Selected</h2>
-        <p className="text-gray-600">Please select an organization to view your dashboard.</p>
-      </div>
+      <GuardScreen
+        icon={AlertCircle}
+        iconClass="text-orange-400"
+        title="No Organization Selected"
+        subtitle="Please select an organization to view your dashboard."
+      />
     );
   }
 
   // ── Guard: locations still loading → avoid flashing onboarding ──────────
-  // Until the auth context has finished loading this org's locations we cannot
-  // know whether the user genuinely has no location. Show a light loading
-  // state instead of the onboarding checklist (which would mask real data).
   if (!resolvedLocation && !hasLoadedLocations) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-orange-50 to-orange-100">
-        <RefreshCw className="w-8 h-8 text-orange-400 mb-3 animate-spin" />
-        <p className="text-gray-600">Loading your dashboard…</p>
-      </div>
+      <GuardScreen
+        icon={RefreshCw}
+        iconClass="text-orange-400 animate-spin"
+        subtitle="Loading your dashboard…"
+      />
     );
   }
 
@@ -199,52 +218,87 @@ const Home = () => {
   const series = summary?.series ?? [];
   const heatmapCells = heatmap?.cells ?? [];
 
+  const handleRefresh = () => {
+    loadSummary();
+    loadHeatmap();
+    fetchOrders();
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100">
-      {/* Top bar */}
-      <div className="bg-white border-b border-orange-100 shadow-sm px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">Dashboard</h1>
-          <p className="text-xs text-gray-500">{resolvedLocation?.name || 'All locations'}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <PeriodFilter value={period} onChange={setPeriod} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { loadSummary(); loadHeatmap(); fetchOrders(); }}
-            className="h-8 w-8 p-0 text-gray-400 hover:text-orange-600 hover:bg-orange-50"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* ── Top bar ────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          {/* Left: title + location */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-gray-900 leading-tight">Dashboard</h1>
+              <p className="text-xs text-gray-500 flex items-center gap-1 leading-tight truncate">
+                <MapPin className="w-3 h-3 flex-shrink-0 text-orange-400" aria-hidden="true" />
+                <span className="truncate">{resolvedLocation?.name || 'All locations'}</span>
+              </p>
+            </div>
+          </div>
 
-      {/* Main content */}
-      <div className="px-4 sm:px-6 py-4 space-y-4 max-w-[1600px] mx-auto">
+          {/* Right: period filter + refresh */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <PeriodFilter value={period} onChange={setPeriod} />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefresh}
+              aria-label="Refresh dashboard"
+              className="h-9 w-9 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 focus-visible:ring-2 focus-visible:ring-orange-400"
+            >
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main content ────────────────────────────────────────────────── */}
+      <main className="px-4 sm:px-6 py-5 space-y-5 max-w-[1600px] mx-auto">
 
         {/* Summary error banner */}
         {summaryError && !summaryLoading && (
-          <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>Analytics unavailable: {summaryError}</span>
+          <div
+            role="alert"
+            className="flex items-start gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" aria-hidden="true" />
+            <div>
+              <p className="font-medium">Analytics unavailable</p>
+              <p className="text-amber-700 text-xs mt-0.5">{summaryError}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadSummary}
+              className="ml-auto h-7 px-2 text-xs text-amber-700 hover:bg-amber-100 flex-shrink-0"
+            >
+              Retry
+            </Button>
           </div>
         )}
 
         {/* KPI row */}
-        <KpiCards
-          kpis={kpis}
-          previous={previous}
-          currency={orgCurrency}
-          loading={summaryLoading}
-        />
+        <section aria-label="Key performance indicators">
+          <KpiCards
+            kpis={kpis}
+            previous={previous}
+            currency={orgCurrency}
+            loading={summaryLoading}
+          />
+        </section>
 
-        {/* Charts row + Live Orders */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Charts + Live Orders */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Left column: trend + heatmap */}
-          <div className="lg:col-span-2 space-y-4">
+          <section
+            aria-label="Sales analytics charts"
+            className="lg:col-span-2 space-y-5"
+          >
             <SalesTrendChart
               series={series}
               period={period}
@@ -256,10 +310,13 @@ const Home = () => {
               currency={orgCurrency}
               loading={heatmapLoading}
             />
-          </div>
+          </section>
 
           {/* Right column: live orders */}
-          <div className="lg:col-span-1" style={{ minHeight: 520 }}>
+          <section
+            aria-label="Live orders"
+            className="lg:col-span-1"
+          >
             <LiveOrdersPanel
               orders={orders}
               loadingOrders={loadingOrders}
@@ -270,9 +327,9 @@ const Home = () => {
               filteredOrders={filteredOrders}
               updateOrderStatus={updateOrderStatus}
             />
-          </div>
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

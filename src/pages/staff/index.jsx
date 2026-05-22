@@ -59,6 +59,7 @@ import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import DriverInvitesPanel from '@/components/driver-invites-panel';
+import MemberInvitesPanel from '@/components/member-invites-panel';
 
 const Staff = () => {
   const { activeLocation, activeOrganization } = useAuth();
@@ -1211,6 +1212,9 @@ const Staff = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Team members — invite by email+role + manage pending/active non-driver members */}
+      <MemberInvitesPanel />
 
       {/* Drivers — invite by email + manage pending driver invites */}
       <DriverInvitesPanel />

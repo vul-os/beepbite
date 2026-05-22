@@ -25,13 +25,48 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
   }, [lastUpdated]);
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border bg-card px-4 py-3 shadow-sm">
+    <div
+      className={cn(
+        'flex items-center justify-between gap-4 rounded-2xl border px-4 py-4 shadow-sm transition-colors',
+        status === 'delivered'
+          ? 'bg-green-50 border-green-200'
+          : status === 'canceled'
+            ? 'bg-muted border-border'
+            : 'bg-card border-border/60',
+      )}
+    >
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100">
-          <Clock className="h-4.5 w-4.5 text-orange-600" />
+        <div
+          className={cn(
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
+            status === 'delivered'
+              ? 'bg-green-100'
+              : status === 'canceled'
+                ? 'bg-muted-foreground/10'
+                : 'bg-orange-100',
+          )}
+        >
+          <Clock
+            className={cn(
+              'h-5 w-5',
+              status === 'delivered'
+                ? 'text-green-600'
+                : status === 'canceled'
+                  ? 'text-muted-foreground'
+                  : 'text-orange-600',
+            )}
+            aria-hidden="true"
+          />
         </div>
         <div>
-          <p className="text-sm font-semibold leading-tight">{etaLabel}</p>
+          <p
+            className={cn(
+              'text-base font-bold leading-tight',
+              status === 'delivered' ? 'text-green-700' : 'text-foreground',
+            )}
+          >
+            {etaLabel}
+          </p>
           {updatedLabel && (
             <p className="text-xs text-muted-foreground mt-0.5">{updatedLabel}</p>
           )}
@@ -39,12 +74,12 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
       </div>
 
       {isLive && (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="relative flex h-2.5 w-2.5">
+        <div className="flex items-center gap-1.5 shrink-0 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
+          <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-orange-500" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
           </span>
-          <span className="text-xs font-medium text-orange-600">Live</span>
+          <span className="text-xs font-semibold text-orange-600">Live</span>
         </div>
       )}
 
@@ -54,6 +89,7 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
             'h-4 w-4 shrink-0',
             status === 'delivered' ? 'text-green-500' : 'text-muted-foreground',
           )}
+          aria-hidden="true"
         />
       )}
     </div>

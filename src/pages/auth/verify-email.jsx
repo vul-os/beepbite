@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, RefreshCw, Utensils } from 'lucide-react';
+import { Mail, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Logo from '@/components/ui/logo';
 
 const VerifyEmailPage = () => {
   const navigate = useNavigate();
@@ -14,12 +13,10 @@ const VerifyEmailPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    // Get email from localStorage (set during signup)
     const pendingEmail = localStorage.getItem('pendingVerificationEmail');
     if (pendingEmail) {
       setEmail(pendingEmail);
     } else {
-      // If no email found, redirect to signup
       navigate('/signup');
     }
   }, [navigate]);
@@ -35,13 +32,10 @@ const VerifyEmailPage = () => {
   const handleResendEmail = async () => {
     setIsResending(true);
     setSuccessMessage('');
-    
     try {
-      // Here you would typically make an API call to resend verification email
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      setSuccessMessage('Verification email sent successfully!');
-      setResendCooldown(60); // 60 second cooldown
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setSuccessMessage('Verification email sent! Check your inbox.');
+      setResendCooldown(60);
     } catch (error) {
       console.error('Failed to resend verification email:', error);
     } finally {
@@ -56,124 +50,126 @@ const VerifyEmailPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-8 relative overflow-hidden">
-      {/* Background decorations - more subtle */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-3"></div>
-      <div className="absolute top-10 left-10 w-20 h-20 bg-primary/5 rounded-full opacity-50"></div>
-      <div className="absolute bottom-10 right-10 w-16 h-16 bg-primary/5 rounded-full opacity-50"></div>
-      <div className="absolute top-1/2 right-20 w-12 h-12 bg-primary/10 rounded-full opacity-30"></div>
-      
-      <div className="w-full max-w-lg space-y-6 relative z-10">
-        {/* Logo/Brand */}
-        <div className="flex justify-center mb-4">
-          <Logo />
+    <div className="min-h-screen flex flex-col justify-center bg-gradient-to-br from-slate-50 via-white to-orange-50 px-4 py-8 relative overflow-hidden">
+      {/* Subtle background blobs */}
+      <div aria-hidden="true" className="absolute top-0 left-0 w-64 h-64 bg-orange-100 rounded-full opacity-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+      <div aria-hidden="true" className="absolute bottom-0 right-0 w-80 h-80 bg-orange-50 rounded-full opacity-40 translate-x-1/3 translate-y-1/3 pointer-events-none" />
+
+      <div className="w-full max-w-sm mx-auto space-y-6 relative z-10">
+
+        {/* Brand mark */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="relative">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+              <img src="/icon.svg" alt="" aria-hidden="true" className="w-8 h-8 filter brightness-0 invert" />
+            </div>
+            <span aria-hidden="true" className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold tracking-tight leading-none">
+              <span className="text-orange-500">Beep</span><span className="text-gray-900">Bite</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">Restaurant Management</p>
+          </div>
         </div>
 
-        <Card className="border border-gray-200 shadow-xl bg-white/95 backdrop-blur-sm">
-          <CardHeader className="space-y-3 pb-6 text-center">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <Mail className="w-8 h-8 text-primary" />
+        {/* Card */}
+        <Card className="border border-gray-200 shadow-xl bg-white">
+          <CardHeader className="pb-4 pt-6 px-6 text-center space-y-3">
+            {/* Mail icon */}
+            <div className="mx-auto w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
+              <Mail className="w-7 h-7 text-orange-500" aria-hidden="true" />
             </div>
-            <CardTitle className="text-2xl font-bold tracking-tight text-gray-900">
-              Check Your Email
-            </CardTitle>
-            <CardDescription className="text-sm text-gray-600">
-              We've sent a verification link to your restaurant email address
-            </CardDescription>
+            <div className="space-y-1">
+              <CardTitle className="text-xl font-bold text-gray-900">Check your email</CardTitle>
+              <CardDescription className="text-sm text-gray-500">
+                We've sent a verification link to{' '}
+                <strong className="text-gray-700 font-semibold">{email || 'your email address'}</strong>
+              </CardDescription>
+            </div>
           </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="space-y-5">
+
+          <CardContent className="px-6 pb-6 space-y-4">
+            {/* Success feedback — aria-live region */}
+            <div aria-live="polite" aria-atomic="true">
               {successMessage && (
-                <Alert className="border-l-4 border-green-500 bg-green-50/80">
-                  <Mail className="h-4 w-4 text-green-600" />
+                <Alert className="border-l-4 border-green-500 bg-green-50">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" aria-hidden="true" />
                   <AlertDescription className="text-sm text-green-800">
                     {successMessage}
                   </AlertDescription>
                 </Alert>
               )}
-
-              <div className="rounded-lg bg-blue-50/80 p-4 border border-blue-200/60">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <Mail className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-900">Verification email sent</h3>
-                    <div className="mt-2 text-sm text-blue-800">
-                      <p>
-                        We've sent a verification link to{' '}
-                        <span className="font-medium text-blue-900">{email}</span>. Click the link in the email to verify your restaurant account.
-                      </p>
-                      <p className="mt-2">
-                        <strong>Can't find the email?</strong> Check your spam folder or try resending it.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Button 
-                  onClick={handleResendEmail}
-                  disabled={isResending || resendCooldown > 0}
-                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  {isResending ? (
-                    <div className="flex items-center space-x-2">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Sending...</span>
-                    </div>
-                  ) : resendCooldown > 0 ? (
-                    `Resend in ${resendCooldown}s`
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Resend Verification Email</span>
-                    </div>
-                  )}
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={handleChangeEmail}
-                  className="w-full h-11 border-gray-300 hover:bg-gray-50 font-medium"
-                >
-                  Use Different Email
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/signin')}
-                  className="w-full h-11 text-gray-600 hover:text-gray-900 hover:bg-gray-50 font-medium"
-                >
-                  Back to Sign In
-                </Button>
-              </div>
-
-              <div className="text-center pt-2">
-                <p className="text-sm text-gray-600">
-                  After clicking the verification link, you'll be able to access your BeepBite restaurant dashboard.
-                </p>
-              </div>
             </div>
+
+            {/* Instructional info box */}
+            <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 space-y-1.5">
+              <p className="text-sm font-medium text-blue-900">Next steps</p>
+              <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                <li>Open the email from BeepBite</li>
+                <li>Click the <strong>Verify email</strong> link</li>
+                <li>You'll be redirected to your dashboard</li>
+              </ol>
+              <p className="text-xs text-blue-700 pt-1">
+                Can't find it? Check your spam or junk folder.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2">
+              <Button
+                onClick={handleResendEmail}
+                disabled={isResending || resendCooldown > 0}
+                className="w-full h-11 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold shadow-md hover:shadow-lg transition-all text-sm"
+                aria-label={resendCooldown > 0 ? `Resend available in ${resendCooldown} seconds` : 'Resend verification email'}
+              >
+                {isResending ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+                    Sending…
+                  </span>
+                ) : resendCooldown > 0 ? (
+                  `Resend in ${resendCooldown}s`
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                    Resend Verification Email
+                  </span>
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={handleChangeEmail}
+                className="w-full h-11 border-gray-300 hover:bg-gray-50 font-medium text-sm"
+              >
+                Use a Different Email
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/signin')}
+                className="w-full h-11 text-gray-500 hover:text-gray-800 hover:bg-gray-50 font-medium text-sm"
+              >
+                Back to Sign In
+              </Button>
+            </div>
+
+            <p className="text-center text-xs text-gray-400">
+              After verifying you'll be taken straight to your BeepBite dashboard.
+            </p>
           </CardContent>
         </Card>
 
-        {/* Features preview - more compact */}
-        <div className="text-center space-y-3">
-          <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <Utensils className="w-4 h-4 text-primary" />
-              <span>Restaurant Dashboard Awaits</span>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500">
-            © {new Date().getFullYear()} BeepBite. Streamlining restaurant operations worldwide.
+        {/* Footer */}
+        <footer className="text-center">
+          <p className="text-xs text-gray-400">
+            © {new Date().getFullYear()} BeepBite. Streamlining restaurant operations.
           </p>
-        </div>
+        </footer>
       </div>
     </div>
   );
 };
 
-export default VerifyEmailPage; 
+export default VerifyEmailPage;

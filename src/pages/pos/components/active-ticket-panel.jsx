@@ -66,8 +66,8 @@ function shortOrderNum(order) {
 function TicketHeader({ ticket, onAdjustGuests }) {
   if (!ticket) {
     return (
-      <div className="px-4 py-3 border-b border-orange-100 bg-white">
-        <p className="text-sm text-gray-500">No ticket selected</p>
+      <div className="px-4 py-4 border-b border-orange-100 bg-gradient-to-r from-gray-50 to-orange-50/20">
+        <p className="text-sm font-medium text-gray-500">No ticket selected</p>
         <p className="text-xs text-gray-400 mt-0.5">Tap a table or add a walk-in to start.</p>
       </div>
     );
@@ -75,12 +75,12 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 
   if (ticket.kind === 'walkin') {
     return (
-      <div className="px-4 py-3 border-b border-orange-100 bg-white flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Walk-in</p>
-          <p className="text-base font-bold text-gray-900">{ticket.label || `Walk-in #${ticket.id}`}</p>
+      <div className="px-4 py-3 border-b border-orange-100 bg-white flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-widest text-orange-500 font-bold mb-0.5">Walk-in</p>
+          <p className="text-base font-bold text-gray-900 truncate">{ticket.label || `Walk-in #${ticket.id}`}</p>
         </div>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-semibold">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold shrink-0">
           <Receipt className="w-3 h-3" />
           Counter
         </span>
@@ -90,22 +90,24 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 
   // table-bound ticket
   return (
-    <div className="px-4 py-3 border-b border-orange-100 bg-white flex items-center justify-between">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+    <div className="px-4 py-3 border-b border-orange-100 bg-white flex items-center justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-widest text-orange-500 font-bold mb-0.5">
           {ticket.section_name ? `${ticket.section_name} · ` : ''}Table
         </p>
         <p className="text-base font-bold text-gray-900">Table {ticket.table_number ?? '?'}</p>
       </div>
-      <button
-        type="button"
-        onClick={onAdjustGuests}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold hover:bg-orange-100 transition"
-        title="Adjust guest count"
-      >
-        <Users className="w-3 h-3" />
-        {ticket.party_size || 1} {ticket.party_size === 1 ? 'guest' : 'guests'}
-      </button>
+      {onAdjustGuests && (
+        <button
+          type="button"
+          onClick={onAdjustGuests}
+          aria-label={`Adjust guest count: ${ticket.party_size || 1} ${(ticket.party_size || 1) === 1 ? 'guest' : 'guests'}`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold hover:bg-orange-100 active:bg-orange-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 shrink-0"
+        >
+          <Users className="w-3.5 h-3.5" />
+          {ticket.party_size || 1} {(ticket.party_size || 1) === 1 ? 'guest' : 'guests'}
+        </button>
+      )}
     </div>
   );
 }
@@ -187,7 +189,7 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
   const canVoid = hasCapability('can_void');
 
   return (
-    <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
       {/* Header — right-click / long-press to Void the whole order */}
       <AdjustmentMenu
         orderId={order.id}
@@ -198,13 +200,13 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
       >
         <div
           className={cn(
-            'flex items-center justify-between px-3 py-1.5 bg-gray-50/80 border-b border-gray-100',
+            'flex items-center justify-between px-3 py-2 bg-green-50/60 border-b border-green-100',
             canVoid && 'cursor-context-menu hover:bg-orange-50/60 transition-colors',
           )}
           title={canVoid ? 'Right-click or long-press to void this order' : undefined}
         >
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-600">
-            <CheckCircle2 className="w-3 h-3 text-green-500" />
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-green-700">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
             Sent · {shortOrderNum(order)}
           </div>
           {firedDisplay && (
@@ -235,10 +237,10 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
 function SentSection({ sentOrders, locationId, onAdjustSuccess }) {
   if (!sentOrders || sentOrders.length === 0) return null;
   return (
-    <div className="px-3 py-2 space-y-2">
-      <div className="flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-wider font-bold text-gray-400">
-        <ChefHat className="w-3 h-3" />
-        Already sent
+    <div className="px-3 py-2.5 space-y-2">
+      <div className="flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-widest font-bold text-gray-400">
+        <ChefHat className="w-3.5 h-3.5" />
+        Sent to kitchen
         <span className="ml-1 text-gray-300">·</span>
         <span>{sentOrders.length} {sentOrders.length === 1 ? 'round' : 'rounds'}</span>
       </div>
@@ -263,57 +265,68 @@ function SentSection({ sentOrders, locationId, onAdjustSuccess }) {
 function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
   const lineCents = Math.round((parseFloat(item.price || 0) * (item.qty || 0)) * 100);
   return (
-    <div className="flex flex-col px-3 py-2 bg-white gap-1">
+    <div className="flex flex-col px-3 py-2.5 bg-white gap-1.5">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{item.name}</p>
-          <p className="text-xs text-gray-500 tabular-nums mt-0.5">
+          <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{item.name}</p>
+          {item.modifier_names && item.modifier_names.length > 0 && (
+            <p className="text-[11px] text-orange-600 truncate mt-0.5">
+              {item.modifier_names.join(', ')}
+            </p>
+          )}
+          <p className="text-xs text-gray-400 tabular-nums mt-0.5">
             {formatRand(Math.round(parseFloat(item.price || 0) * 100))} each
           </p>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Qty decrease — min 44px touch target */}
           <Button
             size="sm"
             variant="outline"
             onClick={() => onBumpQty(item.id, -1)}
-            className="h-7 w-7 p-0 rounded-full border-orange-200"
-            aria-label="Decrease quantity"
+            aria-label={`Decrease quantity of ${item.name}`}
+            className="h-9 w-9 p-0 rounded-full border-orange-200 hover:bg-orange-50 hover:border-orange-400 focus-visible:ring-2 focus-visible:ring-orange-400 transition"
           >
-            <Minus className="w-3 h-3" />
+            <Minus className="w-4 h-4" />
           </Button>
-          <span className="w-7 text-center text-sm font-bold tabular-nums">{item.qty}</span>
+          <span className="w-8 text-center text-sm font-bold tabular-nums select-none">{item.qty}</span>
+          {/* Qty increase */}
           <Button
             size="sm"
             onClick={() => onBumpQty(item.id, +1)}
-            className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600"
-            aria-label="Increase quantity"
+            aria-label={`Increase quantity of ${item.name}`}
+            className="h-9 w-9 p-0 rounded-full bg-orange-500 hover:bg-orange-600 focus-visible:ring-2 focus-visible:ring-orange-400 transition"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-4 h-4" />
           </Button>
-          <span className="ml-1.5 w-16 text-right text-sm font-bold text-gray-900 tabular-nums">
+        </div>
+      </div>
+      <div className="flex items-center justify-between pl-0.5">
+        {/* Course assignment pill */}
+        {courses && courses.length > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <CourseSelect
+              courseId={item.course_id || null}
+              courses={courses}
+              onChange={(courseId) => onSetCourse && onSetCourse(item.id, courseId)}
+            />
+          </div>
+        ) : <span />}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-gray-900 tabular-nums">
             {formatRand(lineCents)}
           </span>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => onRemove(item.id)}
-            className="h-7 w-7 p-0 ml-0.5 text-gray-400 hover:text-red-600"
-            aria-label="Remove"
+            aria-label={`Remove ${item.name} from order`}
+            className="h-8 w-8 p-0 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full focus-visible:ring-2 focus-visible:ring-red-400 transition"
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </div>
-      {/* Course assignment pill — only shown when courses are configured */}
-      {courses && courses.length > 0 && (
-        <div className="flex items-center gap-1.5 pl-0.5">
-          <CourseSelect
-            courseId={item.course_id || null}
-            courses={courses}
-            onChange={(courseId) => onSetCourse && onSetCourse(item.id, courseId)}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -321,20 +334,22 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
 function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }) {
   if (!newItems || newItems.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center px-6 py-10 text-center text-gray-400">
-        <ShoppingCart className="w-10 h-10 mb-2 opacity-40" />
-        <p className="text-sm font-medium">No new items</p>
-        <p className="text-xs mt-1">Tap a menu item on the right to add it.</p>
+      <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mb-3">
+          <ShoppingCart className="w-7 h-7 text-orange-300" />
+        </div>
+        <p className="text-sm font-semibold text-gray-600">Cart is empty</p>
+        <p className="text-xs text-gray-400 mt-1 max-w-[16ch] mx-auto">Tap any menu item to add it here.</p>
       </div>
     );
   }
   return (
-    <div className="px-3 py-2">
-      <div className="flex items-center gap-1.5 px-1 mb-1.5 text-[10px] uppercase tracking-wider font-bold text-orange-600">
+    <div className="px-3 py-2.5">
+      <div className="flex items-center gap-1.5 px-1 mb-2 text-[10px] uppercase tracking-widest font-bold text-orange-500">
         <Utensils className="w-3 h-3" />
         New — not yet sent
       </div>
-      <div className="rounded-md border border-orange-200 bg-orange-50/30 overflow-hidden divide-y divide-orange-100">
+      <div className="rounded-xl border border-orange-200 bg-white overflow-hidden divide-y divide-orange-100 shadow-sm">
         {newItems.map((it) => (
           <NewItemRow
             key={it.id}
@@ -369,67 +384,77 @@ function TicketFooter({
   const canCharge = hasUnpaidOrders && !sending && Boolean(ticket);
 
   return (
-    <div className="border-t border-orange-200 bg-white px-4 py-3 space-y-2">
+    <div className="border-t border-orange-100 bg-white px-4 py-3 space-y-2.5 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
       {/* Subtotal breakdown */}
-      <div className="text-xs space-y-1">
-        {sentSubtotalCents > 0 && (
-          <div className="flex justify-between text-gray-500">
-            <span>Already sent</span>
-            <span className="tabular-nums">{formatRand(sentSubtotalCents)}</span>
-          </div>
-        )}
-        {newSubtotalCents > 0 && (
-          <div className="flex justify-between text-orange-700 font-medium">
-            <span>New items</span>
-            <span className="tabular-nums">{formatRand(newSubtotalCents)}</span>
-          </div>
-        )}
-      </div>
+      {(sentSubtotalCents > 0 || newSubtotalCents > 0) && (
+        <div className="text-xs space-y-1 rounded-lg bg-gray-50 px-3 py-2">
+          {sentSubtotalCents > 0 && (
+            <div className="flex justify-between text-gray-500">
+              <span>Already sent</span>
+              <span className="tabular-nums font-medium">{formatRand(sentSubtotalCents)}</span>
+            </div>
+          )}
+          {newSubtotalCents > 0 && (
+            <div className="flex justify-between text-orange-600 font-semibold">
+              <span>New items</span>
+              <span className="tabular-nums">{formatRand(newSubtotalCents)}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grand total */}
-      <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-        <span className="text-sm font-semibold text-gray-700">Total</span>
-        <span className="text-2xl font-bold text-gray-900 tabular-nums">{formatRand(totalCents)}</span>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-gray-600">Total</span>
+        <span className="text-2xl font-bold text-gray-900 tabular-nums tracking-tight">{formatRand(totalCents)}</span>
       </div>
 
-      {/* Send / Charge */}
-      <div className="grid grid-cols-2 gap-2 pt-1">
+      {/* Send / Charge — min-height 56px for thumb-friendly tap targets */}
+      <div className="grid grid-cols-2 gap-2">
         <Button
           onClick={onSend}
           disabled={!canSend}
+          aria-label={sending ? 'Sending order to kitchen' : `Send ${newItemsCount} item${newItemsCount === 1 ? '' : 's'} to kitchen`}
+          aria-busy={sending}
           className={cn(
-            'h-12 font-bold shadow-md transition',
+            'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
             canSend
-              ? 'bg-orange-500 hover:bg-orange-600 text-white'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed',
+              ? 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none',
           )}
-          title={canSend ? 'Fire new items to the kitchen' : 'Add items first'}
         >
           {sending ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            <span className="flex items-center gap-1.5">
+              <Loader2 className="w-4 h-4 animate-spin" />
               Sending…
-            </>
+            </span>
           ) : (
-            <>
-              <ChefHat className="w-4 h-4 mr-1.5" />
-              Send {newItemsCount > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px]">{newItemsCount}</span>}
-            </>
+            <span className="flex items-center gap-1.5">
+              <ChefHat className="w-4 h-4" />
+              Send
+              {newItemsCount > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/25 text-[11px] font-bold leading-none">
+                  {newItemsCount}
+                </span>
+              )}
+            </span>
           )}
         </Button>
         <Button
           onClick={onCharge}
           disabled={!canCharge}
+          aria-label="Charge customer and take payment"
           className={cn(
-            'h-12 font-bold shadow-md transition border-2',
+            'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-1',
             canCharge
-              ? 'bg-green-600 hover:bg-green-700 text-white border-green-600'
-              : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed',
+              ? 'bg-green-600 hover:bg-green-700 active:bg-green-800 text-white'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none',
           )}
-          title={canCharge ? 'Take payment and close the tab' : 'Send items first'}
         >
-          <CreditCard className="w-4 h-4 mr-1.5" />
-          Charge
+          <span className="flex items-center gap-1.5">
+            <CreditCard className="w-4 h-4" />
+            Charge
+          </span>
         </Button>
       </div>
     </div>
@@ -473,7 +498,15 @@ export default function ActiveTicketPanel({
   const hasUnpaidOrders = sentOrders.some((o) => o.payment_status !== 'paid');
 
   return (
-    <aside className="w-full max-w-[420px] flex flex-col bg-gray-50 border-l border-orange-100 h-full">
+    <aside
+      aria-label="Order ticket"
+      className={cn(
+        'flex flex-col bg-gray-50 border-l border-orange-100',
+        // Desktop: fixed-width sidebar; mobile: full-width drawer fixed to bottom
+        'w-full sm:max-w-[380px] md:max-w-[420px]',
+        'h-full',
+      )}
+    >
       <TicketHeader ticket={ticket} onAdjustGuests={onAdjustGuests} />
 
       {/* Scrollable middle (Sent + New) */}

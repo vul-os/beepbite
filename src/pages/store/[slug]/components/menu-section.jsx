@@ -57,8 +57,10 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
 
   if (menu.length === 0) {
     return (
-      <div className="text-center py-10 text-muted-foreground text-sm">
-        Menu not available yet.
+      <div className="flex flex-col items-center text-center py-14 gap-3">
+        <span className="text-4xl" role="img" aria-label="Menu">📋</span>
+        <p className="text-sm font-medium text-foreground">Menu not available yet</p>
+        <p className="text-xs text-muted-foreground">Check back soon — this restaurant is still setting up.</p>
       </div>
     );
   }
@@ -67,13 +69,13 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
     <div>
       {/* Category tabs — scrollable on mobile */}
       {categories.length > 1 && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
-          <TabsList className="flex overflow-x-auto whitespace-nowrap scrollbar-hide gap-1 h-auto p-1 bg-muted rounded-lg w-full justify-start">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-5">
+          <TabsList className="flex overflow-x-auto whitespace-nowrap scrollbar-hide gap-1 h-auto p-1 bg-muted/60 rounded-xl w-full justify-start">
             {categories.map((cat) => (
               <TabsTrigger
                 key={cat}
                 value={cat}
-                className="text-xs sm:text-sm px-3 py-1.5 rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white shrink-0"
+                className="text-xs sm:text-sm px-3 py-1.5 rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white shrink-0 transition-colors"
               >
                 {cat}
               </TabsTrigger>
@@ -87,7 +89,7 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
       )}
 
       {/* Items list */}
-      <div className="space-y-3">
+      <div className="space-y-3" role="list" aria-label="Menu items">
         {visibleItems.map((item) => {
           const qty = cartMap.get(item.id) || 0;
           const unavailable = item.is_available === false;
@@ -99,14 +101,18 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
           return (
             <div
               key={item.id}
-              className={`flex gap-3 rounded-lg border p-3 bg-card ${effectivelyUnavailable ? 'opacity-50' : ''}`}
+              role="listitem"
+              className={`flex gap-3 rounded-2xl border border-border/60 p-3 sm:p-4 bg-card shadow-sm transition-shadow hover:shadow-md ${
+                effectivelyUnavailable ? 'opacity-50' : ''
+              }`}
             >
               {/* Image */}
               {item.image_url && (
-                <div className="shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-md overflow-hidden bg-muted">
+                <div className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-muted">
                   <img
                     src={item.image_url}
                     alt={item.name}
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -115,19 +121,19 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
               {/* Info */}
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium text-sm leading-tight line-clamp-2">
+                  <p className="font-semibold text-sm leading-snug line-clamp-2">
                     {item.name}
                   </p>
-                  <span className="text-sm font-semibold text-orange-600 shrink-0">
+                  <span className="text-sm font-bold text-orange-600 shrink-0 tabular-nums">
                     {formatPrice(Number(item.price ?? 0) * 100, currency)}
                   </span>
                 </div>
                 {item.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                     {item.description}
                   </p>
                 )}
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 pt-0.5">
                   {unavailable && (
                     <Badge variant="secondary" className="text-xs">
                       Unavailable
@@ -137,37 +143,40 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
                 </div>
               </div>
 
-              {/* Qty controls */}
+              {/* Qty controls — aligned to the bottom-right of the card */}
               {!effectivelyUnavailable && (
-                <div className="flex items-center gap-1 shrink-0 self-end">
+                <div className="flex flex-col justify-end items-end shrink-0">
                   {qty > 0 ? (
-                    <>
+                    <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-0.5">
                       <Button
                         size="icon"
-                        variant="outline"
-                        className="h-7 w-7 border-orange-300"
+                        variant="ghost"
+                        className="h-7 w-7 hover:bg-orange-100 hover:text-orange-600"
                         onClick={() => onRemoveItem(item)}
+                        aria-label={`Remove one ${item.name}`}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="w-5 text-center text-sm font-semibold">
+                      <span className="w-5 text-center text-sm font-bold tabular-nums">
                         {qty}
                       </span>
                       <Button
                         size="icon"
-                        className="h-7 w-7 bg-orange-500 hover:bg-orange-600"
+                        className="h-7 w-7 bg-orange-500 hover:bg-orange-600 shadow-sm"
                         onClick={() => onAddItem(item)}
+                        aria-label={`Add one more ${item.name}`}
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
-                    </>
+                    </div>
                   ) : (
                     <Button
                       size="icon"
-                      className="h-7 w-7 bg-orange-500 hover:bg-orange-600"
+                      className="h-8 w-8 bg-orange-500 hover:bg-orange-600 rounded-xl shadow-sm"
                       onClick={() => onAddItem(item)}
+                      aria-label={`Add ${item.name} to cart`}
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-4 w-4" />
                     </Button>
                   )}
                 </div>

@@ -24,12 +24,16 @@ const DISTANCES = [
 
 function StoreSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <Skeleton className="h-36 sm:h-44 w-full rounded-none" />
-      <div className="p-3 sm:p-4 space-y-2">
+    <div className="rounded-2xl overflow-hidden border border-border/60 bg-card shadow-sm">
+      <Skeleton className="h-40 sm:h-48 w-full rounded-none" />
+      <div className="p-3 sm:p-4 space-y-2.5">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-3 w-full" />
         <Skeleton className="h-3 w-1/2" />
+        <div className="flex gap-2 pt-1">
+          <Skeleton className="h-5 w-14 rounded-md" />
+          <Skeleton className="h-5 w-12 rounded-md" />
+        </div>
       </div>
     </div>
   );
@@ -93,28 +97,30 @@ export default function DiscoverPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero / search bar */}
-      <div className="bg-gradient-to-br from-orange-500 to-orange-600 px-4 py-8 sm:py-12">
+      <div className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 px-4 pt-10 pb-8 sm:pt-14 sm:pb-10">
         <div className="max-w-2xl mx-auto text-center space-y-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight drop-shadow-sm">
             Find food near you
           </h1>
-          <p className="text-orange-100 text-sm sm:text-base">
-            Discover local restaurants, order online and collect or get delivery.
+          <p className="text-orange-100 text-sm sm:text-base max-w-sm mx-auto">
+            Discover local restaurants — order online for delivery or collection.
           </p>
 
           {/* Search input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="relative max-w-md mx-auto">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" aria-hidden="true" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search restaurants, cuisine, dish…"
-              className="pl-10 pr-10 h-11 bg-white border-0 text-sm shadow-lg"
+              aria-label="Search restaurants"
+              className="pl-10 pr-10 h-12 bg-white border-0 text-sm shadow-xl rounded-xl focus-visible:ring-orange-400"
             />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -126,12 +132,13 @@ export default function DiscoverPage() {
             variant="outline"
             size="sm"
             onClick={() => setShowFilters((p) => !p)}
-            className="bg-white/20 text-white border-white/40 hover:bg-white/30 hover:text-white gap-2"
+            aria-expanded={showFilters}
+            className="bg-white/15 text-white border-white/50 hover:bg-white/25 hover:text-white gap-2 rounded-full px-5"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Filters
             {hasFilters && (
-              <span className="ml-1 bg-white text-orange-600 rounded-full px-1.5 py-0 text-xs font-semibold">
+              <span className="ml-0.5 bg-white text-orange-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                 {[query, city, distance].filter(Boolean).length}
               </span>
             )}
@@ -141,10 +148,10 @@ export default function DiscoverPage() {
 
       {/* Expanded filters */}
       {showFilters && (
-        <div className="border-b bg-muted/40 px-4 py-3">
-          <div className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-3">
+        <div className="border-b bg-muted/50 px-4 py-4">
+          <div className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <Select value={city} onValueChange={setCity}>
-              <SelectTrigger className="flex-1 h-9 text-sm">
+              <SelectTrigger className="flex-1 h-9 text-sm rounded-lg">
                 <SelectValue placeholder="City" />
               </SelectTrigger>
               <SelectContent>
@@ -157,7 +164,7 @@ export default function DiscoverPage() {
             </Select>
 
             <Select value={distance} onValueChange={setDistance}>
-              <SelectTrigger className="flex-1 h-9 text-sm">
+              <SelectTrigger className="flex-1 h-9 text-sm rounded-lg">
                 <SelectValue placeholder="Distance" />
               </SelectTrigger>
               <SelectContent>
@@ -174,7 +181,7 @@ export default function DiscoverPage() {
                 variant="ghost"
                 size="sm"
                 onClick={clearSearch}
-                className="text-muted-foreground"
+                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 shrink-0"
               >
                 Clear all
               </Button>
@@ -186,31 +193,32 @@ export default function DiscoverPage() {
       {/* Results */}
       <div className="max-w-5xl mx-auto px-4 py-6">
         {/* Result count / error */}
-        {!loading && !error && (
-          <p className="text-sm text-muted-foreground mb-4">
-            {stores.length === 0
-              ? 'No stores found'
-              : `${stores.length} store${stores.length !== 1 ? 's' : ''} found`}
-            {hasFilters && ' · '}
+        {!loading && !error && stores.length > 0 && (
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{stores.length}</span>{' '}
+              {stores.length !== 1 ? 'restaurants' : 'restaurant'} found
+            </p>
             {hasFilters && (
               <button
                 onClick={clearSearch}
-                className="text-orange-500 hover:underline"
+                className="text-xs text-orange-500 hover:text-orange-700 hover:underline transition-colors"
               >
                 Clear filters
               </button>
             )}
-          </p>
+          </div>
         )}
 
         {error && (
-          <div className="rounded-md bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 text-sm mb-4">
-            {error}
+          <div className="flex items-center gap-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 text-sm mb-5">
+            <span className="shrink-0 text-base" role="img" aria-label="Error">⚠️</span>
+            <span>{error}</span>
           </div>
         )}
 
         {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {loading
             ? Array.from({ length: 6 }).map((_, i) => <StoreSkeleton key={i} />)
             : stores.map((store) => (
@@ -220,18 +228,28 @@ export default function DiscoverPage() {
 
         {/* Empty state */}
         {!loading && !error && stores.length === 0 && (
-          <div className="text-center py-16 space-y-3">
-            <div className="text-5xl">🍽️</div>
-            <h2 className="text-lg font-semibold">No restaurants found</h2>
-            <p className="text-sm text-muted-foreground">
-              Try adjusting your search or filters.
-            </p>
+          <div className="flex flex-col items-center text-center py-20 gap-4">
+            <div
+              className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-50 border-2 border-orange-100"
+              role="img"
+              aria-label="No results"
+            >
+              <span className="text-4xl">🍽️</span>
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-foreground">No restaurants found</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {hasFilters
+                  ? 'Try adjusting your filters or search in a different area.'
+                  : 'No restaurants are available right now — check back soon.'}
+              </p>
+            </div>
             {hasFilters && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={clearSearch}
-                className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                className="border-orange-300 text-orange-600 hover:bg-orange-50 rounded-full px-5"
               >
                 Clear filters
               </Button>

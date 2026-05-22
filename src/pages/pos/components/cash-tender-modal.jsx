@@ -192,22 +192,22 @@ export default function CashTenderModal({
             </p>
           </div>
 
-          {/* Numpad — 3×4, touch-friendly (min 48px rows) */}
-          <div className="grid grid-cols-3 gap-1.5">
+          {/* Numpad — 3×4, thumb-friendly (≥52px rows on mobile) */}
+          <div className="grid grid-cols-3 gap-2">
             {NUMPAD_KEYS.map((key) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => handleNumpad(key)}
+                aria-label={key === '⌫' ? 'backspace' : key}
                 className={cn(
-                  'h-12 rounded-md text-lg font-semibold border transition-colors select-none',
-                  'bg-background hover:bg-orange-50 hover:border-orange-300 active:bg-orange-100',
+                  'h-14 rounded-xl text-xl font-semibold border-2 transition-colors select-none',
+                  'bg-white border-gray-200 hover:bg-orange-50 hover:border-orange-300 active:bg-orange-100 active:scale-95',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
                   key === '⌫' && 'text-muted-foreground',
                 )}
-                aria-label={key === '⌫' ? 'backspace' : key}
               >
-                {key === '⌫' ? <Delete className="mx-auto" size={18} /> : key}
+                {key === '⌫' ? <Delete className="mx-auto" size={20} /> : key}
               </button>
             ))}
           </div>
@@ -237,23 +237,28 @@ export default function CashTenderModal({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
-            className="flex-1"
+            aria-label="Cancel cash payment"
+            className="flex-1 h-12 focus-visible:ring-2 focus-visible:ring-gray-400"
           >
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!canConfirm}
+            aria-label={submitting ? 'Processing payment' : 'Confirm cash payment'}
+            aria-busy={submitting}
             className={cn(
-              'flex-1 bg-orange-500 hover:bg-orange-600 text-white',
-              'disabled:bg-orange-200 disabled:text-orange-400',
+              'flex-1 h-12 font-bold text-base bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white',
+              'focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
+              'disabled:bg-orange-200 disabled:text-orange-400 disabled:cursor-not-allowed',
+              'transition-all',
             )}
           >
             {submitting ? (
-              <>
-                <Loader2 className="animate-spin mr-1" size={16} />
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="animate-spin" size={18} aria-hidden="true" />
                 Processing…
-              </>
+              </span>
             ) : (
               'Confirm Cash Payment'
             )}

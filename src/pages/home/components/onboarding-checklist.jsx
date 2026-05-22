@@ -187,19 +187,36 @@ const OnboardingChecklist = ({ onComplete }) => {
   const progressPct = Math.round((doneCount / totalCount) * 100);
   const allDone = doneCount === totalCount;
 
+  // Loading state while fetching step data
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8 pb-16 px-4">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="h-44 rounded-2xl bg-orange-400/30 animate-pulse" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8 pb-16 px-4">
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-2xl mx-auto space-y-5">
 
           {/* Hero card */}
           <Card className="border-0 shadow-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white overflow-hidden relative">
-            <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0 opacity-10" aria-hidden="true">
               <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white -translate-y-1/2 translate-x-1/2" />
             </div>
             <CardContent className="p-6 sm:p-8 relative">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm shrink-0">
+              <div className="flex items-start gap-3 mb-5">
+                <div
+                  className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm shrink-0"
+                  aria-hidden="true"
+                >
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
@@ -216,11 +233,18 @@ const OnboardingChecklist = ({ onComplete }) => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-orange-100">Setup progress</span>
-                  <span className="font-semibold tabular-nums">
-                    {doneCount} of {totalCount} complete
+                  <span className="font-bold tabular-nums">
+                    {doneCount}/{totalCount}
                   </span>
                 </div>
-                <div className="h-2.5 rounded-full bg-white/20 overflow-hidden">
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progressPct}
+                  aria-label={`Setup ${progressPct}% complete`}
+                  className="h-2.5 rounded-full bg-white/20 overflow-hidden"
+                >
                   <div
                     className="h-full rounded-full bg-white transition-all duration-700 ease-out"
                     style={{ width: `${progressPct}%` }}
@@ -229,8 +253,8 @@ const OnboardingChecklist = ({ onComplete }) => {
               </div>
 
               {allDone && (
-                <div className="mt-4 flex items-center gap-2 text-sm font-medium bg-white/20 rounded-lg px-4 py-2">
-                  <CheckCircle2 className="w-4 h-4" />
+                <div className="mt-4 flex items-center gap-2 text-sm font-medium bg-white/20 rounded-xl px-4 py-2.5" role="status">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                   All set! You can now take orders.
                 </div>
               )}
@@ -238,125 +262,128 @@ const OnboardingChecklist = ({ onComplete }) => {
           </Card>
 
           {/* Steps */}
-          <div className="space-y-3">
+          <ol className="space-y-3 list-none" aria-label="Setup checklist">
             {steps.map((step, idx) => {
               const Icon = step.icon;
               const isDisabled = step.disabled && !step.done;
               const canAct = step.actionLabel && step.onAction && !step.done && !isDisabled;
 
               return (
-                <Card
-                  key={step.key}
-                  className={cn(
-                    'border transition-all duration-200',
-                    step.done
-                      ? 'border-green-200 bg-green-50/60'
-                      : step.isPrimary && !step.done
-                      ? 'border-orange-300 bg-white shadow-md ring-1 ring-orange-100'
-                      : 'border-gray-200 bg-white',
-                    isDisabled && 'opacity-60'
-                  )}
-                >
-                  <CardContent className="p-4 sm:p-5">
-                    <div className="flex items-start gap-4">
-                      {/* Status icon */}
-                      <div className="shrink-0 mt-0.5">
-                        {step.done ? (
-                          <CheckCircle2 className="w-6 h-6 text-green-500" />
-                        ) : (
-                          <Circle
-                            className={cn(
-                              'w-6 h-6',
-                              step.isPrimary ? 'text-orange-400' : 'text-gray-300'
-                            )}
-                          />
-                        )}
-                      </div>
-
-                      {/* Step icon + text */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div
-                            className={cn(
-                              'flex items-center justify-center w-7 h-7 rounded-lg shrink-0',
-                              step.done
-                                ? 'bg-green-100'
-                                : step.isPrimary
-                                ? 'bg-orange-100'
-                                : 'bg-gray-100'
-                            )}
-                          >
-                            <Icon
+                <li key={step.key}>
+                  <Card
+                    className={cn(
+                      'border transition-all duration-200',
+                      step.done
+                        ? 'border-green-200 bg-green-50/60'
+                        : step.isPrimary && !step.done
+                        ? 'border-orange-300 bg-white shadow-md ring-1 ring-orange-100'
+                        : 'border-gray-200 bg-white',
+                      isDisabled && 'opacity-60'
+                    )}
+                    aria-disabled={isDisabled}
+                  >
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        {/* Status icon */}
+                        <div className="shrink-0 mt-0.5" aria-hidden="true">
+                          {step.done ? (
+                            <CheckCircle2 className="w-6 h-6 text-green-500" />
+                          ) : (
+                            <Circle
                               className={cn(
-                                'w-4 h-4',
-                                step.done
-                                  ? 'text-green-600'
-                                  : step.isPrimary
-                                  ? 'text-orange-500'
-                                  : 'text-gray-500'
+                                'w-6 h-6',
+                                step.isPrimary ? 'text-orange-400' : 'text-gray-300'
                               )}
                             />
-                          </div>
-                          <span
-                            className={cn(
-                              'font-semibold text-sm',
-                              step.done ? 'text-green-800 line-through decoration-green-400' : 'text-gray-900'
-                            )}
-                          >
-                            {step.label}
-                          </span>
-                          {idx === 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="bg-green-100 text-green-700 border-green-200 text-xs"
-                            >
-                              Done
-                            </Badge>
-                          )}
-                          {step.isPrimary && !step.done && (
-                            <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs border">
-                              Required
-                            </Badge>
                           )}
                         </div>
 
-                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                          {step.done
-                            ? step.alwaysDone
-                              ? step.description
-                              : `Completed — ${step.description.toLowerCase()}`
-                            : isDisabled && step.disabledHint
-                            ? step.disabledHint
-                            : step.description}
-                        </p>
+                        {/* Step icon + text */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div
+                              className={cn(
+                                'flex items-center justify-center w-7 h-7 rounded-lg shrink-0',
+                                step.done
+                                  ? 'bg-green-100'
+                                  : step.isPrimary
+                                  ? 'bg-orange-100'
+                                  : 'bg-gray-100'
+                              )}
+                              aria-hidden="true"
+                            >
+                              <Icon
+                                className={cn(
+                                  'w-4 h-4',
+                                  step.done
+                                    ? 'text-green-600'
+                                    : step.isPrimary
+                                    ? 'text-orange-500'
+                                    : 'text-gray-500'
+                                )}
+                              />
+                            </div>
+                            <span
+                              className={cn(
+                                'font-semibold text-sm',
+                                step.done ? 'text-green-800 line-through decoration-green-400' : 'text-gray-900'
+                              )}
+                            >
+                              {step.label}
+                            </span>
+                            {idx === 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="bg-green-100 text-green-700 border-green-200 text-xs"
+                              >
+                                Done
+                              </Badge>
+                            )}
+                            {step.isPrimary && !step.done && (
+                              <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs border">
+                                Required
+                              </Badge>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                            {step.done
+                              ? step.alwaysDone
+                                ? step.description
+                                : `Completed — ${step.description.toLowerCase()}`
+                              : isDisabled && step.disabledHint
+                              ? step.disabledHint
+                              : step.description}
+                          </p>
+                        </div>
+
+                        {/* Action button */}
+                        {canAct && (
+                          <Button
+                            size="sm"
+                            onClick={step.onAction}
+                            className={cn(
+                              'shrink-0 gap-1 h-9 px-3 rounded-lg focus-visible:ring-2 focus-visible:ring-offset-1',
+                              step.isPrimary
+                                ? 'bg-orange-500 hover:bg-orange-600 text-white focus-visible:ring-orange-400'
+                                : 'bg-gray-900 hover:bg-gray-800 text-white focus-visible:ring-gray-400'
+                            )}
+                          >
+                            {step.actionLabel}
+                            <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                          </Button>
+                        )}
+
+                        {step.done && !step.alwaysDone && (
+                          <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" aria-hidden="true" />
+                        )}
                       </div>
-
-                      {/* Action button */}
-                      {canAct && (
-                        <Button
-                          size="sm"
-                          onClick={step.onAction}
-                          className={cn(
-                            'shrink-0 gap-1',
-                            step.isPrimary
-                              ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                              : 'bg-gray-900 hover:bg-gray-800 text-white'
-                          )}
-                        >
-                          {step.actionLabel}
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-
-                      {step.done && !step.alwaysDone && (
-                        <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </li>
               );
             })}
-          </div>
+          </ol>
 
           {/* Footer hint */}
           <p className="text-center text-xs text-gray-400 px-4">

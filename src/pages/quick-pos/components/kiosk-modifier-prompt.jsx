@@ -84,17 +84,18 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
       <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md flex flex-col max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">{item.name}</h2>
-            <p className="text-orange-500 font-semibold">
+          <div className="min-w-0 mr-3">
+            <h2 className="text-xl font-bold text-gray-900 truncate">{item.name}</h2>
+            <p className="text-orange-500 font-semibold tabular-nums">
               {formatPrice(linePriceCents, currency)}
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors shrink-0"
+            aria-label="Close customisation options"
+            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 transition-colors shrink-0"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5 text-gray-600" aria-hidden="true" />
           </button>
         </div>
 
@@ -162,15 +163,23 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
         </div>
 
         {/* CTA */}
-        <div className="px-6 pb-6 pt-2 shrink-0 border-t border-gray-100">
+        <div className="px-6 pb-6 pt-3 shrink-0 border-t border-gray-100">
+          {requiredUnmet && (
+            <p className="text-xs text-center text-red-500 font-medium mb-2" role="alert">
+              Please select all required options above
+            </p>
+          )}
           <button
             onClick={handleConfirm}
             disabled={requiredUnmet}
+            aria-label={requiredUnmet ? 'Select required options to continue' : `Add to order — ${formatPrice(linePriceCents, currency)}`}
+            aria-disabled={requiredUnmet}
             className={cn(
-              'w-full h-14 rounded-2xl text-lg font-bold transition-colors',
+              'w-full h-14 rounded-2xl text-lg font-bold transition-all',
+              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-400 focus-visible:ring-offset-2',
               !requiredUnmet
-                ? 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white shadow-md'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 active:scale-[0.98] text-white shadow-md'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed',
             )}
           >
             Add to Order — {formatPrice(linePriceCents, currency)}

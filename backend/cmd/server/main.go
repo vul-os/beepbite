@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/ai"
 	"github.com/beepbite/backend/internal/apiauth"
@@ -57,6 +58,7 @@ import (
 	"github.com/beepbite/backend/internal/handlers/legal"
 	"github.com/beepbite/backend/internal/handlers/loyaltystamps"
 	"github.com/beepbite/backend/internal/handlers/marketplace"
+	"github.com/beepbite/backend/internal/handlers/memberinvite"
 	"github.com/beepbite/backend/internal/handlers/onboarding"
 	"github.com/beepbite/backend/internal/handlers/ownerassistant"
 	"github.com/beepbite/backend/internal/handlers/paymentcredentials"
@@ -142,7 +144,8 @@ func main() {
 	authH := auth.NewHandler(svc, google, postAuthRedirect(cfg))
 	// Wire driver-invite auto-accept on signup (Wave 16): when a new user signs
 	// up with an email that has a pending driver invite, grant the membership.
-	authH.WithPool(database.Pool, driverinvite.AcceptMatchingInvites)
+	// The post-signup hook is composed below (after emailRegistry is built) so
+	// it can also send a welcome email — see authH.WithPool(...) further down.
 
 	// Staff (POS username+password) auth. Shares the JWT signing secret with
 	// email auth for now; the audience claim ("staff" vs unset) keeps the two
@@ -186,6 +189,7 @@ func main() {
 	reviewsH := reviews.NewHandler(database.Pool)
 	driverH := driver.NewHandler(database.Pool)
 	driverInviteH := driverinvite.NewHandler(database.Pool)
+	memberInviteH := memberinvite.NewHandler(database.Pool)
 	trackingH := tracking.NewHandler(database.Pool)
 	adjustmentsH := adjustments.NewHandler(database.Pool)
 	giftcardsH := giftcards.NewHandler(database.Pool)
@@ -213,9 +217,49 @@ func main() {
 	llmRouter := llm.NewRouter(database.Pool)
 	emailRegistry, emailErr := email.NewDBRegistryFromEnv(database.Pool)
 	if emailErr != nil {
-		log.Printf("email registry unavailable: %v (receipt-email / EOD / activity-alert email disabled)", emailErr)
+		log.Printf("email registry unavailable: %v (transactional email disabled until a provider is configured)", emailErr)
 		emailRegistry = nil
 	}
+
+	// Best-effort transactional email: render a branded template + send via the
+	// configured provider. No-ops cleanly when no provider is configured (e.g.
+	// before RESEND_API_KEY is set), and never blocks the triggering action.
+	emailNotify := func(to, tmpl string, data map[string]any) {
+		if emailRegistry == nil || to == "" {
+			return
+		}
+		msg, err := email.Render(tmpl, data)
+		if err != nil {
+			log.Printf("email render %s: %v", tmpl, err)
+			return
+		}
+		msg.To = to
+		prov, _, perr := emailRegistry.For(context.Background(), "")
+		if perr != nil || prov == nil {
+			return // no provider configured — skip silently
+		}
+		if serr := prov.Send(context.Background(), msg); serr != nil {
+			log.Printf("email send %s to %s: %v", tmpl, to, serr)
+		}
+	}
+	driverInviteH.Notifier = func(toEmail, _ /*role*/, _ /*orgID*/ string) {
+		emailNotify(toEmail, "driver_invite", map[string]any{"inviteURL": "/signup"})
+	}
+	memberInviteH.Notifier = func(toEmail, role, _ /*orgID*/ string) {
+		emailNotify(toEmail, "member_invite", map[string]any{"role": role, "inviteURL": "/signup"})
+	}
+	// Compose the post-signup hook: auto-accept matching driver + member invites,
+	// then send a welcome email. Every step is best-effort and must not fail signup.
+	authH.WithPool(database.Pool, func(ctx context.Context, pool *pgxpool.Pool, profileID, userEmail string) error {
+		if err := driverinvite.AcceptMatchingInvites(ctx, pool, profileID, userEmail); err != nil {
+			log.Printf("warn: driverinvite.AcceptMatchingInvites: %v", err)
+		}
+		if err := memberinvite.AcceptMatchingInvites(ctx, pool, profileID, userEmail); err != nil {
+			log.Printf("warn: memberinvite.AcceptMatchingInvites: %v", err)
+		}
+		emailNotify(userEmail, "welcome", map[string]any{"name": userEmail})
+		return nil
+	})
 	obsLogger := obs.NewLogger()
 	obsReg := obs.NewRegistry()
 	hostResolver := hostresolve.NewResolver(database.Pool)
@@ -421,6 +465,7 @@ func main() {
 			// Driver portal (assignments/shifts/pings) + driver invites.
 			r.Route("/driver", driverH.Mount)
 			driverInviteH.Mount(r)
+			memberInviteH.Mount(r) // /member-invites/* + /members/* (Team management)
 
 			// Wallet + billing (balance, top-up, ledger, auto-refill).
 			walletH.Mount(r)

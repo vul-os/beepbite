@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useId } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice } from '@/lib/currency';
@@ -14,14 +14,9 @@ const HOURS = Array.from({ length: 24 }, (_, h) => {
   return `${h - 12}p`;
 });
 
-// Map a normalised value [0,1] to an orange scale class.
-// Using inline style for dynamic intensity.
+// Map a normalised value [0,1] to an rgba orange colour.
 function cellBg(norm) {
-  if (norm === 0) return '#f9fafb'; // gray-50 — empty
-  // Interpolate from orange-100 to orange-600
-  const r = Math.round(249 + (234 - 249) * norm);
-  const g = Math.round(250 + (88 - 250) * norm * norm);
-  const b = Math.round(250 + (12 - 250) * norm * norm * norm);
+  if (norm === 0) return '#f3f4f6'; // gray-100 — empty
   const alpha = 0.15 + norm * 0.85;
   return `rgba(249,115,22,${alpha.toFixed(2)})`;
 }
@@ -30,7 +25,21 @@ function cellText(norm) {
   return norm > 0.55 ? '#fff' : '#374151';
 }
 
+function HeatmapSkeleton() {
+  return (
+    <div className="space-y-1.5" aria-label="Loading heatmap" aria-busy="true">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <Skeleton className="w-8 h-4 flex-shrink-0" />
+          <Skeleton className="h-5 flex-1 rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
+  const tooltipId = useId();
   const [tooltip, setTooltip] = useState(null); // { dow, hour, count, sales }
 
   // Build a 7×24 lookup and find max for normalisation.
@@ -44,113 +53,165 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
     }
     // Build 7 rows × 24 columns
     const grid = Array.from({ length: 7 }, (_, dow) =>
-      Array.from({ length: 24 }, (_, hour) => map.get(`${dow}_${hour}`) ?? { dow, hour, order_count: 0, sales_cents: 0 })
+      Array.from({ length: 24 }, (_, hour) =>
+        map.get(`${dow}_${hour}`) ?? { dow, hour, order_count: 0, sales_cents: 0 }
+      )
     );
     return { grid, maxCount: max };
   }, [cells]);
 
   return (
-    <Card className="border border-orange-100 shadow-sm">
-      <CardHeader className="pb-2 px-4 pt-4">
-        <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-          <Flame className="w-4 h-4 text-orange-500" />
-          Busy Days &amp; Hours
-          <span className="text-xs font-normal text-gray-400 ml-1">(trailing 12 weeks)</span>
+    <Card className="border border-gray-200 shadow-sm bg-white">
+      <CardHeader className="pb-1 px-5 pt-5">
+        <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+            <Flame className="w-4 h-4 text-orange-500" aria-hidden="true" />
+          </div>
+          <span>Busy Days &amp; Hours</span>
+          <span className="text-xs font-normal text-gray-400 ml-1 hidden sm:inline">
+            (trailing 12 weeks)
+          </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-4">
+      <CardContent className="px-4 pb-5 pt-3">
         {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <Skeleton key={i} className="h-6 w-full rounded" />
-            ))}
-          </div>
+          <HeatmapSkeleton />
         ) : cells.length === 0 && maxCount === 0 ? (
-          <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-            No activity data yet
+          <div
+            className="flex flex-col items-center justify-center h-32 gap-3"
+            role="status"
+            aria-label="No activity data"
+          >
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <Flame className="w-6 h-6 text-gray-300" aria-hidden="true" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-500">No activity data yet</p>
+              <p className="text-xs text-gray-400 mt-0.5">Data appears after your first orders</p>
+            </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <div className="min-w-[480px]">
-              {/* Hour axis header */}
-              <div className="flex items-center mb-1">
-                <div className="w-8 flex-shrink-0" /> {/* day label spacer */}
-                {HOURS.map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 text-center text-[9px] text-gray-400 leading-tight"
-                    style={{ minWidth: 0 }}
-                  >
-                    {i % 3 === 0 ? h : ''}
-                  </div>
-                ))}
-              </div>
-
-              {/* Rows: one per day */}
-              {grid.map((row, dow) => (
-                <div key={dow} className="flex items-center mb-0.5 gap-0.5">
-                  <div className="w-8 flex-shrink-0 text-[10px] text-gray-500 font-medium text-right pr-1.5">
-                    {DAYS[dow]}
-                  </div>
-                  {row.map((cell, hour) => {
-                    const norm = maxCount > 0 ? (cell.order_count / maxCount) : 0;
-                    const isHovered = tooltip?.dow === dow && tooltip?.hour === hour;
-                    return (
-                      <div
-                        key={hour}
-                        className={cn(
-                          'flex-1 rounded-sm cursor-default transition-all duration-100',
-                          isHovered && 'ring-1 ring-orange-400 ring-offset-0 scale-110 z-10 relative'
-                        )}
-                        style={{
-                          minWidth: 0,
-                          height: 18,
-                          backgroundColor: cellBg(norm),
-                        }}
-                        onMouseEnter={() =>
-                          setTooltip({
-                            dow,
-                            hour,
-                            count: cell.order_count,
-                            sales: cell.sales_cents,
-                          })
-                        }
-                        onMouseLeave={() => setTooltip(null)}
-                      />
-                    );
-                  })}
+          <>
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div
+                className="min-w-[420px]"
+                role="img"
+                aria-label="Order activity heatmap by day and hour"
+              >
+                {/* Hour axis header */}
+                <div className="flex items-center mb-1" aria-hidden="true">
+                  <div className="w-8 flex-shrink-0" />
+                  {HOURS.map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 text-center text-[9px] text-gray-400 leading-tight"
+                      style={{ minWidth: 0 }}
+                    >
+                      {i % 3 === 0 ? h : ''}
+                    </div>
+                  ))}
                 </div>
-              ))}
 
-              {/* Legend */}
-              <div className="flex items-center gap-2 mt-3 justify-end">
-                <span className="text-[10px] text-gray-400">Less</span>
-                {[0, 0.2, 0.4, 0.6, 0.8, 1].map((v) => (
-                  <div
-                    key={v}
-                    className="rounded-sm"
-                    style={{ width: 14, height: 14, backgroundColor: cellBg(v) }}
-                  />
+                {/* Rows: one per day */}
+                {grid.map((row, dow) => (
+                  <div key={dow} className="flex items-center mb-0.5 gap-px">
+                    <div
+                      className="w-8 flex-shrink-0 text-[10px] text-gray-500 font-medium text-right pr-1.5"
+                      aria-hidden="true"
+                    >
+                      {DAYS[dow]}
+                    </div>
+                    {row.map((cell, hour) => {
+                      const norm = maxCount > 0 ? cell.order_count / maxCount : 0;
+                      const isHovered = tooltip?.dow === dow && tooltip?.hour === hour;
+                      const hasActivity = cell.order_count > 0;
+                      return (
+                        <div
+                          key={hour}
+                          role="gridcell"
+                          aria-label={
+                            hasActivity
+                              ? `${DAYS[dow]} ${HOURS[hour]}: ${cell.order_count} orders`
+                              : `${DAYS[dow]} ${HOURS[hour]}: no activity`
+                          }
+                          className={cn(
+                            'flex-1 rounded-sm cursor-default transition-all duration-100',
+                            isHovered && 'ring-1 ring-orange-400 ring-offset-0 scale-110 z-10 relative'
+                          )}
+                          style={{
+                            minWidth: 0,
+                            height: 18,
+                            backgroundColor: cellBg(norm),
+                          }}
+                          onMouseEnter={() =>
+                            setTooltip({
+                              dow,
+                              hour,
+                              count: cell.order_count,
+                              sales: cell.sales_cents,
+                            })
+                          }
+                          onMouseLeave={() => setTooltip(null)}
+                          onFocus={() =>
+                            setTooltip({
+                              dow,
+                              hour,
+                              count: cell.order_count,
+                              sales: cell.sales_cents,
+                            })
+                          }
+                          onBlur={() => setTooltip(null)}
+                          tabIndex={hasActivity ? 0 : -1}
+                          aria-describedby={isHovered ? tooltipId : undefined}
+                        />
+                      );
+                    })}
+                  </div>
                 ))}
-                <span className="text-[10px] text-gray-400">More</span>
+
+                {/* Legend */}
+                <div className="flex items-center gap-1.5 mt-3 justify-end" aria-hidden="true">
+                  <span className="text-[10px] text-gray-400">Less</span>
+                  {[0, 0.2, 0.4, 0.6, 0.8, 1].map((v) => (
+                    <div
+                      key={v}
+                      className="rounded-sm"
+                      style={{ width: 14, height: 14, backgroundColor: cellBg(v) }}
+                    />
+                  ))}
+                  <span className="text-[10px] text-gray-400">More</span>
+                </div>
               </div>
             </div>
 
-            {/* Tooltip */}
-            {tooltip && (
-              <div className="mt-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-gray-700 flex items-center gap-3">
-                <span className="font-semibold text-gray-900">
-                  {DAYS[tooltip.dow]} {HOURS[tooltip.hour]}
-                </span>
-                <span className="text-orange-600 font-bold">
-                  {tooltip.count.toLocaleString()} orders
-                </span>
-                <span className="text-gray-500">
-                  {formatPrice(tooltip.sales, currency)} sales
-                </span>
-              </div>
-            )}
-          </div>
+            {/* Tooltip strip — always reserves space to prevent layout jump */}
+            <div
+              id={tooltipId}
+              role="status"
+              aria-live="polite"
+              className={cn(
+                'mt-2.5 px-3 py-2 rounded-xl text-xs flex items-center gap-3 transition-all duration-150',
+                tooltip
+                  ? 'bg-orange-50 border border-orange-100 opacity-100'
+                  : 'opacity-0 pointer-events-none bg-transparent border border-transparent'
+              )}
+              style={{ minHeight: 36 }}
+            >
+              {tooltip && (
+                <>
+                  <span className="font-semibold text-gray-900">
+                    {DAYS[tooltip.dow]} {HOURS[tooltip.hour]}
+                  </span>
+                  <span className="text-orange-600 font-bold">
+                    {tooltip.count.toLocaleString()} orders
+                  </span>
+                  <span className="text-gray-500">
+                    {formatPrice(tooltip.sales, currency)}
+                  </span>
+                </>
+              )}
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

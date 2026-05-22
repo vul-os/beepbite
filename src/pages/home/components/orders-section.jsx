@@ -4,9 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search,
-  Clock,
   Package,
   Timer,
   Eye,
@@ -14,7 +14,6 @@ import {
   PhoneCall,
   X,
   ArrowLeft,
-  Save,
   User,
   MapPin,
   Banknote,
@@ -23,12 +22,597 @@ import {
   FileText,
   Calendar,
   Utensils,
-  AlertCircle
+  AlertCircle,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 import { markPaidOnDelivery } from '@/services/payments';
 import { hasCapability } from '@/services/pos';
+
+// ── Status colour helpers (kept in this file so they stay co-located) ───────
+
+// Shorter label for CTA buttons
+function getStatusLabelShort(status) {
+  const labels = {
+    pending:          'Pending',
+    confirmed:        'Confirmed',
+    preparing:        'Preparing',
+    ready:            'Ready',
+    out_for_delivery: 'Out for Del.',
+    delivered:        'Delivered',
+    completed:        'Complete',
+    cancelled:        'Cancelled',
+  };
+  return labels[status] || status;
+}
+
+// ── Skeleton card ─────────────────────────────────────────────────────────────
+
+function OrderCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-4 space-y-3 animate-pulse">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-5 w-24 rounded" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3.5 w-40 rounded" />
+        <Skeleton className="h-3.5 w-28 rounded" />
+      </div>
+      <div className="flex gap-2">
+        <Skeleton className="h-9 flex-1 rounded-lg" />
+        <Skeleton className="h-9 w-9 rounded-lg" />
+        <Skeleton className="h-9 w-9 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+// ── Info row (used in detail / edit panels) ───────────────────────────────────
+
+function InfoRow({ label, children, className }) {
+  return (
+    <div className={cn('flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0', className)}>
+      <span className="text-xs font-medium text-gray-500 flex-shrink-0 pt-0.5">{label}</span>
+      <div className="text-sm text-gray-900 text-right">{children}</div>
+    </div>
+  );
+}
+
+// ── Panel header (back + title + badge) ───────────────────────────────────────
+
+function PanelHeader({ onBack, title, orderNumber, statusBadge }) {
+  return (
+    <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white">
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Back to orders list"
+        className="h-8 w-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors flex-shrink-0"
+      >
+        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="text-sm font-bold text-gray-900">{title}</h2>
+          {statusBadge}
+        </div>
+        <p className="text-xs text-gray-500">#{orderNumber}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Order Details View ─────────────────────────────────────────────────────────
+
+function OrderDetailsView({
+  order,
+  selectedOrderDetails,
+  loadingOrderDetails,
+  onBack,
+  onEdit,
+  updateOrderStatus,
+  getStatusColor,
+  getNextStatus,
+  getStatusLabel,
+}) {
+  return (
+    <div className="absolute inset-0 flex flex-col">
+      <PanelHeader
+        onBack={onBack}
+        title="Order Details"
+        orderNumber={order.order_number}
+        statusBadge={
+          <Badge className={cn('text-xs font-medium px-2 py-0.5', getStatusColor(order.status))}>
+            {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
+          </Badge>
+        }
+      />
+
+      <div className="flex-1 overflow-y-auto">
+        {loadingOrderDetails ? (
+          <div className="p-4 space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : selectedOrderDetails ? (
+          <div className="p-4 space-y-4 pb-6">
+            {/* Order Items */}
+            <section aria-label="Order items">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Utensils className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Items</h3>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-white overflow-hidden divide-y divide-gray-50">
+                {selectedOrderDetails.order_items && selectedOrderDetails.order_items.length > 0 ? (
+                  <>
+                    {selectedOrderDetails.order_items.map((item, index) => (
+                      <div key={index} className="flex justify-between items-start p-3 gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900 truncate">
+                            {item.items?.name || item.name || 'Unknown Item'}
+                          </p>
+                          {item.items?.description && (
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.items.description}</p>
+                          )}
+                          {item.order_item_modifiers && item.order_item_modifiers.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {item.order_item_modifiers.map((mod, vIndex) => (
+                                <span
+                                  key={vIndex}
+                                  className="inline-block bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 text-xs"
+                                >
+                                  {mod.name_snapshot}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="font-bold text-sm text-orange-600">
+                            R{parseFloat(item.total_price || 0).toFixed(2)}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {item.quantity % 1 === 0 ? item.quantity : parseFloat(item.quantity).toFixed(2)} × R{parseFloat(item.unit_price || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {/* Total row */}
+                    <div className="flex justify-between items-center px-3 py-2.5 bg-orange-50">
+                      <span className="text-sm font-semibold text-gray-800">Total</span>
+                      <span className="font-bold text-orange-600">
+                        R{selectedOrderDetails.order_items.reduce((t, i) => t + parseFloat(i.total_price || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 gap-2">
+                    <Utensils className="w-8 h-8 text-gray-300" aria-hidden="true" />
+                    <p className="text-sm text-gray-500">No items found</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Customer */}
+            <section aria-label="Customer information">
+              <div className="flex items-center gap-1.5 mb-2">
+                <User className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Customer</h3>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+                <InfoRow label="Name">
+                  {selectedOrderDetails.customers?.first_name} {selectedOrderDetails.customers?.last_name || 'N/A'}
+                </InfoRow>
+                <InfoRow label="Phone">
+                  <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                    <PhoneCall className="w-3 h-3" aria-hidden="true" />
+                    {selectedOrderDetails.customers?.whatsapp_number || 'No phone'}
+                  </span>
+                </InfoRow>
+                {selectedOrderDetails.customers?.email && (
+                  <InfoRow label="Email">{selectedOrderDetails.customers.email}</InfoRow>
+                )}
+              </div>
+            </section>
+
+            {/* Order Info */}
+            <section aria-label="Order information">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ShoppingBag className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Order Info</h3>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+                <InfoRow label="Type">
+                  <span className="capitalize bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">
+                    {selectedOrderDetails.order_type || 'delivery'}
+                  </span>
+                </InfoRow>
+                <InfoRow label="Created">
+                  <span className="inline-flex items-center gap-1 text-gray-600 text-xs">
+                    <Calendar className="w-3 h-3" aria-hidden="true" />
+                    {formatDistanceToNow(new Date(selectedOrderDetails.created_at), { addSuffix: true })}
+                  </span>
+                </InfoRow>
+                {selectedOrderDetails.estimated_prep_time && (
+                  <InfoRow label="Prep Time">
+                    <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs">
+                      <Timer className="w-3 h-3" aria-hidden="true" />
+                      {selectedOrderDetails.estimated_prep_time} min
+                    </span>
+                  </InfoRow>
+                )}
+                <InfoRow label="Status">
+                  <Badge className={cn('text-xs px-2 py-0.5', getStatusColor(selectedOrderDetails.status))}>
+                    {selectedOrderDetails.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(selectedOrderDetails.status)}
+                  </Badge>
+                </InfoRow>
+              </div>
+            </section>
+
+            {/* Delivery */}
+            {selectedOrderDetails.delivery_address && (
+              <section aria-label="Delivery information">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <MapPin className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+                  <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Delivery</h3>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+                  <InfoRow label="Address">{selectedOrderDetails.delivery_address}</InfoRow>
+                  {selectedOrderDetails.delivery_instructions && (
+                    <InfoRow label="Instructions">
+                      <span className="bg-yellow-50 text-yellow-800 px-2 py-0.5 rounded text-xs">
+                        {selectedOrderDetails.delivery_instructions}
+                      </span>
+                    </InfoRow>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Notes */}
+            {(selectedOrderDetails.notes || selectedOrderDetails.kitchen_notes) && (
+              <section aria-label="Order notes">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <FileText className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+                  <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Notes</h3>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+                  {selectedOrderDetails.notes && (
+                    <InfoRow label="General">
+                      <span className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded text-xs">
+                        {selectedOrderDetails.notes}
+                      </span>
+                    </InfoRow>
+                  )}
+                  {selectedOrderDetails.kitchen_notes && (
+                    <InfoRow label="Kitchen">
+                      <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs">
+                        {selectedOrderDetails.kitchen_notes}
+                      </span>
+                    </InfoRow>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              {getNextStatus(order.status) && (
+                <Button
+                  onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-11 rounded-xl text-sm font-semibold"
+                >
+                  {getStatusLabelShort(getNextStatus(order.status))}
+                  <ChevronRight className="w-4 h-4 ml-1" aria-hidden="true" />
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => onEdit(order)}
+                className="h-11 px-4 rounded-xl border-gray-200 hover:bg-gray-50 text-sm"
+              >
+                Edit
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full gap-3 p-6">
+            <AlertCircle className="w-12 h-12 text-gray-300" aria-hidden="true" />
+            <p className="text-sm text-gray-500">Failed to load order details</p>
+            <Button variant="outline" size="sm" onClick={onBack} className="rounded-lg">
+              Go back
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Order Edit View ────────────────────────────────────────────────────────────
+
+function OrderEditView({
+  order,
+  editFormData,
+  onInputChange,
+  onSave,
+  onBack,
+  getStatusColor,
+  getStatusLabel,
+}) {
+  return (
+    <div className="absolute inset-0 flex flex-col">
+      <PanelHeader
+        onBack={onBack}
+        title="Edit Order"
+        orderNumber={order.order_number}
+        statusBadge={
+          <Badge className={cn('text-xs font-medium px-2 py-0.5', getStatusColor(order.status))}>
+            {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
+          </Badge>
+        }
+      />
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4 space-y-4 pb-6">
+          {/* Delivery Information */}
+          <section aria-label="Delivery information">
+            <div className="flex items-center gap-1.5 mb-2">
+              <MapPin className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Delivery</h3>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-3 space-y-3">
+              <div>
+                <label htmlFor="edit-delivery-address" className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Delivery Address
+                </label>
+                <Textarea
+                  id="edit-delivery-address"
+                  value={editFormData.delivery_address || ''}
+                  onChange={(e) => onInputChange('delivery_address', e.target.value)}
+                  placeholder="Enter delivery address…"
+                  rows={2}
+                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-delivery-instructions" className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Delivery Instructions
+                </label>
+                <Textarea
+                  id="edit-delivery-instructions"
+                  value={editFormData.delivery_instructions || ''}
+                  onChange={(e) => onInputChange('delivery_instructions', e.target.value)}
+                  placeholder="Special delivery instructions…"
+                  rows={2}
+                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Order Settings */}
+          <section aria-label="Order settings">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Timer className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Settings</h3>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-3">
+              <label htmlFor="edit-prep-time" className="block text-xs font-medium text-gray-600 mb-1.5">
+                Estimated Prep Time (minutes)
+              </label>
+              <Input
+                id="edit-prep-time"
+                type="number"
+                value={editFormData.estimated_prep_time || 30}
+                onChange={(e) => onInputChange('estimated_prep_time', parseInt(e.target.value))}
+                className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                min="5"
+                max="120"
+              />
+            </div>
+          </section>
+
+          {/* Notes */}
+          <section aria-label="Order notes">
+            <div className="flex items-center gap-1.5 mb-2">
+              <FileText className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Notes</h3>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-3 space-y-3">
+              <div>
+                <label htmlFor="edit-notes" className="block text-xs font-medium text-gray-600 mb-1.5">
+                  General Notes
+                </label>
+                <Textarea
+                  id="edit-notes"
+                  value={editFormData.notes || ''}
+                  onChange={(e) => onInputChange('notes', e.target.value)}
+                  placeholder="General order notes…"
+                  rows={2}
+                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-kitchen-notes" className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Kitchen Notes
+                </label>
+                <Textarea
+                  id="edit-kitchen-notes"
+                  value={editFormData.kitchen_notes || ''}
+                  onChange={(e) => onInputChange('kitchen_notes', e.target.value)}
+                  placeholder="Special instructions for kitchen…"
+                  rows={2}
+                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={onSave}
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-11 rounded-xl text-sm font-semibold"
+            >
+              Save Changes
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onBack}
+              className="h-11 px-4 rounded-xl border-gray-200 hover:bg-gray-50 text-sm"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Orders List View ───────────────────────────────────────────────────────────
+
+function OrderCard({
+  order,
+  getStatusColor,
+  getNextStatus,
+  getStatusLabel,
+  updateOrderStatus,
+  onViewDetails,
+  onEditOrder,
+  canSettle,
+  markingPaid,
+  onMarkPaid,
+}) {
+  const nextStatus = getNextStatus(order.status);
+
+  return (
+    <article
+      aria-label={`Order #${order.order_number}`}
+      className="rounded-xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition-all duration-150 overflow-hidden"
+    >
+      <div className="p-3.5">
+        {/* Top row: order number + status badge */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h4 className="font-bold text-gray-900 text-sm truncate">#{order.order_number}</h4>
+          <Badge
+            className={cn('text-xs font-medium px-2 py-0.5 flex-shrink-0', getStatusColor(order.status))}
+          >
+            {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
+          </Badge>
+        </div>
+
+        {/* Customer info */}
+        <div className="space-y-0.5 mb-3">
+          {order.customers?.first_name && (
+            <p className="text-sm font-medium text-gray-800 truncate">
+              {order.customers.first_name} {order.customers.last_name}
+            </p>
+          )}
+          <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
+            <PhoneCall className="w-3 h-3 flex-shrink-0 text-gray-400" aria-hidden="true" />
+            <span className="truncate">{order.customers?.whatsapp_number || 'No phone'}</span>
+          </p>
+          <p className="text-xs text-gray-400 flex items-center gap-1">
+            <Timer className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+            <span>{formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}</span>
+          </p>
+        </div>
+
+        {/* Action row */}
+        <div className="flex gap-1.5">
+          {nextStatus && order.status !== 'pending_on_delivery' && (
+            <Button
+              size="sm"
+              onClick={() => updateOrderStatus(order.id, nextStatus)}
+              aria-label={`Advance order #${order.order_number} to ${getStatusLabel(nextStatus)}`}
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-9 rounded-lg text-xs font-semibold truncate"
+            >
+              {getStatusLabelShort(nextStatus)}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onEditOrder(order)}
+            aria-label={`Edit order #${order.order_number}`}
+            className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border-gray-200 hover:bg-orange-50 hover:border-orange-200 focus-visible:ring-2 focus-visible:ring-orange-400"
+          >
+            <Edit className="w-3.5 h-3.5" aria-hidden="true" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onViewDetails(order)}
+            aria-label={`View details for order #${order.order_number}`}
+            className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border-gray-200 hover:bg-orange-50 hover:border-orange-200 focus-visible:ring-2 focus-visible:ring-orange-400"
+          >
+            <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+
+        {/* Mark-paid buttons for pending_on_delivery orders */}
+        {order.status === 'pending_on_delivery' && canSettle && (
+          <div className="flex gap-1.5 mt-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!!markingPaid[order.id]}
+              onClick={() => onMarkPaid(order.id, 'cash')}
+              aria-label="Mark as paid with cash"
+              className="flex-1 border-green-200 text-green-700 hover:bg-green-50 h-9 rounded-lg text-xs gap-1 font-medium"
+            >
+              {markingPaid[order.id] === 'cash' ? (
+                <>
+                  <span
+                    className="inline-block h-3 w-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin"
+                    aria-hidden="true"
+                  />
+                  Marking…
+                </>
+              ) : (
+                <>
+                  <Banknote className="w-3.5 h-3.5" aria-hidden="true" />
+                  Cash
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!!markingPaid[order.id]}
+              onClick={() => onMarkPaid(order.id, 'card_machine')}
+              aria-label="Mark as paid with card"
+              className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50 h-9 rounded-lg text-xs gap-1 font-medium"
+            >
+              {markingPaid[order.id] === 'card_machine' ? (
+                <>
+                  <span
+                    className="inline-block h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"
+                    aria-hidden="true"
+                  />
+                  Marking…
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-3.5 h-3.5" aria-hidden="true" />
+                  Card
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 const OrdersSection = ({
   orders,
@@ -45,10 +629,10 @@ const OrdersSection = ({
   getStatusColor,
   getNextStatus,
   getStatusLabel,
-  isOrdersExpanded
+  isOrdersExpanded,
 }) => {
   // Local state for inline views
-  const [currentView, setCurrentView] = useState('list'); // 'list', 'details', 'edit'
+  const [currentView, setCurrentView] = useState('list'); // 'list' | 'details' | 'edit'
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
@@ -56,10 +640,8 @@ const OrdersSection = ({
 
   // Mark-paid-on-delivery state
   const [markingPaid, setMarkingPaid] = useState({}); // { [orderId]: 'cash'|'card_machine'|null }
-  const [markPaidError, setMarkPaidError] = useState(null); // permission error modal text
+  const [markPaidError, setMarkPaidError] = useState(null);
 
-  // Check if the currently logged-in actor has can_settle capability.
-  // hasCapability returns true for owner/admin (Supabase) sessions.
   const canSettle = hasCapability('can_settle');
 
   const handleMarkPaid = async (orderId, method) => {
@@ -78,7 +660,6 @@ const OrdersSection = ({
         }
         return;
       }
-      // Optimistically update the order status in parent
       updateOrderStatus(orderId, 'completed');
     } finally {
       setMarkingPaid((prev) => {
@@ -89,17 +670,12 @@ const OrdersSection = ({
     }
   };
 
-  // Handle view order details inline - fetch detailed data
   const handleViewDetails = async (order) => {
     setSelectedOrder(order);
     setCurrentView('details');
     setLoadingOrderDetails(true);
-    
     try {
-      // Import supabase client
       const { supabase } = await import('@/services/supabase-client');
-      
-      // Fetch detailed order data including items
       const { data: orderDetails, error: orderError } = await supabase
         .from('orders')
         .select(`
@@ -117,7 +693,6 @@ const OrdersSection = ({
 
       if (orderError) throw orderError;
 
-      // Fetch order items with variations
       const { data: orderItems, error: itemsError } = await supabase
         .from('order_items')
         .select(`
@@ -136,12 +711,7 @@ const OrdersSection = ({
 
       if (itemsError) throw itemsError;
 
-      // Combine order details with items
-      setSelectedOrderDetails({
-        ...orderDetails,
-        order_items: orderItems || []
-      });
-      
+      setSelectedOrderDetails({ ...orderDetails, order_items: orderItems || [] });
     } catch (error) {
       console.error('Error fetching order details:', error);
       alert('Failed to load order details');
@@ -151,7 +721,6 @@ const OrdersSection = ({
     }
   };
 
-  // Handle edit order inline
   const handleEditOrder = (order) => {
     setSelectedOrder(order);
     setEditFormData({
@@ -164,7 +733,6 @@ const OrdersSection = ({
     setCurrentView('edit');
   };
 
-  // Handle back to list
   const handleBackToList = () => {
     setCurrentView('list');
     setSelectedOrder(null);
@@ -173,457 +741,64 @@ const OrdersSection = ({
     setEditFormData({});
   };
 
-  // Handle save edit
   const handleSaveEdit = async () => {
-    // Here you would typically call an API to update the order
     console.log('Saving order edit:', selectedOrder.id, editFormData);
-    
-    // For now, just go back to list
     handleBackToList();
   };
 
-  // Handle form input changes
   const handleInputChange = (field, value) => {
-    setEditFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Get shorter status labels for buttons
-  const getStatusLabelShort = (status) => {
-    const labels = {
-      'pending': 'Pending',
-      'confirmed': 'Confirmed',
-      'preparing': 'Preparing',
-      'ready': 'Ready',
-      'out_for_delivery': 'Out for Del.',
-      'delivered': 'Delivered',
-      'completed': 'Complete',
-      'cancelled': 'Cancelled'
-    };
-    return labels[status] || status;
-  };
+  // ── Sub-view routing ───────────────────────────────────────────────────────
 
-  // Order Details View Component
-  const OrderDetailsView = ({ order }) => (
-    <div className="absolute inset-0 flex flex-col">
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center gap-3 p-4 border-b border-gray-200 bg-gray-50">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleBackToList}
-          className="h-8 w-8 rounded-full p-0 hover:bg-orange-100"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="flex-1 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold text-gray-900">Order Details</h2>
-              <Badge className={cn("text-xs font-medium px-2 py-1", getStatusColor(order.status))}>
-                {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
-              </Badge>
-            </div>
-            <p className="text-sm text-gray-600">#{order.order_number}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {loadingOrderDetails ? (
-          <div className="p-6 space-y-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
-            ))}
-          </div>
-        ) : selectedOrderDetails ? (
-          <div className="p-6 space-y-6">
-            {/* Order Items */}
-            <Card className="border border-orange-200">
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                  <Utensils className="w-4 h-4 mr-2 text-orange-500" />
-                  Order Items
-                </h3>
-                <div className="space-y-3">
-                  {selectedOrderDetails.order_items && selectedOrderDetails.order_items.length > 0 ? (
-                    selectedOrderDetails.order_items.map((item, index) => (
-                      <div key={index} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{item.items?.name || item.name || 'Unknown Item'}</h4>
-                          {item.items?.description && (
-                            <p className="text-sm text-gray-600 mt-1">{item.items.description}</p>
-                          )}
-                          {item.order_item_modifiers && item.order_item_modifiers.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {item.order_item_modifiers.map((modifier, vIndex) => (
-                                <span key={vIndex} className="inline-block bg-blue-100 rounded-full px-2 py-1 text-xs text-blue-700">
-                                  {modifier.name_snapshot}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right ml-4">
-                          <div className="font-bold text-orange-600">
-                            R{parseFloat(item.total_price || 0).toFixed(2)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {item.quantity % 1 === 0 ? item.quantity : parseFloat(item.quantity).toFixed(2)} × R{parseFloat(item.unit_price || 0).toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-6 text-gray-500">
-                      <Utensils className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <p>No items found for this order</p>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Order Total */}
-                {selectedOrderDetails.order_items && selectedOrderDetails.order_items.length > 0 && (
-                  <div className="border-t pt-3 mt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900">Order Total:</span>
-                      <span className="text-xl font-bold text-orange-600">
-                        R{selectedOrderDetails.order_items.reduce((total, item) => total + parseFloat(item.total_price || 0), 0).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Customer Information */}
-            <Card className="border border-orange-200">
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                  <User className="w-4 h-4 mr-2 text-orange-500" />
-                  Customer Information
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Name</span>
-                    <span className="text-sm text-gray-900">
-                      {selectedOrderDetails.customers?.first_name} {selectedOrderDetails.customers?.last_name || 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Phone</span>
-                    <span className="text-sm text-gray-900 flex items-center bg-blue-100 px-2 py-1 rounded">
-                      <PhoneCall className="w-3 h-3 mr-1" />
-                      {selectedOrderDetails.customers?.whatsapp_number || 'No phone'}
-                    </span>
-                  </div>
-                  {selectedOrderDetails.customers?.email && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Email</span>
-                      <span className="text-sm text-gray-900">{selectedOrderDetails.customers.email}</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Order Information */}
-            <Card className="border border-orange-200">
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                  <ShoppingBag className="w-4 h-4 mr-2 text-orange-500" />
-                  Order Information
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Type</span>
-                    <span className="text-sm text-gray-900 capitalize bg-gray-100 px-2 py-1 rounded">
-                      {selectedOrderDetails.order_type || 'delivery'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Created</span>
-                    <span className="text-sm text-gray-900 flex items-center">
-                      <Calendar className="w-3 h-3 mr-1" />
-                      {formatDistanceToNow(new Date(selectedOrderDetails.created_at), { addSuffix: true })}
-                    </span>
-                  </div>
-                  {selectedOrderDetails.estimated_prep_time && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Prep Time</span>
-                      <span className="text-sm text-gray-900 flex items-center bg-orange-100 px-2 py-1 rounded">
-                        <Timer className="w-3 h-3 mr-1" />
-                        {selectedOrderDetails.estimated_prep_time} min
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Status</span>
-                    <Badge className={cn("text-xs font-medium px-2 py-1", getStatusColor(selectedOrderDetails.status))}>
-                      {selectedOrderDetails.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(selectedOrderDetails.status)}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Delivery Information */}
-            {selectedOrderDetails.delivery_address && (
-              <Card className="border border-orange-200">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                    <MapPin className="w-4 h-4 mr-2 text-orange-500" />
-                    Delivery Information
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between">
-                      <span className="text-sm font-medium text-gray-700">Address</span>
-                      <span className="text-sm text-gray-900 text-right max-w-[60%]">
-                        {selectedOrderDetails.delivery_address}
-                      </span>
-                    </div>
-                    {selectedOrderDetails.delivery_instructions && (
-                      <div className="flex items-start justify-between">
-                        <span className="text-sm font-medium text-gray-700">Instructions</span>
-                        <span className="text-sm text-gray-900 text-right max-w-[60%] bg-yellow-100 px-2 py-1 rounded">
-                          {selectedOrderDetails.delivery_instructions}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Notes */}
-            {(selectedOrderDetails.notes || selectedOrderDetails.kitchen_notes) && (
-              <Card className="border border-orange-200">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                    <FileText className="w-4 h-4 mr-2 text-orange-500" />
-                    Notes
-                  </h3>
-                  <div className="space-y-3">
-                    {selectedOrderDetails.notes && (
-                      <div className="flex items-start justify-between">
-                        <span className="text-sm font-medium text-gray-700">General</span>
-                        <span className="text-sm text-gray-900 text-right max-w-[60%] bg-gray-100 px-2 py-1 rounded">
-                          {selectedOrderDetails.notes}
-                        </span>
-                      </div>
-                    )}
-                    {selectedOrderDetails.kitchen_notes && (
-                      <div className="flex items-start justify-between">
-                        <span className="text-sm font-medium text-gray-700">Kitchen</span>
-                        <span className="text-sm text-gray-900 text-right max-w-[60%] bg-orange-100 px-2 py-1 rounded">
-                          {selectedOrderDetails.kitchen_notes}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Action Buttons - Now inside scrollable area at bottom */}
-            <div className="flex gap-3 pt-4 pb-4 justify-center">
-              {getNextStatus(order.status) && (
-                <Button
-                  onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-6"
-                >
-                  {getStatusLabelShort(getNextStatus(order.status))}
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={() => handleEditOrder(order)}
-                className="border-orange-200 hover:bg-orange-50 px-6"
-              >
-                Edit
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-gray-500">
-              <AlertCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <p>Failed to load order details</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // Order Edit View Component
-  const OrderEditView = ({ order }) => (
-    <div className="absolute inset-0 flex flex-col">
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center gap-3 p-4 border-b border-gray-200 bg-gray-50">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleBackToList}
-          className="h-8 w-8 rounded-full p-0 hover:bg-orange-100"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="flex-1 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold text-gray-900">Edit Order</h2>
-              <Badge className={cn("text-xs font-medium px-2 py-1", getStatusColor(order.status))}>
-                {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
-              </Badge>
-            </div>
-            <p className="text-sm text-gray-600">#{order.order_number}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-6 space-y-6">
-          {/* Delivery Information */}
-          <Card className="border border-orange-200">
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <MapPin className="w-4 h-4 mr-2 text-orange-500" />
-                Delivery Information
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Delivery Address
-                  </label>
-                  <Textarea
-                    value={editFormData.delivery_address || ''}
-                    onChange={(e) => handleInputChange('delivery_address', e.target.value)}
-                    placeholder="Enter delivery address..."
-                    rows={2}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Delivery Instructions
-                  </label>
-                  <Textarea
-                    value={editFormData.delivery_instructions || ''}
-                    onChange={(e) => handleInputChange('delivery_instructions', e.target.value)}
-                    placeholder="Special delivery instructions..."
-                    rows={2}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Order Settings */}
-          <Card className="border border-orange-200">
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <Timer className="w-4 h-4 mr-2 text-orange-500" />
-                Order Settings
-              </h3>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Estimated Prep Time (minutes)
-                </label>
-                <Input
-                  type="number"
-                  value={editFormData.estimated_prep_time || 30}
-                  onChange={(e) => handleInputChange('estimated_prep_time', parseInt(e.target.value))}
-                  className="w-full"
-                  min="5"
-                  max="120"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notes */}
-          <Card className="border border-orange-200">
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <FileText className="w-4 h-4 mr-2 text-orange-500" />
-                Notes
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    General Notes
-                  </label>
-                  <Textarea
-                    value={editFormData.notes || ''}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    placeholder="General order notes..."
-                    rows={2}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Kitchen Notes
-                  </label>
-                  <Textarea
-                    value={editFormData.kitchen_notes || ''}
-                    onChange={(e) => handleInputChange('kitchen_notes', e.target.value)}
-                    placeholder="Special instructions for kitchen..."
-                    rows={2}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Action Buttons - Now inside scrollable area at bottom */}
-          <div className="flex gap-3 pt-4 pb-4 justify-center">
-            <Button
-              onClick={handleSaveEdit}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-6"
-            >
-              Save
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleBackToList}
-              className="border-gray-300 hover:bg-gray-50 px-6"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Render based on current view
   if (currentView === 'details' && selectedOrder) {
-    return <OrderDetailsView order={selectedOrder} />;
+    return (
+      <OrderDetailsView
+        order={selectedOrder}
+        selectedOrderDetails={selectedOrderDetails}
+        loadingOrderDetails={loadingOrderDetails}
+        onBack={handleBackToList}
+        onEdit={handleEditOrder}
+        updateOrderStatus={updateOrderStatus}
+        getStatusColor={getStatusColor}
+        getNextStatus={getNextStatus}
+        getStatusLabel={getStatusLabel}
+      />
+    );
   }
 
   if (currentView === 'edit' && selectedOrder) {
-    return <OrderEditView order={selectedOrder} />;
+    return (
+      <OrderEditView
+        order={selectedOrder}
+        editFormData={editFormData}
+        onInputChange={handleInputChange}
+        onSave={handleSaveEdit}
+        onBack={handleBackToList}
+        getStatusColor={getStatusColor}
+        getStatusLabel={getStatusLabel}
+      />
+    );
   }
 
-  // Default orders list view
+  // ── Default: List view ─────────────────────────────────────────────────────
+
   return (
     <div className="absolute inset-0 flex flex-col">
       {/* Permission error modal */}
       {markPaidError && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="perm-error-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div>
-                <p className="font-semibold text-gray-900 text-sm">Permission required</p>
+                <p id="perm-error-title" className="font-semibold text-gray-900 text-sm">Permission required</p>
                 <p className="text-sm text-gray-600 mt-1">{markPaidError}</p>
               </div>
             </div>
@@ -631,7 +806,7 @@ const OrdersSection = ({
               <Button
                 size="sm"
                 onClick={() => setMarkPaidError(null)}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg h-9 px-4"
               >
                 OK
               </Button>
@@ -640,173 +815,109 @@ const OrdersSection = ({
         </div>
       )}
 
-      {/* Orders Search and Filter Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
+      {/* Search + filter header */}
+      <div className="flex-shrink-0 px-3 py-2.5 border-b border-gray-100 bg-gray-50/80">
         <div className="flex gap-2 items-center">
-          {/* Search Input */}
+          {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none"
+              aria-hidden="true"
+            />
             <Input
-              placeholder="Search orders..."
+              placeholder="Search orders…"
               value={orderSearchTerm}
               onChange={(e) => setOrderSearchTerm(e.target.value)}
-              className="pl-10 h-8 text-sm border-gray-300 focus:border-orange-400 focus:ring-orange-200"
+              aria-label="Search orders"
+              className="pl-8 h-9 text-sm border-gray-200 focus:border-orange-400 focus:ring-orange-200 rounded-lg pr-8"
             />
             {orderSearchTerm && (
               <button
+                type="button"
                 onClick={() => setOrderSearchTerm('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 rounded"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             )}
           </div>
-          
-          {/* Filter Buttons */}
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={orderStatusFilter === 'active' ? 'default' : 'outline'}
-              onClick={() => setOrderStatusFilter('active')}
-              className={cn(
-                "h-8 px-3 text-xs transition-all",
-                orderStatusFilter === 'active'
-                  ? "bg-orange-500 hover:bg-orange-600 text-white"
-                  : "border-orange-200 text-gray-700 hover:bg-orange-50"
-              )}
-            >
-              Active
-            </Button>
-            <Button
-              size="sm"
-              variant={orderStatusFilter === 'all' ? 'default' : 'outline'}
-              onClick={() => setOrderStatusFilter('all')}
-              className={cn(
-                "h-8 px-3 text-xs transition-all",
-                orderStatusFilter === 'all'
-                  ? "bg-orange-500 hover:bg-orange-600 text-white"
-                  : "border-orange-200 text-gray-700 hover:bg-orange-50"
-              )}
-            >
-              All
-            </Button>
+
+          {/* Status filter */}
+          <div
+            role="group"
+            aria-label="Order status filter"
+            className="flex gap-1 flex-shrink-0"
+          >
+            {['active', 'all'].map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setOrderStatusFilter(f)}
+                aria-pressed={orderStatusFilter === f}
+                className={cn(
+                  'h-9 px-3 text-xs font-medium rounded-lg transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                  orderStatusFilter === f
+                    ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:bg-orange-50 hover:border-orange-200 bg-white'
+                )}
+              >
+                {f === 'active' ? 'Active' : 'All'}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Orders List - Full Height */}
-      <div className="flex-1 overflow-y-auto p-4">
+      {/* Orders list */}
+      <div className="flex-1 overflow-y-auto p-3" role="feed" aria-label="Orders list" aria-busy={loadingOrders}>
         {loadingOrders ? (
-          <div className={`grid gap-3 ${isOrdersExpanded ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded-lg animate-pulse"></div>
+          <div className="space-y-2.5">
+            {[...Array(4)].map((_, i) => (
+              <OrderCardSkeleton key={i} />
             ))}
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="flex items-center justify-center h-full min-h-[200px]">
+          <div className="flex flex-col items-center justify-center h-full min-h-[200px] gap-3 py-8">
+            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+              <Package className="w-7 h-7 text-gray-300" aria-hidden="true" />
+            </div>
             <div className="text-center">
-              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {orderSearchTerm ? 'No orders found' : 'No orders available'}
-              </h3>
-              <p className="text-gray-500">
-                {orderSearchTerm 
-                  ? 'Try adjusting your search or filter criteria.'
-                  : `No ${orderStatusFilter === 'all' ? '' : orderStatusFilter + ' '}orders found.`
-                }
+              <p className="text-sm font-medium text-gray-700">
+                {orderSearchTerm ? 'No orders found' : 'No orders'}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {orderSearchTerm
+                  ? 'Try a different search term or filter'
+                  : `No ${orderStatusFilter === 'all' ? '' : orderStatusFilter + ' '}orders right now`}
               </p>
             </div>
+            {orderSearchTerm && (
+              <button
+                type="button"
+                onClick={() => setOrderSearchTerm('')}
+                className="text-xs text-orange-600 hover:text-orange-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 rounded"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         ) : (
-          <div className={`grid gap-3 ${isOrdersExpanded ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <div className="space-y-2.5">
             {filteredOrders.map((order) => (
-              <Card key={order.id} className="border border-orange-200 hover:border-orange-300 transition-colors hover:shadow-md">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-bold text-gray-900 text-lg truncate">#{order.order_number}</h4>
-                        <Badge className={cn("text-xs font-medium px-2 py-1 flex-shrink-0", getStatusColor(order.status))}>
-                          {order.status === 'out_for_delivery' ? 'Out for Del.' : getStatusLabel(order.status)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 flex items-center gap-2 mb-1 truncate">
-                        <PhoneCall className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{order.customers?.whatsapp_number || 'No phone'}</span>
-                      </p>
-                      {order.customers?.first_name && (
-                        <p className="text-sm text-gray-700 font-medium truncate">
-                          {order.customers.first_name} {order.customers.last_name}
-                        </p>
-                      )}
-                      <p className="text-sm text-gray-500 flex items-center gap-2 mt-2">
-                        <Timer className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 mt-4">
-                    {getNextStatus(order.status) && order.status !== 'pending_on_delivery' && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                        className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-8 text-sm truncate"
-                      >
-                        {getStatusLabelShort(getNextStatus(order.status))}
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEditOrder(order)}
-                      className="h-8 w-8 p-0 flex-shrink-0 border-orange-200 hover:bg-orange-50"
-                    >
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleViewDetails(order)}
-                      className="h-8 w-8 p-0 flex-shrink-0 border-orange-200 hover:bg-orange-50"
-                    >
-                      <Eye className="w-3 h-3" />
-                    </Button>
-                  </div>
-
-                  {/* Mark-paid buttons for pending_on_delivery orders */}
-                  {order.status === 'pending_on_delivery' && canSettle && (
-                    <div className="flex gap-2 mt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={!!markingPaid[order.id]}
-                        onClick={() => handleMarkPaid(order.id, 'cash')}
-                        className="flex-1 border-green-300 text-green-700 hover:bg-green-50 h-8 text-xs gap-1"
-                      >
-                        {markingPaid[order.id] === 'cash' ? (
-                          <><span className="inline-block h-3 w-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />Marking…</>
-                        ) : (
-                          <><Banknote className="w-3 h-3" />Mark paid (cash)</>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={!!markingPaid[order.id]}
-                        onClick={() => handleMarkPaid(order.id, 'card_machine')}
-                        className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 h-8 text-xs gap-1"
-                      >
-                        {markingPaid[order.id] === 'card_machine' ? (
-                          <><span className="inline-block h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />Marking…</>
-                        ) : (
-                          <><CreditCard className="w-3 h-3" />Mark paid (card)</>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <OrderCard
+                key={order.id}
+                order={order}
+                getStatusColor={getStatusColor}
+                getNextStatus={getNextStatus}
+                getStatusLabel={getStatusLabel}
+                updateOrderStatus={updateOrderStatus}
+                onViewDetails={handleViewDetails}
+                onEditOrder={handleEditOrder}
+                canSettle={canSettle}
+                markingPaid={markingPaid}
+                onMarkPaid={handleMarkPaid}
+              />
             ))}
           </div>
         )}
@@ -815,4 +926,4 @@ const OrdersSection = ({
   );
 };
 
-export default OrdersSection; 
+export default OrdersSection;
