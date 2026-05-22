@@ -234,12 +234,19 @@ func main() {
 			return
 		}
 		msg.To = to
+		// Let the configured provider decide the From (its verified sender, e.g.
+		// the EMAIL_FROM_DEFAULT / RESEND verified domain) instead of forcing the
+		// template's default, which may be on an unverified domain.
+		msg.From = ""
 		prov, _, perr := emailRegistry.For(context.Background(), "")
 		if perr != nil || prov == nil {
-			return // no provider configured — skip silently
+			log.Printf("email %s skipped: no provider configured (%v)", tmpl, perr)
+			return
 		}
 		if serr := prov.Send(context.Background(), msg); serr != nil {
-			log.Printf("email send %s to %s: %v", tmpl, to, serr)
+			log.Printf("email send %s to %s FAILED: %v", tmpl, to, serr)
+		} else {
+			log.Printf("email send %s to %s: OK", tmpl, to)
 		}
 	}
 	driverInviteH.Notifier = func(toEmail, _ /*role*/, _ /*orgID*/ string) {
