@@ -129,7 +129,6 @@ const CustomerChat = lazyImport(() => import('./pages/chat'));
 const CustomerDisplay = lazyImport(() => import('./pages/pos/customer-display'));
 const SettingsDomains = lazyImport(() => import('./pages/settings/domains'));
 const SettingsHardware = lazyImport(() => import('./pages/settings/hardware'));
-const SettingsBusinessInfo = lazyImport(() => import('./pages/settings/business-info'));
 // Security (2FA) + Data & Privacy (export/delete) now live as tabs inside /account;
 // the standalone routes below redirect there for backwards-compatible links.
 const Invoices = lazyImport(() => import('./pages/invoices'));
@@ -326,7 +325,7 @@ const AppRoutes = () => {
           <Route path="/settings/domains" element={<Protected><SettingsDomains /></Protected>} />
           <Route path="/settings/hardware" element={<Protected><SettingsHardware /></Protected>} />
           <Route path="/settings/security" element={<Navigate to="/account" replace />} />
-          <Route path="/settings/business-info" element={<Protected><SettingsBusinessInfo /></Protected>} />
+          <Route path="/settings/business-info" element={<Navigate to="/settings/organization" replace />} />
           <Route path="/settings/account" element={<Navigate to="/account" replace />} />
           <Route path="/invoices" element={<Protected><Invoices /></Protected>} />
           <Route path="/invoices/new" element={<Protected><InvoiceForm /></Protected>} />

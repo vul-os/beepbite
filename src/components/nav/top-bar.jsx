@@ -188,8 +188,7 @@ const TopBar = () => {
           name: 'Driver Portal',
           path: '/driver',
           icon: Truck,
-          description: 'Active deliveries & online toggle',
-          capability: 'can_drive',
+          description: 'Active deliveries & online toggle'
         }
       ]
     },

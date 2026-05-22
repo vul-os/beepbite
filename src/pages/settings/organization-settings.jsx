@@ -14,8 +14,10 @@ import {
   Loader2,
   AlertCircle,
   Plus,
-  Edit
+  Edit,
+  FileText
 } from 'lucide-react';
+import BusinessInfoPage from './business-info';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
@@ -235,7 +237,7 @@ const OrganizationSettings = () => {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-black/5">
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-black/5">
           <TabsTrigger 
             value="organization" 
             className="flex items-center gap-2 text-xs sm:text-sm p-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
@@ -249,6 +251,13 @@ const OrganizationSettings = () => {
           >
             <MapPin className="w-4 h-4" />
             <span>Locations</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="businessinfo"
+            className="flex items-center gap-2 text-xs sm:text-sm p-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Business Info</span>
           </TabsTrigger>
         </TabsList>
 
@@ -416,6 +425,11 @@ const OrganizationSettings = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Business Info Tab — legal/tax profile used on invoices */}
+        <TabsContent value="businessinfo" className="mt-6">
+          <BusinessInfoPage />
         </TabsContent>
       </Tabs>
     </div>
