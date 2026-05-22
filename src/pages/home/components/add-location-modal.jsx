@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { MapPin, Loader2 } from 'lucide-react';
+import AddressAutocomplete from '@/components/address-autocomplete';
 
 const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
   const { activeOrganization, fetchLocations } = useAuth();
@@ -28,6 +29,8 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
   const [country, setCountry] = useState('South Africa');
   const [regionId, setRegionId] = useState('');
   const [regions, setRegions] = useState([]);
@@ -90,6 +93,8 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
         ...(address.trim() && { address: address.trim() }),
         ...(city.trim() && { city: city.trim() }),
         ...(country.trim() && { country: country.trim() }),
+        ...(lat !== '' && { latitude: parseFloat(lat) }),
+        ...(lng !== '' && { longitude: parseFloat(lng) }),
       };
 
       const { data, error } = await supabase
@@ -191,14 +196,20 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
           {/* Address */}
           <div className="space-y-1.5">
             <Label htmlFor="loc-address">Street address</Label>
-            <Input
+            <AddressAutocomplete
               id="loc-address"
-              placeholder="e.g. 123 Main Street"
+              placeholder="Start typing a South African address…"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={setAddress}
+              onSelect={(s) => {
+                setAddress(s.street || s.place_name || address);
+                if (s.city) setCity(s.city);
+                if (s.lat != null) setLat(String(s.lat));
+                if (s.lng != null) setLng(String(s.lng));
+              }}
               disabled={submitting}
-              maxLength={255}
             />
+            <p className="text-xs text-gray-500">Pick a suggestion to set the location on the map automatically.</p>
           </div>
 
           {/* City + Country row */}
