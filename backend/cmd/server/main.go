@@ -48,6 +48,7 @@ import (
 	"github.com/beepbite/backend/internal/handlers/dualdrawer"
 	"github.com/beepbite/backend/internal/handlers/favorites"
 	"github.com/beepbite/backend/internal/handlers/fiscal"
+	"github.com/beepbite/backend/internal/handlers/geocode"
 	"github.com/beepbite/backend/internal/handlers/giftcards"
 	"github.com/beepbite/backend/internal/handlers/hardware"
 	"github.com/beepbite/backend/internal/handlers/houseaccounts"
@@ -411,6 +412,10 @@ func main() {
 	// Public customer live-tracking (no auth — the order_tracking_token is the
 	// access key; the SQL gate + pings_visible_to_customer enforce privacy).
 	trackingH.Mount(r)
+
+	// Public address autocomplete (Mapbox proxy, SA-biased; token stays
+	// server-side; graceful empty result when MAPBOX_TOKEN is unset).
+	geocode.NewHandler(mbClient).Mount(r)
 
 	// Wave 22 — external public API, authenticated by scoped API keys
 	// (Authorization: Bearer bb_live_…) + per-key rate limiting. Reuses the same
