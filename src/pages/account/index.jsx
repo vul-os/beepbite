@@ -4,8 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  User, 
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import SecuritySettings from "@/pages/settings/security";
+import DataPrivacySettings from "@/pages/settings/account";
+import {
+  User,
   Save,
   CheckCircle,
   Loader2,
@@ -191,6 +194,15 @@ const Account = () => {
           </div>
         )}
       </div>
+
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="privacy">Data &amp; Privacy</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="space-y-6 mt-2">
 
       {/* Google Auth Warning */}
       {isGoogleAuth && (
@@ -393,6 +405,16 @@ const Account = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-2">
+          <SecuritySettings />
+        </TabsContent>
+
+        <TabsContent value="privacy" className="mt-2">
+          <DataPrivacySettings />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
