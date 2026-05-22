@@ -8,6 +8,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+func jsonUnmarshal(b []byte, v any) error {
+	return json.Unmarshal(b, v)
+}
+
 func jsonBytes(m map[string]any) ([]byte, error) {
 	if m == nil {
 		return []byte("{}"), nil

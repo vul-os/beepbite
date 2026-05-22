@@ -248,6 +248,8 @@ func main() {
 	memberInviteH.Notifier = func(toEmail, role, _ /*orgID*/ string) {
 		emailNotify(toEmail, "member_invite", map[string]any{"role": role, "inviteURL": "/signup"})
 	}
+	// Wire transactional email into the auth flows (verify-email + password-reset).
+	authH.EmailNotifier = emailNotify
 	// Compose the post-signup hook: auto-accept matching driver + member invites,
 	// then send a welcome email. Every step is best-effort and must not fail signup.
 	authH.WithPool(database.Pool, func(ctx context.Context, pool *pgxpool.Pool, profileID, userEmail string) error {

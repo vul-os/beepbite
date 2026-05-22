@@ -1,4 +1,4 @@
-import { Plus, Users, Circle } from "lucide-react"
+import { Plus, Users, Circle, LayoutGrid, PencilRuler } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -125,6 +125,41 @@ function WalkInTile({ walkIn, isActive, onSelect }) {
   )
 }
 
+// Shown when the active location has zero tables — i.e. no floor plan exists
+// yet. Owners/managers get a CTA to the floor editor; everyone else gets
+// guidance to ask a manager.
+function NoFloorPlanCard({ canDesignFloor, onDesignFloor }) {
+  return (
+    <div
+      role="status"
+      className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/60 px-4 py-3"
+    >
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-500">
+        <LayoutGrid className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-gray-900">
+          No floor plan yet — set up your tables to start seating dine-in guests.
+        </p>
+        <p className="mt-0.5 text-xs text-gray-500">
+          {canDesignFloor
+            ? "Design your floor plan to place tables, then you can seat dine-in guests. Takeaway works without a floor plan."
+            : "Ask your manager to set up the floor plan before taking dine-in orders. You can still take takeaway orders."}
+        </p>
+      </div>
+      {canDesignFloor && (
+        <Button
+          onClick={onDesignFloor}
+          className="flex-shrink-0 bg-orange-500 hover:bg-orange-600 text-white focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1"
+        >
+          <PencilRuler className="mr-2 h-4 w-4" />
+          Design floor plan
+        </Button>
+      )}
+    </div>
+  )
+}
+
 export function TablesStrip({
   tables = [],
   walkIns = [],
@@ -132,9 +167,47 @@ export function TablesStrip({
   onSelect,
   onAddWalkIn,
   loading = false,
+  canDesignFloor = false,
+  onDesignFloor,
 }) {
+  // No floor plan designed yet (zero tables for this location). The walk-in
+  // tickets the cashier may already have open should still be reachable, so
+  // only swap to the pure empty-state when there are no walk-ins either.
+  const noFloorPlan = !loading && tables.length === 0
+
+  if (noFloorPlan && walkIns.length === 0) {
+    return (
+      <div className="w-full px-1 py-1">
+        <div className="flex items-center gap-2">
+          <NoFloorPlanCard canDesignFloor={canDesignFloor} onDesignFloor={onDesignFloor} />
+          {/* Keep the "New tab" affordance so takeaway is always one tap away. */}
+          <Button
+            variant="outline"
+            onClick={onAddWalkIn}
+            aria-label="New walk-in tab"
+            className={cn(
+              "flex-shrink-0 w-24 h-[4.5rem] rounded-xl flex flex-col items-center justify-center gap-1",
+              "border-dashed border-2 border-gray-300 text-gray-500",
+              "hover:border-orange-400 hover:text-orange-500 hover:bg-orange-50",
+              "focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1",
+              "transition-colors",
+            )}
+          >
+            <Plus className="w-5 h-5" />
+            <span className="text-[10px] leading-none font-medium">New tab</span>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full">
+      {noFloorPlan && (
+        <div className="px-1 pb-2">
+          <NoFloorPlanCard canDesignFloor={canDesignFloor} onDesignFloor={onDesignFloor} />
+        </div>
+      )}
       <div
         role="tablist"
         aria-label="Tables and walk-in tickets"

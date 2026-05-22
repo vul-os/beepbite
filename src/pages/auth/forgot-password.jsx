@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ChevronLeft, Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '@/lib/api-client';
 
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
@@ -31,8 +32,11 @@ const ForgotPasswordPage = () => {
 
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Password reset requested for:', email);
+      // Always returns 200 — backend never reveals whether email exists.
+      await api.request('POST', '/auth/password/forgot', {
+        auth: false,
+        body: { email },
+      });
       setIsSubmitted(true);
     } catch (err) {
       setError('Failed to send reset link. Please try again.');

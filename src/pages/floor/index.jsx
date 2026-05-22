@@ -185,9 +185,10 @@ export default function FloorLive() {
             <Card>
               <CardContent className="p-10 text-center">
                 <LayoutGrid className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 mb-1">No tables yet</h3>
+                <h3 className="font-medium text-gray-900 mb-1">No floor plan yet</h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Set up sections and tables to start tracking dine-in service.
+                  Design your floor plan — place tables in the editor — before cashiers
+                  can seat dine-in guests at the POS.
                 </p>
                 <Button asChild>
                   <Link to="/floor/edit">

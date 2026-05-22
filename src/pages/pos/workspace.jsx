@@ -235,6 +235,19 @@ export default function PosWorkspacePage() {
   const isAuthed = Boolean(actor || staff || user);
   useEffect(() => { if (!isAuthed) navigate('/pos/login', { replace: true }); }, [isAuthed, navigate]);
 
+  // Owner/manager detection — used to gate the "Design floor plan" CTA.
+  // Signals, in priority order:
+  //   1. Actor PIN overlay → its role string (owner/manager/admin).
+  //   2. Legacy staff PIN session → its role string.
+  //   3. No staff/actor at all → an owner/admin Supabase email login (full access).
+  const isOwnerManager = useMemo(() => {
+    const elevated = (r) => ['owner', 'manager', 'admin'].includes(String(r || '').toLowerCase());
+    if (actor) return elevated(actor.role);
+    if (staff) return elevated(staff.role);
+    // Supabase email session with no staff overlay == owner/admin.
+    return Boolean(user);
+  }, [actor, staff, user]);
+
   // ----- register session ------------------------------------------------
   // Mirrors home/index.jsx: only staff PIN sessions need an open cash drawer.
   // Owners/admins (Supabase email login) can place orders without one — they
@@ -288,6 +301,14 @@ export default function PosWorkspacePage() {
   const [walkInCounter, setWalkInCounter] = useState(1);
   const [openingTable, setOpeningTable] = useState(false);
 
+  // A floor plan exists once the location has at least one table row. Until
+  // then, dine-in cannot proceed (there is nothing to seat a guest at).
+  const hasFloorPlan = tables.length > 0;
+
+  const handleDesignFloor = useCallback(() => {
+    navigate('/floor/edit');
+  }, [navigate]);
+
   // Assign a course to a new (unsent) item on the active ticket.
   // Defined here (after tickets/activeTicketId state) to avoid a temporal
   // dead-zone error from the parallel Wave 11 edits.
@@ -329,6 +350,24 @@ export default function PosWorkspacePage() {
   const handleOpenAdjustment = useCallback(({ orderId, type }) => {
     setAdjustmentModal({ orderId, type });
   }, []);
+
+  // Eat-in entry point. A dine-in order needs a table; if no floor plan has
+  // been designed (zero tables for this location) there is nothing to pick, so
+  // we surface the same "design your floor plan first" guidance instead of
+  // opening an empty table picker. Takeaway remains available (no table needed).
+  const handleStartEatIn = useCallback(() => {
+    if (!hasFloorPlan) {
+      toast({
+        variant: 'destructive',
+        title: 'No floor plan yet',
+        description: isOwnerManager
+          ? 'Design your floor plan to add tables before seating dine-in guests.'
+          : 'Ask your manager to set up the floor plan before taking dine-in orders. You can still take takeaway orders.',
+      });
+      return;
+    }
+    setShowTablePicker(true);
+  }, [hasFloorPlan, isOwnerManager, toast]);
 
   // ----- split tender (TenderModal) state ---------------------------------
   const [showTenderModal, setShowTenderModal] = useState(false);
@@ -1000,7 +1039,7 @@ export default function PosWorkspacePage() {
 
           <div className="flex items-center gap-1.5">
             {activeTicket && (
-              <Button size="sm" variant="outline" onClick={() => setShowTablePicker(true)}
+              <Button size="sm" variant="outline" onClick={handleStartEatIn}
                 aria-label={activeTicket.kind === 'walkin' ? 'Assign this ticket to a table' : 'Move to a different table'}
                 className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
                 <MapPin className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
@@ -1056,6 +1095,8 @@ export default function PosWorkspacePage() {
             onSelect={handleSelectTile}
             onAddWalkIn={handleAddWalkIn}
             loading={tablesLoading}
+            canDesignFloor={isOwnerManager}
+            onDesignFloor={handleDesignFloor}
           />
         </div>
       </header>
@@ -1127,13 +1168,15 @@ export default function PosWorkspacePage() {
                   {/* Eat-in */}
                   <button
                     type="button"
-                    onClick={() => setShowTablePicker(true)}
+                    onClick={handleStartEatIn}
                     aria-label="Start eat-in order — select a table"
                     className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 bg-white hover:bg-green-50 hover:border-green-400 active:bg-green-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
                   >
                     <Utensils className="w-10 h-10 text-green-600" />
                     <span className="text-base font-bold text-gray-900">Eat-in</span>
-                    <span className="text-[11px] text-gray-400">Select a table</span>
+                    <span className="text-[11px] text-gray-400">
+                      {hasFloorPlan ? 'Select a table' : 'Floor plan needed'}
+                    </span>
                   </button>
                   {/* Takeaway */}
                   <button
