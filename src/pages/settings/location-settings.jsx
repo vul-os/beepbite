@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import AddressAutocomplete from "@/components/address-autocomplete";
 import { 
   MapPin, 
   Settings as SettingsIcon,
@@ -377,13 +378,20 @@ const LocationSettings = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Address
                 </label>
-                <Textarea
-                  placeholder="123 Main Street, City, State, ZIP Code"
+                <AddressAutocomplete
+                  placeholder="Start typing a South African address…"
                   value={formData.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  rows={3}
+                  onChange={(text) => handleInputChange('address', text)}
+                  onSelect={(s) => {
+                    handleInputChange('address', s.place_name || s.street || formData.address);
+                    if (s.lat != null) handleInputChange('latitude', String(s.lat));
+                    if (s.lng != null) handleInputChange('longitude', String(s.lng));
+                  }}
                   className="w-full focus:ring-orange-500 focus:border-orange-500"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Pick a suggestion to auto-fill the map coordinates below.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
