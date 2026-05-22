@@ -78,8 +78,12 @@ func NewDBRegistryFromEnv(pool *pgxpool.Pool) (*DBRegistry, error) {
 	if secret == "" {
 		secret = os.Getenv("PAYMENT_KEY_ENCRYPTION_SECRET")
 	}
+	// The encryption box is ONLY needed to decrypt BYO per-store email
+	// credentials. The platform/central provider (built from RESEND_API_KEY etc.)
+	// needs no decryption, so a missing secret must NOT disable transactional
+	// email — it only disables the BYO path (buildBYOProvider nil-checks the box).
 	if secret == "" {
-		return nil, errors.New("email: EMAIL_KEY_ENCRYPTION_SECRET (or PAYMENT_KEY_ENCRYPTION_SECRET) env var is required")
+		return NewDBRegistry(pool, nil), nil
 	}
 	box, err := secretbox.New(secret)
 	if err != nil {
@@ -94,6 +98,18 @@ func NewDBRegistryFromEnv(pool *pgxpool.Pool) (*DBRegistry, error) {
 // one email credit against locationID.  This package deliberately does not
 // import the metering package to keep the dependency graph clean.
 func (r *DBRegistry) For(ctx context.Context, locationID string) (Provider, bool, error) {
+	// An empty locationID means "no specific store" (platform-level mail such as
+	// auth/verify, password-reset, invites). Skip the per-location BYO lookup —
+	// location_id is a uuid column, so querying it with "" would error — and use
+	// the platform/central provider directly.
+	if locationID == "" {
+		p, err := r.buildPlatformProvider()
+		if err != nil {
+			return nil, false, err
+		}
+		return p, false, nil
+	}
+
 	// ── Step 1: try per-location BYO credentials ─────────────────────────────
 	row, err := queryLocationCredentials(ctx, r.pool, locationID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
