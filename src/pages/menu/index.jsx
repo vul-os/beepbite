@@ -101,6 +101,8 @@ const Menu = () => {
   const [complexityFilter, setComplexityFilter] = useState('all');
   const [itemUsageFilter, setItemUsageFilter] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRecipeBuilderOpen, setIsRecipeBuilderOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -289,6 +291,30 @@ const Menu = () => {
       auto_calculate_cost: false,
       is_recipe_ingredient: false
     });
+  };
+
+  // Inline category creation from the add/edit item modal, so an empty menu
+  // (a brand-new location with no categories) isn't a dead end — you can create
+  // the first category right where you add the first item.
+  const createCategoryInline = async () => {
+    const nm = newCategoryName.trim();
+    if (!nm || !activeLocation) return;
+    setCreatingCategory(true);
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .insert({ location_id: activeLocation.id, name: nm, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      setCategories((prev) => [...prev, data]);
+      handleInputChange('category_id', data.id);
+      setNewCategoryName('');
+    } catch (e) {
+      alert(e.message || 'Failed to create category');
+    } finally {
+      setCreatingCategory(false);
+    }
   };
 
   const addItem = async () => {
@@ -610,6 +636,29 @@ const Menu = () => {
               ))}
             </SelectContent>
           </Select>
+          {/* Inline category creation — no category? make one here. */}
+          <div className="mt-2 flex items-center gap-2">
+            <Input
+              placeholder={categories.length === 0 ? 'Create your first category (e.g. Burgers)' : '…or add a new category'}
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createCategoryInline(); } }}
+              className="h-9"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={createCategoryInline}
+              disabled={creatingCategory || !newCategoryName.trim()}
+              className="border-orange-200 text-orange-600 hover:bg-orange-50 whitespace-nowrap"
+            >
+              {creatingCategory ? '…' : '+ Add'}
+            </Button>
+          </div>
+          {categories.length === 0 && (
+            <p className="mt-1 text-xs text-amber-600">No categories yet — add one above to enable creating your first item.</p>
+          )}
         </div>
         
         <div>
