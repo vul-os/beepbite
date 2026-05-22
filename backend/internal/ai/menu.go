@@ -9,26 +9,38 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/beepbite/backend/internal/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const geminiURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+// defaultGeminiModel is a current, stable, multimodal (text+image) model.
+// Override via the GEMINI_MODEL env var if Google deprecates/renames it.
+const defaultGeminiModel = "gemini-2.5-flash"
 
 type Service struct {
 	pool       *pgxpool.Pool
 	apiKey     string
+	model      string
 	httpClient *http.Client
 }
 
-func New(pool *pgxpool.Pool, openaiKey string) *Service {
+// New builds the AI menu service. geminiKey is the Google Gemini API key — the
+// service calls the Gemini generateContent endpoint for s.model.
+func New(pool *pgxpool.Pool, geminiKey string) *Service {
+	model := os.Getenv("GEMINI_MODEL")
+	if model == "" {
+		model = defaultGeminiModel
+	}
 	return &Service{
 		pool:       pool,
-		apiKey:     openaiKey,
+		apiKey:     geminiKey,
+		model:      model,
 		httpClient: &http.Client{Timeout: 120 * time.Second},
 	}
 }
@@ -197,9 +209,11 @@ func svcErr(status int, code, msg string) *ServiceError {
 
 func (s *Service) GetLocation(ctx context.Context, locationID string) (*Location, error) {
 	var loc Location
-	err := s.pool.QueryRow(ctx,
-		`SELECT id, name FROM locations WHERE id = $1`, locationID,
-	).Scan(&loc.ID, &loc.Name)
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx,
+			`SELECT id, name FROM locations WHERE id = $1`, locationID,
+		).Scan(&loc.ID, &loc.Name)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, svcErr(http.StatusBadRequest, "LOCATION_NOT_FOUND", "Location not found")
 	}
@@ -323,7 +337,9 @@ func (s *Service) HandleConfirm(ctx context.Context, req *ConfirmRequest, loc *L
 // --- DB: existing items ---
 
 func (s *Service) getExistingItems(ctx context.Context, locationID string) ([]ExistingItem, error) {
-	rows, err := s.pool.Query(ctx, `
+	var out []ExistingItem
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
 SELECT i.id, i.name, COALESCE(i.description, ''), i.price,
        COALESCE(i.preparation_time, 0),
        i.category_id, c.name
@@ -331,77 +347,84 @@ FROM items i
 JOIN categories c ON c.id = i.category_id
 WHERE i.location_id = $1 AND i.is_active = true
 `, locationID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []ExistingItem
-	for rows.Next() {
-		var e ExistingItem
-		if err := rows.Scan(&e.ID, &e.Name, &e.Description, &e.Price, &e.PreparationTime, &e.CategoryID, &e.CategoryName); err != nil {
-			return nil, err
+		if err != nil {
+			return err
 		}
-		e.CategoryPath = []string{e.CategoryName}
-		e.Variations = []ItemVariation{}
-		out = append(out, e)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
+		// Read all parent rows into the slice before running child queries on
+		// the same tx — pgx forbids issuing a new query while iterating rows
+		// on the same connection.
+		func() {
+			defer rows.Close()
+			for rows.Next() {
+				var e ExistingItem
+				if err := rows.Scan(&e.ID, &e.Name, &e.Description, &e.Price, &e.PreparationTime, &e.CategoryID, &e.CategoryName); err != nil {
+					return
+				}
+				e.CategoryPath = []string{e.CategoryName}
+				e.Variations = []ItemVariation{}
+				out = append(out, e)
+			}
+		}()
+		if err := rows.Err(); err != nil {
+			return err
+		}
 
-	for i := range out {
-		// Variations are now modeled as modifier_groups (the group) with
-		// modifiers (the selectable options). price_delta_cents is stored in
-		// cents; convert to dollars for the VariationOption.PriceModifier.
-		vRows, err := s.pool.Query(ctx, `
+		for i := range out {
+			// Variations are now modeled as modifier_groups (the group) with
+			// modifiers (the selectable options). price_delta_cents is stored in
+			// cents; convert to dollars for the VariationOption.PriceModifier.
+			vRows, err := tx.Query(ctx, `
 SELECT mg.id, mg.name, mg.is_required
 FROM modifier_groups mg
 WHERE mg.item_id = $1
 ORDER BY mg.sort_order
 `, out[i].ID)
-		if err != nil {
-			continue
-		}
-		type vrow struct {
-			id         string
-			name       string
-			isRequired bool
-		}
-		var vrows []vrow
-		for vRows.Next() {
-			var v vrow
-			if err := vRows.Scan(&v.id, &v.name, &v.isRequired); err == nil {
-				vrows = append(vrows, v)
+			if err != nil {
+				continue
 			}
-		}
-		vRows.Close()
+			type vrow struct {
+				id         string
+				name       string
+				isRequired bool
+			}
+			var vrows []vrow
+			for vRows.Next() {
+				var v vrow
+				if err := vRows.Scan(&v.id, &v.name, &v.isRequired); err == nil {
+					vrows = append(vrows, v)
+				}
+			}
+			vRows.Close()
 
-		for _, v := range vrows {
-			variation := ItemVariation{Name: v.name, IsRequired: v.isRequired, Options: []VariationOption{}}
-			optRows, err := s.pool.Query(ctx, `
+			for _, v := range vrows {
+				variation := ItemVariation{Name: v.name, IsRequired: v.isRequired, Options: []VariationOption{}}
+				optRows, err := tx.Query(ctx, `
 SELECT name, COALESCE(price_delta_cents, 0), COALESCE(is_default, false)
 FROM modifiers
 WHERE modifier_group_id = $1 AND is_active = true
 ORDER BY sort_order
 `, v.id)
-			if err == nil {
-				for optRows.Next() {
-					var (
-						o             VariationOption
-						priceDeltaCts int64
-					)
-					if err := optRows.Scan(&o.Name, &priceDeltaCts, &o.IsDefault); err == nil {
-						o.PriceModifier = float64(priceDeltaCts) / 100.0
-						variation.Options = append(variation.Options, o)
+				if err == nil {
+					for optRows.Next() {
+						var (
+							o             VariationOption
+							priceDeltaCts int64
+						)
+						if err := optRows.Scan(&o.Name, &priceDeltaCts, &o.IsDefault); err == nil {
+							o.PriceModifier = float64(priceDeltaCts) / 100.0
+							variation.Options = append(variation.Options, o)
+						}
 					}
+					optRows.Close()
 				}
-				optRows.Close()
+				out[i].Variations = append(out[i].Variations, variation)
 			}
-			out[i].Variations = append(out[i].Variations, variation)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-
 	return out, nil
 }
 
@@ -622,121 +645,139 @@ func (s *Service) processUserDecisions(ctx context.Context, locationID string, d
 		}
 	}
 
-	for name := range needed {
-		var id string
-		err := s.pool.QueryRow(ctx,
-			`SELECT id FROM categories WHERE location_id = $1 AND name = $2 LIMIT 1`,
-			locationID, name,
-		).Scan(&id)
-		if err == nil {
-			categoryMap[name] = id
-			continue
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return nil, err
+	// Wrap the entire confirm in one tenant-scoped transaction so it is atomic
+	// and so RLS (FORCE ROW LEVEL SECURITY) permits the caller's own location +
+	// categories/items/modifiers. categories requires organization_id, which we
+	// resolve from the location inside the same tx (this path does not go
+	// through the /data layer, so nothing auto-injects it).
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		var organizationID string
+		if err := tx.QueryRow(ctx,
+			`SELECT organization_id FROM locations WHERE id = $1`, locationID,
+		).Scan(&organizationID); err != nil {
+			return err
 		}
 
-		err = s.pool.QueryRow(ctx, `
-INSERT INTO categories (location_id, name, is_active, sort_order)
-VALUES ($1, $2, true, $3)
+		for name := range needed {
+			var id string
+			err := tx.QueryRow(ctx,
+				`SELECT id FROM categories WHERE location_id = $1 AND name = $2 LIMIT 1`,
+				locationID, name,
+			).Scan(&id)
+			if err == nil {
+				categoryMap[name] = id
+				continue
+			}
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+
+			err = tx.QueryRow(ctx, `
+INSERT INTO categories (location_id, organization_id, name, is_active, sort_order)
+VALUES ($1, $2, $3, true, $4)
 RETURNING id
-`, locationID, name, results.CategoriesCreated).Scan(&id)
-		if err == nil {
-			categoryMap[name] = id
-			results.CategoriesCreated++
-		}
-	}
-
-	for _, d := range decisions {
-		if d.Action == "skip" {
-			results.ItemsSkipped++
-			results.SuccessfulItems = append(results.SuccessfulItems, d)
-			continue
+`, locationID, organizationID, name, results.CategoriesCreated).Scan(&id)
+			if err == nil {
+				categoryMap[name] = id
+				results.CategoriesCreated++
+			}
 		}
 
-		item := mergeDecision(d)
-		if strings.TrimSpace(item.Name) == "" {
-			results.FailedItems = append(results.FailedItems, d)
-			continue
-		}
-		if math.IsNaN(item.Price) {
-			results.FailedItems = append(results.FailedItems, d)
-			continue
-		}
-		if len(item.CategoryPath) == 0 {
-			results.FailedItems = append(results.FailedItems, d)
-			continue
-		}
-		leaf := item.CategoryPath[len(item.CategoryPath)-1]
-		categoryID, ok := categoryMap[leaf]
-		if !ok {
-			results.FailedItems = append(results.FailedItems, d)
-			continue
-		}
+		for _, d := range decisions {
+			if d.Action == "skip" {
+				results.ItemsSkipped++
+				results.SuccessfulItems = append(results.SuccessfulItems, d)
+				continue
+			}
 
-		prepTime := item.PreparationTime
-		if prepTime == 0 {
-			prepTime = 15
-		}
-
-		switch d.Action {
-		case "update":
-			if d.ExistingItemID == "" {
+			item := mergeDecision(d)
+			if strings.TrimSpace(item.Name) == "" {
 				results.FailedItems = append(results.FailedItems, d)
 				continue
 			}
-			_, err := s.pool.Exec(ctx, `
+			if math.IsNaN(item.Price) {
+				results.FailedItems = append(results.FailedItems, d)
+				continue
+			}
+			if len(item.CategoryPath) == 0 {
+				results.FailedItems = append(results.FailedItems, d)
+				continue
+			}
+			leaf := item.CategoryPath[len(item.CategoryPath)-1]
+			categoryID, ok := categoryMap[leaf]
+			if !ok {
+				results.FailedItems = append(results.FailedItems, d)
+				continue
+			}
+
+			prepTime := item.PreparationTime
+			if prepTime == 0 {
+				prepTime = 15
+			}
+
+			switch d.Action {
+			case "update":
+				if d.ExistingItemID == "" {
+					results.FailedItems = append(results.FailedItems, d)
+					continue
+				}
+				_, err := tx.Exec(ctx, `
 UPDATE items SET name=$1, description=$2, price=$3, preparation_time=$4, category_id=$5
 WHERE id = $6
 `, item.Name, nullIfEmpty(item.Description), item.Price, prepTime, categoryID, d.ExistingItemID)
-			if err != nil {
-				results.FailedItems = append(results.FailedItems, d)
-				continue
-			}
-			results.ItemsUpdated++
-			results.SuccessfulItems = append(results.SuccessfulItems, d)
-			results.VariationsCreated += len(item.Variations)
+				if err != nil {
+					results.FailedItems = append(results.FailedItems, d)
+					continue
+				}
+				results.ItemsUpdated++
+				results.SuccessfulItems = append(results.SuccessfulItems, d)
+				results.VariationsCreated += len(item.Variations)
 
-		case "create_new":
-			var newItemID string
-			err := s.pool.QueryRow(ctx, `
+			case "create_new":
+				var newItemID string
+				err := tx.QueryRow(ctx, `
 INSERT INTO items (location_id, category_id, name, description, price, preparation_time, is_active, sort_order)
 VALUES ($1, $2, $3, $4, $5, $6, true, $7)
 RETURNING id
 `, locationID, categoryID, item.Name, nullIfEmpty(item.Description), item.Price, prepTime, results.ItemsCreated).Scan(&newItemID)
-			if err != nil {
-				results.FailedItems = append(results.FailedItems, d)
-				continue
-			}
-			results.ItemsCreated++
-			results.SuccessfulItems = append(results.SuccessfulItems, d)
+				if err != nil {
+					results.FailedItems = append(results.FailedItems, d)
+					continue
+				}
+				results.ItemsCreated++
+				results.SuccessfulItems = append(results.SuccessfulItems, d)
 
-			for vIdx, variation := range item.Variations {
-				// Variations map to modifier_groups; options map to modifiers.
-				// max_select defaults to 1 to satisfy the modifier_groups CHECK
-				// (max_select >= 1 and >= min_select). PriceModifier is in
-				// dollars, store as price_delta_cents.
-				var newVarID string
-				err := s.pool.QueryRow(ctx, `
+				for vIdx, variation := range item.Variations {
+					// Variations map to modifier_groups; options map to modifiers.
+					// max_select defaults to 1 to satisfy the modifier_groups CHECK
+					// (max_select >= 1 and >= min_select). PriceModifier is in
+					// dollars, store as price_delta_cents.
+					var newVarID string
+					err := tx.QueryRow(ctx, `
 INSERT INTO modifier_groups (item_id, name, is_required, sort_order)
 VALUES ($1, $2, $3, $4)
 RETURNING id
 `, newItemID, variation.Name, variation.IsRequired, vIdx).Scan(&newVarID)
-				if err != nil {
-					continue
-				}
-				results.VariationsCreated++
-				for oIdx, opt := range variation.Options {
-					priceDeltaCents := int64(opt.PriceModifier*100 + 0.5)
-					_, _ = s.pool.Exec(ctx, `
+					if err != nil {
+						continue
+					}
+					results.VariationsCreated++
+					for oIdx, opt := range variation.Options {
+						priceDeltaCents := int64(opt.PriceModifier*100 + 0.5)
+						_, _ = tx.Exec(ctx, `
 INSERT INTO modifiers (modifier_group_id, name, price_delta_cents, is_default, sort_order)
 VALUES ($1, $2, $3, $4, $5)
 `, newVarID, opt.Name, priceDeltaCents, opt.IsDefault, oIdx)
+					}
 				}
+			default:
+				results.FailedItems = append(results.FailedItems, d)
 			}
-		default:
-			results.FailedItems = append(results.FailedItems, d)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return results, nil
@@ -1073,7 +1114,7 @@ func (s *Service) makeGeminiRequest(ctx context.Context, requestBody map[string]
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s?key=%s", geminiURL, s.apiKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", s.model, s.apiKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err

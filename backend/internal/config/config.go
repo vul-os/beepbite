@@ -57,6 +57,7 @@ type Config struct {
 
 	MapboxToken  string
 	OpenAIAPIKey string
+	GeminiAPIKey string
 }
 
 // Load reads the env file that matches `env` (local/dev/main) from the repo
@@ -127,6 +128,7 @@ func Load(env string) (*Config, error) {
 		ResendFrom:            os.Getenv("RESEND_FROM"),
 		MapboxToken:           os.Getenv("MAPBOX_TOKEN"),
 		OpenAIAPIKey:          os.Getenv("OPENAI_API_KEY"),
+		GeminiAPIKey:          os.Getenv("GEMINI_API_KEY"),
 	}
 
 	if c.DatabaseURL == "" {
