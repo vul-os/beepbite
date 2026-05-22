@@ -71,7 +71,9 @@ func (h *Handler) createInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	req.Email = strings.TrimSpace(req.Email)
+	// Normalise to lowercase so stored invites match the case-insensitive
+	// lookup/accept logic (lower(email) = lower(...)) and display consistently.
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if req.Email == "" {
 		writeErr(w, http.StatusBadRequest, "email is required")
 		return
