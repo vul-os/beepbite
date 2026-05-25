@@ -10,6 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 // ErrNotFound is returned when the requested credential row does not exist.
@@ -70,7 +72,8 @@ const credCols = `id, location_id, provider_code, public_key, is_active, created
 // On conflict it updates keys and sets is_active=true.
 func (s *Store) Upsert(ctx context.Context, p upsertParams) (*credentialRow, error) {
 	var out credentialRow
-	err := scanCredentialRow(s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return scanCredentialRow(tx.QueryRow(ctx, `
 INSERT INTO location_payment_credentials
     (location_id, provider_code, public_key,
      secret_key_ciphertext, webhook_secret_ciphertext,
@@ -84,9 +87,10 @@ ON CONFLICT (location_id, provider_code) DO UPDATE
         configured_by               = EXCLUDED.configured_by,
         updated_at                  = timezone('utc'::text, now())
 RETURNING `+credCols,
-		p.LocationID, p.ProviderCode, p.PublicKey,
-		p.SecretKeyCiphertext, p.WebhookSecretCiphertext, p.ConfiguredBy,
-	), &out)
+			p.LocationID, p.ProviderCode, p.PublicKey,
+			p.SecretKeyCiphertext, p.WebhookSecretCiphertext, p.ConfiguredBy,
+		), &out)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -95,43 +99,56 @@ RETURNING `+credCols,
 
 // GetByLocation returns all active credentials for a location.
 func (s *Store) GetByLocation(ctx context.Context, locationID string) ([]credentialRow, error) {
-	rows, err := s.pool.Query(ctx, `
+	var out []credentialRow
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
 SELECT `+credCols+`
 FROM location_payment_credentials
 WHERE location_id = $1 AND is_active = true
 ORDER BY created_at DESC
 `, locationID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var c credentialRow
+			if err := scanCredentialRow(rows, &c); err != nil {
+				return err
+			}
+			out = append(out, c)
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return nil, err
-	}
-	defer rows.Close()
-
-	var out []credentialRow
-	for rows.Next() {
-		var c credentialRow
-		if err := scanCredentialRow(rows, &c); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
 	}
 	if out == nil {
 		out = []credentialRow{}
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // SoftDelete sets is_active=false for the given credential ID.
 // Returns ErrNotFound if the row doesn't exist or is already inactive.
 func (s *Store) SoftDelete(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `
+	var rowsAffected int64
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `
 UPDATE location_payment_credentials
 SET is_active = false, updated_at = timezone('utc'::text, now())
 WHERE id = $1 AND is_active = true
 `, id)
+		if err != nil {
+			return err
+		}
+		rowsAffected = tag.RowsAffected()
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	if tag.RowsAffected() == 0 {
+	if rowsAffected == 0 {
 		return ErrNotFound
 	}
 	return nil
@@ -147,15 +164,17 @@ type credentialFull struct {
 
 func (s *Store) GetByIDFull(ctx context.Context, id string) (*credentialFull, error) {
 	var out credentialFull
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT `+credCols+`, secret_key_ciphertext, webhook_secret_ciphertext
 FROM location_payment_credentials
 WHERE id = $1
 `, id).Scan(
-		&out.ID, &out.LocationID, &out.ProviderCode,
-		&out.PublicKey, &out.IsActive, &out.CreatedAt, &out.UpdatedAt,
-		&out.SecretKeyCiphertext, &out.WebhookSecretCiphertext,
-	)
+			&out.ID, &out.LocationID, &out.ProviderCode,
+			&out.PublicKey, &out.IsActive, &out.CreatedAt, &out.UpdatedAt,
+			&out.SecretKeyCiphertext, &out.WebhookSecretCiphertext,
+		)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

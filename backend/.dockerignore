@@ -1,0 +1,8 @@
+Dockerfile
+.dockerignore
+.git
+.github
+tests
+test_pos_kds_e2e.sh
+*.md
+docs

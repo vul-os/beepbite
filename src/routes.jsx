@@ -141,6 +141,8 @@ const OwnerAssistant = lazyImport(() => import('./pages/assistant'));
 const ManagerAudit = lazyImport(() => import('./pages/manager/audit'));
 const AdminWANumbers = lazyImport(() => import('./pages/admin/wa-numbers'));
 const SettingsDeliveryZones = lazyImport(() => import('./pages/settings/delivery-zones'));
+const SettingsLoyalty = lazyImport(() => import('./pages/settings/loyalty/stamps-config'));
+const SettingsLayout = lazyImport(() => import('./pages/settings/settings-layout'));
 const ManagerDashboard = lazyImport(() => import('./pages/manager'));
 const StaffManage = lazyImport(() => import('./pages/staff/manage'));
 const Reservations = lazyImport(() => import('./pages/reservations'));
@@ -271,25 +273,29 @@ const AppRoutes = () => {
             </Protected>
           } />
           
-          {/* Settings routes */}
-          <Route path="/settings" element={<Navigate to="/settings/organization" replace />} />
-          <Route path="/settings/organization" element={
-            <Protected>
-              <OrganizationSettings />
-            </Protected>
-          } />
-          <Route path="/settings/location/:locationId" element={
-            <Protected>
-              <LocationSettings />
-            </Protected>
-          } />
-          <Route path="/settings/location/:locationId/payments" element={
-            <Protected>
-              <SettingsLocationPayments />
-            </Protected>
-          } />
-          {/* Redirect old location settings route */}
-          <Route path="/settings/location" element={<Navigate to="/settings/organization" replace />} />
+          {/* Settings — all org-scoped admin pages share the SettingsLayout shell
+              (grouped sidebar on the left, page in the right pane). Each child
+              route renders inside the layout's <Outlet />. */}
+          <Route path="/settings" element={<Protected><SettingsLayout /></Protected>}>
+            <Route index element={<Navigate to="organization" replace />} />
+            <Route path="organization" element={<OrganizationSettings />} />
+            <Route path="location" element={<Navigate to="/settings/organization" replace />} />
+            <Route path="location/:locationId" element={<LocationSettings />} />
+            <Route path="location/:locationId/payments" element={<SettingsLocationPayments />} />
+            <Route path="payouts" element={<SettingsPayouts />} />
+            <Route path="promotions" element={<SettingsPromotions />} />
+            <Route path="billing" element={<SettingsBilling />} />
+            <Route path="billing/wallet" element={<SettingsWallet />} />
+            <Route path="api-keys" element={<SettingsApiKeys />} />
+            <Route path="kitchen" element={<SettingsKitchen />} />
+            <Route path="domains" element={<SettingsDomains />} />
+            <Route path="hardware" element={<SettingsHardware />} />
+            <Route path="delivery-zones" element={<SettingsDeliveryZones />} />
+            <Route path="loyalty" element={<SettingsLoyalty />} />
+            <Route path="security" element={<Navigate to="/account" replace />} />
+            <Route path="business-info" element={<Navigate to="/settings/organization" replace />} />
+            <Route path="account" element={<Navigate to="/account" replace />} />
+          </Route>
           
           <Route path="/account" element={
             <Protected>
@@ -312,21 +318,9 @@ const AppRoutes = () => {
           {/* Menu courses — kitchen fire course management (Wave 11) */}
           <Route path="/menu/courses" element={<Protected><MenuCourses /></Protected>} />
 
-          {/* Settings — payouts + promotions + billing */}
-          <Route path="/settings/payouts" element={<Protected><SettingsPayouts /></Protected>} />
-          <Route path="/settings/promotions" element={<Protected><SettingsPromotions /></Protected>} />
-          <Route path="/settings/billing" element={<Protected><SettingsBilling /></Protected>} />
-          <Route path="/settings/billing/wallet" element={<Protected><SettingsWallet /></Protected>} />
-          <Route path="/settings/api-keys" element={<Protected><SettingsApiKeys /></Protected>} />
-          <Route path="/settings/kitchen" element={<Protected><SettingsKitchen /></Protected>} />
+          {/* Admin — separate from /settings (platform-admin scope, not org). */}
           <Route path="/admin" element={<Protected><PlatformAdmin /></Protected>} />
-          {/* Remaining-roadmap protected app surfaces */}
           <Route path="/admin/wa-numbers" element={<Protected><AdminWANumbers /></Protected>} />
-          <Route path="/settings/domains" element={<Protected><SettingsDomains /></Protected>} />
-          <Route path="/settings/hardware" element={<Protected><SettingsHardware /></Protected>} />
-          <Route path="/settings/security" element={<Navigate to="/account" replace />} />
-          <Route path="/settings/business-info" element={<Navigate to="/settings/organization" replace />} />
-          <Route path="/settings/account" element={<Navigate to="/account" replace />} />
           <Route path="/invoices" element={<Protected><Invoices /></Protected>} />
           <Route path="/invoices/new" element={<Protected><InvoiceForm /></Protected>} />
           <Route path="/invoices/:id" element={<Protected><InvoiceDetail /></Protected>} />
@@ -353,7 +347,6 @@ const AppRoutes = () => {
           <Route path="/staff/manage" element={<Protected><StaffManage /></Protected>} />
           <Route path="/reservations" element={<Protected><Reservations /></Protected>} />
           <Route path="/waitlist" element={<Protected><Waitlist /></Protected>} />
-          <Route path="/settings/delivery-zones" element={<Protected><SettingsDeliveryZones /></Protected>} />
         </Route>
 
         {/* 404 Route */}

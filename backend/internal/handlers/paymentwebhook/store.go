@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/db"
 )
 
 // ErrDuplicate is returned when a webhook_event_log row with the same
@@ -35,7 +37,8 @@ func (s *Store) GetWebhookSecretCiphertext(ctx context.Context, providerCode, lo
 		return "", nil
 	}
 	var ct string
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 SELECT COALESCE(webhook_secret_ciphertext, '')
 FROM location_payment_credentials
 WHERE location_id = $1
@@ -43,6 +46,7 @@ WHERE location_id = $1
   AND is_active = true
 LIMIT 1
 `, locationID, providerCode).Scan(&ct)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
@@ -64,13 +68,15 @@ func (s *Store) LogWebhookEvent(ctx context.Context, provider, eventType, extern
 		return "", ErrNoPool
 	}
 	var id string
-	err := s.pool.QueryRow(ctx, `
+	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
 INSERT INTO webhook_event_log
     (provider, event_type, external_event_id, signature_valid, payload, processing_status)
 VALUES
     ($1, $2, $3, true, $4, 'pending')
 RETURNING id
 `, provider, eventType, externalEventID, json.RawMessage(payload)).Scan(&id)
+	})
 	if err != nil {
 		if isUniqueViolation(err) {
 			return "", ErrDuplicate
@@ -82,37 +88,43 @@ RETURNING id
 
 // MarkWebhookProcessed sets processing_status = 'processed'.
 func (s *Store) MarkWebhookProcessed(ctx context.Context, logID string) error {
-	_, err := s.pool.Exec(ctx, `
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE webhook_event_log
 SET processing_status = 'processed',
     processed_at      = now()
 WHERE id = $1
 `, logID)
-	return err
+		return err
+	})
 }
 
 // MarkWebhookFailed sets processing_status = 'failed' and stores the error.
 func (s *Store) MarkWebhookFailed(ctx context.Context, logID, errMsg string) error {
-	_, err := s.pool.Exec(ctx, `
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE webhook_event_log
 SET processing_status = 'failed',
     error_message     = $2,
     processed_at      = now()
 WHERE id = $1
 `, logID, errMsg)
-	return err
+		return err
+	})
 }
 
 // MarkWebhookIgnored sets processing_status = 'ignored'.
 func (s *Store) MarkWebhookIgnored(ctx context.Context, logID, reason string) error {
-	_, err := s.pool.Exec(ctx, `
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE webhook_event_log
 SET processing_status = 'ignored',
     error_message     = $2,
     processed_at      = now()
 WHERE id = $1
 `, logID, reason)
-	return err
+		return err
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -400,12 +412,14 @@ func (s *Store) HandleStripeChargeRefunded(ctx context.Context, data json.RawMes
 		return nil
 	}
 
-	_, err := s.pool.Exec(ctx, `
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
 UPDATE order_payments
 SET payment_status = 'refunded'
 WHERE order_id = $1
 `, orderID)
-	return err
+		return err
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -494,15 +508,7 @@ WHERE id = $1
 // ---------------------------------------------------------------------------
 
 func (s *Store) inTx(ctx context.Context, fn func(pgx.Tx) error) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	if err := fn(tx); err != nil {
-		_ = tx.Rollback(ctx)
-		return err
-	}
-	return tx.Commit(ctx)
+	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), fn)
 }
 
 func lockPayoutByCode(ctx context.Context, tx pgx.Tx, code string) (PayoutRow, error) {

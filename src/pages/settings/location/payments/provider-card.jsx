@@ -12,6 +12,7 @@ import {
   deletePaymentCredentials,
   testPaymentCredentials,
 } from '@/services/payments';
+import { ProviderLogo } from './provider-logo';
 
 /**
  * ProviderCard — displays one payment provider (paystack / stripe / payfast).
@@ -145,22 +146,12 @@ export function ProviderCard({
     }
   }
 
-  // Provider logo placeholder with brand colouring
-  const logoBg = {
-    paystack: 'bg-teal-50 text-teal-700 border-teal-200',
-    stripe: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    payfast: 'bg-gray-50 text-gray-500 border-gray-200',
-  }[provider] ?? 'bg-gray-50 text-gray-500 border-gray-200';
-
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            {/* Logo placeholder */}
-            <div className={`flex items-center justify-center w-12 h-12 rounded-lg border text-xs font-bold tracking-wide ${logoBg}`}>
-              {label.slice(0, 2).toUpperCase()}
-            </div>
+            <ProviderLogo provider={provider} size={48} />
             <div>
               <p className="text-sm font-semibold leading-none">{label}</p>
               {inactive && (

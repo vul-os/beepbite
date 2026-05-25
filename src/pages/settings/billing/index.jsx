@@ -10,6 +10,9 @@ import { PlanCard } from './components/plan-card';
 import { PlanPicker } from './components/plan-picker';
 import { MonthSummary } from './components/month-summary';
 import { RecentPayouts } from './components/recent-payouts';
+import { InvoicesList } from './components/invoices-list';
+import { WalletSummary } from './components/wallet-summary';
+import { PaymentMethodCard } from './components/payment-method-card';
 
 export default function BillingPage() {
   const { activeOrganization } = useAuth();
@@ -40,13 +43,13 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
+    <div className="p-6 space-y-6">
       {/* Page header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold">Billing</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage your subscription plan and review this month's fees.
+            Subscription plan, invoices, wallet balance, and payment method.
           </p>
         </div>
         <Button variant="outline" size="icon" onClick={refresh} disabled={loading} title="Refresh">
@@ -87,9 +90,20 @@ export default function BillingPage() {
         </section>
       )}
 
+      {/* Wallet + payment method row */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <WalletSummary />
+        <PaymentMethodCard />
+      </section>
+
       {/* Month summary */}
       <section>
         <MonthSummary summary={summary} loading={loading} />
+      </section>
+
+      {/* Invoices */}
+      <section>
+        <InvoicesList />
       </section>
 
       {/* Recent payouts */}

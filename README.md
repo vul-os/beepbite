@@ -96,6 +96,79 @@ WhatsApp webhook chatbot port.
   Splitting into a dedicated `STAFF_JWT_SECRET` is blocked on key-rotation
   tooling.
 
+## Deploy
+
+Hosting layout:
+
+- **Frontend** — Firebase Hosting, two sites in project `beepbite-e43e6`:
+  - `beepbite` → `beepbite.io` (prod)
+  - `beepbite-app-dev` → `dev.beepbite.io` (dev)
+- **Backend** — Cloud Run, region `us-east4`, project `beepbite-e43e6`:
+  - `beepbite-api` → `api.beepbite.io` (prod)
+  - `beepbite-api-dev` → `api-dev.beepbite.io` (dev)
+- **Database** — Neon Postgres, one project with two branches: `main` and `dev`. Connection strings live in `.env.main` / `.env.dev`.
+
+### Frontend
+
+```bash
+npm run deploy        # prod: build:main + firebase deploy hosting:main
+npm run deploy:dev    # dev:  build:dev  + firebase deploy hosting:dev
+```
+
+### Backend
+
+```bash
+# Prod
+gcloud run deploy beepbite-api \
+  --source=./backend --region=us-east4 \
+  --project=beepbite-e43e6 --allow-unauthenticated
+
+# Dev
+gcloud run deploy beepbite-api-dev \
+  --source=./backend --region=us-east4 \
+  --project=beepbite-e43e6 --allow-unauthenticated
+```
+
+Existing env vars on the service (DATABASE_URL, JWT_SECRET, GOOGLE_*, CORS_ORIGINS, …) are preserved across deploys. Use `--update-env-vars=KEY=VALUE` to change one.
+
+### Migrations
+
+```bash
+cd backend
+
+go run ./cmd/migrate --env=main --up   # prod Neon (main branch)
+go run ./cmd/migrate --env=dev  --up   # dev Neon (dev branch)
+```
+
+Idempotent — only un-applied migrations run, tracked in `schema_migrations`.
+
+### Reset DB (destructive)
+
+`--reset` drops the `public` schema and re-applies all migrations from scratch.
+
+```bash
+cd backend
+
+go run ./cmd/migrate --env=main --reset   # WIPES prod data
+go run ./cmd/migrate --env=dev  --reset   # WIPES dev data
+```
+
+Take a Neon snapshot before resetting prod so you can roll back:
+
+```bash
+npx neonctl@latest branches create --name "pre-reset-$(date +%Y%m%d-%H%M)" --parent main
+```
+
+### Full redeploy (one-shot)
+
+```bash
+(cd backend && go run ./cmd/migrate --env=main --up && go run ./cmd/migrate --env=dev --up) \
+  && gcloud run deploy beepbite-api     --source=./backend --region=us-east4 --project=beepbite-e43e6 --allow-unauthenticated \
+  && gcloud run deploy beepbite-api-dev --source=./backend --region=us-east4 --project=beepbite-e43e6 --allow-unauthenticated \
+  && npm run deploy \
+  && npm run deploy:dev
+```
+
 ## Documentation
 
 - [Setup](docs/setup.md)
