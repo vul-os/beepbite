@@ -143,6 +143,14 @@ var allTables = map[string]ops{
 	"subscription_plans": {Select: true},
 	"bank_accounts":      {Select: true, Insert: true, Update: true, Delete: true}, // account number stored encrypted; writes go through a Go handler in practice
 	"payout_schedules":   {Select: true, Insert: true, Update: true, Delete: true},
+	// merchant_payouts: read-only ledger of weekly payouts to the org's bank account.
+	// Surfaced on the Billing page (RecentPayouts). Writes are service-role only
+	// (the payouts runner cron job in jobs/payouts).
+	"merchant_payouts": {Select: true},
+	// beepbite_payment_fees: per-transaction fee snapshot used by the billing
+	// month-summary card to show fees accrued in the current period. Writes are
+	// captured by the payment-capture path server-side.
+	"beepbite_payment_fees": {Select: true},
 
 	// Migration 29 — staff pay rates (effective-dated)
 	"staff_pay_rates": {Select: true, Insert: true, Update: true, Delete: true},

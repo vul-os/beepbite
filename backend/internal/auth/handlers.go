@@ -8,6 +8,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -228,28 +230,53 @@ func (h *Handler) googleStart(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, h.google.AuthURL(state), http.StatusFound)
 }
 
+// redirectOAuthError bounces the user back to the SPA sign-in page with a
+// short reason code in the query string. Falls back to a JSON 400 only when
+// no SPA redirect base is configured (CLI/dev contexts).
+func (h *Handler) redirectOAuthError(w http.ResponseWriter, r *http.Request, reason string) {
+	if h.postAuthRedirect == "" {
+		writeErr(w, http.StatusBadRequest, "oauth error: "+reason)
+		return
+	}
+	base := h.postAuthRedirect
+	if i := strings.Index(base, "/auth/callback"); i >= 0 {
+		base = base[:i]
+	}
+	http.Redirect(w, r, base+"/signin?oauth_error="+url.QueryEscape(reason), http.StatusFound)
+}
+
 func (h *Handler) googleCallback(w http.ResponseWriter, r *http.Request) {
 	if !h.google.Configured() {
 		writeErr(w, http.StatusServiceUnavailable, "google oauth not configured")
 		return
 	}
+
+	// Google sends ?error=access_denied when the user clicks Cancel on the
+	// consent screen. Clear the one-shot state cookie and bounce them back
+	// to the SPA sign-in page instead of leaving them on a JSON error.
+	if oauthErr := r.URL.Query().Get("error"); oauthErr != "" {
+		http.SetCookie(w, &http.Cookie{Name: "oauth_state", Value: "", Path: "/", MaxAge: -1})
+		h.redirectOAuthError(w, r, oauthErr)
+		return
+	}
+
 	state := r.URL.Query().Get("state")
 	cookie, err := r.Cookie("oauth_state")
 	if err != nil || cookie.Value == "" || cookie.Value != state {
-		writeErr(w, http.StatusBadRequest, "invalid oauth state")
+		h.redirectOAuthError(w, r, "invalid_state")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: "oauth_state", Value: "", Path: "/", MaxAge: -1})
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		writeErr(w, http.StatusBadRequest, "missing code")
+		h.redirectOAuthError(w, r, "missing_code")
 		return
 	}
 	profile, err := h.google.Exchange(r.Context(), code)
 	if err != nil {
 		log.Printf("google exchange: %v", err)
-		writeErr(w, http.StatusBadGateway, "google exchange failed")
+		h.redirectOAuthError(w, r, "exchange_failed")
 		return
 	}
 	meta := map[string]any{
@@ -259,7 +286,7 @@ func (h *Handler) googleCallback(w http.ResponseWriter, r *http.Request) {
 	user, tp, err := h.svc.SignInGoogle(r.Context(), profile.Email, profile.Sub, meta, r.UserAgent())
 	if err != nil {
 		log.Printf("google signin: %v", err)
-		writeErr(w, http.StatusInternalServerError, "signin failed")
+		h.redirectOAuthError(w, r, "signin_failed")
 		return
 	}
 	// Accept any pending driver invites for this email (non-fatal).

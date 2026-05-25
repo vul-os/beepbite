@@ -341,7 +341,7 @@ func main() {
 
 	var paymentCredsH *paymentcredentials.Handler
 	if paymentBox != nil {
-		paymentCredsH = paymentcredentials.NewHandler(database.Pool, paymentBox, frontendURL)
+		paymentCredsH = paymentcredentials.NewHandler(database.Pool, paymentBox, "")
 	}
 
 	// Unified webhook handler (T8.3): POST /webhooks/{provider}/{location_id}.

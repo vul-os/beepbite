@@ -196,16 +196,16 @@ const TopBar = () => {
       title: 'Settings',
       items: [
         {
-          name: 'Organization Settings',
-          path: '/settings/organization',
+          name: 'Settings',
+          path: '/settings',
           icon: Building2,
-          description: 'Organization & business details'
+          description: 'Organization, billing, storefront, system'
         },
         {
           name: 'Account',
           path: '/account',
           icon: UserCircle,
-          description: 'Account settings'
+          description: 'Your personal account'
         }
       ]
     }

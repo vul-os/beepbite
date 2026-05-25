@@ -9,7 +9,7 @@
           "beepbite"
         ],
         "dev": [
-          "beepbite-dev"
+          "beepbite-app-dev"
         ]
       }
     }

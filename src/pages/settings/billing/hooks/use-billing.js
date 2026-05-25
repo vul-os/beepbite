@@ -27,9 +27,12 @@ export function useBilling(orgId) {
           'GET',
           `/data/beepbite_payment_fees?eq=organization_id,${orgId}&gte=captured_at,${monthStart()}`
         ),
+        // merchant_payouts is keyed by location_id (not organization_id). RLS
+        // already constrains rows to the caller's locations, so no explicit
+        // filter is needed — the data API will return only this org's payouts.
         api.request(
           'GET',
-          `/data/merchant_payouts?eq=organization_id,${orgId}&order=initiated_at.desc&limit=12`
+          `/data/merchant_payouts?order=initiated_at.desc&limit=12`
         ),
       ]);
 
@@ -87,7 +90,7 @@ export function useBilling(orgId) {
     payoutFeesCents: fees
       .filter((f) => f.fee_kind === 'payout')
       .reduce((acc, f) => acc + (f.fee_amount_cents ?? 0), 0),
-    totalPayoutsNetCents: payouts.reduce((acc, p) => acc + (p.net_cents ?? 0), 0),
+    totalPayoutsNetCents: payouts.reduce((acc, p) => acc + (p.net_payout_cents ?? 0), 0),
   };
 
   return {
