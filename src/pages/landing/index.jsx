@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Logo from '@/components/ui/logo';
 import ScrollToTop from '@/components/ui/scroll-to-top';
+import { Reveal, Stagger, StaggerItem } from '@/components/ui/motion';
 import DashboardPreview from '@/components/previews/dashboard-preview';
 import MenuManagementPreview from '@/components/previews/menu-management-preview';
 import WhatsAppPreview from '@/components/previews/whatsapp-preview';
 import POSInterfacePreview from '@/components/previews/pos-interface-preview';
+import { useTheme } from '@/components/theme-provider';
 import {
   Clock,
   Star,
@@ -28,6 +30,8 @@ import {
   Users,
   Smartphone,
   TrendingUp,
+  Moon,
+  Sun,
 } from 'lucide-react';
 
 const WhatsAppIcon = ({ className = 'w-5 h-5' }) => (
@@ -89,22 +93,6 @@ const AnimatedNumber = ({ value, prefix = '', suffix = '', duration = 1.6 }) => 
   );
 };
 
-// ---------- Reveal-on-scroll wrapper ----------
-const Reveal = ({ children, delay = 0, y = 24, className = '' }) => {
-  const reduce = useReducedMotion();
-  return (
-    <motion.div
-      className={className}
-      initial={reduce ? false : { opacity: 0, y }}
-      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
-      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
-};
-
 // ---------- Hero animated mock-up ----------
 const HeroMock = () => {
   const reduce = useReducedMotion();
@@ -125,23 +113,23 @@ const HeroMock = () => {
 
   return (
     <div className="relative w-full max-w-md sm:max-w-lg mx-auto">
-      {/* Glow */}
-      <div className="absolute -inset-6 bg-gradient-to-tr from-orange-300/40 via-amber-200/30 to-rose-200/40 blur-3xl rounded-[40px] -z-10" />
+      {/* Glow — brighter in dark so it reads against dark bg */}
+      <div className="absolute -inset-6 bg-gradient-to-tr from-orange-300/40 via-amber-200/30 to-rose-200/40 dark:from-orange-500/20 dark:via-amber-400/15 dark:to-rose-500/20 blur-3xl rounded-[40px] -z-10" />
 
       {/* Main POS card */}
       <motion.div
         initial={{ opacity: 0, y: 20, rotate: -1 }}
         animate={{ opacity: 1, y: 0, rotate: -1.5 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="relative bg-white rounded-3xl border border-gray-200/70 shadow-2xl shadow-orange-900/10 overflow-hidden"
+        className="relative bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/70 dark:border-gray-700/70 shadow-elevated overflow-hidden"
       >
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-white to-orange-50/60">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-white dark:from-gray-900 to-orange-50/60 dark:to-orange-900/20">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <span className="relative flex h-2 w-2">
               <span className="absolute inset-0 rounded-full bg-emerald-400 animate-pulse-ring" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -159,39 +147,39 @@ const HeroMock = () => {
             transition={{ duration: 0.4 }}
             className={`rounded-2xl border p-4 ${
               current.tone === 'orange'
-                ? 'border-orange-200 bg-orange-50'
+                ? 'border-orange-200 bg-orange-50 dark:border-orange-700/60 dark:bg-orange-950/40'
                 : current.tone === 'emerald'
-                ? 'border-emerald-200 bg-emerald-50'
-                : 'border-amber-200 bg-amber-50'
+                ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-700/60 dark:bg-emerald-950/40'
+                : 'border-amber-200 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40'
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">Order</div>
-                <div className="font-bold text-gray-900 text-lg">#2847</div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">Order</div>
+                <div className="font-bold text-gray-900 dark:text-white text-lg">#2847</div>
               </div>
               <span className={`${current.color} text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm`}>
                 {current.label}
               </span>
             </div>
             <div className="mt-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 text-white text-xs font-bold flex items-center justify-center">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
                 MG
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-900 truncate">Maria Gonzalez</div>
-                <div className="text-xs text-gray-500 truncate">2× Spicy Burger · 1× Fries</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">Maria Gonzalez</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">2× Spicy Burger · 1× Fries</div>
               </div>
-              <div className="ml-auto text-sm font-bold text-gray-900">R180</div>
+              <div className="ml-auto text-sm font-bold text-gray-900 dark:text-white">R180</div>
             </div>
           </motion.div>
 
           {/* Channel pill row */}
           <div className="grid grid-cols-3 gap-2">
             {[
-              { icon: <WhatsAppIcon className="w-3.5 h-3.5" />, label: 'WhatsApp', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-              { icon: <Smartphone className="w-3.5 h-3.5" />, label: 'In-store', color: 'text-orange-600 bg-orange-50 border-orange-200' },
-              { icon: <CreditCard className="w-3.5 h-3.5" />, label: 'Paid', color: 'text-violet-600 bg-violet-50 border-violet-200' },
+              { icon: <WhatsAppIcon className="w-3.5 h-3.5" />, label: 'WhatsApp', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-700/60' },
+              { icon: <Smartphone className="w-3.5 h-3.5" />, label: 'In-store', color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/50 border-orange-200 dark:border-orange-700/60' },
+              { icon: <CreditCard className="w-3.5 h-3.5" />, label: 'Paid', color: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/50 border-violet-200 dark:border-violet-700/60' },
             ].map((p) => (
               <div
                 key={p.label}
@@ -210,11 +198,11 @@ const HeroMock = () => {
               { k: 'Orders', v: '184', up: true },
               { k: 'Avg', v: 'R67', up: false },
             ].map((m) => (
-              <div key={m.k} className="rounded-xl border border-gray-100 bg-white p-2.5">
-                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">{m.k}</div>
+              <div key={m.k} className="rounded-xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-800/60 p-2.5 shadow-card">
+                <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">{m.k}</div>
                 <div className="flex items-end justify-between mt-0.5">
-                  <div className="text-sm font-bold text-gray-900">{m.v}</div>
-                  <TrendingUp className={`w-3 h-3 ${m.up ? 'text-emerald-500' : 'text-gray-300 rotate-180'}`} />
+                  <div className="text-sm font-bold text-gray-900 dark:text-white">{m.v}</div>
+                  <TrendingUp className={`w-3 h-3 ${m.up ? 'text-emerald-500' : 'text-gray-300 dark:text-gray-600 rotate-180'}`} />
                 </div>
               </div>
             ))}
@@ -222,26 +210,27 @@ const HeroMock = () => {
         </div>
       </motion.div>
 
-      {/* Floating WhatsApp notification */}
+      {/* Floating WhatsApp notification — constrained to prevent overflow on ~375px */}
       <motion.div
         initial={{ opacity: 0, y: 30, x: 20 }}
         animate={{ opacity: 1, y: 0, x: 0 }}
         transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="absolute -right-2 sm:-right-6 -bottom-6 sm:-bottom-10 w-56 sm:w-64 animate-float-slow"
+        className="absolute right-0 sm:-right-6 -bottom-6 sm:-bottom-10 w-44 sm:w-64 animate-float-slow"
       >
-        <div className="bg-white rounded-2xl shadow-2xl shadow-emerald-900/10 border border-gray-100 p-3.5 rotate-3">
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-elevated border border-gray-100 dark:border-gray-700/70 p-3 sm:p-3.5 rotate-3">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0">
               <WhatsAppIcon className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-gray-900">BeepBite</div>
-              <div className="text-[10px] text-gray-500">to Maria · just now</div>
+              <div className="text-xs font-semibold text-gray-900 dark:text-white truncate">BeepBite</div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">to Maria · just now</div>
             </div>
           </div>
-          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2.5 text-xs text-gray-700 leading-snug">
-            <div className="font-semibold text-emerald-700 mb-0.5">Order #2847 is ready! 🍔</div>
-            Come to the counter — show this message for pickup.
+          <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-800/60 rounded-xl p-2.5 text-xs text-gray-700 dark:text-emerald-100 leading-snug">
+            <div className="font-semibold text-emerald-700 dark:text-emerald-400 mb-0.5">Order #2847 is ready! 🍔</div>
+            <span className="hidden sm:inline">Come to the counter — show this message for pickup.</span>
+            <span className="sm:hidden">Come collect your order!</span>
           </div>
         </div>
       </motion.div>
@@ -253,18 +242,45 @@ const HeroMock = () => {
         transition={{ duration: 0.8, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="absolute -left-3 sm:-left-8 -top-4 sm:-top-6 animate-float-medium"
       >
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 px-3.5 py-2.5 flex items-center gap-2.5 -rotate-3">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-card-hover border border-gray-100 dark:border-gray-700/70 px-3.5 py-2.5 flex items-center gap-2.5 -rotate-3">
           <div className="relative">
             <Bell className="w-4 h-4 text-orange-500" />
             <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-rose-500 rounded-full" />
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Live</div>
-            <div className="text-xs font-bold text-gray-900">12 active orders</div>
+            <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">Live</div>
+            <div className="text-xs font-bold text-gray-900 dark:text-white">12 active orders</div>
           </div>
         </div>
       </motion.div>
     </div>
+  );
+};
+
+// ---------- Section eyebrow badge ----------
+const Eyebrow = ({ children, className = '' }) => (
+  <Badge
+    className={`border-0 text-xs font-semibold uppercase tracking-wide px-3 py-1 mb-5 ${className}`}
+  >
+    {children}
+  </Badge>
+);
+
+// ---------- Landing-page theme toggle ----------
+const ThemeToggle = () => {
+  const { theme, setTheme } = useTheme();
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  return (
+    <button
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur text-gray-600 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 hover:border-orange-300 dark:hover:border-orange-600 transition-all shadow-sm"
+    >
+      {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
   );
 };
 
@@ -321,12 +337,21 @@ const LandingPage = () => {
   ];
 
   const toneStyles = {
-    emerald: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-    orange: 'bg-orange-50 text-orange-600 ring-orange-100',
-    violet: 'bg-violet-50 text-violet-600 ring-violet-100',
-    sky: 'bg-sky-50 text-sky-600 ring-sky-100',
-    rose: 'bg-rose-50 text-rose-600 ring-rose-100',
-    amber: 'bg-amber-50 text-amber-600 ring-amber-100',
+    emerald: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-100 dark:ring-emerald-800/60',
+    orange: 'bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 ring-1 ring-orange-100 dark:ring-orange-800/60',
+    violet: 'bg-violet-50 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 ring-1 ring-violet-100 dark:ring-violet-800/60',
+    sky: 'bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 ring-1 ring-sky-100 dark:ring-sky-800/60',
+    rose: 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 ring-1 ring-rose-100 dark:ring-rose-800/60',
+    amber: 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-800/60',
+  };
+
+  const toneBorder = {
+    emerald: 'group-hover:border-emerald-200',
+    orange: 'group-hover:border-orange-200',
+    violet: 'group-hover:border-violet-200',
+    sky: 'group-hover:border-sky-200',
+    rose: 'group-hover:border-rose-200',
+    amber: 'group-hover:border-amber-200',
   };
 
   const stats = [
@@ -408,42 +433,87 @@ const LandingPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden text-gray-900 antialiased">
-      {/* ============== HERO ============== */}
-      <section ref={heroRef} id="home" className="relative pt-24 sm:pt-28 lg:pt-36 pb-20 sm:pb-28 lg:pb-40">
+    <div className="min-h-screen bg-white dark:bg-gray-950 overflow-x-hidden text-gray-900 dark:text-gray-50 antialiased">
+
+      {/* ============================================================
+          LANDING NAV — logo + theme toggle (landing-only, not shared top-bar)
+      ============================================================ */}
+      <header className="fixed top-0 inset-x-0 z-50 h-16 flex items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center justify-between">
+          {/* Logo */}
+          <button
+            onClick={() => scrollToSection('home')}
+            className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md"
+            aria-label="Back to top"
+          >
+            <Logo variant="minimal" />
+          </button>
+
+          {/* Right-side nav actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/signin')}
+              className="hidden sm:inline-flex border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur text-gray-700 dark:text-gray-300 hover:border-orange-300 dark:hover:border-orange-600 hover:text-orange-600 dark:hover:text-orange-400"
+            >
+              Sign in
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate('/signup')}
+              className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white shadow-sm"
+            >
+              Get started
+            </Button>
+          </div>
+        </div>
+        {/* Glassmorphic backdrop — appears once user scrolls */}
+        <div className="absolute inset-0 -z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur border-b border-gray-200/60 dark:border-gray-800/60" />
+      </header>
+
+      {/* ============================================================
+          HERO
+      ============================================================ */}
+      <section ref={heroRef} id="home" className="relative pt-24 sm:pt-32 lg:pt-40 pb-24 sm:pb-32 lg:pb-44">
         {/* Background layers */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-orange-50/70 via-white to-white" />
-          <div className="absolute inset-0 bg-grid-orange opacity-60 [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_70%)]" />
-          <div className="absolute -top-32 -left-32 w-[420px] h-[420px] bg-orange-300/40 rounded-full blur-3xl animate-blob" />
-          <div className="absolute top-20 -right-32 w-[460px] h-[460px] bg-rose-300/40 rounded-full blur-3xl animate-blob animation-delay-2000" />
-          <div className="absolute top-[55%] left-1/3 w-[360px] h-[360px] bg-amber-200/40 rounded-full blur-3xl animate-blob animation-delay-4000" />
+          <div className="absolute inset-0 bg-gradient-to-b from-orange-50/80 via-white to-white dark:from-gray-900/80 dark:via-gray-950 dark:to-gray-950" />
+          <div className="absolute inset-0 bg-grid-orange opacity-50 dark:opacity-30 [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_70%)]" />
+          <div className="absolute -top-32 -left-32 w-[420px] h-[420px] bg-orange-300/40 dark:bg-orange-600/15 rounded-full blur-3xl animate-blob" />
+          <div className="absolute top-20 -right-32 w-[460px] h-[460px] bg-rose-300/40 dark:bg-rose-600/15 rounded-full blur-3xl animate-blob animation-delay-2000" />
+          <div className="absolute top-[55%] left-1/3 w-[360px] h-[360px] bg-amber-200/40 dark:bg-amber-600/10 rounded-full blur-3xl animate-blob animation-delay-4000" />
         </div>
 
         <motion.div style={{ y: heroParallax }} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-            {/* Text */}
-            <div className="lg:col-span-6 space-y-7 sm:space-y-8 text-center lg:text-left">
+          <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+
+            {/* ---- Text column ---- */}
+            <div className="lg:col-span-6 space-y-8 text-center lg:text-left">
+
+              {/* Eyebrow pill */}
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur border border-orange-200 px-3.5 py-1.5 text-xs sm:text-sm font-medium text-orange-700 shadow-sm"
+                className="inline-flex items-center gap-2 rounded-full bg-white/80 dark:bg-gray-900/80 backdrop-blur border border-orange-200 dark:border-orange-700/60 px-4 py-1.5 text-xs sm:text-sm font-medium text-orange-700 dark:text-orange-400 shadow-sm"
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
                 Built for restaurants that ship orders fast
               </motion.div>
 
+              {/* H1 — Fraunces globally via CSS; italic accent on "WhatsApp" */}
               <motion.h1
-                initial={{ opacity: 0, y: 18 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.05 }}
-                className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight leading-[1.05]"
+                transition={{ duration: 0.75, delay: 0.05 }}
+                className="text-4xl sm:text-5xl lg:text-6xl xl:text-[4.25rem] text-balance"
               >
-                The restaurant POS{' '}
+                The restaurant POS that{' '}
                 <span className="relative inline-block">
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 animate-gradient-shift">
-                    that lives on WhatsApp
+                  <span className="font-display-italic bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 animate-gradient-shift">
+                    lives on WhatsApp
                   </span>
                   <svg
                     className="absolute -bottom-1 left-0 w-full h-2 text-orange-300"
@@ -456,16 +526,18 @@ const LandingPage = () => {
                 </span>
               </motion.h1>
 
+              {/* Lead paragraph */}
               <motion.p
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.15 }}
-                className="text-lg sm:text-xl text-gray-600 max-w-xl mx-auto lg:mx-0 leading-relaxed"
+                className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-xl mx-auto lg:mx-0 leading-relaxed text-pretty"
               >
                 A complete point-of-sale built for the way people actually order today — at the counter, and on the
                 phone they're already holding. No app downloads. No plastic pagers.
               </motion.p>
 
+              {/* CTA row */}
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -475,7 +547,7 @@ const LandingPage = () => {
                 <Button
                   size="lg"
                   onClick={() => navigate('/signup')}
-                  className="group relative bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white px-7 py-6 text-base rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all hover:-translate-y-0.5"
+                  className="group relative bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white px-7 py-6 text-base rounded-2xl shadow-glow hover:shadow-xl hover:shadow-orange-500/40 transition-all hover:-translate-y-0.5"
                 >
                   Start free trial
                   <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
@@ -484,28 +556,29 @@ const LandingPage = () => {
                   size="lg"
                   variant="outline"
                   onClick={() => scrollToSection('product-previews')}
-                  className="border-2 border-gray-200 bg-white/70 backdrop-blur text-gray-800 hover:border-orange-300 hover:text-orange-600 px-7 py-6 text-base rounded-2xl transition-all"
+                  className="border-2 border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 backdrop-blur text-gray-800 dark:text-gray-200 hover:border-orange-300 dark:hover:border-orange-600 hover:text-orange-600 dark:hover:text-orange-400 px-7 py-6 text-base rounded-2xl transition-all"
                 >
                   See it in action
                 </Button>
               </motion.div>
 
+              {/* Trust signals */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8, delay: 0.4 }}
-                className="flex flex-wrap items-center gap-x-5 gap-y-2 justify-center lg:justify-start text-sm text-gray-600"
+                className="flex flex-wrap items-center gap-x-5 gap-y-2 justify-center lg:justify-start text-sm text-gray-500 dark:text-gray-400"
               >
                 {['No card required', 'Cancel anytime', 'Free menu import'].map((t) => (
                   <div key={t} className="flex items-center gap-1.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                     {t}
                   </div>
                 ))}
               </motion.div>
             </div>
 
-            {/* Visual */}
+            {/* ---- Visual column ---- */}
             <div className="lg:col-span-6 relative">
               <HeroMock />
             </div>
@@ -513,110 +586,124 @@ const LandingPage = () => {
         </motion.div>
       </section>
 
-      {/* ============== STATS / TRUST ============== */}
-      <section className="relative py-12 sm:py-16 bg-white border-y border-gray-100">
+      {/* ============================================================
+          STATS / TRUST BAR
+      ============================================================ */}
+      <section className="relative py-14 sm:py-20 bg-white dark:bg-gray-950 border-y border-border/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-10">
-            {stats.map((s, i) => (
-              <Reveal key={s.label} delay={i * 0.06}>
-                <div className="text-center sm:text-left">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-orange-50 text-orange-600 mb-3">
+          <Stagger className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12">
+            {stats.map((s) => (
+              <StaggerItem key={s.label}>
+                <div className="flex flex-col items-center sm:items-start gap-3 text-center sm:text-left">
+                  <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-primary/10 text-primary">
                     {s.icon}
                   </div>
-                  <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900">
-                    <AnimatedNumber value={s.value} suffix={s.suffix} />
+                  <div>
+                    <div className="text-3xl sm:text-4xl font-display font-semibold tracking-tight text-gray-900 dark:text-white">
+                      <AnimatedNumber value={s.value} suffix={s.suffix} />
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-0.5">{s.label}</div>
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">{s.label}</div>
                 </div>
-              </Reveal>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      {/* ============== FEATURES ============== */}
-      <section id="features" className="relative py-20 sm:py-28 lg:py-32 bg-gradient-to-b from-white via-orange-50/40 to-white">
+      {/* ============================================================
+          FEATURES — bento-style grid
+      ============================================================ */}
+      <section id="features" className="relative py-20 sm:py-28 bg-gradient-to-b from-white via-orange-50/30 to-white dark:from-gray-950 dark:via-gray-900/60 dark:to-gray-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <div className="text-center max-w-3xl mx-auto">
-              <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-0 mb-4">Features</Badge>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-gray-900">
-                Everything you need to run service —
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-rose-500">
-                  {' '}without juggling apps.
+            <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+              <Eyebrow className="bg-orange-100 text-orange-700">Features</Eyebrow>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl text-balance">
+                Everything you need to run service —{' '}
+                <span className="font-display-italic bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-rose-500">
+                  without juggling apps.
                 </span>
               </h2>
-              <p className="mt-4 text-lg text-gray-600">
+              <p className="mt-5 text-lg text-muted-foreground text-pretty leading-relaxed">
                 A modern POS, an order channel, a notification system and an analytics dashboard. One product, one bill.
               </p>
             </div>
           </Reveal>
 
-          <div className="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {features.map((f, i) => (
-              <Reveal key={f.title} delay={(i % 3) * 0.05}>
-                <motion.div
-                  whileHover={reduce ? {} : { y: -4 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                  className="group relative h-full rounded-2xl bg-white border border-gray-200/70 p-6 sm:p-7 shadow-sm hover:shadow-xl hover:border-orange-200 transition-all overflow-hidden"
+          {/* Bento grid — first and last cards span 2 cols on md+ */}
+          <Stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {features.map((f) => (
+              <StaggerItem key={f.title}>
+                <div
+                  className={`group relative h-full rounded-2xl bg-white dark:bg-gray-900 border border-border/60 p-6 sm:p-7 shadow-card card-interactive overflow-hidden ${toneBorder[f.tone]}`}
                 >
-                  <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-100 rounded-full blur-2xl opacity-0 group-hover:opacity-70 transition-opacity" />
+                  {/* Subtle hover bloom */}
+                  <div className="absolute -top-14 -right-14 w-36 h-36 bg-orange-100 rounded-full blur-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-300 pointer-events-none" />
+
                   <div
-                    className={`relative inline-flex items-center justify-center w-11 h-11 rounded-xl ring-1 ${toneStyles[f.tone]} mb-4`}
+                    className={`relative inline-flex items-center justify-center w-11 h-11 rounded-xl ${toneStyles[f.tone]} mb-5`}
                   >
                     {f.icon}
                   </div>
-                  <h3 className="relative text-lg font-bold text-gray-900 mb-2">{f.title}</h3>
-                  <p className="relative text-sm sm:text-base text-gray-600 leading-relaxed">{f.desc}</p>
-                </motion.div>
-              </Reveal>
+                  <h3 className="relative text-lg font-semibold text-gray-900 dark:text-white mb-2">{f.title}</h3>
+                  <p className="relative text-sm sm:text-base text-muted-foreground leading-relaxed">{f.desc}</p>
+                </div>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      {/* ============== PRODUCT PREVIEWS ============== */}
-      <section id="product-previews" className="relative py-20 sm:py-28 lg:py-32 bg-white">
+      {/* ============================================================
+          PRODUCT PREVIEWS
+      ============================================================ */}
+      <section id="product-previews" className="relative py-20 sm:py-28 bg-white dark:bg-gray-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-20">
-              <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 border-0 mb-4">Product</Badge>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-gray-900">
-                See <span className="text-orange-500">BeepBite</span> in action
+            <div className="text-center max-w-2xl mx-auto mb-16 sm:mb-20">
+              <Eyebrow className="bg-rose-100 text-rose-700">Product</Eyebrow>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl text-balance">
+                See{' '}
+                <span className="font-display-italic text-primary">BeepBite</span>{' '}
+                in action
               </h2>
-              <p className="mt-4 text-lg text-gray-600">
+              <p className="mt-5 text-lg text-muted-foreground text-pretty leading-relaxed">
                 Interactive previews of every surface — analytics, menu, POS and WhatsApp.
               </p>
             </div>
           </Reveal>
 
-          <div className="space-y-20 sm:space-y-28">
-            {showcase.map(({ Component, ...s }, idx) => (
-              <Reveal key={s.title}>
-                <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
-                  <div className={`lg:col-span-5 space-y-5 ${s.flip ? 'lg:order-2' : ''}`}>
-                    <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <div className="space-y-24 sm:space-y-32">
+            {showcase.map(({ Component, ...s }) => (
+              <Reveal key={s.title} delay={0.05}>
+                <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+
+                  {/* Text side */}
+                  <div className={`lg:col-span-5 space-y-6 ${s.flip ? 'lg:order-2' : ''}`}>
+                    <div className="inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                       <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${toneStyles[s.color] ?? toneStyles.orange}`}>
                         {s.icon}
                       </span>
                       {s.tag}
                     </div>
-                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-gray-900">{s.title}</h3>
-                    <p className="text-base sm:text-lg text-gray-600 leading-relaxed">{s.desc}</p>
-                    <ul className="space-y-2.5">
+                    <h3 className="text-2xl sm:text-3xl lg:text-4xl text-balance">{s.title}</h3>
+                    <p className="text-base sm:text-lg text-muted-foreground leading-relaxed text-pretty">{s.desc}</p>
+                    <ul className="space-y-3">
                       {s.bullets.map((b) => (
-                        <li key={b} className="flex items-start gap-2.5 text-gray-700">
-                          <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                        <li key={b} className="flex items-start gap-3 text-gray-700 dark:text-gray-300">
+                          <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
                           <span>{b}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
+                  {/* Preview side */}
                   <div className={`lg:col-span-7 ${s.flip ? 'lg:order-1' : ''}`}>
                     <div className="relative">
-                      <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-tr from-orange-200/50 via-rose-200/40 to-amber-200/40 rounded-[36px] blur-2xl -z-10" />
-                      <div className="relative rounded-3xl bg-white border border-gray-200/70 shadow-2xl shadow-gray-900/5 overflow-hidden">
+                      <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-tr from-orange-200/50 via-rose-200/40 to-amber-200/40 rounded-[40px] blur-2xl -z-10" />
+                      <div className="relative rounded-3xl bg-white dark:bg-gray-900 border border-border/60 shadow-elevated overflow-hidden">
                         <div className="overflow-hidden">
                           <div className="origin-top-left scale-[0.78] sm:scale-[0.85] md:scale-90 lg:scale-100 transition-transform">
                             <Component className="w-full" />
@@ -630,14 +717,15 @@ const LandingPage = () => {
             ))}
           </div>
 
-          <Reveal>
-            <div className="text-center mt-20 pt-10 border-t border-gray-100">
-              <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">Ready to try BeepBite?</h3>
-              <p className="text-gray-600 mt-2 max-w-xl mx-auto">No credit card. Set up in minutes.</p>
+          {/* Mid-section CTA */}
+          <Reveal delay={0.1}>
+            <div className="text-center mt-20 pt-12 border-t border-border/50 dark:border-gray-800">
+              <h3 className="text-2xl sm:text-3xl text-balance">Ready to try BeepBite?</h3>
+              <p className="text-muted-foreground mt-3 max-w-md mx-auto text-pretty">No credit card. Set up in minutes.</p>
               <Button
                 size="lg"
                 onClick={() => navigate('/signup')}
-                className="mt-6 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white px-8 py-6 rounded-2xl shadow-lg shadow-orange-500/30"
+                className="mt-7 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white px-8 py-6 rounded-2xl shadow-glow hover:shadow-xl transition-all hover:-translate-y-0.5"
               >
                 Start free trial <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -646,95 +734,108 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ============== BENEFITS ============== */}
-      <section id="benefits" className="relative py-20 sm:py-28 bg-gradient-to-b from-white to-orange-50/50">
+      {/* ============================================================
+          BENEFITS
+      ============================================================ */}
+      <section id="benefits" className="relative py-20 sm:py-28 bg-gradient-to-b from-white to-orange-50/40 dark:from-gray-950 dark:to-gray-900/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <div className="text-center max-w-3xl mx-auto mb-14">
-              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 mb-4">Why BeepBite</Badge>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-gray-900">
+            <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+              <Eyebrow className="bg-emerald-100 text-emerald-700">Why BeepBite</Eyebrow>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl text-balance">
                 A POS that pays for itself
               </h2>
-              <p className="mt-4 text-lg text-gray-600">
+              <p className="mt-5 text-lg text-muted-foreground text-pretty leading-relaxed">
                 Stop paying for a POS, an ordering app, a payments link and a pager system separately.
               </p>
             </div>
           </Reveal>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {benefits.map((b, i) => (
-              <Reveal key={b.title} delay={(i % 4) * 0.05}>
-                <div className="h-full rounded-2xl bg-white border border-gray-200/70 p-6 text-center hover:shadow-lg hover:border-orange-200 transition-all">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-100 to-rose-100 text-orange-600 mb-4">
+          <Stagger className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {benefits.map((b) => (
+              <StaggerItem key={b.title}>
+                <div className="h-full rounded-2xl bg-white dark:bg-gray-900 border border-border/60 p-6 sm:p-7 text-center shadow-card card-interactive hover:border-orange-200 dark:hover:border-orange-700">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-100 to-rose-100 text-orange-600 mb-5">
                     {b.icon}
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold text-gray-900">{b.title}</h3>
-                  <p className="mt-1.5 text-sm text-gray-600 leading-relaxed">{b.desc}</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{b.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{b.desc}</p>
                 </div>
-              </Reveal>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      {/* ============== HOW IT WORKS ============== */}
-      <section id="how-it-works" className="relative py-20 sm:py-28 bg-white">
+      {/* ============================================================
+          HOW IT WORKS
+      ============================================================ */}
+      <section id="how-it-works" className="relative py-20 sm:py-28 bg-white dark:bg-gray-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <div className="text-center max-w-3xl mx-auto mb-14">
-              <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100 border-0 mb-4">How it works</Badge>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-gray-900">
-                From sign-up to first order in <span className="text-orange-500">10 minutes</span>
+            <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+              <Eyebrow className="bg-violet-100 text-violet-700">How it works</Eyebrow>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl text-balance">
+                From sign-up to first order in{' '}
+                <span className="font-display-italic text-primary">10 minutes</span>
               </h2>
             </div>
           </Reveal>
 
-          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-            {/* Connector line */}
-            <div className="hidden md:block absolute top-12 left-12 right-12 h-0.5 bg-gradient-to-r from-orange-200 via-rose-200 to-amber-200" />
-            {steps.map((s, i) => (
-              <Reveal key={s.n} delay={i * 0.1}>
-                <div className="relative h-full rounded-2xl bg-white border border-gray-200/70 p-6 sm:p-8 text-center hover:shadow-xl hover:-translate-y-1 transition-all">
-                  <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30">
-                    {s.icon}
-                    <span className="absolute -top-2 -right-2 bg-white border border-gray-200 text-gray-900 text-[10px] font-bold rounded-full px-2 py-0.5 shadow">
-                      {s.n}
-                    </span>
+          <div className="relative">
+            {/* Connector line — decorative */}
+            <div className="hidden md:block absolute top-12 left-[calc(16.7%+28px)] right-[calc(16.7%+28px)] h-px bg-gradient-to-r from-orange-200 via-rose-200 to-amber-200 z-0" />
+
+            <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+              {steps.map((s) => (
+                <StaggerItem key={s.n}>
+                  <div className="relative h-full rounded-2xl bg-white dark:bg-gray-900 border border-border/60 p-7 sm:p-8 text-center shadow-card card-interactive hover:border-orange-200 dark:hover:border-orange-700">
+                    {/* Icon + step badge */}
+                    <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 text-white shadow-glow">
+                      {s.icon}
+                      <span className="absolute -top-2 -right-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-[10px] font-bold rounded-full px-2 py-0.5 shadow-sm">
+                        {s.n}
+                      </span>
+                    </div>
+                    <h3 className="mt-6 text-lg sm:text-xl">{s.title}</h3>
+                    <p className="mt-2.5 text-sm sm:text-base text-muted-foreground leading-relaxed">{s.desc}</p>
                   </div>
-                  <h3 className="mt-5 text-lg sm:text-xl font-bold text-gray-900">{s.title}</h3>
-                  <p className="mt-2 text-sm sm:text-base text-gray-600 leading-relaxed">{s.desc}</p>
-                </div>
-              </Reveal>
-            ))}
+                </StaggerItem>
+              ))}
+            </Stagger>
           </div>
         </div>
       </section>
 
-      {/* ============== TESTIMONIAL / SOCIAL PROOF ============== */}
-      <section className="relative py-16 sm:py-20 bg-gradient-to-r from-orange-50 via-rose-50 to-amber-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ============================================================
+          TESTIMONIAL / SOCIAL PROOF
+      ============================================================ */}
+      <section className="relative py-20 sm:py-24 bg-gradient-to-r from-orange-50 via-rose-50 to-amber-50 dark:from-gray-900 dark:via-gray-900/80 dark:to-gray-900">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <div className="relative rounded-3xl bg-white shadow-xl shadow-orange-900/5 border border-gray-100 p-8 sm:p-12 overflow-hidden">
-              <div className="absolute -top-16 -right-16 w-48 h-48 bg-orange-100 rounded-full blur-3xl" />
-              <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-rose-100 rounded-full blur-3xl" />
-              <div className="relative grid sm:grid-cols-5 gap-6 sm:gap-10 items-center">
+            <div className="relative rounded-3xl bg-white dark:bg-gray-900 shadow-elevated border border-border/50 p-8 sm:p-12 overflow-hidden">
+              {/* Decorative glows */}
+              <div className="absolute -top-20 -right-20 w-56 h-56 bg-orange-100 dark:bg-orange-900/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-rose-100 dark:bg-rose-900/20 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative grid sm:grid-cols-5 gap-8 sm:gap-12 items-center">
                 <div className="sm:col-span-1 flex sm:justify-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-orange-500/30">
-                    “
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 text-white flex items-center justify-center text-3xl font-display shadow-glow select-none">
+                    "
                   </div>
                 </div>
                 <div className="sm:col-span-4">
-                  <div className="flex gap-1 mb-3">
+                  <div className="flex gap-1 mb-4">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
                     ))}
                   </div>
-                  <p className="text-lg sm:text-xl text-gray-800 leading-relaxed">
+                  <p className="text-lg sm:text-xl text-gray-800 dark:text-gray-100 leading-relaxed text-pretty">
                     Customers love getting a WhatsApp instead of a buzzer — they wander, they come back, they tip more.
                     Our prep-to-pickup time dropped by half in the first week.
                   </p>
-                  <div className="mt-4 text-sm font-semibold text-gray-900">
-                    Sandile M. <span className="font-normal text-gray-500">· Owner, Bay Burgers</span>
+                  <div className="mt-5 text-sm font-semibold text-gray-900 dark:text-white">
+                    Sandile M. <span className="font-normal text-muted-foreground">· Owner, Bay Burgers</span>
                   </div>
                 </div>
               </div>
@@ -743,24 +844,27 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ============== SUPPORT ============== */}
+      {/* ============================================================
+          SUPPORT
+      ============================================================ */}
       <section id="support" className="relative py-20 sm:py-28 bg-gray-950 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-noise opacity-40" />
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-orange-500/20 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-orange-500/20 rounded-full blur-3xl pointer-events-none" />
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <div className="text-center max-w-3xl mx-auto mb-14">
-              <Badge className="bg-white/10 text-white hover:bg-white/10 border-0 mb-4">Support</Badge>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight">
+            <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+              <Eyebrow className="bg-white/10 text-white/80">Support</Eyebrow>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl text-balance text-white">
                 We're here when you need us
               </h2>
-              <p className="mt-4 text-lg text-gray-300">
+              <p className="mt-5 text-lg text-gray-400 text-pretty leading-relaxed">
                 Real humans, fast replies. Most questions answered in under five minutes.
               </p>
             </div>
           </Reveal>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <Stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             {[
               {
                 icon: <WhatsAppIcon className="w-5 h-5" />,
@@ -798,51 +902,54 @@ const LandingPage = () => {
                 accent: 'from-violet-500 to-indigo-500',
                 ext: false,
               },
-            ].map((c, i) => (
-              <Reveal key={c.title} delay={i * 0.05}>
+            ].map((c) => (
+              <StaggerItem key={c.title}>
                 <a
                   href={c.href}
                   target={c.ext ? '_blank' : undefined}
                   rel={c.ext ? 'noopener noreferrer' : undefined}
-                  className="group relative block h-full rounded-2xl bg-white/5 border border-white/10 p-6 hover:bg-white/10 hover:border-white/20 transition-all overflow-hidden"
+                  className="group relative block h-full rounded-2xl bg-white/5 border border-white/10 p-6 sm:p-7 hover:bg-white/10 hover:border-white/20 card-interactive overflow-hidden"
                 >
                   <div className={`absolute inset-x-0 -top-px h-px bg-gradient-to-r ${c.accent} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                  <div className={`inline-flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br ${c.accent} text-white mb-4`}>
+                  <div className={`inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-br ${c.accent} text-white mb-5 shadow-sm`}>
                     {c.icon}
                   </div>
-                  <h3 className="text-lg font-bold">{c.title}</h3>
-                  <p className="text-sm text-gray-400 mt-1">{c.desc}</p>
-                  <div className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-300 group-hover:text-orange-200">
+                  <h3 className="text-base font-semibold text-white">{c.title}</h3>
+                  <p className="text-sm text-gray-400 mt-1.5 leading-relaxed">{c.desc}</p>
+                  <div className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-300 group-hover:text-orange-200">
                     {c.cta}
                     <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </a>
-              </Reveal>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      {/* ============== CTA ============== */}
-      <section id="get-started" className="relative py-20 sm:py-28 overflow-hidden">
+      {/* ============================================================
+          CTA — final
+      ============================================================ */}
+      <section id="get-started" className="relative py-24 sm:py-32 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-rose-500 to-amber-500 animate-gradient-shift" />
-        <div className="absolute inset-0 bg-noise opacity-30" />
+        <div className="absolute inset-0 bg-noise opacity-30 pointer-events-none" />
         <div className="absolute -top-32 left-10 w-96 h-96 bg-white/20 rounded-full blur-3xl animate-blob" />
         <div className="absolute -bottom-32 right-10 w-96 h-96 bg-amber-200/30 rounded-full blur-3xl animate-blob animation-delay-2000" />
 
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <Reveal>
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white">
-              Upgrade your POS today.
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl text-white text-balance">
+              Upgrade your POS{' '}
+              <span className="font-display-italic">today.</span>
             </h2>
-            <p className="mt-5 text-lg sm:text-xl text-white/90 max-w-2xl mx-auto">
+            <p className="mt-6 text-lg sm:text-xl text-white/85 max-w-xl mx-auto text-pretty leading-relaxed">
               Modern point of sale, WhatsApp ordering and digital pagers — all in one. Free to start.
             </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
                 onClick={() => navigate('/signup')}
-                className="bg-white text-orange-600 hover:bg-orange-50 px-8 py-6 text-base font-semibold rounded-2xl shadow-2xl shadow-black/10"
+                className="bg-white text-orange-600 hover:bg-orange-50 px-8 py-6 text-base font-semibold rounded-2xl shadow-2xl shadow-black/10 hover:-translate-y-0.5 transition-all"
               >
                 Start free trial
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -851,43 +958,45 @@ const LandingPage = () => {
                 size="lg"
                 variant="outline"
                 onClick={() => navigate('/signin')}
-                className="border-2 border-white/40 bg-white/10 backdrop-blur text-white hover:bg-white hover:text-orange-600 px-8 py-6 text-base font-semibold rounded-2xl"
+                className="border-2 border-white/40 bg-white/10 backdrop-blur text-white hover:bg-white hover:text-orange-600 px-8 py-6 text-base font-semibold rounded-2xl transition-all"
               >
                 Sign in
               </Button>
             </div>
-            <div className="mt-6 text-sm text-white/80">No credit card · Cancel anytime · Setup in minutes</div>
+            <p className="mt-7 text-sm text-white/75">No credit card · Cancel anytime · Setup in minutes</p>
           </Reveal>
         </div>
       </section>
 
-      {/* ============== FOOTER ============== */}
-      <footer className="bg-white border-t border-gray-200 py-14 sm:py-16">
+      {/* ============================================================
+          FOOTER
+      ============================================================ */}
+      <footer className="bg-white dark:bg-gray-950 border-t border-border/60 py-14 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-10">
             <div className="col-span-2 md:col-span-1">
               <Logo variant="minimal" className="mb-4" />
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Complete restaurant POS with{' '}
-                <span className="text-orange-500 font-medium">WhatsApp ordering, payments and digital pagers.</span>
+                <span className="text-primary font-medium">WhatsApp ordering, payments and digital pagers.</span>
               </p>
             </div>
 
             <div>
-              <h4 className="text-sm font-bold text-gray-900 mb-4">Product</h4>
-              <ul className="space-y-2.5 text-sm text-gray-600">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 tracking-wide">Product</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
                 <li>
-                  <button onClick={() => scrollToSection('features')} className="hover:text-orange-500 transition-colors">
+                  <button onClick={() => scrollToSection('features')} className="hover:text-primary transition-colors">
                     Features
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => scrollToSection('product-previews')} className="hover:text-orange-500 transition-colors">
+                  <button onClick={() => scrollToSection('product-previews')} className="hover:text-primary transition-colors">
                     Previews
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => scrollToSection('how-it-works')} className="hover:text-orange-500 transition-colors">
+                  <button onClick={() => scrollToSection('how-it-works')} className="hover:text-primary transition-colors">
                     How it works
                   </button>
                 </li>
@@ -895,20 +1004,20 @@ const LandingPage = () => {
             </div>
 
             <div>
-              <h4 className="text-sm font-bold text-gray-900 mb-4">Company</h4>
-              <ul className="space-y-2.5 text-sm text-gray-600">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 tracking-wide">Company</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
                 <li>
-                  <button onClick={() => scrollToSection('home')} className="hover:text-orange-500 transition-colors">
+                  <button onClick={() => scrollToSection('home')} className="hover:text-primary transition-colors">
                     Home
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => scrollToSection('benefits')} className="hover:text-orange-500 transition-colors">
+                  <button onClick={() => scrollToSection('benefits')} className="hover:text-primary transition-colors">
                     Benefits
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => scrollToSection('support')} className="hover:text-orange-500 transition-colors">
+                  <button onClick={() => scrollToSection('support')} className="hover:text-primary transition-colors">
                     Support
                   </button>
                 </li>
@@ -916,20 +1025,20 @@ const LandingPage = () => {
             </div>
 
             <div>
-              <h4 className="text-sm font-bold text-gray-900 mb-4">Legal</h4>
-              <ul className="space-y-2.5 text-sm text-gray-600">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 tracking-wide">Legal</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
                 <li>
-                  <a href="/docs/privacy" className="hover:text-orange-500 transition-colors">
+                  <a href="/docs/privacy" className="hover:text-primary transition-colors">
                     Privacy Policy
                   </a>
                 </li>
                 <li>
-                  <a href="/docs/terms" className="hover:text-orange-500 transition-colors">
+                  <a href="/docs/terms" className="hover:text-primary transition-colors">
                     Terms of Service
                   </a>
                 </li>
                 <li>
-                  <a href="/docs" className="hover:text-orange-500 transition-colors">
+                  <a href="/docs" className="hover:text-primary transition-colors">
                     Documentation
                   </a>
                 </li>
@@ -937,13 +1046,13 @@ const LandingPage = () => {
             </div>
           </div>
 
-          <div className="border-t border-gray-200 mt-10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs sm:text-sm text-gray-500 text-center md:text-left">
+          <div className="border-t border-border/50 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs sm:text-sm text-muted-foreground text-center md:text-left">
               &copy; {new Date().getFullYear()} BeepBite Pty, a member of Exolution Technologies Pty
             </p>
             <button
               onClick={() => scrollToSection('home')}
-              className="text-xs sm:text-sm text-gray-500 hover:text-orange-500 transition-colors"
+              className="text-xs sm:text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               Back to top ↑
             </button>

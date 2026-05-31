@@ -16,6 +16,20 @@ import PinKeypad from './components/pin-keypad';
 import { resolveStore, pinVerifyOverlay, pinLogin } from '@/services/staff-pin';
 import { useActor } from '@/context/actor-token-context';
 
+/**
+ * Determine post-login destination based on staff role / capabilities.
+ * Kitchen-only staff → /work (Kitchen tab defaults to kitchen)
+ * Everyone else      → /pos/workspace
+ */
+function resolvePostLoginPath(payload) {
+  const role = payload?.role ?? payload?.staff?.role ?? '';
+  const caps = Array.isArray(payload?.capabilities) ? payload.capabilities : [];
+  const hasPos = caps.includes('can_pos');
+  const hasKitchen = caps.includes('can_kitchen');
+  const kitchenOnly = role === 'kitchen' || (!hasPos && hasKitchen);
+  return kitchenOnly ? '/work' : '/pos/workspace';
+}
+
 // ---------------------------------------------------------------------------
 // 404 page shown when the slug cannot be resolved
 // ---------------------------------------------------------------------------
@@ -193,7 +207,7 @@ const StaffPinPage = () => {
         if (result.data?.access_token) {
           localStorage.setItem('bb.auth', JSON.stringify(result.data));
         }
-        navigate('/pos/workspace');
+        navigate(resolvePostLoginPath(result.data));
         return;
       }
 
@@ -205,7 +219,7 @@ const StaffPinPage = () => {
 
       // Overlay path: set actor in memory, do NOT touch localStorage.
       setActor(result.data);
-      navigate('/pos/workspace');
+      navigate(resolvePostLoginPath(result.data));
     } finally {
       setLoading(false);
     }

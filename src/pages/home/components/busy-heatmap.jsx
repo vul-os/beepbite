@@ -16,22 +16,22 @@ const HOURS = Array.from({ length: 24 }, (_, h) => {
 
 // Map a normalised value [0,1] to an rgba orange colour.
 function cellBg(norm) {
-  if (norm === 0) return '#f3f4f6'; // gray-100 — empty
+  if (norm === 0) return 'hsl(var(--muted))';
   const alpha = 0.15 + norm * 0.85;
   return `rgba(249,115,22,${alpha.toFixed(2)})`;
 }
 
 function cellText(norm) {
-  return norm > 0.55 ? '#fff' : '#374151';
+  return norm > 0.55 ? '#fff' : 'hsl(var(--foreground))';
 }
 
 function HeatmapSkeleton() {
   return (
-    <div className="space-y-1.5" aria-label="Loading heatmap" aria-busy="true">
+    <div className="space-y-2" aria-label="Loading heatmap" aria-busy="true">
       {Array.from({ length: 7 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-1">
+        <div key={i} className="flex items-center gap-1.5">
           <Skeleton className="w-8 h-4 flex-shrink-0" />
-          <Skeleton className="h-5 flex-1 rounded" />
+          <Skeleton className="h-5 flex-1 rounded-md" />
         </div>
       ))}
     </div>
@@ -61,33 +61,33 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
   }, [cells]);
 
   return (
-    <Card className="border border-gray-200 shadow-sm bg-white">
-      <CardHeader className="pb-1 px-5 pt-5">
-        <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-            <Flame className="w-4 h-4 text-orange-500" aria-hidden="true" />
-          </div>
+    <Card variant="elevated" className="overflow-hidden">
+      <CardHeader className="pb-2 px-6 pt-6">
+        <CardTitle className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Flame className="h-4 w-4" aria-hidden="true" />
+          </span>
           <span>Busy Days &amp; Hours</span>
-          <span className="text-xs font-normal text-gray-400 ml-1 hidden sm:inline">
-            (trailing 12 weeks)
+          <span className="text-xs font-normal text-muted-foreground ml-1 hidden sm:inline">
+            — trailing 12 weeks
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-5 pt-3">
+      <CardContent className="px-5 pb-6 pt-3">
         {loading ? (
           <HeatmapSkeleton />
         ) : cells.length === 0 && maxCount === 0 ? (
           <div
-            className="flex flex-col items-center justify-center h-32 gap-3"
+            className="flex flex-col items-center justify-center h-36 gap-3"
             role="status"
             aria-label="No activity data"
           >
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-              <Flame className="w-6 h-6 text-gray-300" aria-hidden="true" />
+            <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+              <Flame className="w-6 h-6 text-muted-foreground/40" aria-hidden="true" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-500">No activity data yet</p>
-              <p className="text-xs text-gray-400 mt-0.5">Data appears after your first orders</p>
+              <p className="text-sm font-medium text-muted-foreground">No activity data yet</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">Data appears after your first orders</p>
             </div>
           </div>
         ) : (
@@ -99,12 +99,12 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
                 aria-label="Order activity heatmap by day and hour"
               >
                 {/* Hour axis header */}
-                <div className="flex items-center mb-1" aria-hidden="true">
+                <div className="flex items-center mb-1.5" aria-hidden="true">
                   <div className="w-8 flex-shrink-0" />
                   {HOURS.map((h, i) => (
                     <div
                       key={i}
-                      className="flex-1 text-center text-[9px] text-gray-400 leading-tight"
+                      className="flex-1 text-center text-[9px] text-muted-foreground leading-tight"
                       style={{ minWidth: 0 }}
                     >
                       {i % 3 === 0 ? h : ''}
@@ -114,9 +114,9 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
 
                 {/* Rows: one per day */}
                 {grid.map((row, dow) => (
-                  <div key={dow} className="flex items-center mb-0.5 gap-px">
+                  <div key={dow} className="flex items-center mb-1 gap-px">
                     <div
-                      className="w-8 flex-shrink-0 text-[10px] text-gray-500 font-medium text-right pr-1.5"
+                      className="w-8 flex-shrink-0 text-[10px] text-muted-foreground font-medium text-right pr-2"
                       aria-hidden="true"
                     >
                       {DAYS[dow]}
@@ -136,7 +136,7 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
                           }
                           className={cn(
                             'flex-1 rounded-sm cursor-default transition-all duration-100',
-                            isHovered && 'ring-1 ring-orange-400 ring-offset-0 scale-110 z-10 relative'
+                            isHovered && 'ring-1 ring-primary ring-offset-0 scale-110 z-10 relative'
                           )}
                           style={{
                             minWidth: 0,
@@ -171,7 +171,7 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
 
                 {/* Legend */}
                 <div className="flex items-center gap-1.5 mt-3 justify-end" aria-hidden="true">
-                  <span className="text-[10px] text-gray-400">Less</span>
+                  <span className="text-[10px] text-muted-foreground">Less</span>
                   {[0, 0.2, 0.4, 0.6, 0.8, 1].map((v) => (
                     <div
                       key={v}
@@ -179,7 +179,7 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
                       style={{ width: 14, height: 14, backgroundColor: cellBg(v) }}
                     />
                   ))}
-                  <span className="text-[10px] text-gray-400">More</span>
+                  <span className="text-[10px] text-muted-foreground">More</span>
                 </div>
               </div>
             </div>
@@ -190,22 +190,22 @@ export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
               role="status"
               aria-live="polite"
               className={cn(
-                'mt-2.5 px-3 py-2 rounded-xl text-xs flex items-center gap-3 transition-all duration-150',
+                'mt-3 px-4 py-2.5 rounded-xl text-xs flex items-center gap-3 transition-all duration-150',
                 tooltip
-                  ? 'bg-orange-50 border border-orange-100 opacity-100'
+                  ? 'bg-primary/5 border border-primary/15 opacity-100'
                   : 'opacity-0 pointer-events-none bg-transparent border border-transparent'
               )}
-              style={{ minHeight: 36 }}
+              style={{ minHeight: 38 }}
             >
               {tooltip && (
                 <>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-foreground">
                     {DAYS[tooltip.dow]} {HOURS[tooltip.hour]}
                   </span>
-                  <span className="text-orange-600 font-bold">
+                  <span className="text-primary font-bold">
                     {tooltip.count.toLocaleString()} orders
                   </span>
-                  <span className="text-gray-500">
+                  <span className="text-muted-foreground">
                     {formatPrice(tooltip.sales, currency)}
                   </span>
                 </>

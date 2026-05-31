@@ -5,9 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  UtensilsCrossed, 
-  Search, 
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader, PageContainer } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { Reveal, Stagger, StaggerItem } from "@/components/ui/motion";
+import {
+  UtensilsCrossed,
+  Search,
   Plus,
   Edit,
   Trash2,
@@ -17,7 +21,6 @@ import {
   Package,
   AlertCircle,
   CheckCircle,
-  XCircle,
   MapPin,
   Filter,
   ChefHat,
@@ -79,6 +82,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
+import { emojiFor } from '@/lib/item-emoji';
 import { formatDistanceToNow } from 'date-fns';
 // Import recipe components
 import RecipeBuilder from './recipe-builder';
@@ -111,7 +115,7 @@ const Menu = () => {
   const [actionLoading, setActionLoading] = useState('');
   const [expandedRecipes, setExpandedRecipes] = useState(new Set());
   const [activeTab, setActiveTab] = useState('overview');
-  
+
   // Enhanced form data for recipes
   const [formData, setFormData] = useState({
     name: '',
@@ -167,7 +171,7 @@ const Menu = () => {
 
   const fetchItems = async () => {
     if (!activeLocation) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('items')
@@ -184,20 +188,20 @@ const Menu = () => {
         .order('max_recipe_level', { ascending: false })
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
-      
+
       if (error) throw error;
       setItems(data || []);
-      
+
       // Separate into different arrays for easier filtering
       const allRecipes = data?.filter(item => item.recipe_type !== 'simple') || [];
       setRecipes(allRecipes);
-      
+
       // Available items for recipe building (exclude the item being edited)
-      const available = data?.filter(item => 
+      const available = data?.filter(item =>
         item.id !== buildingRecipe?.id && item.is_active
       ) || [];
       setAvailableItems(available);
-      
+
     } catch (error) {
       console.error('Error fetching items:', error);
     }
@@ -205,7 +209,7 @@ const Menu = () => {
 
   const fetchCategories = async () => {
     if (!activeLocation) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -214,7 +218,7 @@ const Menu = () => {
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
-      
+
       if (error) throw error;
       setCategories(data || []);
     } catch (error) {
@@ -224,14 +228,14 @@ const Menu = () => {
 
   const fetchRecipeBreakdown = async () => {
     if (!activeLocation) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('recipe_breakdown')
         .select('*')
         .order('parent_item_name', { ascending: true })
         .order('level_depth', { ascending: true });
-      
+
       if (error) throw error;
       setRecipeBreakdown(data || []);
     } catch (error) {
@@ -241,7 +245,7 @@ const Menu = () => {
 
   const fetchRecipeComponents = async (itemId) => {
     if (!itemId) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('item_recipes')
@@ -259,7 +263,7 @@ const Menu = () => {
         .eq('parent_item_id', itemId)
         .order('recipe_level', { ascending: true })
         .order('created_at', { ascending: true });
-      
+
       if (error) throw error;
       setRecipeComponents(data || []);
     } catch (error) {
@@ -322,7 +326,7 @@ const Menu = () => {
       alert('Please fill in all required fields');
       return;
     }
-    
+
     setSaving(true);
     try {
       const itemData = {
@@ -368,7 +372,7 @@ const Menu = () => {
       alert('Please fill in all required fields');
       return;
     }
-    
+
     setSaving(true);
     try {
       const itemData = {
@@ -411,14 +415,14 @@ const Menu = () => {
 
   const deleteItem = async (item) => {
     if (!confirm(`Are you sure you want to delete "${item.name}"? This action cannot be undone.`)) return;
-    
+
     setActionLoading(item.id);
     try {
       const { error } = await supabase
         .from('items')
         .delete()
         .eq('id', item.id);
-      
+
       if (error) throw error;
       await fetchData();
       alert('Menu item deleted successfully');
@@ -435,12 +439,12 @@ const Menu = () => {
     try {
       const { error } = await supabase
         .from('items')
-        .update({ 
+        .update({
           is_active: !item.is_active,
           updated_at: new Date().toISOString()
         })
         .eq('id', item.id);
-      
+
       if (error) throw error;
       await fetchData();
     } catch (error) {
@@ -456,12 +460,12 @@ const Menu = () => {
     try {
       const { error } = await supabase
         .from('items')
-        .update({ 
+        .update({
           sort_order: newSortOrder,
           updated_at: new Date().toISOString()
         })
         .eq('id', itemId);
-      
+
       if (error) throw error;
       await fetchData();
     } catch (error) {
@@ -485,7 +489,7 @@ const Menu = () => {
       const { error } = await supabase.rpc('update_recipe_metadata', {
         item_uuid: itemId
       });
-      
+
       if (error) throw error;
       await fetchData();
     } catch (error) {
@@ -549,10 +553,10 @@ const Menu = () => {
 
   const getComplexityColor = (complexity) => {
     switch (complexity) {
-      case 'simple': return 'bg-green-100 text-green-800';
-      case 'moderate': return 'bg-yellow-100 text-yellow-800';
-      case 'complex': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'simple': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'moderate': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'complex': return 'bg-rose-50 text-rose-700 border-rose-200';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -569,38 +573,54 @@ const Menu = () => {
     const description = item.description?.toLowerCase() || '';
     const categoryName = getCategoryName(item.category_id).toLowerCase();
     const search = searchTerm.toLowerCase();
-    
+
     const matchesSearch = name.includes(search) || description.includes(search) || categoryName.includes(search);
     const matchesCategory = selectedCategory === 'all' || item.category_id === selectedCategory;
     const matchesRecipeType = recipeTypeFilter === 'all' || item.recipe_type === recipeTypeFilter;
     const matchesComplexity = complexityFilter === 'all' || item.recipe_complexity === complexityFilter;
-    const matchesItemUsage = itemUsageFilter === 'all' || 
+    const matchesItemUsage = itemUsageFilter === 'all' ||
       (itemUsageFilter === 'menu_item' && (item.recipe_type === 'recipe' || item.recipe_type === 'simple')) ||
       (itemUsageFilter === 'recipe_ingredient' && item.is_recipe_ingredient);
-    
+
     return matchesSearch && matchesCategory && matchesRecipeType && matchesComplexity && matchesItemUsage;
   });
 
   if (!activeLocation) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <AlertCircle className="w-16 h-16 text-gray-400 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Location Selected</h2>
-        <p className="text-gray-600">Please select a location to manage menu items.</p>
-      </div>
+      <PageContainer>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-5">
+            <AlertCircle className="w-8 h-8 text-muted-foreground" />
+          </span>
+          <h2 className="font-display text-xl font-semibold text-foreground mb-2">No Location Selected</h2>
+          <p className="text-muted-foreground">Please select a location to manage menu items.</p>
+        </div>
+      </PageContainer>
     );
   }
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
+      <PageContainer>
+        <div className="flex items-start gap-3">
+          <Skeleton className="h-11 w-11 rounded-2xl" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
           ))}
         </div>
-      </div>
+        <Skeleton className="h-14 rounded-xl w-full" />
+        <div className="grid gap-4">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
+      </PageContainer>
     );
   }
 
@@ -617,7 +637,7 @@ const Menu = () => {
             required
           />
         </div>
-        
+
         <div>
           <Label htmlFor="category_id">Category *</Label>
           <Select
@@ -660,7 +680,7 @@ const Menu = () => {
             <p className="mt-1 text-xs text-amber-600">No categories yet — add one above to enable creating your first item.</p>
           )}
         </div>
-        
+
         <div>
           <Label htmlFor="price">Selling Price *</Label>
           <Input
@@ -674,7 +694,7 @@ const Menu = () => {
             required
           />
         </div>
-        
+
         <div>
           <Label htmlFor="cost_price">Cost Price</Label>
           <Input
@@ -687,7 +707,7 @@ const Menu = () => {
             placeholder="0.00"
           />
         </div>
-        
+
         <div>
           <Label htmlFor="recipe_type">Recipe Type</Label>
           <Select
@@ -704,7 +724,7 @@ const Menu = () => {
             </SelectContent>
           </Select>
         </div>
-        
+
         <div>
           <Label htmlFor="preparation_time">Prep Time (minutes)</Label>
           <Input
@@ -717,7 +737,7 @@ const Menu = () => {
           />
         </div>
       </div>
-      
+
       <div>
         <Label htmlFor="description">Description</Label>
         <Textarea
@@ -728,7 +748,7 @@ const Menu = () => {
           rows={3}
         />
       </div>
-      
+
       <div className="flex items-center space-x-6">
         <div className="flex items-center space-x-2">
           <Switch
@@ -738,7 +758,7 @@ const Menu = () => {
           />
           <Label htmlFor="is_active">Active</Label>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <Switch
             id="auto_calculate_cost"
@@ -747,7 +767,7 @@ const Menu = () => {
           />
           <Label htmlFor="auto_calculate_cost">Auto-calculate cost from recipe</Label>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <Switch
             id="track_inventory"
@@ -756,7 +776,7 @@ const Menu = () => {
           />
           <Label htmlFor="track_inventory">Track inventory</Label>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <Switch
             id="is_recipe_ingredient"
@@ -766,7 +786,7 @@ const Menu = () => {
           <Label htmlFor="is_recipe_ingredient">Recipe ingredient</Label>
         </div>
       </div>
-      
+
       {formData.track_inventory && (
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -780,7 +800,7 @@ const Menu = () => {
               placeholder="0"
             />
           </div>
-          
+
           <div>
             <Label htmlFor="low_stock_threshold">Low Stock Alert</Label>
             <Input
@@ -798,149 +818,126 @@ const Menu = () => {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <UtensilsCrossed className="w-8 h-8 text-orange-500" />
-            Menu & Recipes
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Manage menu items, recipes and their components for {activeLocation?.name}
-          </p>
-        </div>
-        <Button onClick={() => {
-          resetForm();
-          setIsAddModalOpen(true);
-        }} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Item
-        </Button>
-      </div>
+    <PageContainer>
+      {/* Page Header */}
+      <Reveal>
+        <PageHeader
+          eyebrow="Kitchen"
+          title="Menu & Recipes"
+          icon={UtensilsCrossed}
+          description={`Manage menu items, recipes and their components for ${activeLocation?.name}`}
+          actions={
+            <Button onClick={() => { resetForm(); setIsAddModalOpen(true); }} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Item
+            </Button>
+          }
+        />
+      </Reveal>
 
-      {/* Enhanced Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Items</p>
-                <p className="text-2xl font-bold text-gray-900">{items.length}</p>
-              </div>
-              <Utensils className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Recipes</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {items.filter(i => i.recipe_type === 'recipe').length}
-                </p>
-              </div>
-              <ChefHat className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Components</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {items.filter(i => i.recipe_type === 'component').length}
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Items</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {items.filter(i => i.is_active).length}
-                </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Stat Cards */}
+      <Stagger className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StaggerItem>
+          <StatCard
+            label="Total Items"
+            value={items.length}
+            icon={Utensils}
+            hint="across all categories"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatCard
+            label="Recipes"
+            value={items.filter(i => i.recipe_type === 'recipe').length}
+            icon={ChefHat}
+            hint="with full ingredients"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatCard
+            label="Components"
+            value={items.filter(i => i.recipe_type === 'component').length}
+            icon={Package}
+            hint="reusable sub-items"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatCard
+            label="Active Items"
+            value={items.filter(i => i.is_active).length}
+            icon={CheckCircle}
+            hint="visible on menu"
+          />
+        </StaggerItem>
+      </Stagger>
 
-      {/* Enhanced Filters and Search */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search items by name or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={recipeTypeFilter} onValueChange={setRecipeTypeFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Recipe Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="simple">Simple Items</SelectItem>
-                <SelectItem value="component">Components</SelectItem>
-                <SelectItem value="recipe">Recipes</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={complexityFilter} onValueChange={setComplexityFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Complexity" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Complexity</SelectItem>
-                <SelectItem value="simple">Simple</SelectItem>
-                <SelectItem value="moderate">Moderate</SelectItem>
-                <SelectItem value="complex">Complex</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Search + Filter Bar */}
+      <Reveal delay={0.1}>
+        <Card variant="elevated">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4 pointer-events-none" />
+                <Input
+                  placeholder="Search items by name, description or category…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 rounded-xl h-10"
+                />
+              </div>
 
-            <Select value={itemUsageFilter} onValueChange={setItemUsageFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Item Usage" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Items</SelectItem>
-                <SelectItem value="menu_item">Menu Items</SelectItem>
-                <SelectItem value="recipe_ingredient">Recipe Ingredients</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-full sm:w-44 rounded-xl h-10">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={recipeTypeFilter} onValueChange={setRecipeTypeFilter}>
+                <SelectTrigger className="w-full sm:w-40 rounded-xl h-10">
+                  <SelectValue placeholder="Recipe Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="simple">Simple Items</SelectItem>
+                  <SelectItem value="component">Components</SelectItem>
+                  <SelectItem value="recipe">Recipes</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={complexityFilter} onValueChange={setComplexityFilter}>
+                <SelectTrigger className="w-full sm:w-40 rounded-xl h-10">
+                  <SelectValue placeholder="Complexity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Complexity</SelectItem>
+                  <SelectItem value="simple">Simple</SelectItem>
+                  <SelectItem value="moderate">Moderate</SelectItem>
+                  <SelectItem value="complex">Complex</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={itemUsageFilter} onValueChange={setItemUsageFilter}>
+                <SelectTrigger className="w-full sm:w-44 rounded-xl h-10">
+                  <SelectValue placeholder="Item Usage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Items</SelectItem>
+                  <SelectItem value="menu_item">Menu Items</SelectItem>
+                  <SelectItem value="recipe_ingredient">Recipe Ingredients</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      </Reveal>
 
       {/* AI Menu Creator FAB - Only show when there are items */}
       {items.length > 0 && (
@@ -968,21 +965,22 @@ const Menu = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 rounded-xl">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="breakdown">Recipe Breakdown</TabsTrigger>
           <TabsTrigger value="analysis">Cost Analysis</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
-          {/* Items Grid */}
-          <div className="grid gap-4">
-            {filteredItems.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <ChefHat className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-                  <p className="text-gray-600 mb-4">
+        <TabsContent value="overview" className="mt-6 space-y-4">
+          {filteredItems.length === 0 ? (
+            <Reveal>
+              <Card variant="elevated">
+                <CardContent className="p-10 text-center">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mx-auto mb-5">
+                    <ChefHat className="h-8 w-8 text-primary" />
+                  </span>
+                  <h3 className="font-display text-xl font-semibold text-foreground mb-2">No items found</h3>
+                  <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
                     {searchTerm || selectedCategory !== 'all' || recipeTypeFilter !== 'all' || complexityFilter !== 'all' || itemUsageFilter !== 'all'
                       ? 'No items match your current filters. Try adjusting your search criteria.'
                       : 'Get started by adding your first menu item or recipe.'
@@ -991,16 +989,16 @@ const Menu = () => {
                   {(!searchTerm && selectedCategory === 'all' && recipeTypeFilter === 'all' && complexityFilter === 'all' && itemUsageFilter === 'all') && (
                     <div className="space-y-4">
                       {/* AI Menu Creator suggestion */}
-                      <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-6 mb-6">
+                      <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6 mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <Sparkles className="w-5 h-5 text-orange-500" />
-                          <h4 className="font-semibold text-gray-900">Try Our AI Menu Creator</h4>
+                          <h4 className="font-semibold text-foreground">Try Our AI Menu Creator</h4>
                           <Badge className="bg-orange-500 text-white text-xs px-2 py-1">Beta</Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mb-4">
+                        <p className="text-sm text-muted-foreground mb-4">
                           Upload menu images or paste text and let AI automatically create your menu items with smart categorization and pricing.
                         </p>
-                        <Button 
+                        <Button
                           onClick={() => navigate('/menu/ai-menu-creator')}
                           className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium shadow-lg hover:shadow-xl transition-all"
                         >
@@ -1008,16 +1006,16 @@ const Menu = () => {
                           Try AI Menu Creator
                         </Button>
                       </div>
-                      
+
                       {/* Or divider */}
-                      <div className="flex items-center gap-4 my-6">
-                        <div className="flex-1 h-px bg-gray-200"></div>
-                        <span className="text-sm text-gray-500 font-medium">or</span>
-                        <div className="flex-1 h-px bg-gray-200"></div>
+                      <div className="flex items-center gap-4 my-4">
+                        <div className="flex-1 h-px bg-border"></div>
+                        <span className="text-sm text-muted-foreground font-medium">or</span>
+                        <div className="flex-1 h-px bg-border"></div>
                       </div>
-                      
+
                       {/* Manual add button */}
-                      <Button 
+                      <Button
                         onClick={() => {
                           resetForm();
                           setIsAddModalOpen(true);
@@ -1032,106 +1030,141 @@ const Menu = () => {
                   )}
                 </CardContent>
               </Card>
-            ) : (
-              <div className="grid gap-4">
-                {filteredItems.map((item) => {
-                  const isLoading = actionLoading === item.id;
-                  const profitMargin = calculateProfitMargin(item.price, item.cost_price);
-                  const isLowStock = item.track_inventory && item.current_stock <= item.low_stock_threshold;
-                  
-                  return (
-                    <Card key={item.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+            </Reveal>
+          ) : (
+            <Stagger className="grid gap-3 lg:gap-4">
+              {filteredItems.map((item) => {
+                const isLoading = actionLoading === item.id;
+                const profitMargin = calculateProfitMargin(item.price, item.cost_price);
+                const isLowStock = item.track_inventory && item.current_stock <= item.low_stock_threshold;
+
+                return (
+                  <StaggerItem key={item.id}>
+                    <Card
+                      variant="interactive"
+                      className={cn(
+                        "group",
+                        !item.is_active && "opacity-60"
+                      )}
+                    >
+                      <CardContent className="p-5 sm:p-6">
+                        <div className="flex items-start gap-4">
+                          {/* Type icon chip — emoji matches POS workspace via shared emojiFor helper */}
+                          <span className={cn(
+                            "mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ring-1",
+                            item.recipe_type === 'recipe'
+                              ? "bg-violet-50 ring-violet-100"
+                              : item.recipe_type === 'component'
+                              ? "bg-amber-50 ring-amber-100"
+                              : "bg-primary/10 ring-primary/15"
+                          )}>
+                            <span className="text-xl leading-none select-none">{emojiFor(item)}</span>
+                          </span>
+
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="flex items-center gap-2">
-                                {getRecipeTypeIcon(item.recipe_type)}
-                                <h3 className="text-lg font-semibold text-gray-900 truncate">
-                                  {item.name}
-                                </h3>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className={getComplexityColor(item.recipe_complexity)}>
-                                  {item.recipe_complexity || 'simple'}
-                                </Badge>
-                                
-                                <Badge variant="outline">
-                                  {item.recipe_type || 'simple'}
-                                </Badge>
-                                
-                                {item.max_recipe_level > 0 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    <Layers className="h-3 w-3 mr-1" />
-                                    Level {item.max_recipe_level}
-                                  </Badge>
-                                )}
-                                
-                                {item.total_components > 0 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    <Hash className="h-3 w-3 mr-1" />
-                                    {item.total_components} components
-                                  </Badge>
-                                )}
-                                
-                                {/* Menu/Recipe usage indicators */}
-                                {(item.recipe_type === 'recipe' || item.recipe_type === 'simple') && (
-                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                    <Utensils className="h-3 w-3 mr-1" />
-                                    Menu Item
-                                  </Badge>
-                                )}
-                                
-                                {item.is_recipe_ingredient && (
-                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                                    <FlaskConical className="h-3 w-3 mr-1" />
-                                    Ingredient
-                                  </Badge>
-                                )}
-                              </div>
-                              
+                            {/* Title row */}
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <h3 className="font-display text-base font-semibold text-foreground leading-snug truncate group-hover:text-primary transition-colors">
+                                {item.name}
+                              </h3>
+
                               {!item.is_active && (
-                                <Badge variant="destructive">Inactive</Badge>
+                                <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                              )}
+
+                              <Badge
+                                variant="outline"
+                                className={cn("text-xs font-medium", getComplexityColor(item.recipe_complexity))}
+                              >
+                                {item.recipe_complexity || 'simple'}
+                              </Badge>
+
+                              <Badge variant="outline" className="text-xs">
+                                {item.recipe_type || 'simple'}
+                              </Badge>
+
+                              {item.max_recipe_level > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Layers className="h-3 w-3 mr-1" />
+                                  Level {item.max_recipe_level}
+                                </Badge>
+                              )}
+
+                              {item.total_components > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Hash className="h-3 w-3 mr-1" />
+                                  {item.total_components} components
+                                </Badge>
+                              )}
+
+                              {(item.recipe_type === 'recipe' || item.recipe_type === 'simple') && (
+                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                  <Utensils className="h-3 w-3 mr-1" />
+                                  Menu Item
+                                </Badge>
+                              )}
+
+                              {item.is_recipe_ingredient && (
+                                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  <FlaskConical className="h-3 w-3 mr-1" />
+                                  Ingredient
+                                </Badge>
                               )}
                             </div>
-                            
+
+                            {/* Description */}
                             {item.description && (
-                              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                              <p className="text-sm text-muted-foreground mb-3 line-clamp-1">
                                 {item.description}
                               </p>
                             )}
-                            
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                              <div className="flex items-center gap-1">
-                                <DollarSign className="h-4 w-4" />
-                                <span className="font-medium">{formatCurrency(item.price)}</span>
-                              </div>
-                              
+
+                            {/* Meta row */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                              <span className="font-semibold text-foreground text-base">
+                                {formatCurrency(item.price)}
+                              </span>
+
                               {item.cost_price > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Calculator className="h-4 w-4" />
-                                  <span>Cost: {formatCurrency(item.cost_price)}</span>
-                                </div>
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Calculator className="h-3.5 w-3.5" />
+                                  Cost: {formatCurrency(item.cost_price)}
+                                  {profitMargin && (
+                                    <span className={cn(
+                                      "ml-1 text-xs font-medium",
+                                      parseFloat(profitMargin) >= 50 ? "text-emerald-600" : "text-amber-600"
+                                    )}>
+                                      ({profitMargin}% margin)
+                                    </span>
+                                  )}
+                                </span>
                               )}
-                              
+
                               {item.preparation_time && (
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-4 w-4" />
-                                  <span>{item.preparation_time} min</span>
-                                </div>
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  {item.preparation_time} min
+                                </span>
                               )}
-                              
+
                               {item.categories && (
-                                <div className="flex items-center gap-1">
-                                  <Package className="h-4 w-4" />
-                                  <span>{item.categories.name}</span>
-                                </div>
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Package className="h-3.5 w-3.5" />
+                                  {item.categories.name}
+                                </span>
+                              )}
+
+                              {isLowStock && (
+                                <span className="flex items-center gap-1 text-rose-600 text-xs font-medium">
+                                  <AlertCircle className="h-3.5 w-3.5" />
+                                  Low stock ({item.current_stock})
+                                </span>
                               )}
                             </div>
                           </div>
-                          
-                          <div className="flex items-center gap-2 ml-4">
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
                             {item.recipe_type !== 'simple' && (
                               <TooltipProvider>
                                 <Tooltip>
@@ -1140,7 +1173,7 @@ const Menu = () => {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => handleRecipeBuilder(item)}
-                                      className="h-8 w-8 p-0"
+                                      className="h-9 w-9 p-0 rounded-xl"
                                     >
                                       <TreePine className="h-4 w-4" />
                                     </Button>
@@ -1151,17 +1184,17 @@ const Menu = () => {
                                 </Tooltip>
                               </TooltipProvider>
                             )}
-                            
+
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 w-8 p-0"
+                                  className="h-9 w-9 p-0 rounded-xl"
                                   disabled={isLoading}
                                 >
                                   {isLoading ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-foreground/40"></div>
                                   ) : (
                                     <MoreHorizontal className="h-4 w-4" />
                                   )}
@@ -1172,7 +1205,7 @@ const Menu = () => {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
-                                
+
                                 <DropdownMenuItem onClick={() => toggleItemStatus(item)}>
                                   {item.is_active ? (
                                     <>
@@ -1186,19 +1219,19 @@ const Menu = () => {
                                     </>
                                   )}
                                 </DropdownMenuItem>
-                                
+
                                 {item.recipe_type !== 'simple' && (
                                   <DropdownMenuItem onClick={() => updateRecipeMetadata(item.id)}>
                                     <Calculator className="h-4 w-4 mr-2" />
                                     Update Recipe Data
                                   </DropdownMenuItem>
                                 )}
-                                
+
                                 <DropdownMenuSeparator />
-                                
-                                <DropdownMenuItem 
+
+                                <DropdownMenuItem
                                   onClick={() => deleteItem(item)}
-                                  className="text-red-600 hover:text-red-700"
+                                  className="text-destructive hover:text-destructive"
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Delete
@@ -1209,18 +1242,18 @@ const Menu = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  </StaggerItem>
+                );
+              })}
+            </Stagger>
+          )}
         </TabsContent>
 
-        <TabsContent value="breakdown" className="space-y-4">
+        <TabsContent value="breakdown" className="space-y-4 mt-6">
           <RecipeBreakdown activeLocation={activeLocation} />
         </TabsContent>
 
-        <TabsContent value="analysis" className="space-y-4">
+        <TabsContent value="analysis" className="space-y-4 mt-6">
           <CostAnalysis activeLocation={activeLocation} />
         </TabsContent>
       </Tabs>
@@ -1230,29 +1263,29 @@ const Menu = () => {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-orange-500" />
+              <Plus className="w-5 h-5 text-primary" />
               Add New Menu Item
             </DialogTitle>
             <DialogDescription>
               Add a new item to your menu for {activeLocation?.name}.
             </DialogDescription>
           </DialogHeader>
-          
+
           <ItemForm />
-          
+
           <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsAddModalOpen(false)}
               className="flex-1"
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={addItem}
               disabled={saving}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="flex-1"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -1270,29 +1303,29 @@ const Menu = () => {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-blue-500" />
+              <Edit className="w-5 h-5 text-primary" />
               Edit Menu Item
             </DialogTitle>
             <DialogDescription>
               Update information for "{editingItem?.name}".
             </DialogDescription>
           </DialogHeader>
-          
+
           <ItemForm isEdit={true} />
-          
+
           <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsEditModalOpen(false)}
               className="flex-1"
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={editItem}
               disabled={saving}
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+              className="flex-1"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -1310,7 +1343,7 @@ const Menu = () => {
         <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <TreePine className="h-5 w-5 text-orange-500" />
+              <TreePine className="h-5 w-5 text-primary" />
               Recipe — {buildingRecipe?.name || 'Item'}
             </DialogTitle>
             <DialogDescription>
@@ -1357,8 +1390,8 @@ const Menu = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 };
 
-export default Menu; 
+export default Menu;

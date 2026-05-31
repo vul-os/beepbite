@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { AlertCircle, RefreshCw, MapPin } from 'lucide-react';
+import { AlertCircle, RefreshCw, MapPin, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 
 // Stats API
 import { fetchStatsSummary, fetchStatsHeatmap } from '@/services/stats';
+
+// Layout helpers
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
+import { Reveal } from '@/components/ui/motion';
 
 // Dashboard sub-components
 import PeriodFilter from './components/period-filter';
@@ -226,42 +230,40 @@ const Home = () => {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Top bar ────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-          {/* Left: title + location */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="min-w-0">
-              <h1 className="text-base font-bold text-gray-900 leading-tight">Dashboard</h1>
-              <p className="text-xs text-gray-500 flex items-center gap-1 leading-tight truncate">
-                <MapPin className="w-3 h-3 flex-shrink-0 text-orange-400" aria-hidden="true" />
-                <span className="truncate">{resolvedLocation?.name || 'All locations'}</span>
-              </p>
+    <PageContainer>
+      {/* ── Page header ─────────────────────────────────────────────────── */}
+      <Reveal delay={0}>
+        <PageHeader
+          icon={LayoutDashboard}
+          title="Dashboard"
+          description={
+            resolvedLocation?.name
+              ? <>
+                  <MapPin className="inline-block w-3.5 h-3.5 mr-1 text-primary/70" aria-hidden="true" />
+                  {resolvedLocation.name}
+                </>
+              : 'All locations'
+          }
+          actions={
+            <div className="flex items-center gap-2">
+              <PeriodFilter value={period} onChange={setPeriod} />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefresh}
+                aria-label="Refresh dashboard"
+                className="h-9 w-9 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <RefreshCw className="w-4 h-4" aria-hidden="true" />
+              </Button>
             </div>
-          </div>
+          }
+        />
+      </Reveal>
 
-          {/* Right: period filter + refresh */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <PeriodFilter value={period} onChange={setPeriod} />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefresh}
-              aria-label="Refresh dashboard"
-              className="h-9 w-9 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 focus-visible:ring-2 focus-visible:ring-orange-400"
-            >
-              <RefreshCw className="w-4 h-4" aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* ── Main content ────────────────────────────────────────────────── */}
-      <main className="px-4 sm:px-6 py-5 space-y-5 max-w-[1600px] mx-auto">
-
-        {/* Summary error banner */}
-        {summaryError && !summaryLoading && (
+      {/* Summary error banner */}
+      {summaryError && !summaryLoading && (
+        <Reveal delay={0.05}>
           <div
             role="alert"
             className="flex items-start gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
@@ -280,43 +282,49 @@ const Home = () => {
               Retry
             </Button>
           </div>
-        )}
+        </Reveal>
+      )}
 
-        {/* KPI row */}
-        <section aria-label="Key performance indicators">
-          <KpiCards
-            kpis={kpis}
-            previous={previous}
-            currency={orgCurrency}
-            loading={summaryLoading}
-          />
-        </section>
+      {/* KPI row */}
+      <section aria-label="Key performance indicators">
+        <KpiCards
+          kpis={kpis}
+          previous={previous}
+          currency={orgCurrency}
+          loading={summaryLoading}
+        />
+      </section>
 
-        {/* Charts + Live Orders */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Left column: trend + heatmap */}
-          <section
-            aria-label="Sales analytics charts"
-            className="lg:col-span-2 space-y-5"
-          >
+      {/* Charts + Live Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+        {/* Left column: trend + heatmap */}
+        <section
+          aria-label="Sales analytics charts"
+          className="lg:col-span-2 space-y-5 sm:space-y-6"
+        >
+          <Reveal delay={0.1}>
             <SalesTrendChart
               series={series}
               period={period}
               currency={orgCurrency}
               loading={summaryLoading}
             />
+          </Reveal>
+          <Reveal delay={0.15}>
             <BusyHeatmap
               cells={heatmapCells}
               currency={orgCurrency}
               loading={heatmapLoading}
             />
-          </section>
+          </Reveal>
+        </section>
 
-          {/* Right column: live orders */}
-          <section
-            aria-label="Live orders"
-            className="lg:col-span-1"
-          >
+        {/* Right column: live orders */}
+        <section
+          aria-label="Live orders"
+          className="lg:col-span-1"
+        >
+          <Reveal delay={0.12}>
             <LiveOrdersPanel
               orders={orders}
               loadingOrders={loadingOrders}
@@ -327,10 +335,10 @@ const Home = () => {
               filteredOrders={filteredOrders}
               updateOrderStatus={updateOrderStatus}
             />
-          </section>
-        </div>
-      </main>
-    </div>
+          </Reveal>
+        </section>
+      </div>
+    </PageContainer>
   );
 };
 

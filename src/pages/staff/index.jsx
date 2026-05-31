@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Users, 
-  Search, 
+import {
+  Users,
+  Search,
   UserPlus,
   Edit,
   Trash2,
@@ -30,7 +31,10 @@ import {
   PlayCircle,
   StopCircle,
   Coffee,
-  ArrowLeftCircle
+  ArrowLeftCircle,
+  Hash,
+  KeyRound,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Dialog,
@@ -40,6 +44,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { api } from '@/lib/api-client';
 import {
   Select,
   SelectContent,
@@ -75,6 +81,14 @@ const Staff = () => {
   const [timeEntries, setTimeEntries] = useState([]);
   const [loadingTimeEntries, setLoadingTimeEntries] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState(null);
+
+  // PIN management state
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [pinTargetStaff, setPinTargetStaff] = useState(null);
+  const [newPin, setNewPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinSuccess, setPinSuccess] = useState(false);
+  const [savingPin, setSavingPin] = useState(false);
   const [formData, setFormData] = useState({
     employee_id: '',
     first_name: '',
@@ -137,6 +151,47 @@ const Staff = () => {
       notes: '',
       is_active: true
     });
+  };
+
+  // ---- PIN management ----
+
+  const openPinDialog = (staffMember) => {
+    setPinTargetStaff(staffMember);
+    setNewPin('');
+    setPinError('');
+    setPinSuccess(false);
+    setPinDialogOpen(true);
+  };
+
+  const closePinDialog = () => {
+    setPinDialogOpen(false);
+    setPinTargetStaff(null);
+    setNewPin('');
+    setPinError('');
+    setPinSuccess(false);
+  };
+
+  const handleSetPin = async (e) => {
+    e.preventDefault();
+    const trimmed = newPin.trim();
+    if (trimmed.length < 4 || trimmed.length > 6 || !/^\d+$/.test(trimmed)) {
+      setPinError('PIN must be 4–6 digits.');
+      return;
+    }
+    setSavingPin(true);
+    setPinError('');
+    try {
+      const { error } = await api.request('POST', `/staff/${pinTargetStaff.id}/set-pin`, {
+        body: { pin: trimmed },
+      });
+      if (error) {
+        setPinError(error.message || 'Failed to set PIN. Please try again.');
+        return;
+      }
+      setPinSuccess(true);
+    } finally {
+      setSavingPin(false);
+    }
   };
 
   const addStaff = async () => {
@@ -677,6 +732,15 @@ const Staff = () => {
               Manage staff members for {activeLocation?.name}
             </p>
           </div>
+          <Link to="/staff/manage">
+            <Button
+              variant="outline"
+              className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+            >
+              <KeyRound className="w-4 h-4 mr-2" />
+              Manage Staff (detailed)
+            </Button>
+          </Link>
         </div>
 
         {/* Tabs */}
@@ -913,7 +977,7 @@ const Staff = () => {
                                   <Edit className="w-3 h-3 mr-1" />
                                   Edit
                                 </Button>
-                                
+
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -939,6 +1003,18 @@ const Staff = () => {
                                   )}
                                 </Button>
                               </div>
+
+                              {/* Set/Reset PIN — lets manager give staff a quick-login PIN */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openPinDialog(staffMember)}
+                                disabled={isLoading}
+                                className="w-full text-xs text-orange-700 hover:text-orange-800 hover:bg-orange-50 border-orange-200"
+                              >
+                                <Hash className="w-3 h-3 mr-1" />
+                                {staffMember.pin_hash ? 'Reset PIN' : 'Set PIN'}
+                              </Button>
 
                               <Button
                                 size="sm"
@@ -1210,6 +1286,89 @@ const Staff = () => {
               Update Staff Member
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set / Reset PIN dialog */}
+      <Dialog open={pinDialogOpen} onOpenChange={(v) => { if (!v) closePinDialog(); }}>
+        <DialogContent className="max-w-sm bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Hash className="w-5 h-5 text-orange-500" />
+              {pinTargetStaff?.pin_hash ? 'Reset PIN' : 'Set PIN'}
+            </DialogTitle>
+            <DialogDescription>
+              Set a 4–6 digit PIN for{' '}
+              <span className="font-medium text-gray-800">
+                {pinTargetStaff?.first_name} {pinTargetStaff?.last_name}
+              </span>
+              . They will use this to log in at the POS terminal.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pinSuccess ? (
+            <div className="py-4 text-center space-y-3">
+              <CheckCircle className="w-10 h-10 text-green-500 mx-auto" />
+              <p className="text-sm text-green-700 font-medium">PIN updated successfully.</p>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={closePinDialog}
+              >
+                Done
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSetPin} className="space-y-4 mt-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="staff_pin">New PIN</Label>
+                <Input
+                  id="staff_pin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="\d{4,6}"
+                  maxLength={6}
+                  placeholder="4–6 digits"
+                  value={newPin}
+                  onChange={(e) => {
+                    setNewPin(e.target.value.replace(/\D/g, ''));
+                    setPinError('');
+                  }}
+                  required
+                  className="border-orange-200 focus:border-orange-400"
+                />
+              </div>
+
+              {pinError && (
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  {pinError}
+                </p>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+                  onClick={closePinDialog}
+                  disabled={savingPin}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={savingPin}
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  {savingPin ? (
+                    <><Clock className="w-4 h-4 mr-1 animate-spin" /> Saving…</>
+                  ) : (
+                    'Set PIN'
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

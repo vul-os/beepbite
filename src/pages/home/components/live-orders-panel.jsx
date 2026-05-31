@@ -63,20 +63,22 @@ export default function LiveOrdersPanel({
   ).length;
 
   return (
-    <Card className="border border-gray-200 shadow-sm bg-white flex flex-col h-full" style={{ minHeight: 520 }}>
-      <CardHeader className="pb-2 px-4 pt-4 flex-shrink-0 border-b border-gray-100">
-        <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+    <Card variant="elevated" className="flex flex-col h-full" style={{ minHeight: 520 }}>
+      <CardHeader className="pb-3 px-5 pt-5 flex-shrink-0 border-b border-border/60">
+        <CardTitle className="flex items-center gap-2.5">
           {/* Animated live pulse */}
-          <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500" />
+          <span className="relative flex h-2.5 w-2.5 flex-shrink-0" aria-hidden="true">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
           </span>
-          <Radio className="w-4 h-4 text-orange-500" aria-hidden="true" />
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Radio className="h-4 w-4" aria-hidden="true" />
+          </span>
           Live Orders
           {activeCount > 0 && (
             <span
               aria-label={`${activeCount} active orders`}
-              className="ml-auto text-xs font-semibold bg-orange-500 text-white rounded-full px-2 py-0.5 tabular-nums"
+              className="ml-auto text-xs font-bold bg-primary text-white rounded-full px-2.5 py-0.5 tabular-nums"
             >
               {activeCount}
             </span>

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -132,8 +132,32 @@
     touch-action: manipulation;
   }
   
+  /* Display headings — Fraunces gives the brand its warm, editorial character.
+     Applied to the large title tags; smaller UI labels (h4–h6) stay in Inter. */
+  h1, h2, h3 {
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+
   h1 {
-    line-height: 1.1;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  h2 { line-height: 1.12; }
+  h3 { line-height: 1.2; }
+
+  /* Opt-in display utility (and its italic-flourish companion) for non-heading
+     elements that still want the brand serif. */
+  .font-display {
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+  .font-display-italic {
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
+    font-style: italic;
+    font-optical-sizing: auto;
   }
   
   /* Link styles */
@@ -378,11 +402,41 @@
       linear-gradient(to bottom, rgba(249, 115, 22, 0.08) 1px, transparent 1px);
     background-size: 48px 48px;
   }
+  /* Dark-mode variant — slightly more visible grid lines */
+  .bg-grid-orange-dark {
+    background-image:
+      linear-gradient(to right, rgba(249, 115, 22, 0.12) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(249, 115, 22, 0.12) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
 
   .bg-noise {
     background-image: radial-gradient(rgba(0,0,0,0.03) 1px, transparent 1px);
     background-size: 6px 6px;
   }
+
+  /* Text wrapping niceties for headings + lead paragraphs */
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  /* Interactive card: subtle lift + shadow on hover. Compose with the Card
+     component or any rounded surface. */
+  .card-interactive {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.25s ease;
+    will-change: transform;
+  }
+  .card-interactive:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px -8px rgb(16 24 40 / 0.14), 0 4px 10px -4px rgb(16 24 40 / 0.08);
+  }
+
+  /* Small staggered-reveal delay steps for CSS-only entrance animations. */
+  .delay-75 { animation-delay: 75ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-225 { animation-delay: 225ms; }
+  .delay-300 { animation-delay: 300ms; }
 
   @media (prefers-reduced-motion: reduce) {
     .animate-blob,
@@ -392,9 +446,14 @@
     .animate-shimmer,
     .animate-marquee,
     .animate-pulse-ring,
+    .animate-fade-up,
+    .animate-fade-in,
+    .animate-scale-in,
     .hero-pulse {
       animation: none !important;
     }
+    .card-interactive { transition: none !important; }
+    .card-interactive:hover { transform: none !important; }
   }
 }
 

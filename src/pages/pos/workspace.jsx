@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { emojiFor } from '@/lib/item-emoji';
 
 import { useAuth } from '@/context/auth-context';
 import { useActor } from '@/context/actor-token-context';
@@ -93,29 +94,31 @@ import ModifierPicker, { useItemHasModifiers } from './components/modifier-picke
 import ReceiptModal from './components/receipt-modal';
 
 // ---------------------------------------------------------------------------
-// Constants & helpers
+// Service-style helpers
 // ---------------------------------------------------------------------------
 
-const ITEM_EMOJI = [
-  { match: /burger|patty/i, e: '🍔' },
-  { match: /pizza/i, e: '🍕' },
-  { match: /fries|chips/i, e: '🍟' },
-  { match: /chicken|wing/i, e: '🍗' },
-  { match: /salad/i, e: '🥗' },
-  { match: /pasta|noodle/i, e: '🍜' },
-  { match: /coffee|latte/i, e: '☕' },
-  { match: /tea/i, e: '🍵' },
-  { match: /beer/i, e: '🍺' },
-  { match: /wine/i, e: '🍷' },
-  { match: /coke|cola|soda|sprite/i, e: '🥤' },
-  { match: /water/i, e: '💧' },
-  { match: /juice/i, e: '🧃' },
-  { match: /cake|brownie|cupcake/i, e: '🍰' },
-  { match: /ice cream/i, e: '🍨' },
-  { match: /donut/i, e: '🍩' },
-  { match: /cookie/i, e: '🍪' },
-];
-const emojiFor = (it) => ITEM_EMOJI.find((x) => x.match.test(it?.name || ''))?.e || '🍽️';
+/**
+ * Per-location service style stored in localStorage.
+ * 'dine_in'  — the business has tables and uses the floor plan.
+ * 'takeaway' — counter / market stall / delivery-only; no tables needed.
+ *
+ * Key: bb_service_style_<locationId>
+ * Default: 'dine_in' (preserve existing behaviour for locations that have
+ * already set up a floor plan; takeaway-only users switch explicitly).
+ */
+function getServiceStyle(locationId) {
+  if (!locationId) return 'dine_in';
+  try {
+    const v = localStorage.getItem(`bb_service_style_${locationId}`);
+    return v === 'takeaway' ? 'takeaway' : 'dine_in';
+  } catch {
+    return 'dine_in';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Constants & helpers
+// ---------------------------------------------------------------------------
 
 const uuid = () =>
   (crypto?.randomUUID?.() ||
@@ -305,6 +308,17 @@ export default function PosWorkspacePage() {
   // then, dine-in cannot proceed (there is nothing to seat a guest at).
   const hasFloorPlan = tables.length > 0;
 
+  // Service style: 'dine_in' or 'takeaway'. Loaded from localStorage and
+  // refreshed whenever the active location changes. Takeaway-only locations
+  // never show the Eat-in button or the NoFloorPlanCard nag.
+  const [serviceStyle, setServiceStyle] = useState(() =>
+    getServiceStyle(activeLocation?.id)
+  );
+  useEffect(() => {
+    setServiceStyle(getServiceStyle(activeLocation?.id));
+  }, [activeLocation?.id]);
+  const isDineInMode = serviceStyle === 'dine_in';
+
   const handleDesignFloor = useCallback(() => {
     navigate('/floor/edit');
   }, [navigate]);
@@ -353,16 +367,16 @@ export default function PosWorkspacePage() {
 
   // Eat-in entry point. A dine-in order needs a table; if no floor plan has
   // been designed (zero tables for this location) there is nothing to pick, so
-  // we surface the same "design your floor plan first" guidance instead of
-  // opening an empty table picker. Takeaway remains available (no table needed).
+  // we surface friendly guidance instead of a destructive toast. In
+  // takeaway-only mode this handler is never called from the main flow —
+  // it's still reachable from the "Assign Table" header button for walk-ins.
   const handleStartEatIn = useCallback(() => {
     if (!hasFloorPlan) {
       toast({
-        variant: 'destructive',
-        title: 'No floor plan yet',
+        title: 'No tables set up yet',
         description: isOwnerManager
-          ? 'Design your floor plan to add tables before seating dine-in guests.'
-          : 'Ask your manager to set up the floor plan before taking dine-in orders. You can still take takeaway orders.',
+          ? 'Set up a floor plan to start seating dine-in guests. Takeaway always works without one.'
+          : 'Ask your manager to set up the floor plan when you need dine-in seating. You can still take takeaway orders.',
       });
       return;
     }
@@ -1038,7 +1052,7 @@ export default function PosWorkspacePage() {
           )}
 
           <div className="flex items-center gap-1.5">
-            {activeTicket && (
+            {activeTicket && isDineInMode && (
               <Button size="sm" variant="outline" onClick={handleStartEatIn}
                 aria-label={activeTicket.kind === 'walkin' ? 'Assign this ticket to a table' : 'Move to a different table'}
                 className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
@@ -1097,6 +1111,7 @@ export default function PosWorkspacePage() {
             loading={tablesLoading}
             canDesignFloor={isOwnerManager}
             onDesignFloor={handleDesignFloor}
+            isDineInMode={isDineInMode}
           />
         </div>
       </header>
@@ -1164,32 +1179,46 @@ export default function PosWorkspacePage() {
                 <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-3 text-center">
                   How will the customer be ordering?
                 </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Eat-in */}
-                  <button
-                    type="button"
-                    onClick={handleStartEatIn}
-                    aria-label="Start eat-in order — select a table"
-                    className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 bg-white hover:bg-green-50 hover:border-green-400 active:bg-green-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
-                  >
-                    <Utensils className="w-10 h-10 text-green-600" />
-                    <span className="text-base font-bold text-gray-900">Eat-in</span>
-                    <span className="text-[11px] text-gray-400">
-                      {hasFloorPlan ? 'Select a table' : 'Floor plan needed'}
-                    </span>
-                  </button>
-                  {/* Takeaway */}
+                {isDineInMode ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Eat-in — only visible in dine-in mode */}
+                    <button
+                      type="button"
+                      onClick={handleStartEatIn}
+                      aria-label="Start eat-in order — select a table"
+                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 bg-white hover:bg-green-50 hover:border-green-400 active:bg-green-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+                    >
+                      <Utensils className="w-10 h-10 text-green-600" />
+                      <span className="text-base font-bold text-gray-900">Eat-in</span>
+                      <span className="text-[11px] text-gray-400">
+                        {hasFloorPlan ? 'Select a table' : 'Set up tables first'}
+                      </span>
+                    </button>
+                    {/* Takeaway */}
+                    <button
+                      type="button"
+                      onClick={handleAddWalkIn}
+                      aria-label="Start takeaway / walk-in order"
+                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 active:bg-orange-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    >
+                      <ShoppingBag className="w-10 h-10 text-orange-500" />
+                      <span className="text-base font-bold text-gray-900">Takeaway</span>
+                      <span className="text-[11px] text-gray-400">Walk-in / counter</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Takeaway-only mode: single wide button, no table flow */
                   <button
                     type="button"
                     onClick={handleAddWalkIn}
-                    aria-label="Start takeaway / walk-in order"
-                    className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 active:bg-orange-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    aria-label="Start a new order"
+                    className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 active:bg-orange-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                   >
                     <ShoppingBag className="w-10 h-10 text-orange-500" />
-                    <span className="text-base font-bold text-gray-900">Takeaway</span>
-                    <span className="text-[11px] text-gray-400">Walk-in / counter</span>
+                    <span className="text-base font-bold text-gray-900">New order</span>
+                    <span className="text-[11px] text-gray-400">Tap to start serving</span>
                   </button>
-                </div>
+                )}
               </div>
             )}
             {loadingMenu ? (
