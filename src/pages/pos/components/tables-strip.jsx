@@ -125,35 +125,39 @@ function WalkInTile({ walkIn, isActive, onSelect }) {
   )
 }
 
-// Shown when the active location has zero tables — i.e. no floor plan exists
-// yet. Owners/managers get a CTA to the floor editor; everyone else gets
-// guidance to ask a manager.
+// Shown when the active location is in dine-in mode but has zero tables —
+// i.e. no floor plan exists yet. Owners/managers get a friendly optional CTA
+// to the floor editor; everyone else gets guidance to ask a manager.
+// Only rendered for dine-in businesses — takeaway/counter locations never
+// see this prompt.
 function NoFloorPlanCard({ canDesignFloor, onDesignFloor }) {
   return (
     <div
       role="status"
-      className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/60 px-4 py-3"
+      className="flex w-full items-center gap-3 rounded-xl border border-dashed border-orange-200 bg-orange-50/50 px-4 py-3"
     >
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-500">
-        <LayoutGrid className="h-5 w-5" />
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-500">
+        <LayoutGrid className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-gray-900">
-          No floor plan yet — set up your tables to start seating dine-in guests.
+          Set up tables when you're ready
         </p>
         <p className="mt-0.5 text-xs text-gray-500">
           {canDesignFloor
-            ? "Design your floor plan to place tables, then you can seat dine-in guests. Takeaway works without a floor plan."
-            : "Ask your manager to set up the floor plan before taking dine-in orders. You can still take takeaway orders."}
+            ? "Design a floor plan to seat dine-in guests. Takeaway always works without one."
+            : "Ask your manager to set up the floor plan for dine-in seating. Takeaway orders work right now."}
         </p>
       </div>
       {canDesignFloor && (
         <Button
           onClick={onDesignFloor}
-          className="flex-shrink-0 bg-orange-500 hover:bg-orange-600 text-white focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1"
+          variant="outline"
+          size="sm"
+          className="flex-shrink-0 border-orange-300 text-orange-700 hover:bg-orange-50 focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1"
         >
-          <PencilRuler className="mr-2 h-4 w-4" />
-          Design floor plan
+          <PencilRuler className="mr-1.5 h-3.5 w-3.5" />
+          Set up tables
         </Button>
       )}
     </div>
@@ -169,24 +173,30 @@ export function TablesStrip({
   loading = false,
   canDesignFloor = false,
   onDesignFloor,
+  isDineInMode = true,
 }) {
   // No floor plan designed yet (zero tables for this location). The walk-in
   // tickets the cashier may already have open should still be reachable, so
   // only swap to the pure empty-state when there are no walk-ins either.
+  // For takeaway-only businesses we skip the NoFloorPlanCard entirely.
   const noFloorPlan = !loading && tables.length === 0
 
   if (noFloorPlan && walkIns.length === 0) {
     return (
       <div className="w-full px-1 py-1">
         <div className="flex items-center gap-2">
-          <NoFloorPlanCard canDesignFloor={canDesignFloor} onDesignFloor={onDesignFloor} />
+          {/* Only show the floor plan prompt for dine-in businesses */}
+          {isDineInMode && (
+            <NoFloorPlanCard canDesignFloor={canDesignFloor} onDesignFloor={onDesignFloor} />
+          )}
           {/* Keep the "New tab" affordance so takeaway is always one tap away. */}
           <Button
             variant="outline"
             onClick={onAddWalkIn}
             aria-label="New walk-in tab"
             className={cn(
-              "flex-shrink-0 w-24 h-[4.5rem] rounded-xl flex flex-col items-center justify-center gap-1",
+              isDineInMode ? "flex-shrink-0 w-24 h-[4.5rem]" : "flex-shrink-0 h-[4.5rem] px-6",
+              "rounded-xl flex flex-col items-center justify-center gap-1",
               "border-dashed border-2 border-gray-300 text-gray-500",
               "hover:border-orange-400 hover:text-orange-500 hover:bg-orange-50",
               "focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1",
@@ -203,7 +213,8 @@ export function TablesStrip({
 
   return (
     <div className="w-full">
-      {noFloorPlan && (
+      {/* Only show the floor plan prompt for dine-in businesses */}
+      {noFloorPlan && isDineInMode && (
         <div className="px-1 pb-2">
           <NoFloorPlanCard canDesignFloor={canDesignFloor} onDesignFloor={onDesignFloor} />
         </div>

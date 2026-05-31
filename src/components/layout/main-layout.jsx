@@ -35,8 +35,8 @@ const MainLayout = () => {
             <Outlet />
           </main>
         ) : (
-          <main className="flex-1 min-w-0 bg-gray-50 px-2 sm:px-4 md:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto py-4 sm:py-6">
+          <main className="flex-1 min-w-0 bg-muted/40 px-4 sm:px-6 lg:px-8 xl:px-12">
+            <div className="mx-auto w-full max-w-content py-6 sm:py-8">
               <Outlet />
             </div>
           </main>

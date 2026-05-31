@@ -28,6 +28,7 @@ const getLoadingMessage = (pathname) => {
   if (pathname.startsWith('/s/')) return 'Loading store login...';
   if (pathname.startsWith('/q/')) return 'Loading Quick POS...';
   if (pathname.includes('/pos/workspace')) return 'Loading POS workspace...';
+  if (pathname === '/work') return 'Loading kitchen workspace...';
   if (pathname.includes('/docs/pos-overview')) return 'Loading POS guide...';
   if (pathname.includes('/docs/menu-management')) return 'Loading menu guide...';
   if (pathname.includes('/docs/whatsapp-setup')) return 'Loading WhatsApp guide...';

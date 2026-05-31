@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { hasCapability } from '@/services/pos';
-import { 
-  Settings, 
-  LogOut, 
-  Users, 
-  ChevronDown, 
-  UserCircle, 
+import {
+  Settings,
+  LogOut,
+  Users,
+  ChevronDown,
+  UserCircle,
   BarChart3,
   MessageSquare,
   Hash,
@@ -23,9 +23,12 @@ import {
   Folder,
   Receipt,
   MonitorPlay,
-  Truck
+  Truck,
+  LockKeyhole,
+  LayoutDashboard
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useActor } from '@/context/actor-token-context';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,10 +44,10 @@ import { cn } from "@/lib/utils";
 import Logo from '@/components/ui/logo';
 
 const TopBar = () => {
-  const { 
-    user, 
+  const {
+    user,
     userProfile,
-    signOut, 
+    signOut,
     locations,
     activeLocation,
     switchLocation,
@@ -52,9 +55,20 @@ const TopBar = () => {
     activeOrganization,
     switchOrganization
   } = useAuth();
+  const { actor } = useActor();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
+
+  /**
+   * Derive the best slug for /s/:slug staff-PIN login.
+   * Prefer location-level slug if present, then org slug.
+   * Fall back to /pos/login if neither is available.
+   */
+  const staffLoginPath = (() => {
+    const slug = activeLocation?.slug || activeOrganization?.slug;
+    return slug ? `/s/${slug}` : '/pos/login';
+  })();
 
   // Check if we're on the landing page
   const isLandingPage = location.pathname === '/';
@@ -113,10 +127,10 @@ const TopBar = () => {
       description: 'Cashier workspace'
     },
     {
-      name: 'Kitchen',
+      name: 'Kitchen Display',
       path: '/kds/expo',
-      icon: ChefHat,
-      description: 'Kitchen Display'
+      icon: MonitorPlay,
+      description: 'Full-screen kitchen wall'
     },
     {
       name: 'Reviews',
@@ -138,10 +152,16 @@ const TopBar = () => {
           description: 'Take orders & open the register'
         },
         {
-          name: 'Kitchen Display',
+          name: 'Kitchen Workspace',
+          path: '/work',
+          icon: LayoutDashboard,
+          description: 'POS + Kitchen tabs with top bar'
+        },
+        {
+          name: 'Kitchen Display (full screen)',
           path: '/kds/expo',
           icon: MonitorPlay,
-          description: 'Live tickets, ingredients & prep steps'
+          description: 'Wall-mount full-screen ticket view'
         }
       ]
     },
@@ -182,7 +202,7 @@ const TopBar = () => {
           name: 'Staff',
           path: '/staff',
           icon: UserCircle,
-          description: 'Staff management'
+          description: 'Staff management & PINs'
         },
         {
           name: 'Driver Portal',
@@ -218,8 +238,8 @@ const TopBar = () => {
           ? 'bg-white/80 backdrop-blur-sm border-b border-gray-100' 
           : 'bg-white border-b border-gray-200'
       }`}>
-        <nav className="h-16 px-4 sm:px-6 lg:px-8">
-          <div className="h-full flex items-center justify-between max-w-7xl mx-auto">
+        <nav className="h-16 px-4 sm:px-6 lg:px-8 xl:px-12">
+          <div className="h-full flex items-center justify-between max-w-content mx-auto">
             {/* Left: Logo and Navigation */}
             <div className="flex items-center gap-6">
               <Link to="/" className="flex items-center">
@@ -544,8 +564,26 @@ const TopBar = () => {
                 </div>
               </div>
 
-              {/* Fixed Bottom Sign Out - Clean styling */}
-              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gray-50/50">
+              {/* Fixed Bottom — Staff login + Sign Out */}
+              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gray-50/50 space-y-2">
+                {/* Staff / employee PIN login — shared-terminal "switch user" */}
+                <Button
+                  onClick={() => {
+                    closeSideNav();
+                    navigate(staffLoginPath);
+                  }}
+                  variant="ghost"
+                  className="w-full justify-start gap-4 py-4 px-4 text-orange-700 hover:bg-orange-50 hover:text-orange-800 rounded-xl font-medium"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                    <LockKeyhole className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div className="text-left min-w-0 flex-1">
+                    <div className="text-base font-medium truncate">Staff Login</div>
+                    <div className="text-sm text-orange-500 truncate">Switch employee / enter PIN</div>
+                  </div>
+                </Button>
+
                 <Button
                   onClick={() => {
                     handleSignOut();

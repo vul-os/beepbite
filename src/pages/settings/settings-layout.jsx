@@ -13,6 +13,7 @@ import {
   Printer,
   ChefHat,
   UserCircle,
+  Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +22,14 @@ const SECTIONS = [
     title: 'Business',
     items: [
       { label: 'Organization', to: '/settings/organization', icon: Building2 },
-      { label: 'Locations', to: '/settings/organization?tab=locations', icon: MapPin },
+      {
+        label: 'Locations',
+        to: '/settings/organization?tab=locations',
+        icon: MapPin,
+        // Drill-down pages for a specific location (e.g. payments, settings)
+        // are owned by this entry — they're navigated into FROM Locations.
+        matchPaths: ['/settings/location/'],
+      },
       { label: 'Domains', to: '/settings/domains', icon: Globe },
     ],
   },
@@ -56,51 +64,95 @@ const SECTIONS = [
   },
 ];
 
-function isItemActive(itemPath, currentPath) {
-  const [base] = itemPath.split('?');
-  if (currentPath === base) return true;
-  // /settings/billing/wallet should highlight Billing
+function isItemActive(item, currentPath, currentSearch) {
+  // Any additional path prefixes the item explicitly claims own it (drill-downs).
+  if (item.matchPaths?.some((p) => currentPath === p.replace(/\/$/, '') || currentPath.startsWith(p))) {
+    return true;
+  }
+  const [base, query] = item.to.split('?');
+  // Items that target a specific tab (?tab=...) must match BOTH the path
+  // and the tab — otherwise multiple items sharing a base would all light up.
+  if (query) {
+    const params = new URLSearchParams(query);
+    const current = new URLSearchParams(currentSearch);
+    if (currentPath !== base) return false;
+    for (const [k, v] of params) {
+      if (current.get(k) !== v) return false;
+    }
+    return true;
+  }
+  // For plain-path items, hide when a more specific sibling owns the URL.
+  // Example: Organization shouldn't light up on /settings/organization?tab=locations.
+  if (currentPath === base) {
+    return !currentSearch || !new URLSearchParams(currentSearch).get('tab');
+  }
+  // /settings/billing/wallet should still highlight Billing.
   return currentPath.startsWith(base + '/');
 }
 
 export default function SettingsLayout() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Configure your organization, billing, storefront, and system integrations.
-          </p>
+    <div className="min-h-[calc(100vh-4rem)] bg-background">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Page header */}
+        <header className="mb-6 sm:mb-8 flex items-start gap-3">
+          <span className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            <Settings2 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
+              Settings
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground sm:text-[0.95rem]">
+              Configure your organization, billing, storefront, and system integrations.
+            </p>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr] gap-6">
           {/* Sidebar */}
           <aside className="md:sticky md:top-20 md:self-start">
-            <nav className="space-y-6 bg-white border border-gray-200 rounded-lg p-4">
-              {SECTIONS.map((section) => (
-                <div key={section.title}>
-                  <h2 className="px-2 mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <nav
+              className="rounded-2xl border border-border/60 bg-card shadow-card p-3 space-y-1"
+              aria-label="Settings navigation"
+            >
+              {SECTIONS.map((section, sIdx) => (
+                <div key={section.title} className={cn(sIdx > 0 && 'pt-3')}>
+                  {/* Section divider line (except first) */}
+                  {sIdx > 0 && (
+                    <div className="mb-3 h-px bg-border/50 mx-1" />
+                  )}
+                  <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
                     {section.title}
-                  </h2>
-                  <ul className="space-y-1">
+                  </p>
+                  <ul className="space-y-0.5">
                     {section.items.map((item) => {
                       const Icon = item.icon;
-                      const active = isItemActive(item.to, pathname);
+                      const active = isItemActive(item, pathname, search);
                       return (
                         <li key={item.to}>
                           <NavLink
                             to={item.to}
+                            aria-current={active ? 'page' : undefined}
                             className={cn(
-                              'flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
+                              'group flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all duration-150',
                               active
-                                ? 'bg-orange-50 text-orange-700 font-medium'
-                                : 'text-gray-700 hover:bg-gray-50'
+                                ? 'bg-primary/10 text-primary font-semibold'
+                                : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                             )}
                           >
-                            <Icon className="h-4 w-4 shrink-0" />
+                            <span
+                              className={cn(
+                                'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg transition-colors',
+                                active
+                                  ? 'bg-primary/15 text-primary'
+                                  : 'text-muted-foreground/70 group-hover:text-foreground'
+                              )}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                            </span>
                             <span className="truncate">{item.label}</span>
                           </NavLink>
                         </li>
@@ -114,9 +166,7 @@ export default function SettingsLayout() {
 
           {/* Content */}
           <main className="min-w-0">
-            <div className="bg-white border border-gray-200 rounded-lg">
-              <Outlet />
-            </div>
+            <Outlet />
           </main>
         </div>
       </div>

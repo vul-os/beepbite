@@ -15,16 +15,35 @@ import {
   Circle,
   ChevronRight,
   Sparkles,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from '@/lib/utils';
 import AddLocationModal from './add-location-modal';
 
+// ---------------------------------------------------------------------------
+// Service-style localStorage helpers
+// ---------------------------------------------------------------------------
+function getServiceStyleLS(locId) {
+  if (!locId) return null; // null means "not chosen yet"
+  try {
+    const v = localStorage.getItem(`bb_service_style_${locId}`);
+    return v === 'takeaway' || v === 'dine_in' ? v : null;
+  } catch {
+    return null;
+  }
+}
+function setServiceStyleLS(locId, value) {
+  if (!locId) return;
+  try { localStorage.setItem(`bb_service_style_${locId}`, value); } catch { /* ignore */ }
+}
+
 // Individual step definitions — completion is computed dynamically
 const STEP_KEYS = {
   ORG: 'org',
   LOCATION: 'location',
+  SERVICE_STYLE: 'service_style',
   MENU: 'menu',
   TEAM: 'team',
   PAYMENTS: 'payments',
@@ -98,6 +117,22 @@ const OnboardingChecklist = ({ onComplete }) => {
   const locationsCount = locations?.length ?? 0;
   const firstLocation = locations?.[0];
 
+  // Service style state — loaded from localStorage for the first location.
+  const [serviceStyle, setServiceStyleState] = useState(() =>
+    getServiceStyleLS(firstLocation?.id)
+  );
+  // Keep in sync if the first location id changes after the component mounts.
+  useEffect(() => {
+    setServiceStyleState(getServiceStyleLS(firstLocation?.id));
+  }, [firstLocation?.id]);
+
+  const handlePickServiceStyle = useCallback((style) => {
+    setServiceStyleLS(firstLocation?.id, style);
+    setServiceStyleState(style);
+  }, [firstLocation?.id]);
+
+  const serviceStyleChosen = serviceStyle === 'dine_in' || serviceStyle === 'takeaway';
+
   const { itemCount, staffCount, loading, refetch } = useOnboardingData(activeOrganization);
 
   const handleLocationAdded = useCallback(async () => {
@@ -126,6 +161,22 @@ const OnboardingChecklist = ({ onComplete }) => {
       actionLabel: locationsCount > 0 ? null : 'Add location',
       onAction: locationsCount > 0 ? null : () => setAddLocationOpen(true),
       isPrimary: true,
+    },
+    {
+      key: STEP_KEYS.SERVICE_STYLE,
+      icon: Store,
+      label: "What's your setup?",
+      description: serviceStyleChosen
+        ? serviceStyle === 'dine_in'
+          ? 'Dine-in with tables — floor plan and seat selection available.'
+          : 'Takeaway / counter — no tables needed, straight to orders.'
+        : 'Tell BeepBite how you serve customers so it shows the right features.',
+      done: serviceStyleChosen,
+      actionLabel: null,
+      onAction: null,
+      disabled: locationsCount === 0,
+      disabledHint: 'Add a location first',
+      isServiceStyleStep: true,
     },
     {
       key: STEP_KEYS.MENU,
@@ -355,6 +406,40 @@ const OnboardingChecklist = ({ onComplete }) => {
                               ? step.disabledHint
                               : step.description}
                           </p>
+
+                          {/* Service style inline picker */}
+                          {step.isServiceStyleStep && !isDisabled && (
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handlePickServiceStyle('dine_in')}
+                                className={cn(
+                                  'flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                                  serviceStyle === 'dine_in'
+                                    ? 'border-orange-400 bg-orange-50 text-orange-700'
+                                    : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:bg-orange-50'
+                                )}
+                              >
+                                <UtensilsCrossed className="w-5 h-5" />
+                                <span>Dine-in</span>
+                                <span className="text-[10px] font-normal text-gray-400 leading-tight">Tables &amp; floor plan</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePickServiceStyle('takeaway')}
+                                className={cn(
+                                  'flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                                  serviceStyle === 'takeaway'
+                                    ? 'border-orange-400 bg-orange-50 text-orange-700'
+                                    : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:bg-orange-50'
+                                )}
+                              >
+                                <ShoppingBag className="w-5 h-5" />
+                                <span>Takeaway</span>
+                                <span className="text-[10px] font-normal text-gray-400 leading-tight">Counter / market stall</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Action button */}

@@ -49,23 +49,23 @@ function CustomTooltip({ active, payload, label, currency }) {
   return (
     <div
       role="tooltip"
-      className="bg-white border border-gray-200 shadow-xl rounded-xl px-3.5 py-2.5 text-sm min-w-[140px]"
+      className="bg-card border border-border shadow-elevated rounded-xl px-4 py-3 text-sm min-w-[150px]"
     >
-      <p className="font-semibold text-gray-700 mb-1.5 text-xs uppercase tracking-wide">{label}</p>
-      <p className="text-orange-600 font-bold text-base">{formatPrice(sales_cents ?? 0, currency)}</p>
-      <p className="text-gray-400 text-xs mt-0.5">{(order_count ?? 0).toLocaleString()} orders</p>
+      <p className="font-semibold text-muted-foreground mb-2 text-xs uppercase tracking-wide">{label}</p>
+      <p className="text-primary font-bold text-lg tabular-nums">{formatPrice(sales_cents ?? 0, currency)}</p>
+      <p className="text-muted-foreground text-xs mt-0.5">{(order_count ?? 0).toLocaleString()} orders</p>
     </div>
   );
 }
 
 function ChartSkeleton() {
   return (
-    <div className="px-2 space-y-2" aria-label="Loading chart" aria-busy="true">
-      <div className="flex items-end gap-1 h-48">
+    <div className="px-2 space-y-3" aria-label="Loading chart" aria-busy="true">
+      <div className="flex items-end gap-1.5 h-52">
         {[40, 65, 45, 80, 55, 90, 70].map((h, i) => (
           <div
             key={i}
-            className="flex-1 rounded-t-sm bg-orange-100 animate-pulse"
+            className="flex-1 rounded-t-md bg-primary/10 animate-pulse"
             style={{ height: `${h}%` }}
           />
         ))}
@@ -92,55 +92,55 @@ export default function SalesTrendChart({ series = [], period = 'week', currency
   };
 
   return (
-    <Card className="border border-gray-200 shadow-sm bg-white">
-      <CardHeader className="pb-1 px-5 pt-5">
-        <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-            <TrendingUp className="w-4 h-4 text-orange-500" aria-hidden="true" />
-          </div>
+    <Card variant="elevated" className="overflow-hidden">
+      <CardHeader className="pb-2 px-6 pt-6">
+        <CardTitle className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <TrendingUp className="h-4 w-4" aria-hidden="true" />
+          </span>
           Sales Trend
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-2 pb-5 pt-2">
+      <CardContent className="px-3 pb-6 pt-3">
         {loading ? (
           <ChartSkeleton />
         ) : data.length === 0 ? (
           <div
-            className="flex flex-col items-center justify-center h-48 gap-3"
+            className="flex flex-col items-center justify-center h-52 gap-3"
             role="status"
             aria-label="No sales data"
           >
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-gray-300" aria-hidden="true" />
+            <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-muted-foreground/40" aria-hidden="true" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-500">No sales data</p>
-              <p className="text-xs text-gray-400 mt-0.5">for this period</p>
+              <p className="text-sm font-medium text-muted-foreground">No sales data</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">for this period</p>
             </div>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.2} />
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.25} />
                   <stop offset="95%" stopColor="#f97316" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: '#9ca3af' }}
+                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
                 tickFormatter={tickFormatter}
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
+                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                 tickLine={false}
                 axisLine={false}
-                width={58}
+                width={62}
               />
               <Tooltip
                 content={<CustomTooltip currency={currency} />}
@@ -153,7 +153,7 @@ export default function SalesTrendChart({ series = [], period = 'week', currency
                 strokeWidth={2.5}
                 fill="url(#salesGradient)"
                 dot={false}
-                activeDot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ r: 5, fill: '#f97316', strokeWidth: 2.5, stroke: '#fff' }}
               />
             </AreaChart>
           </ResponsiveContainer>

@@ -74,6 +74,20 @@ const PosLoginPage = () => {
     return null;
   };
 
+  /**
+   * Determine where to redirect after a successful staff login.
+   * - Kitchen-only staff (role === 'kitchen' or only can_kitchen) → /work
+   * - Everyone else → /pos/workspace
+   */
+  const resolvePostLoginPath = (data) => {
+    const role = data?.role ?? '';
+    const caps = Array.isArray(data?.capabilities) ? data.capabilities : [];
+    const hasPos = caps.includes('can_pos');
+    const hasKitchen = caps.includes('can_kitchen');
+    const kitchenOnly = role === 'kitchen' || (!hasPos && hasKitchen);
+    return kitchenOnly ? '/work' : '/pos/workspace';
+  };
+
   // ---- password tab handlers ----
 
   const handlePwChange = (e) => {
@@ -117,7 +131,7 @@ const PosLoginPage = () => {
         localStorage.setItem('bb.auth', JSON.stringify(data));
       }
 
-      navigate('/pos/workspace');
+      navigate(resolvePostLoginPath(data));
     } finally {
       setPwLoading(false);
     }
@@ -182,7 +196,7 @@ const PosLoginPage = () => {
         localStorage.setItem('bb.auth', JSON.stringify(data));
       }
 
-      navigate('/pos/workspace');
+      navigate(resolvePostLoginPath(data));
     } finally {
       setPinLoading(false);
     }
