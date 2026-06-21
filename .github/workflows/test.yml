@@ -63,6 +63,13 @@ jobs:
         working-directory: backend
         run: go build ./...
 
+      - name: gofmt check
+        working-directory: backend
+        # Fails if any .go file is not gofmt-formatted.
+        # A separate gofmt pass is run over the repo before merging;
+        # remove this gate only after all formatting debt is cleared.
+        run: gofmt -l . | tee /tmp/gofmt.out; test ! -s /tmp/gofmt.out
+
       - name: go vet
         working-directory: backend
         run: go vet ./...
@@ -140,6 +147,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # TODO: remove continue-on-error once ESLint debt is driven to zero and
+      # this can be made a hard gate.
+      - name: ESLint (advisory)
+        run: npm run lint
+        continue-on-error: true
 
       - name: Vite build (catches bundler errors)
         run: npm run build

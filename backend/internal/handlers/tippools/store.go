@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/db"
@@ -249,30 +248,32 @@ func (s *Store) AddContribution(
 ) (*Contribution, error) {
 	var c Contribution
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		// ON CONFLICT DO NOTHING (not a raised 23505) so a duplicate
+		// order_payment_id does NOT abort the transaction — otherwise the
+		// fallback SELECT below would fail with 25P02 (in-failed-transaction).
+		// The partial unique index is `WHERE order_payment_id IS NOT NULL`, so
+		// the conflict target carries the same predicate. A NULL order_payment_id
+		// (manual cash tip) never conflicts and inserts normally.
 		err := tx.QueryRow(ctx, `
 INSERT INTO tip_pool_contributions (tip_pool_id, order_payment_id, amount_cents)
 VALUES ($1, $2, $3)
+ON CONFLICT (order_payment_id) WHERE order_payment_id IS NOT NULL DO NOTHING
 RETURNING id, tip_pool_id, order_payment_id, amount_cents, contributed_at
 `, poolID, nullStr(orderPaymentID), amountCents).Scan(
 			&c.ID, &c.TipPoolID, &c.OrderPaymentID, &c.AmountCents, &c.ContributedAt,
 		)
-		if err != nil {
-			// 23505 = unique_violation: the same order_payment_id was already
-			// recorded for this pool. Treat as a no-op — fetch the existing row
-			// so the caller still gets a well-formed response.
-			var pg *pgconn.PgError
-			if errors.As(err, &pg) && pg.Code == "23505" {
-				return tx.QueryRow(ctx, `
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Conflict → the same order_payment_id was already recorded. Treat as
+			// a no-op and return the existing row (the tx is still healthy).
+			return tx.QueryRow(ctx, `
 SELECT id, tip_pool_id, order_payment_id, amount_cents, contributed_at
 FROM   tip_pool_contributions
 WHERE  order_payment_id = $1
 `, nullStr(orderPaymentID)).Scan(
-					&c.ID, &c.TipPoolID, &c.OrderPaymentID, &c.AmountCents, &c.ContributedAt,
-				)
-			}
-			return err
+				&c.ID, &c.TipPoolID, &c.OrderPaymentID, &c.AmountCents, &c.ContributedAt,
+			)
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, err

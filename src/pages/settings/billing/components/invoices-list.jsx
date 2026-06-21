@@ -97,14 +97,19 @@ export function InvoicesList() {
                       <Badge variant={statusVariant(inv.status)} className="capitalize">{inv.status}</Badge>
                     </td>
                     <td className="py-2.5 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled
-                        title="PDF download coming soon"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      {inv.pdf_url ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          asChild
+                        >
+                          <a href={inv.pdf_url} target="_blank" rel="noreferrer" aria-label="Download PDF">
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground tabular-nums">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

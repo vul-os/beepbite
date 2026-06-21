@@ -3,6 +3,7 @@ node_modules
 .venv
 
 dist
+dev-dist
 
 billingmodel/results/
 billingmodel/__pycache__/
@@ -19,6 +20,8 @@ billingmodel/__pycache__/
 # Go build artifacts
 backend/bin/
 backend/tmp/
+backend/beepbite-server-local
+backend/beepbite-server-*
 
 .vscode
 
