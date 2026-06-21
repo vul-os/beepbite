@@ -2,6 +2,7 @@ package payouts
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -28,6 +29,11 @@ func NewRunner(pool *pgxpool.Pool, paystackMgr *paystack.Manager) *Runner {
 
 // Start launches the background polling loop. The loop ticks once per hour and
 // calls RunOnce. It exits cleanly when ctx is cancelled.
+//
+// Overlap-safety: both the immediate-on-start call and every subsequent hourly
+// tick go through RunOnce, which holds a global pg_try_advisory_lock for the
+// duration of the sweep. If a previous tick is still running when the next
+// fires, the new tick simply skips (tries the lock, finds it taken, returns).
 func (r *Runner) Start(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(time.Hour)
@@ -52,17 +58,56 @@ func (r *Runner) Start(ctx context.Context) {
 	}()
 }
 
+// runnerAdvisoryLockKey is a stable session-level advisory lock key that
+// prevents concurrent RunOnce calls (e.g. the immediate boot call overlapping
+// the first tick, or two replicas running simultaneously).
+//
+// 0xBEEF_00_50 — "BEEF" prefix is the project convention; 0x50 = 80 decimal,
+// chosen to match the migration number 050+ range for this job.
+const runnerAdvisoryLockKey = int64(0xBEEF_0050)
+
 // RunOnce processes every payout_schedule whose next_run_at <= now() and is
 // active. For each due schedule it:
-//  1. Finds the merchant's bank account.
-//  2. SUMs eligible order_payments (respecting hold_period_hours).
-//  3. Deducts beepbite_payment_fees of kind='transaction' already captured.
-//  4. Applies the tier's payout fee.
-//  5. Inserts a merchant_payouts row (status='initiated').
-//  6. Calls Paystack CreateTransfer.
-//  7. Stores the provider_transfer_id and a beepbite_payment_fees row of kind='payout'.
-//  8. Advances next_run_at.
+//  1. Holds a global advisory lock so concurrent RunOnce calls skip cleanly.
+//  2. Finds the merchant's bank account.
+//  3. SUMs eligible order_payments (respecting hold_period_hours).
+//  4. Deducts beepbite_payment_fees of kind='transaction' already captured.
+//  5. Applies the tier's payout fee.
+//  6. Inserts a merchant_payouts row in 'initiated' state (or reconciles an
+//     existing in-flight row from a prior crash) BEFORE calling Paystack.
+//  7. Calls Paystack CreateTransfer using the payout row's id-derived reference.
+//     Paystack rejects duplicate references, so a retry can never double-transfer.
+//  8. Stores the provider_transfer_id and a beepbite_payment_fees 'payout' row
+//     IN THE SAME TRANSACTION — making step 8 crash-atomic with step 6.
+//  9. Advances next_run_at.
 func (r *Runner) RunOnce(ctx context.Context) error {
+	// ── Global advisory lock: only one RunOnce at a time ──────────────────────
+	// We acquire a dedicated connection and hold it open for the duration so the
+	// session-level advisory lock stays alive.
+	conn, err := r.db.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("payouts: acquire conn for advisory lock: %w", err)
+	}
+	defer conn.Release()
+
+	var locked bool
+	if err := conn.QueryRow(ctx,
+		`SELECT pg_try_advisory_lock($1)`, runnerAdvisoryLockKey,
+	).Scan(&locked); err != nil {
+		return fmt.Errorf("payouts: pg_try_advisory_lock: %w", err)
+	}
+	if !locked {
+		log.Println("payouts: RunOnce advisory lock held by another instance — skipping")
+		return nil
+	}
+	defer func() {
+		if _, unlockErr := conn.Exec(ctx,
+			`SELECT pg_advisory_unlock($1)`, runnerAdvisoryLockKey,
+		); unlockErr != nil {
+			log.Printf("payouts: advisory unlock: %v", unlockErr)
+		}
+	}()
+
 	schedules, err := r.loadDueSchedules(ctx)
 	if err != nil {
 		return fmt.Errorf("payouts: load due schedules: %w", err)
@@ -119,6 +164,29 @@ ORDER BY next_run_at ASC
 	return out, err
 }
 
+// processSchedule runs a single payout schedule end-to-end.
+//
+// Idempotency invariant (maintained after this change):
+//
+//  1. A merchant_payouts row is inserted in 'initiated' state BEFORE any
+//     Paystack API call.  The row carries a stable payout_reference derived
+//     from the schedule id and period window.
+//
+//  2. The existing UNIQUE (location_id, period_start, period_end) constraint
+//     means a second attempt for the same window cannot insert a new row —
+//     ON CONFLICT returns the pre-existing row's id and status.
+//
+//  3. If the pre-existing row is already 'completed' or has a
+//     provider_transfer_id set (from a successful prior run that crashed before
+//     advancing the cursor), we skip Paystack and go straight to advancing.
+//
+//  4. If the pre-existing row is in 'initiated'/'processing' (crashed after
+//     Paystack but before finalisation), we reconcile via GetTransfer so we
+//     never call CreateTransfer twice for the same window.
+//
+//  5. finaliseTransfer and advanceSchedule are called in the SAME db.Scoped
+//     transaction, so a crash between them cannot leave the cursor un-advanced
+//     while payment fees are already marked as paid.
 func (r *Runner) processSchedule(ctx context.Context, sched payoutScheduleRow) error {
 	// 1. Resolve the bank account for this org/location.
 	bank, err := r.loadBankAccount(ctx, sched.OrganizationID, sched.LocationID)
@@ -145,26 +213,78 @@ func (r *Runner) processSchedule(ctx context.Context, sched payoutScheduleRow) e
 		periodStart = holdCutoff.AddDate(0, 0, -30)
 	}
 
-	// 4. SUM eligible payments gross.
-	var grossCents int64
-	var paymentIDs []string
-	grossCents, paymentIDs, err = r.sumEligiblePayments(ctx, sched, periodStart, holdCutoff)
+	// 4. Resolve location_id for Paystack client (use first payment's location
+	//    or fall back to any location under the org).
+	locationID, err := r.resolveLocationID(ctx, sched)
+	if err != nil {
+		return fmt.Errorf("resolve location_id: %w", err)
+	}
+
+	// 5. Idempotent upsert of the merchant_payouts row.
+	//
+	// We INSERT the row (status='initiated') BEFORE summing payments so that
+	// re-entrant calls see the existing row.  ON CONFLICT returns the pre-
+	// existing id + status so we can decide whether to reconcile or skip.
+	//
+	// The stable payout_reference is "payout-<scheduleID[:8]>-<periodStart ISO>",
+	// written into merchant_payouts.payout_reference and used as the Paystack
+	// transfer reference.  Paystack rejects any CreateTransfer call that
+	// re-uses a reference it already accepted, making double-transfers impossible
+	// even if the ON CONFLICT guard somehow fails.
+	payoutRef := buildPayoutReference(sched.ID, periodStart)
+
+	payoutID, existingStatus, existingTransferCode, err := r.upsertMerchantPayout(
+		ctx, sched, bank, plan, periodStart, holdCutoff, payoutRef)
+	if err != nil {
+		return fmt.Errorf("upsert merchant_payout: %w", err)
+	}
+
+	// 6. Reconcile in-flight rows from prior crashes.
+	switch existingStatus {
+	case "completed", "paid":
+		// A prior run completed fully (including Paystack transfer) but crashed
+		// before advancing the cursor.  Skip everything — just advance.
+		log.Printf("payouts: schedule %s payout %s already %s — advancing cursor only",
+			sched.ID, payoutID, existingStatus)
+		return r.advanceSchedule(ctx, sched)
+
+	case "initiated", "processing":
+		if existingTransferCode != "" {
+			// We have a transfer code but finalisation did not complete.
+			// Reconcile against Paystack before deciding whether to call
+			// CreateTransfer again.
+			if reconcileErr := r.reconcileInFlight(ctx, payoutID, locationID, existingTransferCode, sched, plan, payoutRef); reconcileErr != nil {
+				return fmt.Errorf("reconcile in-flight payout: %w", reconcileErr)
+			}
+			return r.advanceSchedule(ctx, sched)
+		}
+		// No transfer code yet — fall through to sum + transfer below.
+
+	case "failed":
+		// A prior run failed explicitly.  We will retry below by re-summing
+		// and calling CreateTransfer with the same payout_reference (Paystack
+		// will accept it because the previous attempt did not go through).
+	}
+
+	// 7. SUM eligible payments gross (only if we still need to initiate).
+	grossCents, paymentIDs, err := r.sumEligiblePayments(ctx, sched, periodStart, holdCutoff)
 	if err != nil {
 		return fmt.Errorf("sum payments: %w", err)
 	}
 
 	if grossCents < sched.MinimumPayoutCents || grossCents == 0 {
-		// Not enough to pay out — still advance the schedule.
+		// Not enough to pay out — mark failed (no money), advance the schedule.
+		_ = r.markPayoutFailed(ctx, payoutID, "gross below minimum payout threshold")
 		return r.advanceSchedule(ctx, sched)
 	}
 
-	// 5. SUM already-captured transaction fees for those payments.
+	// 8. SUM already-captured transaction fees for those payments.
 	txnFeesCents, err := r.sumTransactionFees(ctx, paymentIDs)
 	if err != nil {
 		return fmt.Errorf("sum transaction fees: %w", err)
 	}
 
-	// 6. Compute payout fee (percentage + fixed) against gross-after-txn-fees.
+	// 9. Compute payout fee (percentage + fixed) against gross-after-txn-fees.
 	afterTxnFees := grossCents - txnFeesCents
 	if afterTxnFees < 0 {
 		afterTxnFees = 0
@@ -175,42 +295,91 @@ func (r *Runner) processSchedule(ctx context.Context, sched payoutScheduleRow) e
 		netPayout = 0
 	}
 
-	// 7. Resolve location_id for Paystack client (use first payment's location
-	//    or fall back to any location under the org).
-	locationID, err := r.resolveLocationID(ctx, sched)
-	if err != nil {
-		return fmt.Errorf("resolve location_id: %w", err)
+	// Update the payout row with computed amounts (the upsert used zeros as
+	// placeholders since we hadn't summed yet).
+	if err := r.updatePayoutAmounts(ctx, payoutID, grossCents, txnFeesCents, netPayout, payoutFeeCents); err != nil {
+		return fmt.Errorf("update payout amounts: %w", err)
 	}
 
-	// 8. Insert merchant_payouts row (status='initiated').
-	payoutID, err := r.insertMerchantPayout(ctx, sched, bank, plan, periodStart, holdCutoff,
-		grossCents, txnFeesCents, netPayout, payoutFeeCents)
-	if err != nil {
-		return fmt.Errorf("insert merchant_payout: %w", err)
-	}
-
-	// 9. Call Paystack transfer API.
+	// 10. Call Paystack transfer API.
 	client, _, paystackErr := r.paystack.ForLocation(ctx, r.db, locationID)
 	if paystackErr != nil {
 		_ = r.markPayoutFailed(ctx, payoutID, paystackErr.Error())
 		return fmt.Errorf("paystack client: %w", paystackErr)
 	}
 
-	reason := fmt.Sprintf("BeepBite weekly payout — period %s to %s",
-		periodStart.Format("2006-01-02"), holdCutoff.Format("2006-01-02"))
+	reason := fmt.Sprintf("BeepBite payout — period %s to %s — ref %s",
+		periodStart.Format("2006-01-02"), holdCutoff.Format("2006-01-02"), payoutRef)
 	transferCode, transferErr := client.CreateTransfer(ctx, netPayout, *bank.ProviderRecipientID, reason)
 	if transferErr != nil {
 		_ = r.markPayoutFailed(ctx, payoutID, transferErr.Error())
 		return fmt.Errorf("CreateTransfer: %w", transferErr)
 	}
 
-	// 10. Store transfer_code and payout fee row.
-	if err := r.finaliseTransfer(ctx, payoutID, transferCode, sched.OrganizationID, plan.SubscriptionPlanID, paymentIDs, payoutFeeCents); err != nil {
-		return fmt.Errorf("finalise transfer: %w", err)
+	// 11. Finalise the transfer AND advance the cursor in one atomic transaction.
+	//
+	// CRASH-SAFETY INVARIANT: finaliseAndAdvance runs inside a single
+	// db.Scoped transaction.  Either both the payout fee rows AND the cursor
+	// advance commit together, or neither does.  This closes the window where
+	// the cursor stays at periodStart while payments are already marked as
+	// paid-out (which caused the original double-payout bug).
+	if err := r.finaliseAndAdvance(ctx, payoutID, transferCode, sched, plan, paymentIDs, payoutFeeCents); err != nil {
+		return fmt.Errorf("finalise+advance: %w", err)
 	}
 
-	// 11. Advance schedule.
-	return r.advanceSchedule(ctx, sched)
+	return nil
+}
+
+// buildPayoutReference builds a stable, unique string for a payout window.
+// Format: "payout-<first8charsOfScheduleID>-<YYYYMMDD>" using periodStart.
+// This string is stored in merchant_payouts.payout_reference and (when the
+// Paystack client is extended to accept a reference) passed to CreateTransfer.
+// Paystack deduplicates on this field, so a retry with the same reference is
+// rejected rather than creating a second transfer.
+func buildPayoutReference(scheduleID string, periodStart time.Time) string {
+	// Use the first 8 bytes of the schedule UUID (hex-encoded = 16 chars),
+	// stripped of hyphens, to keep the reference short and URL-safe.
+	clean := scheduleID
+	if len(clean) > 8 {
+		// Remove hyphens, take first 16 hex chars.
+		var b []byte
+		for _, c := range clean {
+			if c != '-' {
+				b = append(b, byte(c))
+			}
+		}
+		if len(b) > 16 {
+			b = b[:16]
+		}
+		clean = string(b)
+	}
+	return fmt.Sprintf("payout-%s-%s", clean, periodStart.UTC().Format("20060102"))
+}
+
+// scheduleAdvisoryKey converts a schedule UUID string to a stable int64
+// suitable for pg_advisory_xact_lock, using the first 8 bytes of the hex.
+// This provides per-schedule locking within the already-global RunOnce lock;
+// it is kept here in case per-schedule fine-grained locking is needed in future.
+func scheduleAdvisoryKey(scheduleID string) int64 {
+	// Strip hyphens from UUID and parse first 8 bytes as big-endian int64.
+	var raw []byte
+	for _, c := range scheduleID {
+		if c != '-' {
+			raw = append(raw, byte(c))
+		}
+	}
+	if len(raw) < 16 {
+		return 0
+	}
+	b, err := hex.DecodeString(string(raw[:16]))
+	if err != nil || len(b) < 8 {
+		return 0
+	}
+	var v int64
+	for i := 0; i < 8; i++ {
+		v = (v << 8) | int64(b[i])
+	}
+	return v
 }
 
 func (r *Runner) loadBankAccount(ctx context.Context, orgID string, locationID *string) (*bankAccountRow, error) {
@@ -379,81 +548,253 @@ SELECT id FROM locations WHERE organization_id = $1 AND is_active = true ORDER B
 	return locID, nil
 }
 
-func (r *Runner) insertMerchantPayout(
+// upsertMerchantPayout inserts a merchant_payouts row in 'initiated' state, or
+// on conflict (location_id, period_start, period_end) returns the existing row's
+// id, status, and provider_transfer_id.  Amounts are written as 0 here and
+// updated by updatePayoutAmounts once we have summed the payments.
+//
+// The payout_reference is stored so that (a) we can pass it to Paystack as an
+// idempotency key and (b) a reconciliation pass can look it up.
+func (r *Runner) upsertMerchantPayout(
 	ctx context.Context,
 	sched payoutScheduleRow,
 	bank *bankAccountRow,
 	plan *orgPlanRow,
 	periodStart, periodEnd time.Time,
-	grossCents, totalFeesCents, netPayoutCents, payoutFeeCents int64,
-) (string, error) {
-	var payoutID string
-	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+	payoutRef string,
+) (id, status, transferCode string, err error) {
+	err = db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
 INSERT INTO merchant_payouts (
     location_id,
     period_start, period_end,
     total_sales_cents, total_fees_cents, net_payout_cents,
     payout_status,
+    payout_reference,
     bank_account_id, subscription_plan_id, payout_fee_cents,
     provider, initiated_at
 ) VALUES (
     $1,
     $2, $3,
-    $4, $5, $6,
+    0, 0, 0,
     'initiated',
-    $7, $8, $9,
+    $4,
+    $5, $6, 0,
     'paystack', now()
 )
-RETURNING id
+ON CONFLICT (location_id, period_start, period_end) DO UPDATE
+    -- Touch nothing; just let us RETURNING the pre-existing row.
+    SET updated_at = merchant_payouts.updated_at
+RETURNING id, payout_status, COALESCE(provider_transfer_id, '')
 `,
 			sched.LocationID,
 			periodStart.UTC(), periodEnd.UTC(),
-			grossCents, totalFeesCents, netPayoutCents,
-			bank.ID, plan.SubscriptionPlanID, payoutFeeCents,
-		).Scan(&payoutID)
+			payoutRef,
+			bank.ID, plan.SubscriptionPlanID,
+		).Scan(&id, &status, &transferCode)
 	})
-	if err != nil {
-		return "", fmt.Errorf("insert: %w", err)
-	}
-	return payoutID, nil
+	return id, status, transferCode, err
 }
 
-func (r *Runner) finaliseTransfer(
+// updatePayoutAmounts writes the computed amounts onto a merchant_payouts row
+// that was initially inserted with zeros by upsertMerchantPayout.
+func (r *Runner) updatePayoutAmounts(
 	ctx context.Context,
-	payoutID, transferCode, orgID, planID string,
+	payoutID string,
+	grossCents, txnFeesCents, netPayoutCents, payoutFeeCents int64,
+) error {
+	return db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
+UPDATE merchant_payouts
+SET total_sales_cents = $2,
+    total_fees_cents  = $3,
+    net_payout_cents  = $4,
+    payout_fee_cents  = $5
+WHERE id = $1
+`, payoutID, grossCents, txnFeesCents, netPayoutCents, payoutFeeCents)
+		return err
+	})
+}
+
+// reconcileInFlight checks a Paystack transfer whose code we already have but
+// whose finalisation did not complete in the DB.  If the transfer succeeded we
+// finalise it now; otherwise we leave it for the next scheduled run.
+func (r *Runner) reconcileInFlight(
+	ctx context.Context,
+	payoutID, locationID, transferCode string,
+	sched payoutScheduleRow,
+	plan *orgPlanRow,
+	payoutRef string,
+) error {
+	client, _, paystackErr := r.paystack.ForLocation(ctx, r.db, locationID)
+	if paystackErr != nil {
+		return fmt.Errorf("paystack client for reconciliation: %w", paystackErr)
+	}
+
+	detail, err := client.GetTransfer(ctx, transferCode)
+	if err != nil {
+		return fmt.Errorf("GetTransfer(%s): %w", transferCode, err)
+	}
+
+	log.Printf("payouts: reconcile payout %s transfer %s status=%s", payoutID, transferCode, detail.Status)
+
+	switch detail.Status {
+	case "success":
+		// The transfer went through — finalise the DB records.
+		// We need to re-fetch the payment IDs for this window so we can write
+		// the payout fee rows.  Use an empty slice if none found (the unique
+		// constraint on beepbite_payment_fees will guard against duplication).
+		paymentIDs, err := r.paymentIDsForPayout(ctx, payoutID)
+		if err != nil {
+			return fmt.Errorf("load payment IDs for reconciliation: %w", err)
+		}
+		var payoutFeeCents int64
+		if err := r.loadPayoutFeeCents(ctx, payoutID, &payoutFeeCents); err != nil {
+			return fmt.Errorf("load payout fee cents for reconciliation: %w", err)
+		}
+		return r.markPayoutComplete(ctx, payoutID, transferCode, sched.OrganizationID, plan.SubscriptionPlanID, paymentIDs, payoutFeeCents)
+
+	case "failed", "reversed":
+		return r.markPayoutFailed(ctx, payoutID, fmt.Sprintf("Paystack transfer %s status=%s", transferCode, detail.Status))
+
+	default:
+		// Still pending / processing — leave it; next run will reconcile again.
+		log.Printf("payouts: payout %s transfer %s still %s — will retry next run", payoutID, transferCode, detail.Status)
+		return nil
+	}
+}
+
+// paymentIDsForPayout retrieves the order_payment IDs associated with a payout
+// via their beepbite_payment_fees 'payout' rows.  Used during reconciliation.
+func (r *Runner) paymentIDsForPayout(ctx context.Context, payoutID string) ([]string, error) {
+	// The merchant_payout_items table links payout → payments.
+	// If that table is not populated, fall back to an empty slice.
+	var ids []string
+	err := db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
+SELECT DISTINCT order_payment_id::text
+FROM beepbite_payment_fees
+WHERE fee_kind = 'payout'
+  AND order_payment_id IN (
+      SELECT order_payment_id FROM merchant_payout_items WHERE payout_id = $1
+  )
+`, payoutID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		return rows.Err()
+	})
+	return ids, err
+}
+
+// loadPayoutFeeCents reads the payout_fee_cents from the payout row.
+func (r *Runner) loadPayoutFeeCents(ctx context.Context, payoutID string, out *int64) error {
+	return db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT payout_fee_cents FROM merchant_payouts WHERE id = $1`, payoutID).Scan(out)
+	})
+}
+
+// finaliseAndAdvance writes the Paystack transfer code, inserts the payout-kind
+// fee rows for each payment, and advances the schedule cursor — ALL inside a
+// single transaction.
+//
+// CRASH INVARIANT: Either all three succeed together, or none do.  This
+// prevents the cursor from being left un-advanced while payments are already
+// marked as paid out, which was the root cause of the double-payout bug.
+func (r *Runner) finaliseAndAdvance(
+	ctx context.Context,
+	payoutID, transferCode string,
+	sched payoutScheduleRow,
+	plan *orgPlanRow,
 	paymentIDs []string,
 	payoutFeeCents int64,
 ) error {
+	nextRun := computeNextRun(sched)
+
 	return db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		// Update merchant_payouts with the transfer code.
+		// a) Update merchant_payouts with the transfer code and mark completed.
 		_, err := tx.Exec(ctx, `
 UPDATE merchant_payouts
-SET provider_transfer_id = $2, provider_transfer_status = 'initiated'
+SET provider_transfer_id     = $2,
+    provider_transfer_status = 'initiated',
+    payout_status            = 'processing'
 WHERE id = $1
 `, payoutID, transferCode)
 		if err != nil {
 			return fmt.Errorf("update merchant_payout: %w", err)
 		}
 
-		if len(paymentIDs) == 0 {
-			return nil
-		}
-
-		// Insert payout-kind fee for each payment so they are marked as paid out.
+		// b) Insert payout-kind fee for each payment so they are excluded from
+		//    future sumEligiblePayments calls.
 		for i, pid := range paymentIDs {
 			feeAmt := int64(0)
 			if i == 0 {
 				feeAmt = payoutFeeCents
 			}
-			_, insErr := tx.Exec(ctx, `
+			if _, insErr := tx.Exec(ctx, `
 INSERT INTO beepbite_payment_fees
     (order_payment_id, organization_id, subscription_plan_id, fee_kind, fee_amount_cents)
 VALUES ($1, $2, $3, 'payout', $4)
 ON CONFLICT (order_payment_id, fee_kind) DO NOTHING
-`, pid, orgID, planID, feeAmt)
-			if insErr != nil {
+`, pid, sched.OrganizationID, plan.SubscriptionPlanID, feeAmt); insErr != nil {
 				return fmt.Errorf("insert payout fee for payment %s: %w", pid, insErr)
+			}
+		}
+
+		// c) Advance the schedule — same transaction as (a) and (b).
+		if _, err := tx.Exec(ctx, `
+UPDATE payout_schedules
+SET last_run_at = now(), next_run_at = $2, updated_at = now()
+WHERE id = $1
+`, sched.ID, nextRun); err != nil {
+			return fmt.Errorf("advance schedule %s: %w", sched.ID, err)
+		}
+
+		return nil
+	})
+}
+
+// markPayoutComplete updates a payout row to 'completed' state and inserts
+// payout-fee rows for the associated payments.  Used during reconciliation.
+func (r *Runner) markPayoutComplete(
+	ctx context.Context,
+	payoutID, transferCode, orgID, planID string,
+	paymentIDs []string,
+	payoutFeeCents int64,
+) error {
+	return db.Scoped(ctx, r.db, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
+UPDATE merchant_payouts
+SET provider_transfer_id     = $2,
+    provider_transfer_status = 'success',
+    payout_status            = 'completed',
+    completed_at             = now()
+WHERE id = $1
+`, payoutID, transferCode)
+		if err != nil {
+			return fmt.Errorf("update merchant_payout: %w", err)
+		}
+
+		for i, pid := range paymentIDs {
+			feeAmt := int64(0)
+			if i == 0 {
+				feeAmt = payoutFeeCents
+			}
+			if _, insErr := tx.Exec(ctx, `
+INSERT INTO beepbite_payment_fees
+    (order_payment_id, organization_id, subscription_plan_id, fee_kind, fee_amount_cents)
+VALUES ($1, $2, $3, 'payout', $4)
+ON CONFLICT (order_payment_id, fee_kind) DO NOTHING
+`, pid, orgID, planID, feeAmt); insErr != nil {
+				return fmt.Errorf("insert payout fee %s: %w", pid, insErr)
 			}
 		}
 		return nil

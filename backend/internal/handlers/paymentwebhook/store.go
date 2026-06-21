@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/jobs/payouts"
 )
 
 // ErrDuplicate is returned when a webhook_event_log row with the same
@@ -140,7 +141,8 @@ type paystackCheckoutData struct {
 }
 
 // HandleCheckoutCompleted marks the order paid, inserts a payment_attempts
-// row with status='completed', updates order_payments, and writes audit_log.
+// row with status='completed', updates order_payments, writes audit_log, and
+// captures the platform per-transaction fee via CaptureTransactionFee.
 func (s *Store) HandleCheckoutCompleted(ctx context.Context, provider, locationID string, data json.RawMessage) error {
 	var d paystackCheckoutData
 	if err := json.Unmarshal(data, &d); err != nil {
@@ -150,7 +152,11 @@ func (s *Store) HandleCheckoutCompleted(ctx context.Context, provider, locationI
 		return errors.New("checkout.completed: missing reference")
 	}
 
-	return s.inTx(ctx, func(tx pgx.Tx) error {
+	// orderPaymentID is populated inside the transaction so we can call
+	// CaptureTransactionFee after the tx commits (it's idempotent).
+	var orderPaymentID string
+
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		// Upsert a payment_attempts row.
 		var attemptID string
 		err := tx.QueryRow(ctx, `
@@ -166,16 +172,18 @@ RETURNING id
 			return err
 		}
 
-		// Mark the matching order_payment as completed.
-		_, err = tx.Exec(ctx, `
+		// Mark the matching order_payment as completed; capture its id for
+		// fee collection after the tx commits.
+		err = tx.QueryRow(ctx, `
 UPDATE order_payments
 SET payment_status     = 'completed',
     confirmed_at       = now(),
     payment_attempt_id = $2
 WHERE payment_reference = $1
    OR external_transaction_id = $1
-`, d.Reference, attemptID)
-		if err != nil {
+RETURNING id
+`, d.Reference, attemptID).Scan(&orderPaymentID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
 
@@ -198,6 +206,23 @@ WHERE op.order_id = o.id
 			"status":          d.Status,
 		})
 	})
+	if err != nil {
+		return err
+	}
+
+	// Capture the platform per-transaction fee.  CaptureTransactionFee is
+	// idempotent (UNIQUE + ON CONFLICT DO NOTHING on beepbite_payment_fees),
+	// so webhook replays are safe.  We run it after the tx so a fee-table
+	// error never rolls back the payment completion itself.
+	if orderPaymentID != "" {
+		if feeErr := payouts.CaptureTransactionFee(ctx, s.pool, orderPaymentID); feeErr != nil {
+			// Log but do not fail the webhook — revenue reconciliation can
+			// catch missed fees; rolling back the payment would be worse.
+			_ = feeErr // TODO: emit metric/alert for missed fee capture
+		}
+	}
+
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -285,14 +310,15 @@ LIMIT 1
 			newStatus = "partially_refunded"
 		}
 
-		// Insert refund record.
+		// Insert refund record.  The unique index on external_refund_id (added
+		// by migration 053) makes ON CONFLICT a true no-op for replay safety.
 		_, err = tx.Exec(ctx, `
 INSERT INTO refunds
     (payment_id, order_id, refund_amount_cents, refund_type,
      external_refund_id, refund_status, refunded_at)
 VALUES
     ($1, $2, $3, $4, $5, 'completed', now())
-ON CONFLICT DO NOTHING
+ON CONFLICT (external_refund_id) DO NOTHING
 `, paymentID, orderID, d.Amount, refundType, rawIDString(d.ID))
 		if err != nil {
 			return err
@@ -400,7 +426,7 @@ WHERE order_id = $1
 func (s *Store) HandleStripeChargeRefunded(ctx context.Context, data json.RawMessage) error {
 	var env struct {
 		Object struct {
-			PaymentIntent string `json:"payment_intent"`
+			PaymentIntent string            `json:"payment_intent"`
 			Metadata      map[string]string `json:"metadata"`
 		} `json:"object"`
 	}
@@ -581,4 +607,3 @@ func isUniqueViolation(err error) bool {
 	}
 	return false
 }
-

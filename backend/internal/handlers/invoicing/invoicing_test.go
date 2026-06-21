@@ -85,8 +85,8 @@ func TestVATApplied_WhenVATNumberPresent(t *testing.T) {
 
 	// Simulate two lines
 	lines := []LineReq{
-		{Description: "Software licence", Qty: 2, UnitCents: 5000},  // 100.00
-		{Description: "Support fee", Qty: 1, UnitCents: 10000},      // 100.00
+		{Description: "Software licence", Qty: 2, UnitCents: 5000}, // 100.00
+		{Description: "Support fee", Qty: 1, UnitCents: 10000},     // 100.00
 	}
 
 	var subtotal int64
@@ -161,11 +161,11 @@ func TestLineTotals_CentsArithmetic(t *testing.T) {
 		{1, 0, 0},
 		{1, 1, 1},
 		{100, 1, 100},
-		{3, 333, 999},                   // 9.99
-		{7, 1499, 10493},                // 104.93
-		{1000, 99, 99000},               // 990.00
-		{1, 100_00, 100_00},             // 100.00
-		{0, 9999, 0},                    // zero qty
+		{3, 333, 999},       // 9.99
+		{7, 1499, 10493},    // 104.93
+		{1000, 99, 99000},   // 990.00
+		{1, 100_00, 100_00}, // 100.00
+		{0, 9999, 0},        // zero qty
 	}
 
 	for _, tc := range cases {
@@ -179,10 +179,10 @@ func TestLineTotals_CentsArithmetic(t *testing.T) {
 
 func TestSubtotalIsExactSumOfLineTotals(t *testing.T) {
 	lines := []LineReq{
-		{Qty: 2, UnitCents: 500},   // 1000
-		{Qty: 1, UnitCents: 2000},  // 2000
-		{Qty: 4, UnitCents: 125},   // 500
-		{Qty: 10, UnitCents: 99},   // 990
+		{Qty: 2, UnitCents: 500},  // 1000
+		{Qty: 1, UnitCents: 2000}, // 2000
+		{Qty: 4, UnitCents: 125},  // 500
+		{Qty: 10, UnitCents: 99},  // 990
 	}
 	// expected subtotal = 1000+2000+500+990 = 4490
 

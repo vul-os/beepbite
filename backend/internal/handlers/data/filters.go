@@ -15,7 +15,7 @@ var (
 	columnsRx = regexp.MustCompile(`^(\*|[a-z_][a-z0-9_]*(?:,[a-z_][a-z0-9_]*)*)$`)
 )
 
-func isColumnIdent(s string) bool   { return identRx.MatchString(s) }
+func isColumnIdent(s string) bool       { return identRx.MatchString(s) }
 func looksLikeColumnList(s string) bool { return columnsRx.MatchString(s) }
 
 // quoteIdent wraps an identifier in double quotes so reserved words / mixed

@@ -41,19 +41,19 @@ func PoolDB(p *pgxpool.Pool) DB { return &pgxDB{p: p} }
 // ---- query result structs --------------------------------------------------
 
 type paymentRow struct {
-	PaymentID          string
-	OrderID            string
-	AmountPaidCents    int64
-	PaymentStatus      string
+	PaymentID       string
+	OrderID         string
+	AmountPaidCents int64
+	PaymentStatus   string
 }
 
 type orgPlanRow struct {
-	OrganizationID         string
-	SubscriptionPlanID     string
-	TransactionFeePct      float64 // e.g. 2.900
-	TransactionFeeFixed    int64   // cents
-	PayoutFeePct           float64
-	PayoutFeeFixed         int64
+	OrganizationID      string
+	SubscriptionPlanID  string
+	TransactionFeePct   float64 // e.g. 2.900
+	TransactionFeeFixed int64   // cents
+	PayoutFeePct        float64
+	PayoutFeeFixed      int64
 }
 
 type payoutScheduleRow struct {
@@ -78,15 +78,15 @@ type bankAccountRow struct {
 }
 
 type merchantPayoutInsert struct {
-	OrganizationID    string
-	LocationID        *string
-	PeriodStart       time.Time
-	PeriodEnd         time.Time
-	TotalSalesCents   int64
-	TotalFeesCents    int64
-	NetPayoutCents    int64
-	PayoutFeeCents    int64
-	BankAccountID     string
+	OrganizationID     string
+	LocationID         *string
+	PeriodStart        time.Time
+	PeriodEnd          time.Time
+	TotalSalesCents    int64
+	TotalFeesCents     int64
+	NetPayoutCents     int64
+	PayoutFeeCents     int64
+	BankAccountID      string
 	SubscriptionPlanID string
-	Provider          string
+	Provider           string
 }

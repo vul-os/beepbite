@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -229,7 +230,8 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		return qerr
 	})
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		log.Printf("data list %s: %v", table, err)
+		writeErr(w, http.StatusBadRequest, "request could not be completed")
 		return
 	}
 
@@ -323,7 +325,8 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 		}
 		return auditMutation(ctx, tx, table, opInsert, entityIDFromRow(out), nil, nil)
 	}); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		log.Printf("data insert %s: %v", table, err)
+		writeErr(w, http.StatusBadRequest, "request could not be completed")
 		return
 	}
 	writeJSON(w, http.StatusCreated, out)
@@ -352,6 +355,20 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	if len(changes) == 0 {
 		writeErr(w, http.StatusBadRequest, "empty body")
 		return
+	}
+
+	// Block subscription_tier (and related billing/plan columns) from being
+	// mutated via the generic data layer. A free-tier tenant must not be able
+	// to self-upgrade by PATCHing organizations with subscription_tier=pro.
+	// Legitimate plan changes go through the admin/billing flow only.
+	if table == "organizations" {
+		blockedCols := []string{"subscription_tier", "subscription_plan_id", "billing_status", "trial_ends_at"}
+		for _, col := range blockedCols {
+			if _, found := changes[col]; found {
+				writeErr(w, http.StatusForbidden, "subscription tier cannot be changed via this endpoint")
+				return
+			}
+		}
 	}
 
 	where, whereArgs, err := buildWhere(r.URL.Query(), 0)
@@ -401,7 +418,8 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		}
 		return auditMutation(ctx, tx, table, opUpdate, entityIDFromRow(out), nil, changes)
 	}); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		log.Printf("data update %s: %v", table, err)
+		writeErr(w, http.StatusBadRequest, "request could not be completed")
 		return
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -448,7 +466,8 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		}
 		return auditMutation(ctx, tx, table, opDelete, entityIDFromRow(deleted), nil, nil)
 	}); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		log.Printf("data delete %s: %v", table, err)
+		writeErr(w, http.StatusBadRequest, "request could not be completed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -489,7 +508,8 @@ func (h *Handler) rpc(w http.ResponseWriter, r *http.Request) {
 		out, qerr = rowsToMaps(rows)
 		return qerr
 	}); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		log.Printf("data rpc %s: %v", fn, err)
+		writeErr(w, http.StatusBadRequest, "request could not be completed")
 		return
 	}
 	// Scalar single-column RETURNS → unwrap.
