@@ -23,3 +23,5 @@ backend/tmp/
 .vscode
 
 playwright-report
+# Playwright test artifacts
+test-results/

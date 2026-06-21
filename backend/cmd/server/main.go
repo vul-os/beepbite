@@ -595,6 +595,12 @@ func main() {
 		Addr:              ":" + cfg.Port,
 		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		// WriteTimeout is intentionally omitted: this server has long-lived SSE
+		// streams (kds, orderstream, cfd, etc.) and a WriteTimeout would kill
+		// them mid-stream. SlowLoris protection for the write path is handled
+		// by ReadHeaderTimeout + ReadTimeout upstream.
+		IdleTimeout: 120 * time.Second,
 	}
 	go func() {
 		log.Printf("listening on :%s (env=%s, cors=%v)", cfg.Port, cfg.Env, cfg.CORSOrigins)

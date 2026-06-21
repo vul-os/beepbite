@@ -60,8 +60,8 @@ type contributeReq struct {
 
 // RecipientReq is also referenced by store.go for the DistributePool call.
 type RecipientReq struct {
-	StaffID     string  `json:"staff_id"`
-	HoursWorked float64 `json:"hours_worked"`
+	StaffID      string  `json:"staff_id"`
+	HoursWorked  float64 `json:"hours_worked"`
 	WeightPoints float64 `json:"weight_points"`
 }
 
@@ -283,7 +283,11 @@ func (h *Handler) distribute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dists, err := h.store.DistributePool(r.Context(), pool, req.Recipients)
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrAlreadyDistributed):
+		writeErr(w, http.StatusConflict, "pool has already been distributed")
+		return
+	case err != nil:
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}

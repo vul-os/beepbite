@@ -27,12 +27,12 @@ import (
 func CaptureTransactionFee(ctx context.Context, pool *pgxpool.Pool, paymentID string) error {
 	// 1. Load order_payment → order → location → organisation → plan in one query.
 	var (
-		amountPaidCents    int64
-		paymentStatus      string
-		orgID              string
-		planID             string
-		txnFeePct          float64
-		txnFeeFixed        int64
+		amountPaidCents int64
+		paymentStatus   string
+		orgID           string
+		planID          string
+		txnFeePct       float64
+		txnFeeFixed     int64
 	)
 
 	err := pool.QueryRow(ctx, `

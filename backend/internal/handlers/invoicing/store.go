@@ -77,6 +77,10 @@ var (
 	// without a recipient_org_id or recipient_customer_id, which would violate
 	// the invoices_has_recipient CHECK constraint.
 	ErrMissingRecipient = errors.New("tenant invoices require recipient_org_id or recipient_customer_id")
+
+	// ErrStatusConflict is returned when a concurrent update already moved the
+	// invoice out of the expected status (lost UPDATE race).
+	ErrStatusConflict = errors.New("invoice status changed concurrently — please refresh and retry")
 )
 
 // ---------------------------------------------------------------------------
@@ -668,25 +672,38 @@ func (s *Store) MarkPaid(ctx context.Context, invoiceID string) (*Invoice, error
 }
 
 // VoidInvoice transitions a draft or sent invoice to void.
+//
+// Uses a self-guarding UPDATE (WHERE status IN ('draft','sent')) so two
+// concurrent void calls cannot both succeed.
 func (s *Store) VoidInvoice(ctx context.Context, invoiceID string) (*Invoice, error) {
 	var inv Invoice
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		var status string
-		if err := tx.QueryRow(ctx,
-			`SELECT status FROM invoices WHERE id = $1`,
-			invoiceID,
-		).Scan(&status); err != nil {
-			return err
-		}
-		if status == "void" || status == "paid" {
-			return ErrInvoiceNotDraft
-		}
+		// Self-guarding: only transition when current status is voidable.
 		row := tx.QueryRow(ctx, `
 UPDATE invoices SET status = 'void'
  WHERE id = $1
+   AND status IN ('draft', 'sent')
 RETURNING`+invoiceSelectCols,
 			invoiceID)
-		return scanInvoice(row, &inv)
+
+		err := scanInvoice(row, &inv)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Disambiguate: not found vs already void/paid.
+			var current string
+			lookupErr := tx.QueryRow(ctx,
+				`SELECT status FROM invoices WHERE id = $1`,
+				invoiceID,
+			).Scan(&current)
+			if errors.Is(lookupErr, pgx.ErrNoRows) {
+				return pgx.ErrNoRows // → ErrNotFound below
+			}
+			if lookupErr != nil {
+				return lookupErr
+			}
+			// Row exists but already void or paid — conflict.
+			return ErrInvoiceNotDraft
+		}
+		return err
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -698,23 +715,36 @@ RETURNING`+invoiceSelectCols,
 }
 
 // DeleteInvoice deletes a draft invoice (returns ErrInvoiceNotDraft for others).
+//
+// Uses a self-guarding DELETE (WHERE status = 'draft') so two concurrent
+// delete calls cannot both succeed silently.
 func (s *Store) DeleteInvoice(ctx context.Context, invoiceID string) error {
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		var status string
-		if err := tx.QueryRow(ctx,
-			`SELECT status FROM invoices WHERE id = $1`,
-			invoiceID,
-		).Scan(&status); err != nil {
-			return err
-		}
-		if status != "draft" {
-			return ErrInvoiceNotDraft
-		}
-		_, err := tx.Exec(ctx,
-			`DELETE FROM invoices WHERE id = $1`,
+		// Self-guarding: only delete when status is still 'draft'.
+		tag, err := tx.Exec(ctx,
+			`DELETE FROM invoices WHERE id = $1 AND status = 'draft'`,
 			invoiceID,
 		)
-		return err
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			// Disambiguate: not found vs wrong status.
+			var current string
+			lookupErr := tx.QueryRow(ctx,
+				`SELECT status FROM invoices WHERE id = $1`,
+				invoiceID,
+			).Scan(&current)
+			if errors.Is(lookupErr, pgx.ErrNoRows) {
+				return pgx.ErrNoRows // → ErrNotFound below
+			}
+			if lookupErr != nil {
+				return lookupErr
+			}
+			// Row exists but not in draft — status conflict.
+			return ErrInvoiceNotDraft
+		}
+		return nil
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
@@ -723,35 +753,57 @@ func (s *Store) DeleteInvoice(ctx context.Context, invoiceID string) error {
 }
 
 // transitionStatus is a helper for simple one-from → one-to status transitions.
+//
+// The UPDATE re-asserts the expected fromStatus in its WHERE clause so that
+// two concurrent callers cannot both succeed (self-guarding UPDATE pattern).
+// If 0 rows are returned the invoice either does not exist or its status was
+// already changed by another request; we disambiguate with a follow-up read.
 func (s *Store) transitionStatus(ctx context.Context, invoiceID, fromStatus, toStatus string) (*Invoice, error) {
 	var inv Invoice
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		var status string
-		if err := tx.QueryRow(ctx,
-			`SELECT status FROM invoices WHERE id = $1`,
-			invoiceID,
-		).Scan(&status); err != nil {
-			return err
-		}
-		if status != fromStatus {
-			if fromStatus == "draft" {
-				return ErrInvoiceNotDraft
-			}
-			return ErrInvoiceNotIssued
-		}
-
 		extra := ""
 		if toStatus == "sent" {
 			extra = ", issued_at = timezone('utc', now())"
 		} else if toStatus == "paid" {
 			extra = ", paid_at = timezone('utc', now())"
 		}
+
+		// Self-guarding UPDATE: WHERE asserts both id AND current status.
+		// Only one of two concurrent requests can win the row-level lock;
+		// the loser sees 0 rows affected and we return a 409-style error.
 		row := tx.QueryRow(ctx, `
 UPDATE invoices SET status = $1`+extra+`
  WHERE id = $2
+   AND status = $3
 RETURNING`+invoiceSelectCols,
-			toStatus, invoiceID)
-		return scanInvoice(row, &inv)
+			toStatus, invoiceID, fromStatus)
+
+		err := scanInvoice(row, &inv)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Distinguish "never existed / not visible" from "wrong status".
+			var current string
+			lookupErr := tx.QueryRow(ctx,
+				`SELECT status FROM invoices WHERE id = $1`,
+				invoiceID,
+			).Scan(&current)
+			if errors.Is(lookupErr, pgx.ErrNoRows) {
+				return pgx.ErrNoRows // → ErrNotFound below
+			}
+			if lookupErr != nil {
+				return lookupErr
+			}
+			// Row exists but status no longer matches — concurrent update won.
+			if current != fromStatus {
+				if fromStatus == "draft" {
+					return ErrInvoiceNotDraft
+				}
+				return ErrInvoiceNotIssued
+			}
+			// Shouldn't happen: the UPDATE returned no rows but status still
+			// matches. Treat as a conflict to be safe.
+			return ErrStatusConflict
+		}
+		return err
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound

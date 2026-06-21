@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/db"
@@ -14,7 +15,8 @@ import (
 
 // Sentinel errors for HTTP-layer status-code mapping.
 var (
-	ErrPoolNotFound = errors.New("tip pool not found")
+	ErrPoolNotFound       = errors.New("tip pool not found")
+	ErrAlreadyDistributed = errors.New("pool has already been distributed")
 )
 
 // TipPool mirrors the tip_pools row.
@@ -27,6 +29,7 @@ type TipPool struct {
 	Config         map[string]any `json:"config"`
 	ShiftDate      *string        `json:"shift_date"` // "YYYY-MM-DD" or null
 	IsActive       bool           `json:"is_active"`
+	DistributedAt  *time.Time     `json:"distributed_at"` // non-nil once distributed
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
@@ -86,12 +89,12 @@ func nullF64(f float64) any {
 // ---- TipPool CRUD -----------------------------------------------------------
 
 const poolCols = `id, organization_id, location_id, name, rule_type, config,
-	shift_date::text, is_active, created_at, updated_at`
+	shift_date::text, is_active, distributed_at, created_at, updated_at`
 
 func scanPool(row pgx.Row, p *TipPool) error {
 	return row.Scan(
 		&p.ID, &p.OrganizationID, &p.LocationID, &p.Name, &p.RuleType, &p.Config,
-		&p.ShiftDate, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
+		&p.ShiftDate, &p.IsActive, &p.DistributedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 }
 
@@ -246,13 +249,30 @@ func (s *Store) AddContribution(
 ) (*Contribution, error) {
 	var c Contribution
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `
+		err := tx.QueryRow(ctx, `
 INSERT INTO tip_pool_contributions (tip_pool_id, order_payment_id, amount_cents)
 VALUES ($1, $2, $3)
 RETURNING id, tip_pool_id, order_payment_id, amount_cents, contributed_at
 `, poolID, nullStr(orderPaymentID), amountCents).Scan(
 			&c.ID, &c.TipPoolID, &c.OrderPaymentID, &c.AmountCents, &c.ContributedAt,
 		)
+		if err != nil {
+			// 23505 = unique_violation: the same order_payment_id was already
+			// recorded for this pool. Treat as a no-op — fetch the existing row
+			// so the caller still gets a well-formed response.
+			var pg *pgconn.PgError
+			if errors.As(err, &pg) && pg.Code == "23505" {
+				return tx.QueryRow(ctx, `
+SELECT id, tip_pool_id, order_payment_id, amount_cents, contributed_at
+FROM   tip_pool_contributions
+WHERE  order_payment_id = $1
+`, nullStr(orderPaymentID)).Scan(
+					&c.ID, &c.TipPoolID, &c.OrderPaymentID, &c.AmountCents, &c.ContributedAt,
+				)
+			}
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -333,6 +353,14 @@ ORDER BY distributed_at`, poolID)
 // DistributePool computes shares via the engine, writes tip_distributions in a
 // single transaction, and returns the inserted rows.
 // It fetches the staff role for each recipient (needed by role_weighted).
+//
+// Double-distribution prevention:
+//   - The pool row is locked with SELECT … FOR UPDATE at the start of the
+//     transaction; concurrent callers block until this transaction commits.
+//   - If distributed_at is already set (first call committed) the function
+//     returns ErrAlreadyDistributed (HTTP 409) immediately.
+//   - On success distributed_at is stamped in the same transaction, so the
+//     lock and the stamp are atomic.
 func (s *Store) DistributePool(
 	ctx context.Context,
 	pool *TipPool,
@@ -340,18 +368,40 @@ func (s *Store) DistributePool(
 ) ([]Distribution, error) {
 	var dists []Distribution
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		// Sum all undistributed contributions.
+		// --- 1. Lock the pool row and re-read its current state atomically. ---
+		// SELECT FOR UPDATE blocks any concurrent DistributePool call until this
+		// transaction commits or rolls back, eliminating the TOCTOU race.
+		var lockedPool TipPool
+		if err := scanPool(tx.QueryRow(ctx,
+			`SELECT `+poolCols+` FROM tip_pools WHERE id = $1 FOR UPDATE`,
+			pool.ID,
+		), &lockedPool); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrPoolNotFound
+			}
+			return err
+		}
+
+		// --- 2. Guard: reject if already distributed or inactive. -----------
+		if lockedPool.DistributedAt != nil {
+			return ErrAlreadyDistributed
+		}
+		if !lockedPool.IsActive {
+			return errors.New("pool is not active")
+		}
+
+		// --- 3. Sum contributions. ------------------------------------------
 		var totalCents int64
 		if err := tx.QueryRow(ctx, `
 SELECT COALESCE(SUM(amount_cents), 0) FROM tip_pool_contributions WHERE tip_pool_id = $1
-`, pool.ID).Scan(&totalCents); err != nil {
+`, lockedPool.ID).Scan(&totalCents); err != nil {
 			return err
 		}
 		if totalCents == 0 {
 			return errors.New("no contributions to distribute")
 		}
 
-		// Enrich recipients with their role from the staff table.
+		// --- 4. Enrich recipients with their role from the staff table. ------
 		recipients := make([]Recipient, len(reqRecipients))
 		for i, rr := range reqRecipients {
 			var role string
@@ -371,11 +421,13 @@ SELECT COALESCE(SUM(amount_cents), 0) FROM tip_pool_contributions WHERE tip_pool
 			}
 		}
 
-		shares, err := Distribute(pool.RuleType, pool.Config, totalCents, recipients)
+		// --- 5. Compute shares. ---------------------------------------------
+		shares, err := Distribute(lockedPool.RuleType, lockedPool.Config, totalCents, recipients)
 		if err != nil {
 			return err
 		}
 
+		// --- 6. Insert distribution rows. -----------------------------------
 		dists = make([]Distribution, 0, len(shares))
 		for _, sh := range shares {
 			var d Distribution
@@ -384,7 +436,7 @@ INSERT INTO tip_distributions (tip_pool_id, staff_id, amount_cents, hours_worked
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, tip_pool_id, staff_id, amount_cents, hours_worked, weight_points,
           distributed_at, payroll_exported_at
-`, pool.ID, sh.StaffID, sh.AmountCents, nullF64(sh.HoursWorked), nullF64(sh.WeightPts),
+`, lockedPool.ID, sh.StaffID, sh.AmountCents, nullF64(sh.HoursWorked), nullF64(sh.WeightPts),
 			).Scan(
 				&d.ID, &d.TipPoolID, &d.StaffID, &d.AmountCents, &d.HoursWorked, &d.WeightPoints,
 				&d.DistributedAt, &d.PayrollExportedAt,
@@ -393,6 +445,17 @@ RETURNING id, tip_pool_id, staff_id, amount_cents, hours_worked, weight_points,
 			}
 			dists = append(dists, d)
 		}
+
+		// --- 7. Stamp the pool as distributed (same transaction). -----------
+		// Any concurrent caller that obtained FOR UPDATE after us will see
+		// distributed_at IS NOT NULL and be rejected in step 2.
+		if _, err := tx.Exec(ctx, `
+UPDATE tip_pools SET distributed_at = timezone('utc', now()), updated_at = timezone('utc', now())
+WHERE id = $1
+`, lockedPool.ID); err != nil {
+			return err
+		}
+
 		return nil
 	})
 	if err != nil {

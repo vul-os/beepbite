@@ -14,7 +14,10 @@ type ops struct {
 }
 
 var allTables = map[string]ops{
-	"profiles":                 {Select: true, Insert: true, Update: true},
+	"profiles": {Select: true, Insert: true, Update: true},
+	// organizations: Update allowed for name/settings edits from the dashboard.
+	// Changes to subscription_tier (and plan/billing columns) are blocked in the
+	// update handler — see handler.go orgSubscriptionTierGuard.
 	"organizations":            {Select: true, Insert: true, Update: true},
 	"locations":                {Select: true, Insert: true, Update: true},
 	"organization_members":     {Select: true, Insert: true, Update: true, Delete: true},
@@ -141,8 +144,16 @@ var allTables = map[string]ops{
 	// Migration 27 — subscription plans + payouts
 	// subscription_plans: read-only via generic API (mutations via admin flow)
 	"subscription_plans": {Select: true},
-	"bank_accounts":      {Select: true, Insert: true, Update: true, Delete: true}, // account number stored encrypted; writes go through a Go handler in practice
-	"payout_schedules":   {Select: true, Insert: true, Update: true, Delete: true},
+	// bank_accounts: read-only via generic API. All writes (create/soft-delete)
+	// go through internal/handlers/bankaccounts which encrypts the account number
+	// and registers a Paystack transfer recipient. Direct data-layer mutations
+	// would bypass encryption and the Paystack recipient lifecycle.
+	"bank_accounts": {Select: true},
+	// payout_schedules: read-only via generic API. Controls payout cadence and
+	// the destination bank account for the payout runner cron job. Writes are
+	// a funds-sensitive operation and must not be exposed to tenants via the
+	// generic REST layer.
+	"payout_schedules": {Select: true},
 	// merchant_payouts: read-only ledger of weekly payouts to the org's bank account.
 	// Surfaced on the Billing page (RecentPayouts). Writes are service-role only
 	// (the payouts runner cron job in jobs/payouts).
