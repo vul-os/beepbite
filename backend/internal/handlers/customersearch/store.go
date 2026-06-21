@@ -15,8 +15,8 @@ import (
 // Nullable columns use pointers so JSON emits null rather than zero values.
 type CustomerResult struct {
 	ID            string     `json:"id"`
-	Name          string     `json:"name"`           // first_name || ' ' || last_name, or whatsapp_number fallback
-	Phone         string     `json:"phone"`          // whatsapp_number
+	Name          string     `json:"name"`  // first_name || ' ' || last_name, or whatsapp_number fallback
+	Phone         string     `json:"phone"` // whatsapp_number
 	Email         *string    `json:"email"`
 	TotalOrders   int        `json:"total_orders"`
 	LastOrderDate *time.Time `json:"last_order_date"`

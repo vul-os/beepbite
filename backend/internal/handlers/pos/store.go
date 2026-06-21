@@ -107,13 +107,13 @@ type ModifierSelection struct {
 
 // OrderLineInput is one line in the create-order request.
 type OrderLineInput struct {
-	ItemID             string              `json:"item_id"`
-	Quantity           int                 `json:"quantity"`
-	VariationOptionIDs []string            `json:"variation_option_ids"`
-	Notes              string              `json:"notes"`
+	ItemID             string   `json:"item_id"`
+	Quantity           int      `json:"quantity"`
+	VariationOptionIDs []string `json:"variation_option_ids"`
+	Notes              string   `json:"notes"`
 	// CourseID is an optional reference to courses.id for kitchen course firing.
 	// Added in Wave 11 (migration 022 adds order_items.course_id).
-	CourseID  string              `json:"course_id"`
+	CourseID string `json:"course_id"`
 	// Modifiers is an optional list of selected modifiers for this line.
 	// Each modifier's price_delta_cents is added to the item's base unit price.
 	Modifiers []ModifierSelection `json:"modifiers"`
@@ -258,7 +258,7 @@ func (s *Store) CreateOrder(
 		id               string
 		price            float64
 		name             string
-		dailyQuantity    *int    // NULL means unlimited
+		dailyQuantity    *int // NULL means unlimited
 		dailySoldCount   int
 		dailyCounterDate *string // date as string, NULL when never set
 	}

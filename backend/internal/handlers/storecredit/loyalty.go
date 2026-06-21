@@ -40,10 +40,10 @@ type LoyaltyTransaction struct {
 
 // LoyaltyCustomerSummary is what GET /loyalty/customers/{id} returns.
 type LoyaltyCustomerSummary struct {
-	CustomerID      string               `json:"customer_id"`
-	CurrentPoints   int64                `json:"current_points"`
-	ExpiringPoints  int64                `json:"expiring_points_next_30_days"`
-	Transactions    []LoyaltyTransaction `json:"transactions"`
+	CustomerID     string               `json:"customer_id"`
+	CurrentPoints  int64                `json:"current_points"`
+	ExpiringPoints int64                `json:"expiring_points_next_30_days"`
+	Transactions   []LoyaltyTransaction `json:"transactions"`
 }
 
 // LoyaltyStore holds a pool for loyalty-specific DB operations.
@@ -280,8 +280,8 @@ func (ls *LoyaltyStore) ExpirePoints(
 	// Find customers with stale last activity in this org who still have points.
 	// "Last activity" = latest loyalty_transactions row for the customer+org.
 	type staleRow struct {
-		CustomerID   string
-		CurrentPts   int64
+		CustomerID string
+		CurrentPts int64
 	}
 
 	rows, err := tx.Query(ctx, `

@@ -37,11 +37,11 @@ import (
 
 // Resource constants mirror quota.Resource* so callers can use either package.
 const (
-	ResourceOrders         = "orders"
-	ResourceWhatsappOut    = "whatsapp_outbound"
-	ResourceLLMMessages    = "llm_messages"
-	ResourceEmailOutbound  = "email_outbound"
-	ResourceBulkImports    = "bulk_imports"
+	ResourceOrders        = "orders"
+	ResourceWhatsappOut   = "whatsapp_outbound"
+	ResourceLLMMessages   = "llm_messages"
+	ResourceEmailOutbound = "email_outbound"
+	ResourceBulkImports   = "bulk_imports"
 )
 
 // walletKind maps a resource name to the wallet_txn_kind enum value used in

@@ -24,7 +24,7 @@ var ErrOrderNotFound = errors.New("order not found")
 
 // ModifierLine is a single modifier (add-on, variation) on an order line.
 type ModifierLine struct {
-	Name            string `json:"name"`
+	Name               string `json:"name"`
 	PriceCentsSnapshot int64  `json:"price_cents_snapshot"`
 }
 
@@ -40,25 +40,25 @@ type LineItem struct {
 
 // PaymentLine is one order_payments row trimmed to receipt-relevant fields.
 type PaymentLine struct {
-	PaymentID         string    `json:"payment_id"`
-	Method            string    `json:"method"`
-	AmountPaidCents   int64     `json:"amount_paid_cents"`
-	TipAmountCents    int64     `json:"tip_amount_cents"`
-	ChangeGivenCents  int64     `json:"change_given_cents"`
-	PaymentReference  *string   `json:"payment_reference,omitempty"`
-	PaidAt            time.Time `json:"paid_at"`
+	PaymentID        string    `json:"payment_id"`
+	Method           string    `json:"method"`
+	AmountPaidCents  int64     `json:"amount_paid_cents"`
+	TipAmountCents   int64     `json:"tip_amount_cents"`
+	ChangeGivenCents int64     `json:"change_given_cents"`
+	PaymentReference *string   `json:"payment_reference,omitempty"`
+	PaidAt           time.Time `json:"paid_at"`
 }
 
 // Receipt is the full structured receipt returned by GET /orders/{id}/receipt.
 type Receipt struct {
 	// Store / location info
-	StoreName   string  `json:"store_name"`
+	StoreName    string  `json:"store_name"`
 	StoreAddress *string `json:"store_address,omitempty"`
 
 	// Order identity
-	OrderID      string    `json:"order_id"`
-	OrderNumber  string    `json:"order_number"`
-	CreatedAt    time.Time `json:"created_at"`
+	OrderID     string    `json:"order_id"`
+	OrderNumber string    `json:"order_number"`
+	CreatedAt   time.Time `json:"created_at"`
 
 	// Line items
 	LineItems []LineItem `json:"line_items"`

@@ -66,10 +66,10 @@ func (a *SESAdapter) Code() string { return "ses" }
 
 // sesV2SendEmailBody is the JSON payload for SES v2 SendEmail.
 type sesV2SendEmailBody struct {
-	FromEmailAddress string          `json:"FromEmailAddress"`
-	Destination      sesDestination  `json:"Destination"`
-	Content          sesContent      `json:"Content"`
-	ReplyToAddresses []string        `json:"ReplyToAddresses,omitempty"`
+	FromEmailAddress string         `json:"FromEmailAddress"`
+	Destination      sesDestination `json:"Destination"`
+	Content          sesContent     `json:"Content"`
+	ReplyToAddresses []string       `json:"ReplyToAddresses,omitempty"`
 }
 
 type sesDestination struct {

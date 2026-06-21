@@ -50,21 +50,21 @@ type TenantDetail struct {
 
 // WalletInfo is the org_wallets row for a tenant.
 type WalletInfo struct {
-	BalanceCents  int64  `json:"balance_cents"`
-	HoldCents     int64  `json:"hold_cents"`
-	CurrencyCode  string `json:"currency_code"`
-	AutoRefillEnabled bool `json:"auto_refill_enabled"`
+	BalanceCents      int64  `json:"balance_cents"`
+	HoldCents         int64  `json:"hold_cents"`
+	CurrencyCode      string `json:"currency_code"`
+	AutoRefillEnabled bool   `json:"auto_refill_enabled"`
 }
 
 // WalletTransaction is a recent wallet_transactions ledger entry.
 type WalletTransaction struct {
-	ID               string    `json:"id"`
-	Kind             string    `json:"kind"`
-	AmountCents      int64     `json:"amount_cents"`
-	BalanceAfterCents *int64   `json:"balance_after_cents"`
-	Description      *string   `json:"description"`
-	ReferenceType    *string   `json:"reference_type"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	Kind              string    `json:"kind"`
+	AmountCents       int64     `json:"amount_cents"`
+	BalanceAfterCents *int64    `json:"balance_after_cents"`
+	Description       *string   `json:"description"`
+	ReferenceType     *string   `json:"reference_type"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 // ---------------------------------------------------------------------------
@@ -373,4 +373,3 @@ func currentPeriod() (start, end time.Time) {
 	end = time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
 	return start, end
 }
-

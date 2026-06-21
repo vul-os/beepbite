@@ -60,8 +60,8 @@ func (h *Handler) MountHold(r chi.Router) {
 
 // HeldOrderResp is returned from hold and release operations.
 type HeldOrderResp struct {
-	OrderID      string  `json:"order_id"`
-	HeldAt       *string `json:"held_at"`        // RFC 3339 or null on release
+	OrderID      string   `json:"order_id"`
+	HeldAt       *string  `json:"held_at"`        // RFC 3339 or null on release
 	KDSTicketIDs []string `json:"kds_ticket_ids"` // populated on release
 }
 

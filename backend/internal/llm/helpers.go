@@ -11,7 +11,7 @@ import "encoding/json"
 // Falls back to the raw body (truncated to 300 bytes) if no message field is found.
 func llmErrMsg(body []byte) string {
 	var envelope struct {
-		Error   *struct {
+		Error *struct {
 			Message string `json:"message"`
 		} `json:"error"`
 		Message string `json:"message"`

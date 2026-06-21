@@ -27,17 +27,17 @@ var (
 // is returned only at creation time (CreateResult). The NEVER-retrievable
 // hash stays in the DB only.
 type APIKey struct {
-	ID            string     `json:"id"`
-	OrganizationID string    `json:"organization_id"`
-	Name          string     `json:"name"`
-	PrefixVisible string     `json:"prefix_visible"`
-	Scopes        []string   `json:"scopes"`
-	Environment   string     `json:"environment"`
-	ExpiresAt     *time.Time `json:"expires_at"`
-	LastUsedAt    *time.Time `json:"last_used_at"`
-	CreatedBy     *string    `json:"created_by"`
-	RevokedAt     *time.Time `json:"revoked_at"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID             string     `json:"id"`
+	OrganizationID string     `json:"organization_id"`
+	Name           string     `json:"name"`
+	PrefixVisible  string     `json:"prefix_visible"`
+	Scopes         []string   `json:"scopes"`
+	Environment    string     `json:"environment"`
+	ExpiresAt      *time.Time `json:"expires_at"`
+	LastUsedAt     *time.Time `json:"last_used_at"`
+	CreatedBy      *string    `json:"created_by"`
+	RevokedAt      *time.Time `json:"revoked_at"`
+	CreatedAt      time.Time  `json:"created_at"`
 }
 
 // CreateResult is returned from POST /api-keys. It embeds the APIKey row plus

@@ -51,16 +51,16 @@ func NewClient(cfg Config) *Client {
 // PaymentIntent is the subset of Stripe's PaymentIntent object we care about.
 // Stripe's full shape is large; we only decode fields the app reads.
 type PaymentIntent struct {
-	ID                 string                 `json:"id"`
-	ClientSecret       string                 `json:"client_secret"`
-	Status             string                 `json:"status"` // requires_payment_method, succeeded, …
-	Amount             int64                  `json:"amount"`
-	AmountReceived     int64                  `json:"amount_received"`
-	Currency           string                 `json:"currency"`
-	Metadata           map[string]string      `json:"metadata"`
-	LatestCharge       string                 `json:"latest_charge"`
-	PaymentMethod      string                 `json:"payment_method"`
-	LastPaymentError   map[string]interface{} `json:"last_payment_error"`
+	ID               string                 `json:"id"`
+	ClientSecret     string                 `json:"client_secret"`
+	Status           string                 `json:"status"` // requires_payment_method, succeeded, …
+	Amount           int64                  `json:"amount"`
+	AmountReceived   int64                  `json:"amount_received"`
+	Currency         string                 `json:"currency"`
+	Metadata         map[string]string      `json:"metadata"`
+	LatestCharge     string                 `json:"latest_charge"`
+	PaymentMethod    string                 `json:"payment_method"`
+	LastPaymentError map[string]interface{} `json:"last_payment_error"`
 }
 
 type stripeError struct {
@@ -77,8 +77,8 @@ type CreatePaymentIntentParams struct {
 	Currency    string // "zar", "usd", …
 	// OrderID flows through as metadata so the webhook can reconcile back to
 	// our order_payments row without parsing references.
-	OrderID   string
-	LocationID string
+	OrderID       string
+	LocationID    string
 	CustomerEmail string
 	Description   string
 	// ReceiptEmail sends a Stripe-hosted receipt; optional.

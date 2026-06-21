@@ -31,7 +31,7 @@ type scopeContextKey struct{}
 //
 // UUID fields are plain strings matching Postgres uuid type (e.g. "aaaabbbb-...").
 // An empty string is written to Postgres, which causes the SQL helper function
-// to return NULL via nullif('', '')::uuid → all RLS policies evaluate to false.
+// to return NULL via nullif(”, ”)::uuid → all RLS policies evaluate to false.
 // This is the safe default for unauthenticated or improperly scoped connections.
 type Scope struct {
 	UserID        string // app.current_user_id  (UUID string or "")
@@ -180,7 +180,7 @@ func capabilitiesToStr(b []byte) string {
 	return string(b)
 }
 
-// boolToStr converts a bool to 'true' or '' (empty string → SQL NULL via nullif).
+// boolToStr converts a bool to 'true' or ” (empty string → SQL NULL via nullif).
 func boolToStr(b bool) string {
 	if b {
 		return "true"

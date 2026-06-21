@@ -12,29 +12,29 @@ import (
 
 // Sentinel errors for HTTP status mapping.
 var (
-	ErrRateNotFound      = errors.New("pay rate not found")
+	ErrRateNotFound       = errors.New("pay rate not found")
 	ErrRateCentsImmutable = errors.New("rate_cents cannot be edited; create a new rate instead")
 	ErrUniqueCurrentRate  = errors.New("a current rate for this staff_id + rate_type already exists")
 )
 
 // PayRate mirrors a staff_pay_rates row.
 type PayRate struct {
-	ID                           string     `json:"id"`
-	StaffID                      string     `json:"staff_id"`
-	RateType                     string     `json:"rate_type"`
-	AmountCents                  int64      `json:"amount_cents"`
-	Currency                     string     `json:"currency"`
-	CommissionPercentage         *float64   `json:"commission_percentage,omitempty"`
-	CommissionBasis              *string    `json:"commission_basis,omitempty"`
-	OvertimeMultiplier           float64    `json:"overtime_multiplier"`
+	ID                            string    `json:"id"`
+	StaffID                       string    `json:"staff_id"`
+	RateType                      string    `json:"rate_type"`
+	AmountCents                   int64     `json:"amount_cents"`
+	Currency                      string    `json:"currency"`
+	CommissionPercentage          *float64  `json:"commission_percentage,omitempty"`
+	CommissionBasis               *string   `json:"commission_basis,omitempty"`
+	OvertimeMultiplier            float64   `json:"overtime_multiplier"`
 	OvertimeThresholdHoursPerWeek *float64  `json:"overtime_threshold_hours_per_week,omitempty"`
-	EffectiveFrom                string     `json:"effective_from"` // YYYY-MM-DD
-	EffectiveUntil               *string    `json:"effective_until,omitempty"` // YYYY-MM-DD or null
-	Notes                        *string    `json:"notes,omitempty"`
-	CreatedBy                    *string    `json:"created_by,omitempty"`
-	IsCurrent                    bool       `json:"is_current"`
-	CreatedAt                    time.Time  `json:"created_at"`
-	UpdatedAt                    time.Time  `json:"updated_at"`
+	EffectiveFrom                 string    `json:"effective_from"`            // YYYY-MM-DD
+	EffectiveUntil                *string   `json:"effective_until,omitempty"` // YYYY-MM-DD or null
+	Notes                         *string   `json:"notes,omitempty"`
+	CreatedBy                     *string   `json:"created_by,omitempty"`
+	IsCurrent                     bool      `json:"is_current"`
+	CreatedAt                     time.Time `json:"created_at"`
+	UpdatedAt                     time.Time `json:"updated_at"`
 }
 
 // PayrollRow is one line in the CSV export.

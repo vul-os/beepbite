@@ -19,14 +19,14 @@ import (
 // ---------------------------------------------------------------------------
 
 var (
-	ErrAssignmentNotFound   = errors.New("driver assignment not found")
-	ErrAssignmentForbidden  = errors.New("assignment does not belong to this driver")
-	ErrIllegalTransition    = errors.New("status transition not allowed")
-	ErrAlreadyCanceled      = errors.New("assignment is already in a terminal state")
-	ErrShiftConflict        = errors.New("driver already has an open shift")
-	ErrShiftNotFound        = errors.New("no open shift found for driver")
-	ErrNoActiveContext      = errors.New("driver has no active shift or active assignment")
-	ErrMemberNotFound       = errors.New("driver member record not found for calling user")
+	ErrAssignmentNotFound  = errors.New("driver assignment not found")
+	ErrAssignmentForbidden = errors.New("assignment does not belong to this driver")
+	ErrIllegalTransition   = errors.New("status transition not allowed")
+	ErrAlreadyCanceled     = errors.New("assignment is already in a terminal state")
+	ErrShiftConflict       = errors.New("driver already has an open shift")
+	ErrShiftNotFound       = errors.New("no open shift found for driver")
+	ErrNoActiveContext     = errors.New("driver has no active shift or active assignment")
+	ErrMemberNotFound      = errors.New("driver member record not found for calling user")
 )
 
 // ---------------------------------------------------------------------------

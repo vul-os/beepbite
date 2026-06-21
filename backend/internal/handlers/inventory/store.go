@@ -12,9 +12,9 @@ import (
 
 // Sentinel errors mapped to HTTP status codes in handler.go.
 var (
-	ErrNotFound         = errors.New("record not found")
-	ErrAlreadyReceived  = errors.New("GRN has already been received")
-	ErrAlreadyMatched   = errors.New("invoice already matched")
+	ErrNotFound          = errors.New("record not found")
+	ErrAlreadyReceived   = errors.New("GRN has already been received")
+	ErrAlreadyMatched    = errors.New("invoice already matched")
 	ErrInvalidTransition = errors.New("invalid status transition")
 )
 
@@ -325,17 +325,17 @@ func (s *Store) SetInvoiceMatchStatus(ctx context.Context, invoiceID, status str
 // LowStockItem is one inventory item that has fallen below minimum_stock and
 // has a preferred supplier via supplier_inventory_items.
 type LowStockItem struct {
-	InventoryItemID    string   `json:"inventory_item_id"`
-	Name               string   `json:"name"`
-	Unit               string   `json:"unit"`
-	CurrentStock       float64  `json:"current_stock"`
-	MinimumStock       float64  `json:"minimum_stock"`
-	SuggestedOrderQty  float64  `json:"suggested_order_qty"`
-	PreferredSupplierID string  `json:"preferred_supplier_id"`
-	SupplierName       string   `json:"supplier_name"`
-	LastPriceCents     *int64   `json:"last_price_per_pack_cents,omitempty"`
-	PackSize           *float64 `json:"pack_size,omitempty"`
-	PackUnit           *string  `json:"pack_unit,omitempty"`
+	InventoryItemID     string   `json:"inventory_item_id"`
+	Name                string   `json:"name"`
+	Unit                string   `json:"unit"`
+	CurrentStock        float64  `json:"current_stock"`
+	MinimumStock        float64  `json:"minimum_stock"`
+	SuggestedOrderQty   float64  `json:"suggested_order_qty"`
+	PreferredSupplierID string   `json:"preferred_supplier_id"`
+	SupplierName        string   `json:"supplier_name"`
+	LastPriceCents      *int64   `json:"last_price_per_pack_cents,omitempty"`
+	PackSize            *float64 `json:"pack_size,omitempty"`
+	PackUnit            *string  `json:"pack_unit,omitempty"`
 }
 
 // GetLowStockItems returns all inventory_items below minimum_stock that have
@@ -397,22 +397,22 @@ func (s *Store) GetLowStockItems(ctx context.Context, locationID string) ([]LowS
 
 // POLineInput is one line of the create-PO request body.
 type POLineInput struct {
-	InventoryItemID        string  `json:"inventory_item_id"`
-	SupplierInventoryItemID string `json:"supplier_inventory_item_id,omitempty"`
-	OrderedQuantity        float64 `json:"ordered_quantity"`
-	OrderedUnit            string  `json:"ordered_unit"`
-	OrderedUnitPriceCents  int64   `json:"ordered_unit_price_cents"`
-	Notes                  string  `json:"notes,omitempty"`
+	InventoryItemID         string  `json:"inventory_item_id"`
+	SupplierInventoryItemID string  `json:"supplier_inventory_item_id,omitempty"`
+	OrderedQuantity         float64 `json:"ordered_quantity"`
+	OrderedUnit             string  `json:"ordered_unit"`
+	OrderedUnitPriceCents   int64   `json:"ordered_unit_price_cents"`
+	Notes                   string  `json:"notes,omitempty"`
 }
 
 // CreatePOInput is the full body for POST /inventory/purchase-orders.
 type CreatePOInput struct {
-	LocationID           string      `json:"location_id"`
-	SupplierID           string      `json:"supplier_id"`
-	PONumber             string      `json:"po_number"`
-	Currency             string      `json:"currency,omitempty"`
-	ExpectedDeliveryDate string      `json:"expected_delivery_date,omitempty"` // YYYY-MM-DD or ""
-	Notes                string      `json:"notes,omitempty"`
+	LocationID           string        `json:"location_id"`
+	SupplierID           string        `json:"supplier_id"`
+	PONumber             string        `json:"po_number"`
+	Currency             string        `json:"currency,omitempty"`
+	ExpectedDeliveryDate string        `json:"expected_delivery_date,omitempty"` // YYYY-MM-DD or ""
+	Notes                string        `json:"notes,omitempty"`
 	Lines                []POLineInput `json:"lines"`
 }
 

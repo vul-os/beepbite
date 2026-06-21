@@ -57,15 +57,15 @@ var (
 // dual-drawer view.  The full session lifecycle (movements, close, reconcile)
 // is handled by the existing /cash-drawers/… endpoints.
 type OpenSession struct {
-	ID                string     `json:"id"`
-	CashDrawerID      string     `json:"cash_drawer_id"`
-	DrawerName        string     `json:"drawer_name"`   // cash_drawers.name
-	CashierLabel      *string    `json:"cashier_label"` // may be NULL for sessions opened outside this endpoint
-	OpenedBy          *string    `json:"opened_by"`
-	OpeningFloatCents int64      `json:"opening_float_cents"`
-	OpenedAt          time.Time  `json:"opened_at"`
-	Status            string     `json:"status"`
-	CreatedAt         time.Time  `json:"created_at"`
+	ID                string    `json:"id"`
+	CashDrawerID      string    `json:"cash_drawer_id"`
+	DrawerName        string    `json:"drawer_name"`   // cash_drawers.name
+	CashierLabel      *string   `json:"cashier_label"` // may be NULL for sessions opened outside this endpoint
+	OpenedBy          *string   `json:"opened_by"`
+	OpeningFloatCents int64     `json:"opening_float_cents"`
+	OpenedAt          time.Time `json:"opened_at"`
+	Status            string    `json:"status"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 // ---------------------------------------------------------------------------

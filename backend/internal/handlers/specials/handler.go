@@ -115,7 +115,7 @@ func (h *Handler) setSpecial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"item_id":        itemID,
+		"item_id":          itemID,
 		"is_daily_special": req.IsDailySpecial,
 	})
 }

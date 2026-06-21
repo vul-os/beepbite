@@ -18,16 +18,17 @@ import (
 
 // paymentLeg is a single payment entry within a split-tender request.
 type paymentLeg struct {
-	PaymentMethodCode  string `json:"payment_method_code"`
-	AmountPaidCents    int64  `json:"amount_paid_cents"`
-	TipAmountCents     int64  `json:"tip_amount_cents"`
-	ChangeGivenCents   int64  `json:"change_given_cents"`
-	PaymentReference   string `json:"payment_reference"`
+	PaymentMethodCode string `json:"payment_method_code"`
+	AmountPaidCents   int64  `json:"amount_paid_cents"`
+	TipAmountCents    int64  `json:"tip_amount_cents"`
+	ChangeGivenCents  int64  `json:"change_given_cents"`
+	PaymentReference  string `json:"payment_reference"`
 }
 
 // chargeReq accepts either:
-//   a) a flat single-payment payload (backwards-compatible), OR
-//   b) a "payments" array for split-tender (multiple legs summing to the total).
+//
+//	a) a flat single-payment payload (backwards-compatible), OR
+//	b) a "payments" array for split-tender (multiple legs summing to the total).
 //
 // When "payments" is present it takes precedence. When it is absent the top-level
 // fields are lifted into a single-leg slice so the store path is unified.
@@ -59,12 +60,12 @@ func (r chargeReq) legs() []paymentLeg {
 }
 
 type chargeResp struct {
-	OrderID       string   `json:"order_id"`
-	PaymentIDs    []string `json:"payment_ids"`
+	OrderID    string   `json:"order_id"`
+	PaymentIDs []string `json:"payment_ids"`
 	// PaymentID is kept for single-payment callers that read [0].
-	PaymentID     string   `json:"payment_id"`
-	PaymentStatus string   `json:"payment_status"`
-	SessionClosed bool     `json:"session_closed"`
+	PaymentID     string `json:"payment_id"`
+	PaymentStatus string `json:"payment_status"`
+	SessionClosed bool   `json:"session_closed"`
 }
 
 // ---------------------------------------------------------------------------

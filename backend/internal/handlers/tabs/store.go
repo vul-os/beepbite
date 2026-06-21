@@ -17,9 +17,9 @@ import (
 
 // Sentinel errors mapped to HTTP status codes by Handler.
 var (
-	ErrTabNotFound     = errors.New("tab not found")
+	ErrTabNotFound      = errors.New("tab not found")
 	ErrTabAlreadyClosed = errors.New("tab is already closed")
-	ErrItemNotFound    = errors.New("one or more items not found for this location")
+	ErrItemNotFound     = errors.New("one or more items not found for this location")
 )
 
 // ---------------------------------------------------------------------------
@@ -28,40 +28,40 @@ var (
 
 // Tab is the view of an open tab returned by OpenTab and ListTabs.
 type Tab struct {
-	ID             string     `json:"id"`
-	OrderNumber    string     `json:"order_number"`
-	LocationID     string     `json:"location_id"`
-	OrganizationID string     `json:"organization_id"`
-	CustomerID     *string    `json:"customer_id,omitempty"`
-	TabName        *string    `json:"tab_name,omitempty"`
-	Status         string     `json:"status"`
-	IsOpenTab      bool       `json:"is_open_tab"`
-	SubtotalCents  int64      `json:"subtotal_cents"`
-	TaxCents       int64      `json:"tax_cents"`
-	TotalCents     int64      `json:"total_cents"`
-	TaxRate        float64    `json:"tax_rate"`
-	TaxInclusive   bool       `json:"tax_inclusive"`
-	ItemCount      int64      `json:"item_count"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID             string    `json:"id"`
+	OrderNumber    string    `json:"order_number"`
+	LocationID     string    `json:"location_id"`
+	OrganizationID string    `json:"organization_id"`
+	CustomerID     *string   `json:"customer_id,omitempty"`
+	TabName        *string   `json:"tab_name,omitempty"`
+	Status         string    `json:"status"`
+	IsOpenTab      bool      `json:"is_open_tab"`
+	SubtotalCents  int64     `json:"subtotal_cents"`
+	TaxCents       int64     `json:"tax_cents"`
+	TotalCents     int64     `json:"total_cents"`
+	TaxRate        float64   `json:"tax_rate"`
+	TaxInclusive   bool      `json:"tax_inclusive"`
+	ItemCount      int64     `json:"item_count"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // AppendedItem is returned after a successful POST /tabs/{id}/items call.
 type AppendedItem struct {
-	OrderItemID   string `json:"order_item_id"`
-	ItemID        string `json:"item_id"`
-	Quantity      int    `json:"quantity"`
-	UnitPriceCents int64 `json:"unit_price_cents"`
-	TotalPriceCents int64 `json:"total_price_cents"`
+	OrderItemID     string `json:"order_item_id"`
+	ItemID          string `json:"item_id"`
+	Quantity        int    `json:"quantity"`
+	UnitPriceCents  int64  `json:"unit_price_cents"`
+	TotalPriceCents int64  `json:"total_price_cents"`
 }
 
 // AppendResult is the full response from POST /tabs/{id}/items.
 type AppendResult struct {
-	TabID          string         `json:"tab_id"`
-	AppendedItems  []AppendedItem `json:"appended_items"`
-	SubtotalCents  int64          `json:"subtotal_cents"`
-	TaxCents       int64          `json:"tax_cents"`
-	TotalCents     int64          `json:"total_cents"`
+	TabID         string         `json:"tab_id"`
+	AppendedItems []AppendedItem `json:"appended_items"`
+	SubtotalCents int64          `json:"subtotal_cents"`
+	TaxCents      int64          `json:"tax_cents"`
+	TotalCents    int64          `json:"total_cents"`
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ func (s *Store) OpenTab(
 		orderNumber := fmt.Sprintf("%d", seq)
 
 		nullCustomer := nullStr(customerID)
-		nullTabName  := nullStr(tabName)
+		nullTabName := nullStr(tabName)
 
 		// Insert the open-tab order.  Tax values are 0 until items are added.
 		const q = `
@@ -238,24 +238,25 @@ func (s *Store) ListTabs(ctx context.Context, locationID string) ([]Tab, error) 
 
 // ItemInput is a single line item to append to the tab.
 type ItemInput struct {
-	ItemID               string `json:"item_id"`
-	Quantity             int    `json:"quantity"`
-	SpecialInstructions  string `json:"special_instructions"`
+	ItemID              string `json:"item_id"`
+	Quantity            int    `json:"quantity"`
+	SpecialInstructions string `json:"special_instructions"`
 }
 
 // AppendItems inserts new order_items onto the tab and recomputes order totals
 // in one atomic transaction.
 //
 // Cents math:
-//   unit_price_cents  — read from items.price_cents (already in cents)
-//   total_price_cents — unit_price_cents * quantity
-//   subtotal_cents    — SUM(order_items.total_price_cents) for the whole tab
-//   tax_cents         — computed from subtotal using the order's tax_rate and
-//                       tax_inclusive flag:
-//                         inclusive: tax = subtotal * rate/(100+rate)
-//                         exclusive: tax = subtotal * rate/100
-//   total_cents       — subtotal + tax  (inclusive: subtotal unchanged since tax
-//                       is already embedded; exclusive: subtotal + tax)
+//
+//	unit_price_cents  — read from items.price_cents (already in cents)
+//	total_price_cents — unit_price_cents * quantity
+//	subtotal_cents    — SUM(order_items.total_price_cents) for the whole tab
+//	tax_cents         — computed from subtotal using the order's tax_rate and
+//	                    tax_inclusive flag:
+//	                      inclusive: tax = subtotal * rate/(100+rate)
+//	                      exclusive: tax = subtotal * rate/100
+//	total_cents       — subtotal + tax  (inclusive: subtotal unchanged since tax
+//	                    is already embedded; exclusive: subtotal + tax)
 func (s *Store) AppendItems(
 	ctx context.Context,
 	orderID string,
@@ -269,9 +270,9 @@ func (s *Store) AppendItems(
 	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
 		// Lock the order and confirm it is still an open tab.
 		var isOpenTab bool
-		var taxRate     float64
+		var taxRate float64
 		var taxInclusive bool
-		var locationID  string
+		var locationID string
 		if err := tx.QueryRow(ctx, `
 			SELECT is_open_tab, tax_rate, tax_inclusive, location_id
 			FROM orders
@@ -361,10 +362,10 @@ func (s *Store) AppendItems(
 		//     total_cents = subtotal + tax_cents
 		var taxCents, totalCents int64
 		if taxInclusive {
-			taxCents   = int64(float64(subtotalCents) * taxRate / (100.0 + taxRate))
+			taxCents = int64(float64(subtotalCents) * taxRate / (100.0 + taxRate))
 			totalCents = subtotalCents
 		} else {
-			taxCents   = int64(float64(subtotalCents) * taxRate / 100.0)
+			taxCents = int64(float64(subtotalCents) * taxRate / 100.0)
 			totalCents = subtotalCents + taxCents
 		}
 
@@ -382,8 +383,8 @@ func (s *Store) AppendItems(
 
 		result.AppendedItems = appended
 		result.SubtotalCents = subtotalCents
-		result.TaxCents      = taxCents
-		result.TotalCents    = totalCents
+		result.TaxCents = taxCents
+		result.TotalCents = totalCents
 		return nil
 	})
 	if err != nil {

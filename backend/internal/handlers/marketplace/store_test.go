@@ -41,9 +41,9 @@ func TestListParamsLimit(t *testing.T) {
 		expected int
 	}{
 		{"5", 5},
-		{"200", maxLimit},  // clamped to max
-		{"0", defaultLimit}, // invalid → default
-		{"-1", defaultLimit}, // negative → default
+		{"200", maxLimit},     // clamped to max
+		{"0", defaultLimit},   // invalid → default
+		{"-1", defaultLimit},  // negative → default
 		{"abc", defaultLimit}, // non-numeric → default
 	}
 	for _, tc := range tests {
@@ -76,10 +76,10 @@ func TestListParamsGeo(t *testing.T) {
 
 // stubStore replaces the real Store for HTTP-layer tests.
 type stubStore struct {
-	listResult   []StoreListItem
-	listErr      error
+	listResult    []StoreListItem
+	listErr       error
 	profileResult *StoreProfile
-	profileErr   error
+	profileErr    error
 }
 
 func (s *stubStore) ListStores(_ context.Context, _ pgx.Tx, _ ListParams) ([]StoreListItem, error) {

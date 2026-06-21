@@ -4,18 +4,18 @@ import "time"
 
 // TableSession mirrors a table_sessions row.
 type TableSession struct {
-	ID                    string     `json:"id"`
-	TableID               string     `json:"table_id"`
-	LocationID            string     `json:"location_id"`
-	OpenedBy              *string    `json:"opened_by"`
-	PartySize             int        `json:"party_size"`
-	Status                string     `json:"status"`
-	OpenedAt              time.Time  `json:"opened_at"`
-	ClosedAt              *time.Time `json:"closed_at"`
-	TransferredToSessionID *string   `json:"transferred_to_session_id"`
-	Notes                 *string    `json:"notes"`
-	CreatedAt             time.Time  `json:"created_at"`
-	UpdatedAt             time.Time  `json:"updated_at"`
+	ID                     string     `json:"id"`
+	TableID                string     `json:"table_id"`
+	LocationID             string     `json:"location_id"`
+	OpenedBy               *string    `json:"opened_by"`
+	PartySize              int        `json:"party_size"`
+	Status                 string     `json:"status"`
+	OpenedAt               time.Time  `json:"opened_at"`
+	ClosedAt               *time.Time `json:"closed_at"`
+	TransferredToSessionID *string    `json:"transferred_to_session_id"`
+	Notes                  *string    `json:"notes"`
+	CreatedAt              time.Time  `json:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at"`
 }
 
 // SessionDetail is returned by GET /sessions/{id}.
@@ -37,11 +37,11 @@ type Seat struct {
 
 // Order is a lightweight view of orders linked to a session.
 type Order struct {
-	ID          string    `json:"id"`
-	OrderType   string    `json:"order_type"`
-	Status      string    `json:"status"`
-	CourseNumber *int     `json:"course_number"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	OrderType    string    `json:"order_type"`
+	Status       string    `json:"status"`
+	CourseNumber *int      `json:"course_number"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // CheckSplit mirrors a check_splits row.

@@ -26,46 +26,46 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
 // WasteMovement mirrors the data returned for a recorded waste event.
 type WasteMovement struct {
-	ID                  string     `json:"id"`
-	InventoryItemID     string     `json:"inventory_item_id"`
-	InventoryItemName   string     `json:"inventory_item_name"`
-	Quantity            float64    `json:"quantity"`
-	Unit                string     `json:"unit"`
-	WasteReason         *string    `json:"waste_reason"`
-	PerformedByStaffID  *string    `json:"performed_by_staff_id"`
-	Notes               *string    `json:"notes"`
-	CreatedAt           time.Time  `json:"created_at"`
+	ID                 string    `json:"id"`
+	InventoryItemID    string    `json:"inventory_item_id"`
+	InventoryItemName  string    `json:"inventory_item_name"`
+	Quantity           float64   `json:"quantity"`
+	Unit               string    `json:"unit"`
+	WasteReason        *string   `json:"waste_reason"`
+	PerformedByStaffID *string   `json:"performed_by_staff_id"`
+	Notes              *string   `json:"notes"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // WasteReportRow is one row of the aggregate waste report.
 type WasteReportRow struct {
-	WasteReason    *string  `json:"waste_reason"`
-	Day            string   `json:"day"`
-	TotalQty       float64  `json:"total_qty"`
+	WasteReason     *string `json:"waste_reason"`
+	Day             string  `json:"day"`
+	TotalQty        float64 `json:"total_qty"`
 	TotalValueCents float64 `json:"total_value"`
 }
 
 // PrepBatch is a recorded prep run.
 type PrepBatch struct {
-	ID                       string     `json:"id"`
-	OrganizationID           string     `json:"organization_id"`
-	LocationID               string     `json:"location_id"`
-	ProducedInventoryItemID  string     `json:"produced_inventory_item_id"`
-	ProducedQuantity         float64    `json:"produced_quantity"`
-	ProducedUnit             string     `json:"produced_unit"`
-	RecipeYieldPct           *float64   `json:"recipe_yield_pct"`
-	PreparedByStaffID        *string    `json:"prepared_by_staff_id"`
-	PreparedAt               time.Time  `json:"prepared_at"`
-	Notes                    *string    `json:"notes"`
-	CreatedAt                time.Time  `json:"created_at"`
-	UpdatedAt                time.Time  `json:"updated_at"`
+	ID                      string    `json:"id"`
+	OrganizationID          string    `json:"organization_id"`
+	LocationID              string    `json:"location_id"`
+	ProducedInventoryItemID string    `json:"produced_inventory_item_id"`
+	ProducedQuantity        float64   `json:"produced_quantity"`
+	ProducedUnit            string    `json:"produced_unit"`
+	RecipeYieldPct          *float64  `json:"recipe_yield_pct"`
+	PreparedByStaffID       *string   `json:"prepared_by_staff_id"`
+	PreparedAt              time.Time `json:"prepared_at"`
+	Notes                   *string   `json:"notes"`
+	CreatedAt               time.Time `json:"created_at"`
+	UpdatedAt               time.Time `json:"updated_at"`
 }
 
 // PrepBatchInput is one input consumed by a prep batch.
 type PrepBatchInput struct {
-	InventoryItemID string  `json:"inventory_item_id"`
+	InventoryItemID  string  `json:"inventory_item_id"`
 	QuantityConsumed float64 `json:"quantity_consumed"`
-	Unit            string  `json:"unit"`
+	Unit             string  `json:"unit"`
 }
 
 // ---------------------------------------------------------------------------

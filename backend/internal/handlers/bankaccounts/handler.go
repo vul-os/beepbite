@@ -25,18 +25,18 @@ import (
 
 // Handler wires together the store, Paystack manager, and AES-GCM box.
 type Handler struct {
-	store   *Store
+	store    *Store
 	paystack *paystack.Manager
-	box     *secretbox.Box
+	box      *secretbox.Box
 }
 
 // NewHandler constructs the handler. All three dependencies are required;
 // wiring is done in main.go.
 func NewHandler(pool *pgxpool.Pool, ps *paystack.Manager, box *secretbox.Box) *Handler {
 	return &Handler{
-		store:   NewStore(pool),
+		store:    NewStore(pool),
 		paystack: ps,
-		box:     box,
+		box:      box,
 	}
 }
 

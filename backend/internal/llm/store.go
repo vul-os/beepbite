@@ -9,13 +9,13 @@ import (
 
 // modelPricing holds a single row from llm_model_pricing.
 type modelPricing struct {
-	Provider         string
-	Model            string
-	InputCostPer1k   float64
-	OutputCostPer1k  float64
-	SupportsVision   bool
-	SupportsTools    bool
-	ContextLength    int
+	Provider        string
+	Model           string
+	InputCostPer1k  float64
+	OutputCostPer1k float64
+	SupportsVision  bool
+	SupportsTools   bool
+	ContextLength   int
 }
 
 // store wraps a pgxpool and provides typed reads of llm_model_pricing.

@@ -307,14 +307,14 @@ func TestChainedCalls(t *testing.T) {
 		Bytes()
 
 	var want []byte
-	want = append(want, 0x1B, 0x40)             // Init
-	want = append(want, 0x1B, 0x61, 0x01)        // Align center
-	want = append(want, 0x1B, 0x45, 0x01)        // Bold on
-	want = append(want, []byte("HELLO")...)       // Text
-	want = append(want, 0x1B, 0x45, 0x00)        // Bold off
-	want = append(want, 0x1B, 0x61, 0x00)        // Align left
-	want = append(want, 0x0A)                    // LineFeed
-	want = append(want, 0x1D, 0x56, 0x00)        // Cut
+	want = append(want, 0x1B, 0x40)         // Init
+	want = append(want, 0x1B, 0x61, 0x01)   // Align center
+	want = append(want, 0x1B, 0x45, 0x01)   // Bold on
+	want = append(want, []byte("HELLO")...) // Text
+	want = append(want, 0x1B, 0x45, 0x00)   // Bold off
+	want = append(want, 0x1B, 0x61, 0x00)   // Align left
+	want = append(want, 0x0A)               // LineFeed
+	want = append(want, 0x1D, 0x56, 0x00)   // Cut
 
 	mustBytes(t, got, want)
 }
@@ -330,11 +330,11 @@ func TestChainedWithBarcode(t *testing.T) {
 		Bytes()
 
 	var want []byte
-	want = append(want, 0x1B, 0x40)                                  // Init
-	want = append(want, 0x1D, 0x48, 0x02)                            // HRIPosition below
-	want = append(want, 0x1D, 0x6B, byte(BarcodeCode128), 0x06)      // Barcode header
-	want = append(want, []byte(data)...)                              // Barcode data
-	want = append(want, 0x1D, 0x56, 0x00)                            // Cut
+	want = append(want, 0x1B, 0x40)                             // Init
+	want = append(want, 0x1D, 0x48, 0x02)                       // HRIPosition below
+	want = append(want, 0x1D, 0x6B, byte(BarcodeCode128), 0x06) // Barcode header
+	want = append(want, []byte(data)...)                        // Barcode data
+	want = append(want, 0x1D, 0x56, 0x00)                       // Cut
 
 	mustBytes(t, got, want)
 }
@@ -440,9 +440,9 @@ func TestAlignConstants(t *testing.T) {
 // TestBarcodeTypeConstants — verify the NEW-form values.
 func TestBarcodeTypeConstants(t *testing.T) {
 	tests := []struct {
-		name  string
-		got   int
-		want  int
+		name string
+		got  int
+		want int
 	}{
 		{"BarcodeUPCA", BarcodeUPCA, 65},
 		{"BarcodeEAN13", BarcodeEAN13, 67},

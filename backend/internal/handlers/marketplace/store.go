@@ -41,20 +41,20 @@ type StoreListItem struct {
 
 // StoreProfile is the DTO returned in GET /stores/:slug responses.
 type StoreProfile struct {
-	ID                 string      `json:"id"`
-	Name               string      `json:"name"`
-	Slug               *string     `json:"slug"`
-	City               *string     `json:"city"`
-	Country            *string     `json:"country"`
-	Address            *string     `json:"address"`
-	Description        *string     `json:"description"`
-	OffersDelivery     bool        `json:"offers_delivery"`
-	OffersCollection   bool        `json:"offers_collection"`
-	EstimatedPrepTime  int         `json:"estimated_prep_time_minutes"`
-	CurrencyCode       *string     `json:"currency_code"`
-	AvgRating          *float64    `json:"avg_rating"`
-	ReviewCount        int         `json:"review_count"`
-	Categories         []Category  `json:"categories"`
+	ID                string     `json:"id"`
+	Name              string     `json:"name"`
+	Slug              *string    `json:"slug"`
+	City              *string    `json:"city"`
+	Country           *string    `json:"country"`
+	Address           *string    `json:"address"`
+	Description       *string    `json:"description"`
+	OffersDelivery    bool       `json:"offers_delivery"`
+	OffersCollection  bool       `json:"offers_collection"`
+	EstimatedPrepTime int        `json:"estimated_prep_time_minutes"`
+	CurrencyCode      *string    `json:"currency_code"`
+	AvgRating         *float64   `json:"avg_rating"`
+	ReviewCount       int        `json:"review_count"`
+	Categories        []Category `json:"categories"`
 }
 
 // Category is a menu section returned in the store profile.
@@ -68,24 +68,24 @@ type Category struct {
 
 // Item is an orderable menu item returned in the store profile.
 type Item struct {
-	ID               string   `json:"id"`
-	Name             string   `json:"name"`
-	Description      *string  `json:"description"`
-	Price            string   `json:"price"` // decimal string to avoid float noise
-	ImageURL         *string  `json:"image_url"`
-	PreparationTime  int      `json:"preparation_time_minutes"`
-	Calories         *int     `json:"calories"`
-	SpiceLevel       *int     `json:"spice_level"`
-	SortOrder        int      `json:"sort_order"`
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Description     *string `json:"description"`
+	Price           string  `json:"price"` // decimal string to avoid float noise
+	ImageURL        *string `json:"image_url"`
+	PreparationTime int     `json:"preparation_time_minutes"`
+	Calories        *int    `json:"calories"`
+	SpiceLevel      *int    `json:"spice_level"`
+	SortOrder       int     `json:"sort_order"`
 	// RemainingToday is NULL when daily_quantity is not set (unlimited).
 	// When set, it is GREATEST(daily_quantity - today's sold count, 0).
 	// A value of 0 means sold out for the day.
-	RemainingToday   *int     `json:"remaining_today"`
+	RemainingToday *int `json:"remaining_today"`
 }
 
 // ListParams collects the query-string parameters for GET /stores.
 type ListParams struct {
-	Q        string  // name/slug substring match
+	Q        string // name/slug substring match
 	City     string
 	Country  string
 	Lat      *float64 // geo-search centre

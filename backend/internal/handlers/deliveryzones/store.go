@@ -15,18 +15,18 @@ var ErrZoneNotFound = errors.New("delivery zone not found")
 
 // Zone mirrors a delivery_zones row.
 type Zone struct {
-	ID                   string     `json:"id"`
-	OrganizationID       string     `json:"organization_id"`
-	LocationID           string     `json:"location_id"`
-	Name                 string     `json:"name"`
-	Polygon              any        `json:"polygon"` // raw JSON so the client gets the GeoJSON object
-	DeliveryFeeCents     int64      `json:"delivery_fee_cents"`
-	MinOrderCents        int64      `json:"min_order_cents"`
-	EstimatedETAMinutes  int        `json:"estimated_eta_minutes"`
-	IsActive             bool       `json:"is_active"`
-	Priority             int        `json:"priority"`
-	CreatedAt            time.Time  `json:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
+	ID                  string    `json:"id"`
+	OrganizationID      string    `json:"organization_id"`
+	LocationID          string    `json:"location_id"`
+	Name                string    `json:"name"`
+	Polygon             any       `json:"polygon"` // raw JSON so the client gets the GeoJSON object
+	DeliveryFeeCents    int64     `json:"delivery_fee_cents"`
+	MinOrderCents       int64     `json:"min_order_cents"`
+	EstimatedETAMinutes int       `json:"estimated_eta_minutes"`
+	IsActive            bool      `json:"is_active"`
+	Priority            int       `json:"priority"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 
 	// polygon stored as raw bytes for scanning; marshalled back to any for JSON.
 	polygonRaw []byte

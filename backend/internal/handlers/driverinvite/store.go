@@ -23,10 +23,10 @@ import (
 
 // Sentinel errors for HTTP-layer status-code mapping.
 var (
-	ErrInviteNotFound   = errors.New("driver invite not found")
-	ErrAlreadyMember    = errors.New("user is already a member of this organization")
-	ErrAlreadyInvited   = errors.New("a pending driver invite already exists for this email")
-	ErrDriverNotFound   = errors.New("driver not found in this organization")
+	ErrInviteNotFound = errors.New("driver invite not found")
+	ErrAlreadyMember  = errors.New("user is already a member of this organization")
+	ErrAlreadyInvited = errors.New("a pending driver invite already exists for this email")
+	ErrDriverNotFound = errors.New("driver not found in this organization")
 )
 
 // DriverInvite mirrors the organization_invites row (role='driver' subset).

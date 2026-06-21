@@ -47,10 +47,10 @@ func (h *Handler) Mount(r chi.Router) {
 // ---------------------------------------------------------------------------
 
 type createReq struct {
-	CustomerID    *string  `json:"customer_id"`
-	PercentOff    *float64 `json:"percent_off"`
-	AmountOffCents *int64  `json:"amount_off_cents"`
-	ExpiresInDays *int     `json:"expires_in_days"`
+	CustomerID     *string  `json:"customer_id"`
+	PercentOff     *float64 `json:"percent_off"`
+	AmountOffCents *int64   `json:"amount_off_cents"`
+	ExpiresInDays  *int     `json:"expires_in_days"`
 }
 
 // ---------------------------------------------------------------------------

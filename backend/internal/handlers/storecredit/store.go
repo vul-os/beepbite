@@ -46,19 +46,19 @@ type StoreCredit struct {
 
 // StoreCreditTransaction mirrors a store_credit_transactions row.
 type StoreCreditTransaction struct {
-	ID              string     `json:"id"`
-	StoreCreditID   string     `json:"store_credit_id"`
-	TxnType         string     `json:"txn_type"`
-	AmountCents     int64      `json:"amount_cents"`
-	BalanceAfter    int64      `json:"balance_after_cents"`
-	OrderID         *string    `json:"order_id,omitempty"`
-	PaymentID       *string    `json:"payment_id,omitempty"`
-	RefundID        *string    `json:"refund_id,omitempty"`
-	PerformedByStaff *string   `json:"performed_by_staff_id,omitempty"`
-	GrantedByProfile *string   `json:"granted_by_profile_id,omitempty"`
-	Reason          *string    `json:"reason,omitempty"`
-	ExpiresAt       *time.Time `json:"expires_at,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
+	ID               string     `json:"id"`
+	StoreCreditID    string     `json:"store_credit_id"`
+	TxnType          string     `json:"txn_type"`
+	AmountCents      int64      `json:"amount_cents"`
+	BalanceAfter     int64      `json:"balance_after_cents"`
+	OrderID          *string    `json:"order_id,omitempty"`
+	PaymentID        *string    `json:"payment_id,omitempty"`
+	RefundID         *string    `json:"refund_id,omitempty"`
+	PerformedByStaff *string    `json:"performed_by_staff_id,omitempty"`
+	GrantedByProfile *string    `json:"granted_by_profile_id,omitempty"`
+	Reason           *string    `json:"reason,omitempty"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
 }
 
 // CustomerCreditSummary is the response for GET /store-credit/customers/{id}.

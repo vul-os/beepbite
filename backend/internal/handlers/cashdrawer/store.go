@@ -383,7 +383,7 @@ func (s *Store) SessionLocationID(ctx context.Context, sessionID string) (string
 	return locID, err
 }
 
-// nullStr lets optional string fields arrive as real SQL NULL, not ''.
+// nullStr lets optional string fields arrive as real SQL NULL, not ”.
 func nullStr(s string) any {
 	if s == "" {
 		return nil

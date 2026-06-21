@@ -230,18 +230,18 @@ func migrationsDir() string {
 
 type seedResult struct {
 	// Org A
-	userA   string // auth_users.id
-	orgA    string // organizations.id
-	locA    string // locations.id
+	userA    string // auth_users.id
+	orgA     string // organizations.id
+	locA     string // locations.id
 	profileA string // profiles.id (same as userA)
-	memberA string // organization_members.id
+	memberA  string // organization_members.id
 
 	// Org B
-	userB   string
-	orgB    string
-	locB    string
+	userB    string
+	orgB     string
+	locB     string
 	profileB string
-	memberB string
+	memberB  string
 
 	// Orders
 	orderA string // orders.id for org A

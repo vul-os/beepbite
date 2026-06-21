@@ -61,9 +61,9 @@ type bucket struct {
 
 // Limiter is a concurrency-safe, per-key token-bucket rate limiter.
 type Limiter struct {
-	ratePerMin float64   // tokens granted per minute
-	burst      float64   // maximum tokens in a bucket
-	now        nowFunc   // injectable clock; time.Now in production
+	ratePerMin float64 // tokens granted per minute
+	burst      float64 // maximum tokens in a bucket
+	now        nowFunc // injectable clock; time.Now in production
 	mu         sync.Mutex
 	buckets    map[string]*bucket
 	stop       chan struct{} // closed by Close to stop the sweeper

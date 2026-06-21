@@ -16,15 +16,15 @@ import (
 
 // OrgWallet mirrors the org_wallets row.
 type OrgWallet struct {
-	OrgID                    string     `json:"org_id"`
-	BalanceCents             int64      `json:"balance_cents"`
-	HoldCents                int64      `json:"hold_cents"`
-	CurrencyCode             string     `json:"currency_code"`
-	AutoRefillEnabled        bool       `json:"auto_refill_enabled"`
-	AutoRefillThresholdCents *int64     `json:"auto_refill_threshold_cents"`
-	AutoRefillTargetCents    *int64     `json:"auto_refill_target_cents"`
-	SavedPaymentMethodID     *string    `json:"saved_payment_method_id"`
-	UpdatedAt                time.Time  `json:"updated_at"`
+	OrgID                    string    `json:"org_id"`
+	BalanceCents             int64     `json:"balance_cents"`
+	HoldCents                int64     `json:"hold_cents"`
+	CurrencyCode             string    `json:"currency_code"`
+	AutoRefillEnabled        bool      `json:"auto_refill_enabled"`
+	AutoRefillThresholdCents *int64    `json:"auto_refill_threshold_cents"`
+	AutoRefillTargetCents    *int64    `json:"auto_refill_target_cents"`
+	SavedPaymentMethodID     *string   `json:"saved_payment_method_id"`
+	UpdatedAt                time.Time `json:"updated_at"`
 }
 
 // WalletTopup mirrors a wallet_topups row.
@@ -41,16 +41,16 @@ type WalletTopup struct {
 
 // WalletTransaction mirrors a wallet_transactions row.
 type WalletTransaction struct {
-	ID               string    `json:"id"`
-	OrgID            string    `json:"org_id"`
-	Kind             string    `json:"kind"`
-	AmountCents      int64     `json:"amount_cents"`
-	BalanceAfterCents *int64   `json:"balance_after_cents"`
-	Description      *string   `json:"description"`
-	ReferenceType    *string   `json:"reference_type"`
-	ReferenceID      *string   `json:"reference_id"`
-	IdempotencyKey   *string   `json:"idempotency_key"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	OrgID             string    `json:"org_id"`
+	Kind              string    `json:"kind"`
+	AmountCents       int64     `json:"amount_cents"`
+	BalanceAfterCents *int64    `json:"balance_after_cents"`
+	Description       *string   `json:"description"`
+	ReferenceType     *string   `json:"reference_type"`
+	ReferenceID       *string   `json:"reference_id"`
+	IdempotencyKey    *string   `json:"idempotency_key"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 // ---------------------------------------------------------------------------

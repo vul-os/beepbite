@@ -12,14 +12,14 @@ import (
 // deliveryRow is the data for a single webhook_deliveries row returned by the
 // worker's pending-query.
 type deliveryRow struct {
-	ID                     string
-	EndpointID             string
-	OrgID                  string
-	EventType              string
-	Payload                []byte // raw JSON
-	Status                 string
-	Attempts               int
-	EndpointURL            string
+	ID                      string
+	EndpointID              string
+	OrgID                   string
+	EventType               string
+	Payload                 []byte // raw JSON
+	Status                  string
+	Attempts                int
+	EndpointURL             string
 	SigningSecretCiphertext string
 }
 

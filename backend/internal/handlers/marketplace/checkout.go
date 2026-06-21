@@ -44,7 +44,7 @@ type CheckoutLineInput struct {
 // CheckoutReq is the POST /stores/{slug}/orders body.
 type CheckoutReq struct {
 	CustomerID       string              `json:"customer_id"`
-	FulfillmentType  string              `json:"fulfillment_type"`  // "delivery" | "collection" | "dine_in"
+	FulfillmentType  string              `json:"fulfillment_type"`   // "delivery" | "collection" | "dine_in"
 	OnDeliveryMethod string              `json:"on_delivery_method"` // "cash" | "card_machine"
 	DeliveryAddress  string              `json:"delivery_address"`
 	Items            []CheckoutLineInput `json:"items"`

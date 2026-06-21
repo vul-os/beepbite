@@ -81,8 +81,8 @@ type DateRange struct {
 
 // HeatmapCell is one (dow, hour) cell in the heatmap response.
 type HeatmapCell struct {
-	DOW        int   `json:"dow"`         // 0=Sunday … 6=Saturday
-	Hour       int   `json:"hour"`        // 0–23
+	DOW        int   `json:"dow"`  // 0=Sunday … 6=Saturday
+	Hour       int   `json:"hour"` // 0–23
 	OrderCount int64 `json:"order_count"`
 	SalesCents int64 `json:"sales_cents"`
 }
