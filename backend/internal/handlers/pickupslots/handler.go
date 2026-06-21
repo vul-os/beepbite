@@ -35,14 +35,14 @@ const (
 type Slot struct {
 	// SlotTime is the ISO-8601 timestamp of the slot start in UTC.
 	// Clients should display this in the location's local timezone.
-	SlotTime  string `json:"slot_time"`
+	SlotTime string `json:"slot_time"`
 	// Capacity is the max orders for this slot (0 = unlimited).
-	Capacity  int    `json:"capacity"`
+	Capacity int `json:"capacity"`
 	// Scheduled is how many orders already have pickup_at in this slot.
 	// Returns 0 until orders.pickup_at column exists (see FLAG in store.go).
-	Scheduled int    `json:"scheduled"`
+	Scheduled int `json:"scheduled"`
 	// IsFull is true when Capacity > 0 && Scheduled >= Capacity.
-	IsFull    bool   `json:"is_full"`
+	IsFull bool `json:"is_full"`
 }
 
 // Handler handles pickup-slot HTTP requests.
@@ -147,4 +147,3 @@ func generateSlots(date time.Time, openHour, closeHour, slotMinutes int) []time.
 	}
 	return slots
 }
-

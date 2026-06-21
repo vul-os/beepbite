@@ -5,7 +5,7 @@ package deliveryzones
 // GeoPolygon is a minimal GeoJSON Polygon representation.
 // Only the first ring (exterior ring) is used for point-in-polygon.
 type GeoPolygon struct {
-	Type        string        `json:"type"`
+	Type        string         `json:"type"`
 	Coordinates [][][2]float64 `json:"coordinates"` // [ring][point][lng,lat]
 }
 

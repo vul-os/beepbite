@@ -58,7 +58,7 @@ type anthropicUsage struct {
 }
 
 type anthropicContentBlock struct {
-	Type  string         `json:"type"`  // "text" | "tool_use"
+	Type  string         `json:"type"` // "text" | "tool_use"
 	Text  string         `json:"text,omitempty"`
 	ID    string         `json:"id,omitempty"`
 	Name  string         `json:"name,omitempty"`

@@ -23,11 +23,11 @@ type Runner struct {
 	http    *http.Client
 	cfg     *config.Config // env-loaded config (for integration tests needing test keys)
 
-	token       string // bearer for authenticated calls
-	refresh     string // current refresh token (for explicit tests)
-	userID      string
-	userEmail   string
-	userPass    string
+	token     string // bearer for authenticated calls
+	refresh   string // current refresh token (for explicit tests)
+	userID    string
+	userEmail string
+	userPass  string
 
 	// per-suite counters
 	curSuite string

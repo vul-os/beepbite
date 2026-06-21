@@ -12,14 +12,14 @@ import (
 
 // Sentinel errors mapped to HTTP status codes in the handler layer.
 var (
-	ErrAccountNotFound      = errors.New("house account not found")
-	ErrAccountClosed        = errors.New("house account is closed")
-	ErrCreditLimitExceeded  = errors.New("charge would exceed credit limit")
-	ErrMemberAlreadyExists  = errors.New("customer is already a member of this account")
-	ErrMemberNotFound       = errors.New("member not found")
-	ErrChargeNotFound       = errors.New("charge not found")
-	ErrInvoiceNotFound      = errors.New("invoice not found")
-	ErrNoOpenCharges        = errors.New("no open charges to invoice")
+	ErrAccountNotFound     = errors.New("house account not found")
+	ErrAccountClosed       = errors.New("house account is closed")
+	ErrCreditLimitExceeded = errors.New("charge would exceed credit limit")
+	ErrMemberAlreadyExists = errors.New("customer is already a member of this account")
+	ErrMemberNotFound      = errors.New("member not found")
+	ErrChargeNotFound      = errors.New("charge not found")
+	ErrInvoiceNotFound     = errors.New("invoice not found")
+	ErrNoOpenCharges       = errors.New("no open charges to invoice")
 )
 
 // ---------------------------------------------------------------------------
@@ -28,22 +28,22 @@ var (
 
 // HouseAccount mirrors the house_accounts row.
 type HouseAccount struct {
-	ID                  string     `json:"id"`
-	OrganizationID      string     `json:"organization_id"`
-	AccountName         string     `json:"account_name"`
-	ContactName         *string    `json:"contact_name"`
-	ContactEmail        *string    `json:"contact_email"`
-	ContactPhone        *string    `json:"contact_phone"`
-	BillingAddress      *string    `json:"billing_address"`
-	CreditLimitCents    *int64     `json:"credit_limit_cents"`
-	CurrentBalanceCents int64      `json:"current_balance_cents"`
-	Currency            string     `json:"currency"`
-	BillingCycle        string     `json:"billing_cycle"`
-	NetTermsDays        *int       `json:"net_terms_days"`
-	IsActive            bool       `json:"is_active"`
-	Notes               *string    `json:"notes"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	ID                  string    `json:"id"`
+	OrganizationID      string    `json:"organization_id"`
+	AccountName         string    `json:"account_name"`
+	ContactName         *string   `json:"contact_name"`
+	ContactEmail        *string   `json:"contact_email"`
+	ContactPhone        *string   `json:"contact_phone"`
+	BillingAddress      *string   `json:"billing_address"`
+	CreditLimitCents    *int64    `json:"credit_limit_cents"`
+	CurrentBalanceCents int64     `json:"current_balance_cents"`
+	Currency            string    `json:"currency"`
+	BillingCycle        string    `json:"billing_cycle"`
+	NetTermsDays        *int      `json:"net_terms_days"`
+	IsActive            bool      `json:"is_active"`
+	Notes               *string   `json:"notes"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // HouseAccountDetail is returned by GET /house-accounts/{id}: account +
@@ -56,45 +56,45 @@ type HouseAccountDetail struct {
 
 // Member mirrors a house_account_members row.
 type Member struct {
-	ID               string    `json:"id"`
-	HouseAccountID   string    `json:"house_account_id"`
-	CustomerID       string    `json:"customer_id"`
-	SpendingLimitCents *int64  `json:"spending_limit_cents"`
-	IsActive         bool      `json:"is_active"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	HouseAccountID     string    `json:"house_account_id"`
+	CustomerID         string    `json:"customer_id"`
+	SpendingLimitCents *int64    `json:"spending_limit_cents"`
+	IsActive           bool      `json:"is_active"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // Charge mirrors a house_account_charges row.
 type Charge struct {
-	ID                    string     `json:"id"`
-	HouseAccountID        string     `json:"house_account_id"`
-	OrderID               string     `json:"order_id"`
-	CustomerID            *string    `json:"customer_id"`
-	AmountCents           int64      `json:"amount_cents"`
-	HouseAccountInvoiceID *string    `json:"house_account_invoice_id"`
-	CreatedAt             time.Time  `json:"created_at"`
+	ID                    string    `json:"id"`
+	HouseAccountID        string    `json:"house_account_id"`
+	OrderID               string    `json:"order_id"`
+	CustomerID            *string   `json:"customer_id"`
+	AmountCents           int64     `json:"amount_cents"`
+	HouseAccountInvoiceID *string   `json:"house_account_invoice_id"`
+	CreatedAt             time.Time `json:"created_at"`
 }
 
 // Invoice mirrors a house_account_invoices row.
 type Invoice struct {
-	ID               string     `json:"id"`
-	HouseAccountID   string     `json:"house_account_id"`
-	InvoiceNumber    string     `json:"invoice_number"`
-	PeriodStart      time.Time  `json:"period_start"`
-	PeriodEnd        time.Time  `json:"period_end"`
-	SubtotalCents    int64      `json:"subtotal_cents"`
-	TaxCents         int64      `json:"tax_cents"`
-	TotalCents       int64      `json:"total_cents"`
-	Status           string     `json:"status"`
-	DueDate          *time.Time `json:"due_date"`
-	SentAt           *time.Time `json:"sent_at"`
-	PaidAt           *time.Time `json:"paid_at"`
-	PaidAmountCents  int64      `json:"paid_amount_cents"`
-	PDFUrl           *string    `json:"pdf_url"`
-	Notes            *string    `json:"notes"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID              string     `json:"id"`
+	HouseAccountID  string     `json:"house_account_id"`
+	InvoiceNumber   string     `json:"invoice_number"`
+	PeriodStart     time.Time  `json:"period_start"`
+	PeriodEnd       time.Time  `json:"period_end"`
+	SubtotalCents   int64      `json:"subtotal_cents"`
+	TaxCents        int64      `json:"tax_cents"`
+	TotalCents      int64      `json:"total_cents"`
+	Status          string     `json:"status"`
+	DueDate         *time.Time `json:"due_date"`
+	SentAt          *time.Time `json:"sent_at"`
+	PaidAt          *time.Time `json:"paid_at"`
+	PaidAmountCents int64      `json:"paid_amount_cents"`
+	PDFUrl          *string    `json:"pdf_url"`
+	Notes           *string    `json:"notes"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // ---------------------------------------------------------------------------

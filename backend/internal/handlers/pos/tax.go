@@ -22,10 +22,10 @@ type taxCacheEntry struct {
 }
 
 var (
-	taxCacheMu    sync.Mutex
-	taxCache      = make(map[string]taxCacheEntry)
-	taxCacheTTL   = 5 * time.Minute
-	warnedNoTax   sync.Map // locationID → struct{}: tracks locations we've already warned about
+	taxCacheMu  sync.Mutex
+	taxCache    = make(map[string]taxCacheEntry)
+	taxCacheTTL = 5 * time.Minute
+	warnedNoTax sync.Map // locationID → struct{}: tracks locations we've already warned about
 )
 
 // TaxRateFor returns the effective tax rate (as a percentage, e.g. 15.0 for

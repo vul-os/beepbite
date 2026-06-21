@@ -24,11 +24,11 @@ import (
 
 // Resource constants for the resource column.
 const (
-	ResourceOrders          = "orders"
-	ResourceWhatsappOut     = "whatsapp_outbound"
-	ResourceLLMMessages     = "llm_messages"
-	ResourceEmailOutbound   = "email_outbound"
-	ResourceBulkImports     = "bulk_imports"
+	ResourceOrders        = "orders"
+	ResourceWhatsappOut   = "whatsapp_outbound"
+	ResourceLLMMessages   = "llm_messages"
+	ResourceEmailOutbound = "email_outbound"
+	ResourceBulkImports   = "bulk_imports"
 )
 
 // PeriodRow is a single quota_usage row returned by ListPeriod.

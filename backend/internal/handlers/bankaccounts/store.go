@@ -51,18 +51,18 @@ func scanBankAccount(row pgx.Row, a *BankAccount) error {
 
 // insertParams carries all data needed to persist a new bank account.
 type insertParams struct {
-	OrgID                    string
-	LocationID               *string
-	RegionID                 string
-	AccountHolderName        string
-	BankName                 string
-	BankCode                 *string
-	EncryptedAccountNumber   string
-	AccountNumberLast4       string
-	Currency                 string
-	Provider                 string
-	ProviderRecipientID      string
-	CreatedBy                *string
+	OrgID                  string
+	LocationID             *string
+	RegionID               string
+	AccountHolderName      string
+	BankName               string
+	BankCode               *string
+	EncryptedAccountNumber string
+	AccountNumberLast4     string
+	Currency               string
+	Provider               string
+	ProviderRecipientID    string
+	CreatedBy              *string
 }
 
 type Store struct {

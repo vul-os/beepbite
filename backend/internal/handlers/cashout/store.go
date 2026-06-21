@@ -67,13 +67,13 @@ type Report struct {
 	IsBlindClose bool       `json:"is_blind_close"`
 
 	// Reconciliation fields (all in cents)
-	OpeningFloatCents  int64  `json:"opening_float_cents"`
-	CashSalesCents     int64  `json:"cash_sales_cents"`
-	MovementsNetCents  int64  `json:"movements_net_cents"`
-	ExpectedCashCents  int64  `json:"expected_cash_cents"`
-	CountedCashCents   *int64 `json:"counted_cash_cents"`   // nil if no close count yet
-	VarianceCents      *int64 `json:"variance_cents"`        // positive=over, negative=short, nil if uncounted
-	IsBalanced         bool   `json:"is_balanced"`           // true when variance == 0 or counted > expected
+	OpeningFloatCents int64  `json:"opening_float_cents"`
+	CashSalesCents    int64  `json:"cash_sales_cents"`
+	MovementsNetCents int64  `json:"movements_net_cents"`
+	ExpectedCashCents int64  `json:"expected_cash_cents"`
+	CountedCashCents  *int64 `json:"counted_cash_cents"` // nil if no close count yet
+	VarianceCents     *int64 `json:"variance_cents"`     // positive=over, negative=short, nil if uncounted
+	IsBalanced        bool   `json:"is_balanced"`        // true when variance == 0 or counted > expected
 
 	// Pre-computed server field (set at close time by cashdrawer handler)
 	DeclaredClosingCents *int64 `json:"declared_closing_cents"`

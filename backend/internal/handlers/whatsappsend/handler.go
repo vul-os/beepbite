@@ -8,22 +8,22 @@ import (
 )
 
 type Request struct {
-	To         string `json:"to,omitempty"`
+	To             string `json:"to,omitempty"`
 	WhatsappNumber string `json:"whatsapp_number,omitempty"`
-	Message    string `json:"message,omitempty"`
-	PreviewURL bool   `json:"preview_url,omitempty"`
+	Message        string `json:"message,omitempty"`
+	PreviewURL     bool   `json:"preview_url,omitempty"`
 
 	// Optional extended fields for other message types. When Type is empty
 	// or "text", the handler treats the request as a text send.
 	Type string `json:"type,omitempty"`
 
 	// Interactive list
-	BodyText   string                          `json:"body_text,omitempty"`
-	ButtonText string                          `json:"button_text,omitempty"`
-	Sections   []whatsapp.InteractiveSection   `json:"sections,omitempty"`
-	Buttons    []whatsapp.InteractiveButton    `json:"buttons,omitempty"`
-	Header     string                          `json:"header,omitempty"`
-	Footer     string                          `json:"footer,omitempty"`
+	BodyText   string                        `json:"body_text,omitempty"`
+	ButtonText string                        `json:"button_text,omitempty"`
+	Sections   []whatsapp.InteractiveSection `json:"sections,omitempty"`
+	Buttons    []whatsapp.InteractiveButton  `json:"buttons,omitempty"`
+	Header     string                        `json:"header,omitempty"`
+	Footer     string                        `json:"footer,omitempty"`
 
 	// Media
 	ImageURL string `json:"image_url,omitempty"`
@@ -42,9 +42,9 @@ type Request struct {
 }
 
 type Response struct {
-	Success bool                     `json:"success"`
-	Data    *whatsapp.SendResponse   `json:"data,omitempty"`
-	Error   string                   `json:"error,omitempty"`
+	Success bool                   `json:"success"`
+	Data    *whatsapp.SendResponse `json:"data,omitempty"`
+	Error   string                 `json:"error,omitempty"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, body interface{}) {

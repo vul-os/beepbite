@@ -11,10 +11,10 @@ import (
 // Service glues the store + token helpers + password hashing. Handlers call
 // into these methods rather than touching the store directly.
 type Service struct {
-	store           *Store
-	secret          string
-	accessTTL       time.Duration
-	refreshTTL      time.Duration
+	store      *Store
+	secret     string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
 }
 
 func NewService(store *Store, secret string, accessTTL, refreshTTL time.Duration) *Service {

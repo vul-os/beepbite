@@ -2,19 +2,19 @@
 //
 //  1. PUBLIC — mounted inside the /stores router (alongside marketplace routes):
 //
-//		r.Route("/stores", func(r chi.Router) {
-//		    marketplaceH.Mount(r)        // existing
-//		    reviewsH.MountPublic(r)      // add this
-//		})
+//     r.Route("/stores", func(r chi.Router) {
+//     marketplaceH.Mount(r)        // existing
+//     reviewsH.MountPublic(r)      // add this
+//     })
 //
-//	   GET /stores/{slug}/reviews?limit=N
+//     GET /stores/{slug}/reviews?limit=N
 //
 //  2. AUTHED — mounted inside the authenticated API router:
 //
-//		r.Route("/reviews", reviewsH.MountAuthed)
+//     r.Route("/reviews", reviewsH.MountAuthed)
 //
-//	   POST /reviews                — customer submits a review
-//	   POST /reviews/{id}/reply     — owner/manager sets owner_reply
+//     POST /reviews                — customer submits a review
+//     POST /reviews/{id}/reply     — owner/manager sets owner_reply
 //
 // MountPublic must be called on the /stores sub-router (no auth middleware).
 // MountAuthed must be called after auth.Middleware + auth.RequireOrgScope.

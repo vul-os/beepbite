@@ -41,13 +41,13 @@ type EmailResult struct {
 }
 
 type resendRequest struct {
-	From     string            `json:"from"`
-	To       []string          `json:"to"`
-	Subject  string            `json:"subject"`
-	HTML     string            `json:"html"`
-	Text     string            `json:"text"`
-	ReplyTo  string            `json:"reply_to"`
-	Headers  map[string]string `json:"headers"`
+	From    string            `json:"from"`
+	To      []string          `json:"to"`
+	Subject string            `json:"subject"`
+	HTML    string            `json:"html"`
+	Text    string            `json:"text"`
+	ReplyTo string            `json:"reply_to"`
+	Headers map[string]string `json:"headers"`
 }
 
 type resendResponse struct {

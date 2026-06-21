@@ -35,8 +35,8 @@ type FiscalSequence struct {
 
 // ReceiptAssignment is returned after a successful assign-receipt call.
 type ReceiptAssignment struct {
-	OrderID                string    `json:"order_id"`
-	FiscalReceiptNumber    string    `json:"fiscal_receipt_number"`
+	OrderID                 string    `json:"order_id"`
+	FiscalReceiptNumber     string    `json:"fiscal_receipt_number"`
 	FiscalReceiptAssignedAt time.Time `json:"fiscal_receipt_assigned_at"`
 }
 

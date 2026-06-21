@@ -27,8 +27,8 @@ type OrderInfo struct {
 	OrderID string `json:"order_id"`
 
 	// Order state
-	Status          string `json:"status"`
-	FulfillmentType string `json:"fulfillment_type"`
+	Status                string     `json:"status"`
+	FulfillmentType       string     `json:"fulfillment_type"`
 	EstimatedDeliveryTime *time.Time `json:"estimated_delivery_time,omitempty"`
 
 	// Store (origin) coordinates — always returned.
@@ -37,9 +37,9 @@ type OrderInfo struct {
 
 	// Delivery address — text label always returned; coords returned when status
 	// allows (out_for_delivery + driver within 5 km).
-	DeliveryAddress  *string  `json:"delivery_address,omitempty"`
-	DeliveryLat      *float64 `json:"delivery_lat,omitempty"`
-	DeliveryLng      *float64 `json:"delivery_lng,omitempty"`
+	DeliveryAddress *string  `json:"delivery_address,omitempty"`
+	DeliveryLat     *float64 `json:"delivery_lat,omitempty"`
+	DeliveryLng     *float64 `json:"delivery_lng,omitempty"`
 
 	// Driver marker — present ONLY when pings_visible_to_customer returns a row.
 	Driver *DriverMarker `json:"driver,omitempty"`
@@ -47,9 +47,9 @@ type OrderInfo struct {
 
 // DriverMarker is the driver's latest location, gated by the SQL function.
 type DriverMarker struct {
-	Lat        float64    `json:"lat"`
-	Lng        float64    `json:"lng"`
-	RecordedAt time.Time  `json:"recorded_at"`
+	Lat        float64   `json:"lat"`
+	Lng        float64   `json:"lng"`
+	RecordedAt time.Time `json:"recorded_at"`
 }
 
 // Store handles all DB interactions for the tracking handler.

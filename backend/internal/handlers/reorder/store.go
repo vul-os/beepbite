@@ -22,11 +22,11 @@ var (
 
 // RecentOrder is the top-level shape returned for each past order.
 type RecentOrder struct {
-	ID           string      `json:"id"`
-	OrderNumber  string      `json:"order_number"`
-	CreatedAt    time.Time   `json:"created_at"`
-	TotalCents   int64       `json:"total_cents"`
-	Items        []OrderItem `json:"items"`
+	ID          string      `json:"id"`
+	OrderNumber string      `json:"order_number"`
+	CreatedAt   time.Time   `json:"created_at"`
+	TotalCents  int64       `json:"total_cents"`
+	Items       []OrderItem `json:"items"`
 }
 
 // OrderItem is a single line from the past order, ready to clone.

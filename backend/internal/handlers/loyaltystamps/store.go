@@ -23,22 +23,22 @@ var (
 
 // Config mirrors the stamp columns on loyalty_config.
 type Config struct {
-	OrgID          string  `json:"organization_id"`
-	StampsEnabled  bool    `json:"stamps_enabled"`
-	StampsRequired int     `json:"stamps_required"`
-	StampItemID    *string `json:"stamp_item_id"` // nil = any item qualifies
+	OrgID          string    `json:"organization_id"`
+	StampsEnabled  bool      `json:"stamps_enabled"`
+	StampsRequired int       `json:"stamps_required"`
+	StampItemID    *string   `json:"stamp_item_id"` // nil = any item qualifies
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // CustomerStamps mirrors a customer_loyalty_stamps row plus derived fields.
 type CustomerStamps struct {
-	CustomerID     string    `json:"customer_id"`
-	OrgID          string    `json:"organization_id"`
-	LocationID     *string   `json:"location_id"`
-	Stamps         int       `json:"stamps"`
-	StampsRequired int       `json:"stamps_required"`
-	StampsUntilFree int      `json:"stamps_until_free"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	CustomerID      string    `json:"customer_id"`
+	OrgID           string    `json:"organization_id"`
+	LocationID      *string   `json:"location_id"`
+	Stamps          int       `json:"stamps"`
+	StampsRequired  int       `json:"stamps_required"`
+	StampsUntilFree int       `json:"stamps_until_free"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // AccrueResult is the payload returned by AccrueStamp.

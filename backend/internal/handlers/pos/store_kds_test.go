@@ -166,10 +166,10 @@ func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
 		ctx,
 		locID,
 		"dine_in",
-		"",  // tableNumber
-		"",  // tableSessionID
-		"",  // registerSessionID
-		"",  // customerID
+		"", // tableNumber
+		"", // tableSessionID
+		"", // registerSessionID
+		"", // customerID
 		[]pos.OrderLineInput{
 			{ItemID: itemID, Quantity: 1},
 		},

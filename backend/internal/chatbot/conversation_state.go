@@ -46,7 +46,7 @@ type ConversationState struct {
 	SelectedPaymentMethodID string `json:"selected_payment_method_id,omitempty"`
 
 	// Navigation
-	PreviousStep    string      `json:"previous_step,omitempty"`
+	PreviousStep    string       `json:"previous_step,omitempty"`
 	TempAddressData *TempAddress `json:"temp_address_data,omitempty"`
 }
 
@@ -107,5 +107,5 @@ func (s *Service) resetConversationState(ctx context.Context, chatID string) {
 }
 
 // intPtr and floatPtr are small helpers used across handlers.
-func intPtr(v int) *int          { return &v }
+func intPtr(v int) *int           { return &v }
 func floatPtr(v float64) *float64 { return &v }

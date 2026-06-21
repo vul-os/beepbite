@@ -74,4 +74,3 @@ ORDER BY resource
 	}
 	return rows, nil
 }
-

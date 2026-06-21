@@ -176,10 +176,10 @@ func suiteAdjustments(r *Runner) {
 	// -----------------------------------------------------------------------
 	resp = r.POST("/"+orderID2+"/void",
 		map[string]any{
-			"reason_code":        "smoke test void",
+			"reason_code":         "smoke test void",
 			"applied_by_staff_id": applierID,
-			"approver_staff_id":  managerID,
-			"approver_pin":       managerPIN,
+			"approver_staff_id":   managerID,
+			"approver_pin":        managerPIN,
 		},
 		withBearer(r.token))
 	if resp.status == 403 {

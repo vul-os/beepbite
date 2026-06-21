@@ -45,12 +45,12 @@ func NewClient(cfg Config) *Client {
 }
 
 type PaymentCalculation struct {
-	OrderTotalCents    int64 `json:"order_total_cents"`
-	DriverTipCents     int64 `json:"driver_tip_cents"`
-	ProcessingFeeCents int64 `json:"processing_fee_cents"`
-	GatewayFeeCents    int64 `json:"gateway_fee_cents"`
-	PlatformFeeCents   int64 `json:"platform_fee_cents"`
-	TotalAmountCents   int64 `json:"total_amount_cents"`
+	OrderTotalCents     int64 `json:"order_total_cents"`
+	DriverTipCents      int64 `json:"driver_tip_cents"`
+	ProcessingFeeCents  int64 `json:"processing_fee_cents"`
+	GatewayFeeCents     int64 `json:"gateway_fee_cents"`
+	PlatformFeeCents    int64 `json:"platform_fee_cents"`
+	TotalAmountCents    int64 `json:"total_amount_cents"`
 	MerchantAmountCents int64 `json:"merchant_amount_cents"`
 }
 

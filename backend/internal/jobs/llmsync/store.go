@@ -33,14 +33,14 @@ import (
 
 // modelRow is the internal representation passed to the UPSERT helper.
 type modelRow struct {
-	Provider          string
-	Model             string
-	InputCostPer1k    float64
-	OutputCostPer1k   float64
-	SupportsVision    bool
-	SupportsTools     bool
-	ContextLength     *int
-	Source            string
+	Provider        string
+	Model           string
+	InputCostPer1k  float64
+	OutputCostPer1k float64
+	SupportsVision  bool
+	SupportsTools   bool
+	ContextLength   *int
+	Source          string
 }
 
 // upsertModels performs an INSERT … ON CONFLICT (provider, model) DO UPDATE

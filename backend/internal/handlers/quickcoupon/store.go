@@ -22,25 +22,25 @@ var ErrDuplicateCode = errors.New("duplicate coupon code; retry")
 
 // QuickCoupon is the response shape for both POST and GET.
 type QuickCoupon struct {
-	ID             string     `json:"id"`
-	PromotionID    string     `json:"promotion_id"`
-	Code           string     `json:"code"`
-	PercentOff     *float64   `json:"percent_off"`
-	FixedOffCents  *int64     `json:"fixed_off_cents"`
-	CustomerID     *string    `json:"customer_id"`
-	ExpiresAt      *time.Time `json:"expires_at"`
-	IsActive       bool       `json:"is_active"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ID            string     `json:"id"`
+	PromotionID   string     `json:"promotion_id"`
+	Code          string     `json:"code"`
+	PercentOff    *float64   `json:"percent_off"`
+	FixedOffCents *int64     `json:"fixed_off_cents"`
+	CustomerID    *string    `json:"customer_id"`
+	ExpiresAt     *time.Time `json:"expires_at"`
+	IsActive      bool       `json:"is_active"`
+	CreatedAt     time.Time  `json:"created_at"`
 }
 
 // CreateParams holds validated input for creating a quick coupon.
 type CreateParams struct {
-	OrgID          string
-	CustomerID     *string
-	PercentOff     *float64
-	FixedOffCents  *int64
-	ExpiresInDays  *int
-	CreatedBy      *string
+	OrgID         string
+	CustomerID    *string
+	PercentOff    *float64
+	FixedOffCents *int64
+	ExpiresInDays *int
+	CreatedBy     *string
 }
 
 type Store struct {

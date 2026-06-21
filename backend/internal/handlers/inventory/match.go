@@ -7,10 +7,10 @@ const DefaultTolerancePct = 0.02
 
 // MatchResult is the full response body for POST .../match.
 type MatchResult struct {
-	InvoiceID   string      `json:"invoice_id"`
-	MatchStatus string      `json:"match_status"`
-	TolerancePct float64   `json:"tolerance_pct"`
-	Lines       []MatchLine `json:"lines"`
+	InvoiceID    string      `json:"invoice_id"`
+	MatchStatus  string      `json:"match_status"`
+	TolerancePct float64     `json:"tolerance_pct"`
+	Lines        []MatchLine `json:"lines"`
 }
 
 // RunMatch computes per-line variance and decides the overall match_status.

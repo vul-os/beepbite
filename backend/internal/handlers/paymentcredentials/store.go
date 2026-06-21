@@ -38,14 +38,14 @@ type upsertParams struct {
 // Credential is the safe, wire-serialisable view of a
 // location_payment_credentials row. Ciphertext columns are never included.
 type Credential struct {
-	ID           string     `json:"id"`
-	LocationID   string     `json:"location_id"`
-	ProviderCode string     `json:"provider_code"`
-	PublicKey    *string    `json:"public_key"`
-	IsActive     bool       `json:"is_active"`
-	ConfiguredAt time.Time  `json:"configured_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	WebhookURL   string     `json:"webhook_url"` // computed by handler
+	ID           string    `json:"id"`
+	LocationID   string    `json:"location_id"`
+	ProviderCode string    `json:"provider_code"`
+	PublicKey    *string   `json:"public_key"`
+	IsActive     bool      `json:"is_active"`
+	ConfiguredAt time.Time `json:"configured_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	WebhookURL   string    `json:"webhook_url"` // computed by handler
 }
 
 // credentialRow is the internal DB row used before the webhook URL is attached.

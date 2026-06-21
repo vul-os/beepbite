@@ -24,12 +24,12 @@ var (
 // FavoriteItem is the shape returned by ListFavorites — the favorite row joined
 // with enough item detail to render a quick-add card (name, price, image).
 type FavoriteItem struct {
-	FavoriteID string     `json:"id"`
-	ItemID     string     `json:"item_id"`
-	Name       string     `json:"name"`
-	PriceCents int64      `json:"price_cents"`
-	ImageURL   *string    `json:"image_url"`
-	CreatedAt  time.Time  `json:"created_at"`
+	FavoriteID string    `json:"id"`
+	ItemID     string    `json:"item_id"`
+	Name       string    `json:"name"`
+	PriceCents int64     `json:"price_cents"`
+	ImageURL   *string   `json:"image_url"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // Store owns the DB pool and executes org-scoped queries.

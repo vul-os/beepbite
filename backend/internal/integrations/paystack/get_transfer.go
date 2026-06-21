@@ -15,9 +15,9 @@ type TransferDetail struct {
 	Reference    string `json:"reference"`
 	// Status values from Paystack: "success", "failed", "reversed",
 	// "pending", "otp", "processing".
-	Status  string `json:"status"`
+	Status string `json:"status"`
 	// Reason holds the human-readable failure description when Status=="failed".
-	Reason  string `json:"reason"`
+	Reason   string `json:"reason"`
 	Failures []struct {
 		Reason string `json:"reason"`
 	} `json:"failures"`

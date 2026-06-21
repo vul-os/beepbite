@@ -120,12 +120,12 @@ func (h *Handler) matchInvoice(w http.ResponseWriter, r *http.Request) {
 // POSuggestion is a draft purchase_orders payload for one supplier covering
 // all low-stock items from that supplier at this location.
 type POSuggestion struct {
-	LocationID  string         `json:"location_id"`
-	SupplierID  string         `json:"supplier_id"`
-	SupplierName string        `json:"supplier_name"`
-	Status      string         `json:"status"`
-	Lines       []POLineInput  `json:"lines"`
-	EstimatedTotalCents int64  `json:"estimated_total_cents"`
+	LocationID          string        `json:"location_id"`
+	SupplierID          string        `json:"supplier_id"`
+	SupplierName        string        `json:"supplier_name"`
+	Status              string        `json:"status"`
+	Lines               []POLineInput `json:"lines"`
+	EstimatedTotalCents int64         `json:"estimated_total_cents"`
 }
 
 func (h *Handler) autoPOSuggestions(w http.ResponseWriter, r *http.Request) {

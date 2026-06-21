@@ -289,7 +289,7 @@ func (s *Service) sendResponse(ctx context.Context, whatsappNumber, message, cha
 }
 
 type botRecord struct {
-	ID                   string
+	ID                    string
 	WhatsappPhoneNumberID string
 }
 

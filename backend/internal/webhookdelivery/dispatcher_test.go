@@ -129,14 +129,14 @@ func TestDispatchSignsAndPosts(t *testing.T) {
 	}
 
 	row := deliveryRow{
-		ID:            "del_test_1",
-		EndpointID:    "ep_test_1",
-		OrgID:         "org_test_1",
-		EventType:     "order.paid",
-		Payload:       payloadJSON,
-		Status:        "pending",
-		Attempts:      0,
-		EndpointURL:            srv.URL,
+		ID:                      "del_test_1",
+		EndpointID:              "ep_test_1",
+		OrgID:                   "org_test_1",
+		EventType:               "order.paid",
+		Payload:                 payloadJSON,
+		Status:                  "pending",
+		Attempts:                0,
+		EndpointURL:             srv.URL,
 		SigningSecretCiphertext: secret,
 	}
 

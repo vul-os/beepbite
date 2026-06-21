@@ -16,24 +16,24 @@ var (
 
 // Reservation mirrors a reservations row.
 type Reservation struct {
-	ID                  string     `json:"id"`
-	OrganizationID      string     `json:"organization_id"`
-	LocationID          string     `json:"location_id"`
-	CustomerID          *string    `json:"customer_id"`
-	CustomerName        string     `json:"customer_name"`
-	CustomerPhone       *string    `json:"customer_phone"`
-	CustomerEmail       *string    `json:"customer_email"`
-	PartySize           int        `json:"party_size"`
-	ReservationAt       time.Time  `json:"reservation_at"`
-	DurationMinutes     int        `json:"duration_minutes"`
-	TableID             *string    `json:"table_id"`
-	SectionID           *string    `json:"section_id"`
-	Status              string     `json:"status"`
-	SpecialRequests     *string    `json:"special_requests"`
-	ConfirmationSentAt  *time.Time `json:"confirmation_sent_at"`
-	CreatedByStaffID    *string    `json:"created_by_staff_id"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	ID                 string     `json:"id"`
+	OrganizationID     string     `json:"organization_id"`
+	LocationID         string     `json:"location_id"`
+	CustomerID         *string    `json:"customer_id"`
+	CustomerName       string     `json:"customer_name"`
+	CustomerPhone      *string    `json:"customer_phone"`
+	CustomerEmail      *string    `json:"customer_email"`
+	PartySize          int        `json:"party_size"`
+	ReservationAt      time.Time  `json:"reservation_at"`
+	DurationMinutes    int        `json:"duration_minutes"`
+	TableID            *string    `json:"table_id"`
+	SectionID          *string    `json:"section_id"`
+	Status             string     `json:"status"`
+	SpecialRequests    *string    `json:"special_requests"`
+	ConfirmationSentAt *time.Time `json:"confirmation_sent_at"`
+	CreatedByStaffID   *string    `json:"created_by_staff_id"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // WaitlistEntry mirrors a waitlist row.

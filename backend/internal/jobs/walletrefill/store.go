@@ -29,13 +29,13 @@ import (
 // walletRow holds the columns we need from the joined org_wallets +
 // customer_payment_authorizations query.
 type walletRow struct {
-	OrgID              string
-	BalanceCents       int64
-	ThresholdCents     int64
-	TargetCents        int64
-	CurrencyCode       string
-	GatewayProvider    string
-	AuthorizationCode  string // token stored in customer_payment_authorizations
+	OrgID             string
+	BalanceCents      int64
+	ThresholdCents    int64
+	TargetCents       int64
+	CurrencyCode      string
+	GatewayProvider   string
+	AuthorizationCode string // token stored in customer_payment_authorizations
 }
 
 // loadEligibleWallets returns every org_wallet that:

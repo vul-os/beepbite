@@ -76,9 +76,9 @@ func TestIncrementAtomicity_Documented(t *testing.T) {
 	t.Skip("integration test — requires live DB; documents contract only")
 
 	cases := []struct {
-		concurrentWrongPINs  int
-		wantLockedUntilSet   bool
-		wantAttemptsAtLeast  int
+		concurrentWrongPINs int
+		wantLockedUntilSet  bool
+		wantAttemptsAtLeast int
 	}{
 		{concurrentWrongPINs: 4, wantLockedUntilSet: false, wantAttemptsAtLeast: 4},
 		{concurrentWrongPINs: 5, wantLockedUntilSet: true, wantAttemptsAtLeast: 5},
@@ -120,11 +120,11 @@ func TestAuditCoverage_Documented(t *testing.T) {
 		branch string
 		action string
 	}{
-		{"username not found",         "staff.pin_overlay_failed"},
-		{"staff inactive",             "staff.pin_overlay_failed"},
-		{"account locked",             "staff.pin_overlay_failed"},
-		{"pin_hash nil",               "staff.pin_overlay_failed"},
-		{"wrong PIN",                  "staff.pin_overlay_failed"},
+		{"username not found", "staff.pin_overlay_failed"},
+		{"staff inactive", "staff.pin_overlay_failed"},
+		{"account locked", "staff.pin_overlay_failed"},
+		{"pin_hash nil", "staff.pin_overlay_failed"},
+		{"wrong PIN", "staff.pin_overlay_failed"},
 		{"correct PIN (success path)", "staff.pin_overlay_verify"},
 	}
 	for _, b := range branches {

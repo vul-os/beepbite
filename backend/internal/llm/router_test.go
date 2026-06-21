@@ -210,9 +210,9 @@ func TestMidTier_ExcludesCheapestThird(t *testing.T) {
 	// Cost range: 0.1 – 1.0 → threshold = 0.1 + (1.0-0.1)/3 = ~0.4
 	// cheap (0.1) is below threshold; mid (0.5) and expensive (1.0) are above.
 	rows := []modelPricing{
-		{Provider: "a", Model: "cheap", InputCostPer1k: 0.05, OutputCostPer1k: 0.05},     // combined 0.1
-		{Provider: "b", Model: "mid", InputCostPer1k: 0.25, OutputCostPer1k: 0.25},       // combined 0.5
-		{Provider: "c", Model: "expensive", InputCostPer1k: 0.5, OutputCostPer1k: 0.5},   // combined 1.0
+		{Provider: "a", Model: "cheap", InputCostPer1k: 0.05, OutputCostPer1k: 0.05},   // combined 0.1
+		{Provider: "b", Model: "mid", InputCostPer1k: 0.25, OutputCostPer1k: 0.25},     // combined 0.5
+		{Provider: "c", Model: "expensive", InputCostPer1k: 0.5, OutputCostPer1k: 0.5}, // combined 1.0
 	}
 	got := midTier(rows)
 	// Cheapest of {mid, expensive} is mid (0.5 combined).

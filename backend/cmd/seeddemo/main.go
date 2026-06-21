@@ -594,9 +594,9 @@ func (s *seeder) seedStations(locID string, cats categoryMap, items itemMap) (st
 	}
 
 	stations := []struct {
-		name        string
-		stype       string
-		categories  []string
+		name       string
+		stype      string
+		categories []string
 	}{
 		{"Grill", "prep", []string{"Burgers", "Sides"}},
 		{"Bar", "bar", []string{"Drinks"}},
@@ -790,12 +790,12 @@ var payMethods = []string{"cash", "card_in_person"}
 // Peaks at lunch (11–14) and dinner (18–21), near-zero overnight.
 var hourWeights = [24]int{
 	0, 0, 0, 0, 0, 0, // 00–05 closed
-	1, 2, 3,           // 06–08 early morning trickle
-	5, 8,              // 09–10 mid-morning
-	20, 25, 22, 18,    // 11–14 lunch peak
-	12, 10,            // 15–16 afternoon
-	14, 20, 25, 22,    // 17–20 dinner peak
-	15, 8, 3,          // 21–23 wind-down
+	1, 2, 3, // 06–08 early morning trickle
+	5, 8, // 09–10 mid-morning
+	20, 25, 22, 18, // 11–14 lunch peak
+	12, 10, // 15–16 afternoon
+	14, 20, 25, 22, // 17–20 dinner peak
+	15, 8, 3, // 21–23 wind-down
 }
 
 // dayWeights defines relative order probability per weekday (0=Sun … 6=Sat).

@@ -93,8 +93,8 @@ type promoCandidate struct {
 	Priority               int
 
 	// Eligible target sets (loaded separately)
-	TargetItemIDs      map[string]struct{}
-	TargetCategoryIDs  map[string]struct{}
+	TargetItemIDs     map[string]struct{}
+	TargetCategoryIDs map[string]struct{}
 
 	// Optional: coupon that unlocked this promo (if requires_coupon_code).
 	CouponCodeID *string

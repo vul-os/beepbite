@@ -26,19 +26,19 @@ func NewStore(pool *pgxpool.Pool) *Store {
 // Invoice mirrors the columns we SELECT from subscription_invoices.
 // Both USD and local amounts are included together with the FX snapshot.
 type Invoice struct {
-	ID                string    `json:"id"`
-	OrgID             string    `json:"org_id"`
-	PlanID            string    `json:"plan_id"`
-	PeriodStart       string    `json:"period_start"` // "YYYY-MM-DD"
-	PeriodEnd         string    `json:"period_end"`   // "YYYY-MM-DD"
-	USDAmountCents    int64     `json:"usd_amount_cents"`
-	LocalAmountCents  int64     `json:"local_amount_cents"`
-	LocalCurrencyCode string    `json:"local_currency_code"`
-	FXRate            float64   `json:"fx_rate"`
-	Status            string    `json:"status"`
-	IssuedAt          time.Time `json:"issued_at"`
+	ID                string     `json:"id"`
+	OrgID             string     `json:"org_id"`
+	PlanID            string     `json:"plan_id"`
+	PeriodStart       string     `json:"period_start"` // "YYYY-MM-DD"
+	PeriodEnd         string     `json:"period_end"`   // "YYYY-MM-DD"
+	USDAmountCents    int64      `json:"usd_amount_cents"`
+	LocalAmountCents  int64      `json:"local_amount_cents"`
+	LocalCurrencyCode string     `json:"local_currency_code"`
+	FXRate            float64    `json:"fx_rate"`
+	Status            string     `json:"status"`
+	IssuedAt          time.Time  `json:"issued_at"`
 	PaidAt            *time.Time `json:"paid_at"`
-	CreatedAt         time.Time `json:"created_at"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 // ListInvoices returns all subscription_invoices for the org derived from ctx,

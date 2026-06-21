@@ -88,14 +88,19 @@ func NewDBRegistryFromEnv(pool *pgxpool.Pool) (*DBRegistry, error) {
 //
 // Step 1 — query location_payment_credentials for an active BYO row.
 // Step 2 — if found, decrypt the secret key and webhook secret with the
-//          AES-GCM box, then look up the registered factory for the provider
-//          code and construct the Provider.
+//
+//	AES-GCM box, then look up the registered factory for the provider
+//	code and construct the Provider.
+//
 // Step 3 — if no BYO row, call get_location_payment_provider() (a DB helper
-//          function defined in migration 014) to resolve region → provider
-//          code, then look up platform env-var credentials via the registered
-//          platform-fallback factory.
+//
+//	function defined in migration 014) to resolve region → provider
+//	code, then look up platform env-var credentials via the registered
+//	platform-fallback factory.
+//
 // Step 4 — if no factory is registered for the resolved provider code, return
-//          ErrProviderNotConfigured.
+//
+//	ErrProviderNotConfigured.
 func (r *DBRegistry) For(ctx context.Context, locationID string) (Provider, *Credentials, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -154,13 +159,13 @@ ORDER BY lpc.updated_at DESC
 LIMIT 1`
 
 	var (
-		providerCode          string
-		publicKey             *string
-		secretKeyCiphertext   *string
-		webhookSecretCT       *string
-		isTestMode            bool
-		currency              string
-		regionCode            string
+		providerCode        string
+		publicKey           *string
+		secretKeyCiphertext *string
+		webhookSecretCT     *string
+		isTestMode          bool
+		currency            string
+		regionCode          string
 	)
 	err := r.pool.QueryRow(ctx, q, locationID).Scan(
 		&providerCode,

@@ -50,16 +50,16 @@ type GiftCard struct {
 
 // GiftCardTransaction mirrors gift_card_transactions.
 type GiftCardTransaction struct {
-	ID               string    `json:"id"`
-	GiftCardID       string    `json:"gift_card_id"`
-	TxnType          string    `json:"txn_type"`
-	AmountCents      int64     `json:"amount_cents"`
-	BalanceAfterCents int64    `json:"balance_after_cents"`
-	OrderID          *string   `json:"order_id,omitempty"`
-	PaymentID        *string   `json:"payment_id,omitempty"`
-	PerformedByStaffID *string `json:"performed_by_staff_id,omitempty"`
-	Notes            *string   `json:"notes,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                 string    `json:"id"`
+	GiftCardID         string    `json:"gift_card_id"`
+	TxnType            string    `json:"txn_type"`
+	AmountCents        int64     `json:"amount_cents"`
+	BalanceAfterCents  int64     `json:"balance_after_cents"`
+	OrderID            *string   `json:"order_id,omitempty"`
+	PaymentID          *string   `json:"payment_id,omitempty"`
+	PerformedByStaffID *string   `json:"performed_by_staff_id,omitempty"`
+	Notes              *string   `json:"notes,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // IssueResult is what POST /gift-cards/issue returns to the caller.
@@ -88,19 +88,19 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
 // IssueParams carries everything needed to create a new gift card.
 type IssueParams struct {
-	OrganizationID     string
-	Code               string // empty → auto-generate
-	CardType           string // "physical" | "digital"
-	PIN                string // plain-text; empty → no PIN
+	OrganizationID      string
+	Code                string // empty → auto-generate
+	CardType            string // "physical" | "digital"
+	PIN                 string // plain-text; empty → no PIN
 	InitialBalanceCents int64
-	Currency           string // empty → "ZAR"
-	IssuedToCustomerID string
-	IssuedToName       string
-	IssuedToEmail      string
-	IssuedToPhone      string
-	IssuedByStaffID    string
-	ExpiresAt          *time.Time
-	Notes              string
+	Currency            string // empty → "ZAR"
+	IssuedToCustomerID  string
+	IssuedToName        string
+	IssuedToEmail       string
+	IssuedToPhone       string
+	IssuedByStaffID     string
+	ExpiresAt           *time.Time
+	Notes               string
 }
 
 // Issue creates a gift_cards row and a matching 'issue' ledger row inside a
@@ -208,12 +208,12 @@ VALUES ($1, 'issue', $2, $2, $3, $4)`,
 
 // TxnParams carries the shared fields for redeem / reload / refund.
 type TxnParams struct {
-	Code            string
-	AmountCents     int64
-	OrderID         string
-	PaymentID       string
+	Code               string
+	AmountCents        int64
+	OrderID            string
+	PaymentID          string
 	PerformedByStaffID string
-	Notes           string
+	Notes              string
 }
 
 // redeemOrMutate is the shared lock→check→ledger→update transaction used by
@@ -338,12 +338,12 @@ type LookupParams struct {
 // Lookup fetches a card by code, verifying the PIN when the card has one set.
 func (s *Store) Lookup(ctx context.Context, p LookupParams) (*LookupResult, error) {
 	var (
-		id      string
-		pinHash *string
-		balance int64
+		id       string
+		pinHash  *string
+		balance  int64
 		currency string
-		status  string
-		expires *time.Time
+		status   string
+		expires  *time.Time
 	)
 	err := s.pool.QueryRow(ctx, `
 SELECT id, pin_hash, current_balance_cents, currency, status, expires_at

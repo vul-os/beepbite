@@ -146,8 +146,12 @@ func (c *Client) sendWhatsAppMessage(ctx context.Context, to, message string) wh
 	body, _ := io.ReadAll(waResp.Body)
 
 	var result struct {
-		Error    struct{ Message string `json:"message"` } `json:"error"`
-		Messages []struct{ ID string `json:"id"` }        `json:"messages"`
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
 	}
 	_ = json.Unmarshal(body, &result)
 

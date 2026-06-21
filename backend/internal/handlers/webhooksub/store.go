@@ -22,28 +22,28 @@ var (
 
 // Endpoint mirrors a webhook_endpoints row.
 type Endpoint struct {
-	ID                    string    `json:"id"`
-	OrgID                 string    `json:"org_id"`
-	URL                   string    `json:"url"`
-	SigningSecretCiphertext string   `json:"signing_secret_ciphertext"`
-	Events                []string  `json:"events"`
-	IsActive              bool      `json:"is_active"`
-	Description           *string   `json:"description"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	ID                      string    `json:"id"`
+	OrgID                   string    `json:"org_id"`
+	URL                     string    `json:"url"`
+	SigningSecretCiphertext string    `json:"signing_secret_ciphertext"`
+	Events                  []string  `json:"events"`
+	IsActive                bool      `json:"is_active"`
+	Description             *string   `json:"description"`
+	CreatedAt               time.Time `json:"created_at"`
+	UpdatedAt               time.Time `json:"updated_at"`
 }
 
 // Delivery mirrors a webhook_deliveries row (subset used for debugging).
 type Delivery struct {
-	ID          string     `json:"id"`
-	EndpointID  string     `json:"endpoint_id"`
-	EventType   string     `json:"event_type"`
-	Status      string     `json:"status"`
-	ResponseCode *int      `json:"response_code"`
-	Attempts    int        `json:"attempts"`
-	LastError   *string    `json:"last_error"`
-	CreatedAt   time.Time  `json:"created_at"`
-	DeliveredAt *time.Time `json:"delivered_at"`
+	ID           string     `json:"id"`
+	EndpointID   string     `json:"endpoint_id"`
+	EventType    string     `json:"event_type"`
+	Status       string     `json:"status"`
+	ResponseCode *int       `json:"response_code"`
+	Attempts     int        `json:"attempts"`
+	LastError    *string    `json:"last_error"`
+	CreatedAt    time.Time  `json:"created_at"`
+	DeliveredAt  *time.Time `json:"delivered_at"`
 }
 
 // Store handles all DB operations for webhook subscriptions.
