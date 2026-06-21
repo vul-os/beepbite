@@ -303,7 +303,7 @@ func main() {
 		mbClient = mapbox.NewClient(mapbox.Config{APIKey: mapboxToken})
 	}
 	chatSvc := chatbot.NewWithMapbox(database.Pool, wa, mbClient)
-	waWebhookH := whatsappwebhook.NewHandler(chatSvc, cfg.WhatsAppVerifyToken)
+	waWebhookH := whatsappwebhook.NewHandler(chatSvc, cfg.WhatsAppVerifyToken, cfg.WhatsAppAppSecret)
 
 	// Payments: credentials live in env vars per region
 	// (PAYSTACK_<REGION>_SECRET_KEY, STRIPE_<REGION>_SECRET_KEY, …). The

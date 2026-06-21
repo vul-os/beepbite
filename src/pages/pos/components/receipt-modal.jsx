@@ -397,7 +397,7 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="top">Coming soon</TooltipContent>
+              <TooltipContent side="top">Email receipts not yet available</TooltipContent>
             </Tooltip>
 
             {/* WhatsApp — stubbed: no dedicated send-receipt endpoint exists */}
@@ -416,7 +416,7 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="top">Coming soon</TooltipContent>
+              <TooltipContent side="top">WhatsApp receipts not yet available</TooltipContent>
             </Tooltip>
 
             {/* Spacer pushes primary action to the right */}

@@ -155,7 +155,7 @@ export function ProviderCard({
             <div>
               <p className="text-sm font-semibold leading-none">{label}</p>
               {inactive && (
-                <p className="text-xs text-muted-foreground mt-0.5">Coming soon</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Not yet available</p>
               )}
               {isActive && !inactive && (
                 <Badge className="mt-1 bg-orange-500 text-white text-xs">Active</Badge>

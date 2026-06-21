@@ -245,13 +245,30 @@ const auth = {
     return { data: { session: readAuth() }, error: null };
   },
 
-  async updateUser(_updates) {
-    // password/email update via backend — not yet implemented.
-    return { data: null, error: { message: 'updateUser not implemented' } };
+  async updateUser(/* updates */) {
+    // TODO(backend): no self-service "change own password while authenticated"
+    // endpoint exists yet. The email password-reset flow (POST /auth/password/forgot
+    // → token email → POST /auth/password/reset) is the supported path.
+    // When a /auth/me/password endpoint lands, wire it here.
+    return {
+      data: null,
+      error: {
+        message:
+          'To change your password, use the "Forgot password" link on the sign-in page. A reset link will be emailed to you.',
+      },
+    };
   },
 
-  async resetPasswordForEmail(_email, _opts) {
-    return { data: null, error: { message: 'password reset not implemented' } };
+  async resetPasswordForEmail(email /* , opts */) {
+    // POST /auth/password/forgot always returns 200 — backend never reveals
+    // whether the address exists. Mirrors the Supabase surface so call-sites
+    // don't need changes.
+    const { data, error } = await request('POST', '/auth/password/forgot', {
+      auth: false,
+      body: { email },
+    });
+    if (error) return { data: null, error };
+    return { data, error: null };
   },
 
   onAuthStateChange(cb) {

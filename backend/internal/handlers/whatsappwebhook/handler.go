@@ -1,11 +1,16 @@
 package whatsappwebhook
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
+	"sync"
 
 	"github.com/beepbite/backend/internal/chatbot"
 )
@@ -26,10 +31,10 @@ type change struct {
 }
 
 type changeValue struct {
-	MessagingProduct string     `json:"messaging_product"`
-	Metadata         metadata   `json:"metadata"`
-	Contacts         []contact  `json:"contacts"`
-	Messages         []message  `json:"messages"`
+	MessagingProduct string    `json:"messaging_product"`
+	Metadata         metadata  `json:"metadata"`
+	Contacts         []contact `json:"contacts"`
+	Messages         []message `json:"messages"`
 }
 
 type metadata struct {
@@ -66,9 +71,27 @@ type messageLoc struct {
 	Address   string  `json:"address,omitempty"`
 }
 
+// warnOnce ensures the "no app secret" warning is logged exactly once per
+// process so it doesn't flood the log on every inbound message.
+var (
+	warnOnce     sync.Once
+	warnNoSecret = func() {
+		warnOnce.Do(func() {
+			log.Println("WARNING: WHATSAPP_APP_SECRET is not set — X-Hub-Signature-256 " +
+				"verification is DISABLED. Any caller can inject messages. " +
+				// TODO: require once WHATSAPP_APP_SECRET is set in all envs
+				"Set WHATSAPP_APP_SECRET in production before launch.")
+		})
+	}
+)
+
 // NewHandler returns the combined GET/POST handler for the WhatsApp webhook.
 // GET performs the verify_token handshake; POST processes incoming messages.
-func NewHandler(svc *chatbot.Service, verifyToken string) http.Handler {
+//
+// appSecret is the Meta App Secret used to verify X-Hub-Signature-256 HMAC on
+// inbound POST requests. When appSecret is empty (local/dev without the secret
+// configured), verification is skipped with a one-time log warning.
+func NewHandler(svc *chatbot.Service, verifyToken string, appSecret string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodOptions:
@@ -100,6 +123,45 @@ func NewHandler(svc *chatbot.Service, verifyToken string) http.Handler {
 				return
 			}
 			defer r.Body.Close()
+
+			// HMAC-SHA256 verification using the Meta App Secret.
+			// When appSecret is set, the header MUST match; mismatches are
+			// rejected with 401 to prevent spoofed message injection.
+			// When appSecret is unset (local/dev), we skip verification and
+			// log a one-time warning instead of hard-failing every request.
+			// TODO: require once WHATSAPP_APP_SECRET is set in all envs
+			if appSecret != "" {
+				sigHeader := r.Header.Get("X-Hub-Signature-256")
+				if sigHeader == "" {
+					log.Printf("Webhook POST rejected: missing X-Hub-Signature-256 header")
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+				// Header format: "sha256=<hex-digest>"
+				hexSig := strings.TrimPrefix(sigHeader, "sha256=")
+				if hexSig == sigHeader {
+					// Prefix was absent — malformed header.
+					log.Printf("Webhook POST rejected: X-Hub-Signature-256 header missing 'sha256=' prefix")
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+				expectedSig, decodeErr := hex.DecodeString(hexSig)
+				if decodeErr != nil {
+					log.Printf("Webhook POST rejected: X-Hub-Signature-256 hex decode error: %v", decodeErr)
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+				mac := hmac.New(sha256.New, []byte(appSecret))
+				mac.Write(raw)
+				computed := mac.Sum(nil)
+				if !hmac.Equal(computed, expectedSig) {
+					log.Printf("Webhook POST rejected: X-Hub-Signature-256 HMAC mismatch")
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+			} else {
+				warnNoSecret()
+			}
 
 			var env webhookEnvelope
 			if err := json.Unmarshal(raw, &env); err != nil {

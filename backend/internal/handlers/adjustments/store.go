@@ -14,13 +14,14 @@ import (
 
 // Sentinel errors used by the HTTP layer for status-code mapping.
 var (
-	ErrOrderNotFound    = errors.New("order not found")
-	ErrItemNotFound     = errors.New("order item not found")
-	ErrAlreadyVoided    = errors.New("order already has an active void")
-	ErrOrderAlreadyPaid = errors.New("order already has a completed payment")
-	ErrApproverNotFound = errors.New("approver staff not found")
-	ErrNotManager       = errors.New("approver is not a manager or owner")
-	ErrPINMismatch      = errors.New("manager PIN is incorrect")
+	ErrOrderNotFound     = errors.New("order not found")
+	ErrItemNotFound      = errors.New("order item not found")
+	ErrAlreadyVoided     = errors.New("order already has an active void")
+	ErrOrderAlreadyPaid  = errors.New("order already has a completed payment")
+	ErrApproverNotFound  = errors.New("approver staff not found")
+	ErrNotManager        = errors.New("approver is not a manager or owner")
+	ErrPINMismatch       = errors.New("manager PIN is incorrect")
+	ErrRefundExceedsPaid = errors.New("refund amount exceeds the refundable balance for this order")
 )
 
 // Adjustment mirrors an order_adjustments row.
@@ -364,9 +365,20 @@ func (s *Store) PriceOverrideItem(
 
 // RefundOrder records a post-payment refund adjustment.
 // The actual payment-provider API call is OUT OF SCOPE — left as a TODO.
+//
+// amountCents is the requested refund amount. The function enforces that
+// cumulative refunds cannot exceed the total completed payments for the order:
+//
+//	refundableRemaining = SUM(order_payments.amount_paid_cents WHERE status='completed')
+//	                    - SUM(order_adjustments.amount_cents WHERE type='refund')
+//	                    - SUM(refunds.refund_amount_cents WHERE status='completed')
+//
+// The order row is already locked FOR UPDATE (via GetOrderState) so the cap
+// check and the new adjustment insert are serialised within the same transaction.
 func (s *Store) RefundOrder(
 	ctx context.Context,
 	orderID string,
+	amountCents int64,
 	reasonText string,
 	appliedBy string,
 	approvedBy string,
@@ -378,13 +390,50 @@ func (s *Store) RefundOrder(
 			return err
 		}
 
+		// --- Refund cap guard ---
+		// Sum all completed payments for this order.
+		var totalPaidCents int64
+		if err := tx.QueryRow(ctx, `
+SELECT COALESCE(SUM(amount_paid_cents), 0)
+FROM order_payments
+WHERE order_id = $1 AND payment_status = 'completed'
+`, orderID).Scan(&totalPaidCents); err != nil {
+			return err
+		}
+
+		// Sum prior refunds recorded as order_adjustments (adjustment_type='refund').
+		var priorAdjRefundCents int64
+		if err := tx.QueryRow(ctx, `
+SELECT COALESCE(SUM(amount_cents), 0)
+FROM order_adjustments
+WHERE order_id = $1 AND adjustment_type = 'refund'
+`, orderID).Scan(&priorAdjRefundCents); err != nil {
+			return err
+		}
+
+		// Sum prior refunds recorded in the dedicated refunds table (completed only).
+		var priorRefundTableCents int64
+		if err := tx.QueryRow(ctx, `
+SELECT COALESCE(SUM(refund_amount_cents), 0)
+FROM refunds
+WHERE order_id = $1 AND refund_status = 'completed'
+`, orderID).Scan(&priorRefundTableCents); err != nil {
+			return err
+		}
+
+		refundableRemaining := totalPaidCents - priorAdjRefundCents - priorRefundTableCents
+		if amountCents > refundableRemaining {
+			return ErrRefundExceedsPaid
+		}
+		// --- end refund cap guard ---
+
 		// TODO: trigger payment-provider refund API call here before writing DB rows.
 		// Suggested shape: refundProvider(ctx, orderID, amountCents)
 
 		rt := nullableStr(reasonText)
 		var err2 error
 		adj, err2 = s.insertAdjustment(
-			ctx, tx, orderID, nil, "refund", rt, 0, nil, appliedBy, approvedBy,
+			ctx, tx, orderID, nil, "refund", rt, amountCents, nil, appliedBy, approvedBy,
 		)
 		if err2 != nil {
 			return err2
@@ -392,7 +441,7 @@ func (s *Store) RefundOrder(
 
 		return s.insertAuditLog(ctx, tx, appliedBy, "order.refund", "orders", orderID,
 			map[string]any{"status": order.Status},
-			map[string]any{"adjustment_id": adj.ID, "adjustment_type": "refund"},
+			map[string]any{"adjustment_id": adj.ID, "adjustment_type": "refund", "amount_cents": amountCents},
 		)
 	})
 	if err != nil {

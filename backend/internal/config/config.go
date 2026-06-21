@@ -11,12 +11,12 @@ import (
 )
 
 type Config struct {
-	Env      string
-	Port     string
+	Env         string
+	Port        string
 	DatabaseURL string
 
-	JWTSecret      string
-	AccessTokenTTL time.Duration
+	JWTSecret       string
+	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 
 	GoogleClientID     string
@@ -26,6 +26,7 @@ type Config struct {
 	CORSOrigins []string
 
 	WhatsAppVerifyToken   string
+	WhatsAppAppSecret     string
 	WhatsAppAccessToken   string
 	WhatsAppPhoneNumberID string
 
@@ -63,9 +64,9 @@ type Config struct {
 // Load reads the env file that matches `env` (local/dev/main) from the repo
 // root and returns a populated Config. Env is resolved in this order:
 //
-//   1. explicit `env` argument (from --env flag)
-//   2. APP_ENV environment variable
-//   3. "local"
+//  1. explicit `env` argument (from --env flag)
+//  2. APP_ENV environment variable
+//  3. "local"
 //
 // Files are looked up relative to the repo root (the parent of the `backend/`
 // directory). Missing optional files are fine; a missing required env var
@@ -102,19 +103,20 @@ func Load(env string) (*Config, error) {
 	}
 
 	c := &Config{
-		Env:                   env,
-		Port:                  envOr("PORT", "8080"),
-		DatabaseURL:           os.Getenv("DATABASE_URL"),
-		JWTSecret:             os.Getenv("JWT_SECRET"),
-		AccessTokenTTL:        envDuration("JWT_ACCESS_TTL", 15*time.Minute),
-		RefreshTokenTTL:       envDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
-		GoogleClientID:        os.Getenv("GOOGLE_CLIENT_ID"),
-		GoogleClientSecret:    os.Getenv("GOOGLE_CLIENT_SECRET"),
-		GoogleRedirectURL:     os.Getenv("GOOGLE_REDIRECT_URL"),
-		CORSOrigins:           splitCSV(os.Getenv("CORS_ORIGINS")),
-		WhatsAppVerifyToken:   os.Getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),
-		WhatsAppAccessToken:   os.Getenv("WHATSAPP_ACCESS_TOKEN"),
-		WhatsAppPhoneNumberID: os.Getenv("WHATSAPP_PHONE_NUMBER_ID"),
+		Env:                        env,
+		Port:                       envOr("PORT", "8080"),
+		DatabaseURL:                os.Getenv("DATABASE_URL"),
+		JWTSecret:                  os.Getenv("JWT_SECRET"),
+		AccessTokenTTL:             envDuration("JWT_ACCESS_TTL", 15*time.Minute),
+		RefreshTokenTTL:            envDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
+		GoogleClientID:             os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret:         os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:          os.Getenv("GOOGLE_REDIRECT_URL"),
+		CORSOrigins:                splitCSV(os.Getenv("CORS_ORIGINS")),
+		WhatsAppVerifyToken:        os.Getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),
+		WhatsAppAppSecret:          os.Getenv("WHATSAPP_APP_SECRET"),
+		WhatsAppAccessToken:        os.Getenv("WHATSAPP_ACCESS_TOKEN"),
+		WhatsAppPhoneNumberID:      os.Getenv("WHATSAPP_PHONE_NUMBER_ID"),
 		PaystackSecretKey:          os.Getenv("PAYSTACK_SECRET_KEY"),
 		PaystackPublicKey:          os.Getenv("PAYSTACK_PUBLIC_KEY"),
 		PaymentKeyEncryptionSecret: os.Getenv("PAYMENT_KEY_ENCRYPTION_SECRET"),
@@ -125,10 +127,10 @@ func Load(env string) (*Config, error) {
 		StripeTestPublicKey:        os.Getenv("STRIPE_TEST_PUBLIC_KEY"),
 		StripeTestWebhookSecret:    os.Getenv("STRIPE_TEST_WEBHOOK_SECRET"),
 		ResendAPIKey:               os.Getenv("RESEND_API_KEY"),
-		ResendFrom:            os.Getenv("RESEND_FROM"),
-		MapboxToken:           os.Getenv("MAPBOX_TOKEN"),
-		OpenAIAPIKey:          os.Getenv("OPENAI_API_KEY"),
-		GeminiAPIKey:          os.Getenv("GEMINI_API_KEY"),
+		ResendFrom:                 os.Getenv("RESEND_FROM"),
+		MapboxToken:                os.Getenv("MAPBOX_TOKEN"),
+		OpenAIAPIKey:               os.Getenv("OPENAI_API_KEY"),
+		GeminiAPIKey:               os.Getenv("GEMINI_API_KEY"),
 	}
 
 	if c.DatabaseURL == "" {

@@ -48,15 +48,20 @@ func (h *Handler) Mount(r chi.Router) {
 // --- request DTOs ---
 
 type baseAdjReq struct {
-	ReasonCode      string `json:"reason_code"`       // informational; stored as reason_text
+	ReasonCode       string `json:"reason_code"` // informational; stored as reason_text
 	AppliedByStaffID string `json:"applied_by_staff_id"`
-	ApproverPIN     string `json:"approver_pin"`
-	ApproverStaffID string `json:"approver_staff_id"` // whose PIN we're checking
+	ApproverPIN      string `json:"approver_pin"`
+	ApproverStaffID  string `json:"approver_staff_id"` // whose PIN we're checking
 }
 
 type priceOverrideReq struct {
 	baseAdjReq
 	NewPriceCents int64 `json:"new_price_cents"`
+}
+
+type refundReq struct {
+	baseAdjReq
+	AmountCents int64 `json:"amount_cents"`
 }
 
 // --- Org-scope helper ---
@@ -259,21 +264,27 @@ func (h *Handler) refundOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req baseAdjReq
+	var req refundReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if req.AmountCents <= 0 {
+		writeErr(w, http.StatusBadRequest, "amount_cents must be greater than 0")
+		return
+	}
 
-	approverID, ok := h.authorise(w, r, req)
+	approverID, ok := h.authorise(w, r, req.baseAdjReq)
 	if !ok {
 		return
 	}
 
-	adj, err := h.store.RefundOrder(r.Context(), orderID, req.ReasonCode, req.AppliedByStaffID, approverID)
+	adj, err := h.store.RefundOrder(r.Context(), orderID, req.AmountCents, req.ReasonCode, req.AppliedByStaffID, approverID)
 	switch {
 	case errors.Is(err, ErrOrderNotFound):
 		writeErr(w, http.StatusNotFound, "order not found")
+	case errors.Is(err, ErrRefundExceedsPaid):
+		writeErr(w, http.StatusUnprocessableEntity, err.Error())
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err.Error())
 	default:
