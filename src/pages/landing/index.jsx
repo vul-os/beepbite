@@ -284,6 +284,34 @@ const ThemeToggle = () => {
   );
 };
 
+// ---------- Support 3D scene ----------
+// Ambient Spline scene rendered as the support section background. Plain iframe
+// (no extra deps) — lazy-loaded, fades in on load, hidden on small screens to
+// keep mobile light, and pointer-events-none so it never traps scroll/clicks.
+//
+// The iframe is deliberately oversized and anchored top-left so its bottom-right
+// corner — where Spline stamps its "Built with Spline" watermark — overflows the
+// section's `overflow-hidden` box and gets clipped away. No patch/overlay needed.
+const SupportSpline = () => {
+  const [ready, setReady] = React.useState(false);
+
+  return (
+    <div className="absolute inset-0 hidden md:block pointer-events-none" style={{ zIndex: 0 }} aria-hidden="true">
+      <iframe
+        src="https://my.spline.design/lostorbinthemountains-lc5szATmGQdqox9vGI2n6YEu/"
+        title="Ambient 3D background"
+        loading="lazy"
+        onLoad={() => setReady(true)}
+        className={`absolute top-0 left-0 border-0 transition-opacity duration-[1200ms] ${
+          ready ? 'opacity-100' : 'opacity-0'
+        }`}
+        // Oversize so the watermarked bottom-right corner is clipped by the parent.
+        style={{ width: 'calc(100% + 180px)', height: 'calc(100% + 120px)' }}
+      />
+    </div>
+  );
+};
+
 // ---------- Page ----------
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -848,10 +876,13 @@ const LandingPage = () => {
           SUPPORT
       ============================================================ */}
       <section id="support" className="relative py-20 sm:py-28 bg-gray-950 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" />
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-orange-500/20 rounded-full blur-3xl pointer-events-none" />
+        {/* Ambient 3D scene — desktop only, behind everything */}
+        <SupportSpline />
+        {/* Flat scrim on mobile only (no scene there); desktop shows the raw scene */}
+        <div className="absolute inset-0 bg-gray-950/80 md:hidden pointer-events-none" style={{ zIndex: 1 }} />
+        <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" style={{ zIndex: 1 }} />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
             <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
               <Eyebrow className="bg-white/10 text-white/80">Support</Eyebrow>

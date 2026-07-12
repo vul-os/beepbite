@@ -114,11 +114,21 @@ func startViaContainers(ctx context.Context) (*pgxpool.Pool, func(), error) {
 		return nil, func() {}, fmt.Errorf("migrate (container): %w", err)
 	}
 
-	cleanup := func() {
+	// Switch to a non-superuser role so RLS is actually enforced (the container
+	// default user is a superuser, which bypasses RLS even under FORCE).
+	appPool, err := appPoolFor(ctx, pool, connStr)
+	if err != nil {
 		pool.Close()
 		ctrCleanup()
+		return nil, func() {}, fmt.Errorf("app role (container): %w", err)
 	}
-	return pool, cleanup, nil
+	pool.Close() // admin pool no longer needed
+
+	cleanup := func() {
+		appPool.Close()
+		ctrCleanup()
+	}
+	return appPool, cleanup, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -177,11 +187,21 @@ func startViaScratchDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
 		return nil, func() {}, fmt.Errorf("migrate (scratch): %w", err)
 	}
 
-	cleanup := func() {
+	// Run tests as a non-superuser role so RLS is enforced. The DATABASE_URL
+	// role may have BYPASSRLS or be a superuser locally; bb_app never does.
+	appPool, err := appPoolFor(ctx, pool, testURL)
+	if err != nil {
 		pool.Close()
+		dropScratchDB(ctx, adminURL, testDB)
+		return nil, func() {}, fmt.Errorf("app role (scratch): %w", err)
+	}
+	pool.Close() // admin pool no longer needed
+
+	cleanup := func() {
+		appPool.Close()
 		dropScratchDB(context.Background(), adminURL, testDB)
 	}
-	return pool, cleanup, nil
+	return appPool, cleanup, nil
 }
 
 func dropScratchDB(ctx context.Context, adminURL, dbName string) {
@@ -222,6 +242,56 @@ func replaceDBName(baseURL, newDB string) string {
 	}
 	u.Path = "/" + newDB
 	return u.String()
+}
+
+func replaceUser(baseURL, user, pass string) string {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return baseURL
+	}
+	u.User = url.UserPassword(user, pass)
+	return u.String()
+}
+
+// appPoolFor provisions a dedicated NON-superuser, NON-bypassrls login role
+// ("bb_app") on the freshly-migrated database and returns a pool connected as
+// that role. Tests MUST run as this role: Postgres silently skips RLS for
+// superusers (and BYPASSRLS roles) even under FORCE ROW LEVEL SECURITY, which
+// would make every cross-tenant / cross-user RLS isolation test vacuous. The
+// production app likewise connects as a non-superuser role, so this mirrors
+// prod. Setup helpers that need to cross tenant boundaries use
+// db.ServiceRoleScope(), which sets app.is_service_role=true and is honoured by
+// the RLS policies' is_service_role() escape hatch — so they keep working under
+// the non-superuser role.
+//
+// adminPool (a superuser/owner connection) is used only to create the role and
+// grant privileges; the returned pool is the bb_app connection callers run as.
+func appPoolFor(ctx context.Context, adminPool *pgxpool.Pool, connStr string) (*pgxpool.Pool, error) {
+	stmts := []string{
+		`DO $$ BEGIN
+		   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bb_app') THEN
+		     CREATE ROLE bb_app LOGIN PASSWORD 'bb_app'
+		       NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+		   END IF;
+		 END $$;`,
+		`GRANT USAGE ON SCHEMA public TO bb_app`,
+		`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bb_app`,
+		`GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO bb_app`,
+		`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO bb_app`,
+		`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO bb_app`,
+		`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO bb_app`,
+	}
+	for _, s := range stmts {
+		if _, err := adminPool.Exec(ctx, s); err != nil {
+			return nil, fmt.Errorf("provision bb_app role: %w", err)
+		}
+	}
+	appURL := replaceUser(connStr, "bb_app", "bb_app")
+	appPool, err := pgxpool.New(ctx, appURL)
+	if err != nil {
+		return nil, fmt.Errorf("connect bb_app pool: %w", err)
+	}
+	return appPool, nil
 }
 
 func randSuffix() string {

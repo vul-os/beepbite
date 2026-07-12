@@ -58,8 +58,12 @@ func (h *Handler) Mount(r chi.Router) {
 
 // getPrefs returns the calling user's preference row.
 //
-// 200 OK  — preference row as JSON.
-// 404     — no row yet (frontend should fall back to localStorage default).
+// Preferences are a per-user singleton, so "not saved yet" is a normal empty
+// state rather than an error: we return 200 with a default (null view) body.
+// This keeps callers simple and avoids logging a spurious 404 on every load
+// for users who have never explicitly changed a view preference.
+//
+// 200 OK  — preference row as JSON (defaults when none saved yet).
 // 401     — missing or invalid JWT.
 func (h *Handler) getPrefs(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.ClaimsFrom(r.Context())
@@ -70,7 +74,8 @@ func (h *Handler) getPrefs(w http.ResponseWriter, r *http.Request) {
 
 	prefs, err := h.store.Get(r.Context(), claims.UserID)
 	if errors.Is(err, ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "no preferences saved yet")
+		// No row yet — return an empty/default singleton, not a 404.
+		writeJSON(w, http.StatusOK, Prefs{ProfileID: claims.UserID})
 		return
 	}
 	if err != nil {

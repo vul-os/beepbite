@@ -460,7 +460,7 @@ export default function PosWorkspacePage() {
             .eq('location_id', activeLocation.id).eq('is_active', true)
             .order('sort_order', { ascending: true }).order('name', { ascending: true }),
           supabase.from('items').select(`
-            id, name, description, price, category_id,
+            id, name, description, price, category_id, is_86ed,
             daily_quantity, daily_sold_count, daily_counter_date,
             categories ( id, name )
           `).eq('location_id', activeLocation.id).eq('is_active', true)
@@ -707,6 +707,27 @@ export default function PosWorkspacePage() {
     commitAddItem(item);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTicket, registerSession, toast, commitAddItem, checkHasModifiers]);
+
+  // One-tap 86: mark an item sold out (or restore it) straight from the tile —
+  // no trip to the back office. Optimistic; reverts on failure.
+  const [toggling86, setToggling86] = useState(null); // item id mid-flight
+  const handleToggle86 = useCallback(async (item) => {
+    const next = !item.is_86ed;
+    setToggling86(item.id);
+    setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, is_86ed: next } : it));
+    const { error } = await supabase.from('items').update({ is_86ed: next }).eq('id', item.id);
+    setToggling86(null);
+    if (error) {
+      // revert
+      setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, is_86ed: !next } : it));
+      toast({ variant: 'destructive', title: '86 failed', description: error.message });
+      return;
+    }
+    toast({
+      title: next ? `86'd ${item.name}` : `${item.name} is back on`,
+      description: next ? 'Removed from ordering until you restore it.' : 'Available to order again.',
+    });
+  }, [toast]);
 
   const handleBumpQty = (clientId, delta) => {
     if (!activeTicket) return;
@@ -1248,44 +1269,74 @@ export default function PosWorkspacePage() {
                 {filteredItems.map((it) => {
                   const remaining = computeRemainingToday(it);
                   const soldOutToday = remaining !== null && remaining === 0;
-                  const isDisabled = !activeTicket || !canTakeOrders || soldOutToday;
+                  const is86 = !!it.is_86ed;
+                  const soldOut = soldOutToday || is86;
+                  const isDisabled = !activeTicket || !canTakeOrders || soldOut;
+                  const busy86 = toggling86 === it.id;
                   return (
-                    <button
-                      key={it.id}
-                      type="button"
-                      onClick={() => handleAddItem(it)}
-                      disabled={isDisabled}
-                      aria-label={`Add ${it.name} — R${parseFloat(it.price || 0).toFixed(2)}${soldOutToday ? ' (sold out)' : ''}`}
-                      className={cn(
-                        'group relative flex flex-col rounded-2xl bg-white border-2 overflow-hidden text-left',
-                        'transition-all duration-150',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
-                        isDisabled
-                          ? 'border-gray-100 opacity-50 cursor-not-allowed shadow-none'
-                          : 'border-gray-200 shadow-sm hover:shadow-lg hover:border-orange-400 hover:-translate-y-0.5 active:scale-95 active:shadow-sm',
-                      )}
-                    >
-                      <div className="h-24 sm:h-28 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 relative">
-                        <span className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform duration-200 select-none">{emojiFor(it)}</span>
-                        <ItemCountdownPill remaining={remaining} />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
-                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{it.name}</h3>
-                        <div className="flex items-end justify-between mt-2">
-                          <span className="text-base font-bold text-gray-900 tabular-nums">
-                            R{parseFloat(it.price || 0).toFixed(2)}
-                          </span>
-                          {!isDisabled && (
-                            <span
-                              aria-hidden="true"
-                              className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:bg-orange-600 transition-all"
-                            >
-                              <Plus className="w-4 h-4" strokeWidth={2.5} />
+                    <div key={it.id} className="group relative">
+                      <button
+                        type="button"
+                        onClick={() => handleAddItem(it)}
+                        disabled={isDisabled}
+                        aria-label={`Add ${it.name} — R${parseFloat(it.price || 0).toFixed(2)}${is86 ? ' (86 — sold out)' : soldOutToday ? ' (sold out)' : ''}`}
+                        className={cn(
+                          'flex w-full flex-col rounded-2xl bg-white border-2 overflow-hidden text-left',
+                          'transition-all duration-150',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
+                          isDisabled
+                            ? 'border-gray-100 opacity-50 cursor-not-allowed shadow-none'
+                            : 'border-gray-200 shadow-sm hover:shadow-lg hover:border-orange-400 hover:-translate-y-0.5 active:scale-95 active:shadow-sm',
+                        )}
+                      >
+                        <div className="h-24 sm:h-28 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 relative">
+                          <span className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform duration-200 select-none">{emojiFor(it)}</span>
+                          {is86 ? (
+                            <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-600 text-white leading-none tracking-wide">
+                              86&apos;d
                             </span>
+                          ) : (
+                            <ItemCountdownPill remaining={remaining} />
                           )}
                         </div>
-                      </div>
-                    </button>
+                        <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
+                          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{it.name}</h3>
+                          <div className="flex items-end justify-between mt-2">
+                            <span className="text-base font-bold text-gray-900 tabular-nums">
+                              R{parseFloat(it.price || 0).toFixed(2)}
+                            </span>
+                            {!isDisabled && (
+                              <span
+                                aria-hidden="true"
+                                className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:bg-orange-600 transition-all"
+                              >
+                                <Plus className="w-4 h-4" strokeWidth={2.5} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      {/* One-tap 86 toggle — sibling overlay (avoids nested buttons).
+                          Hidden until hover/focus on pointer devices; the red "86'd"
+                          badge already communicates state when active. */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggle86(it)}
+                        disabled={busy86}
+                        title={is86 ? 'Restore to menu' : '86 — mark sold out'}
+                        aria-label={is86 ? `Restore ${it.name} to the menu` : `86 ${it.name} — mark sold out`}
+                        className={cn(
+                          'absolute top-1.5 right-1.5 z-10 inline-flex items-center justify-center rounded-full w-7 h-7 text-[10px] font-bold shadow-sm transition-all',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
+                          is86
+                            ? 'bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-400'
+                            : 'bg-white/90 text-gray-400 border border-gray-200 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-red-500 hover:text-white hover:border-red-500 focus-visible:ring-red-400',
+                          busy86 && 'opacity-60 cursor-wait',
+                        )}
+                      >
+                        {is86 ? <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.5} /> : '86'}
+                      </button>
+                    </div>
                   );
                 })}
               </div>
