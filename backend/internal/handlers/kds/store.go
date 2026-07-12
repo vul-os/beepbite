@@ -580,6 +580,9 @@ type TicketDetailItem struct {
 	Variations   []string     `json:"variations"`
 	Ingredients  []Ingredient `json:"ingredients"`
 	PrepSteps    []PrepStep   `json:"prep_steps"`
+	// Allergens are the labels (e.g. "Peanuts", "Gluten") declared on the menu
+	// item. Surfaced on the KDS so the line cook sees them in red — safety.
+	Allergens []string `json:"allergens"`
 }
 
 // TicketDetail is the full response for GET /kds/tickets/{id}/details.
@@ -787,6 +790,32 @@ func getTicketDetailUsing(ctx context.Context, ticketID string, q querier) (*Tic
 		return nil, err
 	}
 
+	// --- Batched query 4: allergens (keyed by item_id) ---
+	// ORDER BY item_id, a.sort_order preserves a stable, owner-defined order.
+	allergensByItem := make(map[string][]string, len(itemIDs))
+	algRows, err := q.query(ctx, `
+		SELECT ia.item_id, a.label
+		FROM item_allergens ia
+		JOIN allergens a ON a.id = ia.allergen_id
+		WHERE ia.item_id = ANY($1)
+		ORDER BY ia.item_id, a.sort_order, a.label
+	`, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	for algRows.Next() {
+		var iid, label string
+		if err := algRows.Scan(&iid, &label); err != nil {
+			algRows.Close()
+			return nil, err
+		}
+		allergensByItem[iid] = append(allergensByItem[iid], label)
+	}
+	algRows.Close()
+	if err := algRows.Err(); err != nil {
+		return nil, err
+	}
+
 	// Assemble the final detail items in the original order (kti.created_at).
 	detail.Items = make([]TicketDetailItem, 0, len(rawItems))
 	for _, ri := range rawItems {
@@ -802,6 +831,10 @@ func getTicketDetailUsing(ctx context.Context, ticketID string, q querier) (*Tic
 		if steps == nil {
 			steps = []PrepStep{}
 		}
+		allergens := allergensByItem[ri.itemID]
+		if allergens == nil {
+			allergens = []string{}
+		}
 		detail.Items = append(detail.Items, TicketDetailItem{
 			TicketItemID: ri.ticketItemID,
 			ItemName:     ri.itemName,
@@ -811,6 +844,7 @@ func getTicketDetailUsing(ctx context.Context, ticketID string, q querier) (*Tic
 			Variations:   vars,
 			Ingredients:  ings,
 			PrepSteps:    steps,
+			Allergens:    allergens,
 		})
 	}
 

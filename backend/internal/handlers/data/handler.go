@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/auth"
@@ -594,6 +595,32 @@ func collectCols(rows []map[string]any) []string {
 	return out
 }
 
+// formatPgTime renders a `time without time zone` value (pgx pgtype.Time,
+// microseconds since midnight) as "HH:MM:SS". Returns nil when NULL.
+func formatPgTime(t pgtype.Time) any {
+	if !t.Valid {
+		return nil
+	}
+	totalSec := t.Microseconds / 1_000_000
+	h := totalSec / 3600
+	m := (totalSec % 3600) / 60
+	s := totalSec % 60
+	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+}
+
+// formatPgInterval renders an interval as an ISO-8601-ish duration string.
+// Returns nil when NULL.
+func formatPgInterval(iv pgtype.Interval) any {
+	if !iv.Valid {
+		return nil
+	}
+	totalSec := iv.Microseconds / 1_000_000
+	h := totalSec / 3600
+	m := (totalSec % 3600) / 60
+	s := totalSec % 60
+	return fmt.Sprintf("%dmo %dd %02d:%02d:%02d", iv.Months, iv.Days, h, m, s)
+}
+
 func rowsToMaps(rows pgx.Rows) ([]map[string]any, error) {
 	fields := rows.FieldDescriptions()
 	out := []map[string]any{}
@@ -607,6 +634,14 @@ func rowsToMaps(rows pgx.Rows) ([]map[string]any, error) {
 			switch v := vals[i].(type) {
 			case [16]byte:
 				m[string(f.Name)] = formatUUIDBytes(v)
+			case pgtype.Time:
+				// `time without time zone` has no native Go type, so pgx returns
+				// the pgtype.Time struct — which JSON-marshals as
+				// {"Microseconds":...,"Valid":true} and breaks the frontend
+				// (e.g. menu_schedule_slots start/end times). Render "HH:MM:SS".
+				m[string(f.Name)] = formatPgTime(v)
+			case pgtype.Interval:
+				m[string(f.Name)] = formatPgInterval(v)
 			default:
 				m[string(f.Name)] = v
 			}

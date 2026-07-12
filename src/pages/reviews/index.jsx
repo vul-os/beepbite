@@ -69,9 +69,9 @@ const Reviews = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching reviews data for location:', activeLocation.id, 'period:', timeRange);
-      // Push the active location into the service so it doesn't have to re-resolve it.
-      reviewsService.setLocationId(activeLocation.id);
+      // The public reviews endpoint is keyed by the store *slug*, not the
+      // location UUID — passing the id returned 404 "store not found".
+      reviewsService.setLocationId(activeLocation.slug);
       const data = await reviewsService.getReviewsData(timeRange, 100);
       console.log('Reviews data received:', data);
       

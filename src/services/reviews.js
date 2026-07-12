@@ -65,7 +65,12 @@ const reviewsService = {
   async getReviewsData(timeRange, limit = 100) {
     const slug = _locationId ?? '';
     const { data, error } = await fetchStoreReviews(slug, limit);
-    if (error) throw new Error(error.message || 'Failed to fetch reviews');
+    // A store that isn't published to the marketplace yet (or has no slug)
+    // returns 404 "store not found" — that's an empty state, not an error.
+    // Only surface genuine failures.
+    if (error && error.status !== 404) {
+      throw new Error(error.message || 'Failed to fetch reviews');
+    }
     const reviews = Array.isArray(data) ? data : [];
     const totalReviews = reviews.length;
     const averageRating = totalReviews > 0

@@ -1,38 +1,82 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CardResult } from './card-result';
-import { RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, X } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import { supabase } from '@/services/supabase-client';
+import CustomerSearch from '@/pages/pos/components/customer-search';
+
+// Sentinel used in the staff <Select> to represent "no selection".
+const STAFF_NONE = '__none__';
 
 /**
  * IssueForm — the "Issue" tab content.
  * POSTs to /gift-cards/issue and shows a CardResult on success.
+ *
+ * Organisation ID is sourced implicitly from the active organisation context.
+ * Customer and staff fields use polished pickers instead of raw UUID inputs.
  */
 export function IssueForm() {
+  const { activeOrganization, activeLocation } = useAuth();
+
   const [balanceDollars, setBalanceDollars] = useState('');
   const [cardType, setCardType] = useState('digital'); // 'physical' | 'digital'
-  const [expiresAt, setExpiresAt] = useState('');       // local date string yyyy-mm-dd
+  const [expiresAt, setExpiresAt] = useState('');      // local date string yyyy-mm-dd
   const [pin, setPin] = useState('');
-  const [customerId, setCustomerId] = useState('');
+
+  // Customer: store the full object returned by CustomerSearch so we can
+  // display the name; only the id is sent in the POST body.
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  // Staff: id string ('' = unset), populated from supabase for active location.
   const [issuedByStaffId, setIssuedByStaffId] = useState('');
-  const [organizationId, setOrganizationId] = useState('');
+  const [staffList, setStaffList] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null); // IssueResult from backend
+
+  // Fetch active staff for the current location so the dropdown is populated.
+  useEffect(() => {
+    if (!activeLocation) {
+      setStaffList([]);
+      return;
+    }
+
+    supabase
+      .from('staff')
+      .select('id, first_name, last_name')
+      .eq('location_id', activeLocation.id)
+      .eq('is_active', true)
+      .order('first_name', { ascending: true })
+      .then(({ data, error: staffErr }) => {
+        if (staffErr) {
+          console.error('Failed to fetch staff for gift-card form:', staffErr);
+          return;
+        }
+        setStaffList(data || []);
+      });
+  }, [activeLocation]);
 
   function resetForm() {
     setBalanceDollars('');
     setCardType('digital');
     setExpiresAt('');
     setPin('');
-    setCustomerId('');
+    setSelectedCustomer(null);
     setIssuedByStaffId('');
-    setOrganizationId('');
     setError('');
     setResult(null);
   }
@@ -52,25 +96,19 @@ export function IssueForm() {
       return;
     }
 
-    if (!organizationId.trim()) {
-      setError('Organization ID is required.');
-      return;
-    }
-
     // Build expires_at as RFC3339 (end-of-day UTC) or omit if blank.
     let expiresAtRFC3339 = null;
     if (expiresAt) {
-      // Date input gives yyyy-mm-dd in local time; send as end-of-day UTC.
       expiresAtRFC3339 = new Date(`${expiresAt}T23:59:59Z`).toISOString();
     }
 
     const body = {
-      organization_id: organizationId.trim(),
+      organization_id: activeOrganization.id,
       initial_balance_cents: balanceCents,
       card_type: cardType,
       ...(pin ? { pin } : {}),
-      ...(customerId.trim() ? { issued_to_customer_id: customerId.trim() } : {}),
-      ...(issuedByStaffId.trim() ? { issued_by_staff_id: issuedByStaffId.trim() } : {}),
+      ...(selectedCustomer ? { issued_to_customer_id: selectedCustomer.id } : {}),
+      ...(issuedByStaffId ? { issued_by_staff_id: issuedByStaffId } : {}),
       ...(expiresAtRFC3339 ? { expires_at: expiresAtRFC3339 } : { expires_at: null }),
     };
 
@@ -91,6 +129,21 @@ export function IssueForm() {
     return <CardResult result={result} onDismiss={resetForm} />;
   }
 
+  // Guard: no active organisation — the org id is required to issue a card.
+  if (!activeOrganization) {
+    return (
+      <Card>
+        <CardContent className="py-10 flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            No organisation is active. Please select an organisation from the top
+            navigation before issuing a gift card.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -99,18 +152,6 @@ export function IssueForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Organization ID */}
-          <div className="space-y-1.5">
-            <Label htmlFor="org-id">Organization ID *</Label>
-            <Input
-              id="org-id"
-              placeholder="UUID of the organization"
-              value={organizationId}
-              onChange={(e) => setOrganizationId(e.target.value)}
-              required
-            />
-          </div>
-
           {/* Initial balance */}
           <div className="space-y-1.5">
             <Label htmlFor="balance">Initial Balance (ZAR) *</Label>
@@ -175,26 +216,59 @@ export function IssueForm() {
             />
           </div>
 
-          {/* Customer ID */}
+          {/* Customer picker */}
           <div className="space-y-1.5">
-            <Label htmlFor="customer-id">Customer ID (optional)</Label>
-            <Input
-              id="customer-id"
-              placeholder="UUID of the customer"
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-            />
+            <Label>Customer (optional)</Label>
+            {selectedCustomer ? (
+              /* Show the selected customer as a dismissible chip */
+              <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{selectedCustomer.name}</p>
+                  {selectedCustomer.phone && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {selectedCustomer.phone}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 ml-2"
+                  onClick={() => setSelectedCustomer(null)}
+                  aria-label="Clear customer selection"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              /* Typeahead search — reuses the POS customer-search widget */
+              <CustomerSearch
+                onSelect={setSelectedCustomer}
+                placeholder="Search by name or phone…"
+              />
+            )}
           </div>
 
-          {/* Staff ID */}
+          {/* Staff picker */}
           <div className="space-y-1.5">
-            <Label htmlFor="staff-id">Issued By Staff ID (optional)</Label>
-            <Input
-              id="staff-id"
-              placeholder="UUID of the staff member"
-              value={issuedByStaffId}
-              onChange={(e) => setIssuedByStaffId(e.target.value)}
-            />
+            <Label htmlFor="staff-select">Issued By (optional)</Label>
+            <Select
+              value={issuedByStaffId || STAFF_NONE}
+              onValueChange={(v) => setIssuedByStaffId(v === STAFF_NONE ? '' : v)}
+            >
+              <SelectTrigger id="staff-select">
+                <SelectValue placeholder="Select staff member…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={STAFF_NONE}>— Unassigned —</SelectItem>
+                {staffList.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.first_name} {s.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {error && (

@@ -15,7 +15,7 @@
 /* eslint-disable react/prop-types */
 import { useMemo } from 'react';
 import {
-  Bell, Check, Flame, Loader2, MapPin, RotateCcw, StickyNote, Utensils,
+  AlertTriangle, Bell, Check, Flame, Loader2, MapPin, RotateCcw, StickyNote, Utensils,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RecipeSection } from './recipe-section';
@@ -314,6 +314,7 @@ function TicketItem({ item, recipeDefaultOpen, storageKey }) {
   const name = item.item_name || item.name || 'Item';
   const qty = Number(item.quantity ?? 1);
   const variations = Array.isArray(item.variations) ? item.variations : [];
+  const allergens = Array.isArray(item.allergens) ? item.allergens : [];
   const statusKey = item.status || item.item_status || null;
   const status = ITEM_STATUS_STYLES[statusKey] || null;
 
@@ -347,6 +348,22 @@ function TicketItem({ item, recipeDefaultOpen, storageKey }) {
           </span>
         </div>
       </div>
+
+      {/* Allergens — safety-critical, rendered in red and high in the row */}
+      {allergens.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-red-500/50 bg-red-950/40 px-2 py-1.5">
+          <AlertTriangle className="size-4 shrink-0 text-red-400" aria-hidden="true" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-red-400">Allergens</span>
+          {allergens.map((a, i) => (
+            <span
+              key={`${a}-${i}`}
+              className="rounded-full bg-red-500/25 px-2 py-0.5 text-xs font-bold text-red-200 ring-1 ring-inset ring-red-500/50"
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Variations / modifiers */}
       {variations.length > 0 && (
