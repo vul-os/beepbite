@@ -313,6 +313,15 @@ func main() {
 	})
 	r.Handle("/metrics", obsReg.Handler()) // Prometheus scrape
 
+	// The marketing/docs site is optional. A build without it simply does not
+	// register the route rather than failing to start — the API is the
+	// product, the site is a convenience.
+	if site := newSiteHandler(); site != nil {
+		r.Handle("/site/*", http.StripPrefix("/site/", site))
+	} else {
+		log.Printf("beepbite: no site/ directory found; /site/ not served")
+	}
+
 	r.Route("/auth", func(r chi.Router) {
 		authH.Mount(r)
 		staffAuthH.Mount(r)
