@@ -54,6 +54,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useMoney } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
 import { hasCapability, getStaff } from '@/services/pos';
 import { useAdjustmentReasons } from '@/components/order-adjustments/use-adjustment-reasons';
@@ -125,13 +126,16 @@ function AdjustmentFlow({
   onClose,
 }) {
   const { toast } = useToast();
+  const { format, parse, symbol, scale, decimals } = useMoney();
 
   const [step, setStep]           = useState(STEP_PICK);
   const [adjType, setAdjType]     = useState(null);
   const [reasonCode, setReasonCode] = useState('');
   const [reasonObj, setReasonObj]   = useState(null);
-  const [newPriceDollars, setNewPriceDollars] = useState(
-    currentPriceCents != null ? (currentPriceCents / 100).toFixed(2) : '',
+  // Held as a major-unit string because that is what the <input type="number">
+  // carries; it is converted back through the currency, never through 100.
+  const [newPriceMajor, setNewPriceMajor] = useState(
+    currentPriceCents != null ? (currentPriceCents / scale).toFixed(decimals) : '',
   );
 
   // Manager step
@@ -188,8 +192,8 @@ function AdjustmentFlow({
   function handleNext() {
     if (!adjType || !reasonCode) return;
     if (adjType === 'price_override') {
-      const p = parseFloat(newPriceDollars);
-      if (isNaN(p) || p < 0) return;
+      const p = parse(newPriceMajor);
+      if (p == null || p < 0) return;
     }
     if (reasonObj?.requires_manager_approval) {
       setStep(STEP_MANAGER);
@@ -212,7 +216,7 @@ function AdjustmentFlow({
     };
 
     if (adjType === 'price_override') {
-      body.new_price_cents = Math.round(parseFloat(newPriceDollars) * 100);
+      body.new_price_cents = parse(newPriceMajor) ?? 0;
     }
 
     let endpoint;
@@ -260,7 +264,7 @@ function AdjustmentFlow({
   const step1Valid =
     adjType &&
     reasonCode &&
-    (adjType !== 'price_override' || (newPriceDollars !== '' && parseFloat(newPriceDollars) >= 0));
+    (adjType !== 'price_override' || (newPriceMajor !== '' && (parse(newPriceMajor) ?? -1) >= 0));
 
   const step2Valid = approverStaffId && approverPin.length >= 4;
 
@@ -357,19 +361,19 @@ function AdjustmentFlow({
               {adjType === 'price_override' && (
                 <div className="space-y-1">
                   <Label className="text-[11px] font-semibold text-gray-600">
-                    New price (R)
+                    New price ({symbol})
                     {currentPriceCents != null && (
                       <span className="ml-1 font-normal text-gray-400">
-                        — current: R {(currentPriceCents / 100).toFixed(2)}
+                        — current: {format(currentPriceCents)}
                       </span>
                     )}
                   </Label>
                   <Input
                     type="number"
                     min="0"
-                    step="0.01"
-                    value={newPriceDollars}
-                    onChange={(e) => setNewPriceDollars(e.target.value)}
+                    step={String(1 / scale)}
+                    value={newPriceMajor}
+                    onChange={(e) => setNewPriceMajor(e.target.value)}
                     className="h-8 text-xs"
                     placeholder="0.00"
                   />

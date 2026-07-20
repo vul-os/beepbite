@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/locations"
 )
 
 // Sentinel errors mapped to HTTP status codes in handler.go.
@@ -19,6 +21,16 @@ type Store struct {
 }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+// tzFor returns the location's IANA timezone name for use as a Postgres
+// AT TIME ZONE operand, falling back to "UTC" when it cannot be resolved.
+func (s *Store) tzFor(ctx context.Context, locationID string) string {
+	settings, err := locations.SettingsFor(ctx, s.pool, locationID)
+	if err != nil || settings.Timezone == "" {
+		return "UTC"
+	}
+	return settings.Timezone
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -158,6 +170,11 @@ RETURNING id, inventory_item_id, quantity, waste_reason, notes, created_at
 // ---------------------------------------------------------------------------
 
 // ListWaste returns waste movements for a location filtered by time range.
+//
+// since/until are inclusive local calendar dates, interpreted in the location's
+// timezone so that this list and WasteReport below cover exactly the same
+// events. Compared as raw timestamps they would be resolved in the Postgres
+// session zone, and the list would show rows the report omitted.
 func (s *Store) ListWaste(ctx context.Context, locationID, since, until string) ([]WasteMovement, error) {
 	args := []any{locationID}
 	query := `
@@ -174,16 +191,23 @@ SELECT sm.id,
  WHERE ii.location_id  = $1
    AND sm.movement_type = 'waste'`
 
+	// The timezone is only bound when a date filter actually uses it: Postgres
+	// rejects a statement supplied more parameters than it references.
 	argIdx := 2
-	if since != "" {
-		query += " AND sm.created_at >= $" + itoa(argIdx)
-		args = append(args, since)
+	if since != "" || until != "" {
+		args = append(args, s.tzFor(ctx, locationID))
+		tzIdx := itoa(argIdx)
 		argIdx++
-	}
-	if until != "" {
-		query += " AND sm.created_at <= $" + itoa(argIdx)
-		args = append(args, until)
-		argIdx++
+		if since != "" {
+			query += " AND (sm.created_at AT TIME ZONE $" + tzIdx + ")::date >= $" + itoa(argIdx) + "::date"
+			args = append(args, since)
+			argIdx++
+		}
+		if until != "" {
+			query += " AND (sm.created_at AT TIME ZONE $" + tzIdx + ")::date <= $" + itoa(argIdx) + "::date"
+			args = append(args, until)
+			argIdx++
+		}
 	}
 	query += " ORDER BY sm.created_at DESC LIMIT 500"
 
@@ -208,26 +232,36 @@ SELECT sm.id,
 }
 
 // WasteReport aggregates waste by reason and day for a location.
+//
+// The day a waste event belongs to is the local one. Grouped in UTC, an LA
+// kitchen's evening close-down waste — thrown away after 16:00 local — is
+// reported against the following day, so the day a chef over-prepped and the
+// day the report blames never line up.
+//
+// `since` and `until` are inclusive local calendar dates, compared against the
+// same locally-derived date as the group key so the filter and the buckets
+// agree.
 func (s *Store) WasteReport(ctx context.Context, locationID, since, until string) ([]WasteReportRow, error) {
-	args := []any{locationID}
+	tz := s.tzFor(ctx, locationID)
+	args := []any{locationID, tz}
 	query := `
 SELECT sm.waste_reason,
-       to_char(sm.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
-       SUM(ABS(sm.quantity))                                     AS total_qty,
-       SUM(ABS(sm.quantity) * COALESCE(sm.unit_cost, 0))        AS total_value
+       to_char(sm.created_at AT TIME ZONE $2, 'YYYY-MM-DD') AS day,
+       SUM(ABS(sm.quantity))                                AS total_qty,
+       SUM(ABS(sm.quantity) * COALESCE(sm.unit_cost, 0))    AS total_value
   FROM stock_movements sm
   JOIN inventory_items ii ON ii.id = sm.inventory_item_id
  WHERE ii.location_id   = $1
    AND sm.movement_type = 'waste'`
 
-	argIdx := 2
+	argIdx := 3
 	if since != "" {
-		query += " AND sm.created_at >= $" + itoa(argIdx)
+		query += " AND (sm.created_at AT TIME ZONE $2)::date >= $" + itoa(argIdx) + "::date"
 		args = append(args, since)
 		argIdx++
 	}
 	if until != "" {
-		query += " AND sm.created_at <= $" + itoa(argIdx)
+		query += " AND (sm.created_at AT TIME ZONE $2)::date <= $" + itoa(argIdx) + "::date"
 		args = append(args, until)
 		argIdx++
 	}

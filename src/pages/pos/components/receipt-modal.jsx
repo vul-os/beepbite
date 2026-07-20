@@ -44,7 +44,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { formatPrice } from '@/lib/currency';
+import { formatMoney } from '@/lib/currency';
 import { fetchReceipt } from '@/services/receipts';
 
 // ---------------------------------------------------------------------------
@@ -105,8 +105,19 @@ function Row({ label, value, bold = false, indent = false, accent = false }) {
 // ---------------------------------------------------------------------------
 
 function ReceiptPaper({ receipt, printId }) {
-  const currency = receipt.currency_code || 'ZAR';
-  const fmt = (cents) => formatPrice(cents ?? 0, currency);
+  // The RECEIPT's own currency, not the operator's current one. A receipt is a
+  // record of a completed sale: reprinting one from a branch that trades in a
+  // different currency — or after the operator changed theirs — must show the
+  // money that was actually taken.
+  //
+  // There is deliberately no fallback. This was `|| 'ZAR'`, which stamped rand
+  // onto any receipt whose order predated currency_code being populated. A
+  // receipt is a customer-facing financial document; printing a currency nobody
+  // verified onto one is worse than printing a bare number, which is what
+  // formatMoney does when the code is empty.
+  const currency = receipt.currency_code || '';
+  const locale = receipt.locale || '';
+  const fmt = (cents) => formatMoney(cents ?? 0, { currency, locale });
 
   return (
     <div

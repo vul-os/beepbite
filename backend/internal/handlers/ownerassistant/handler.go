@@ -34,11 +34,13 @@ import (
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/llm"
+	"github.com/beepbite/backend/internal/locations"
 )
 
 // Handler is the HTTP handler for the owner assistant.
 type Handler struct {
 	store *Store
+	pool  *pgxpool.Pool // resolves a location's currency for money in replies
 	llmR  *llm.Router
 	aiSvc *ai.Service
 }
@@ -50,6 +52,7 @@ type Handler struct {
 func NewHandler(pool *pgxpool.Pool, llmRouter *llm.Router, aiSvc *ai.Service) *Handler {
 	return &Handler{
 		store: NewStore(pool),
+		pool:  pool,
 		llmR:  llmRouter,
 		aiSvc: aiSvc,
 	}
@@ -207,12 +210,21 @@ func (h *Handler) handleDirectCommand(ctx context.Context, msg, locationID, orgI
 		if err != nil {
 			return "", nil, err
 		}
+		// Settings.Format applies the location's own currency, exponent and
+		// number conventions. The hand-rolled "R%.2f" it replaces told a Tokyo
+		// owner their ¥120,000 day was "R1200.00" — wrong symbol, wrong
+		// magnitude. An error here fails the command rather than guessing:
+		// an owner acting on a takings figure needs it to be right.
+		set, sErr := locations.SettingsFor(ctx, h.pool, locationID)
+		if sErr != nil {
+			return "", nil, sErr
+		}
 		reply := fmt.Sprintf(
-			"Today's sales: %d orders | Gross R%.2f | Net R%.2f | Avg R%.2f per order",
+			"Today's sales: %d orders | Gross %s | Net %s | Avg %s per order",
 			row.OrderCount,
-			float64(row.GrossSalesCents)/100,
-			float64(row.NetSalesCents)/100,
-			float64(row.AvgOrderValueCents)/100,
+			set.Format(row.GrossSalesCents),
+			set.Format(row.NetSalesCents),
+			set.Format(row.AvgOrderValueCents),
 		)
 		return reply, nil, nil
 
@@ -614,11 +626,18 @@ func (h *Handler) executeTool(ctx context.Context, tc llm.ToolCall, locationID, 
 		if err != nil {
 			return "", nil, err
 		}
-		return fmt.Sprintf("Today: %d orders | Gross R%.2f | Net R%.2f | Avg R%.2f",
+		// Same reasoning as the /sales command above: the currency belongs to
+		// the location, and an LLM tool result that misstates takings is worse
+		// than one that errors.
+		set, sErr := locations.SettingsFor(ctx, h.pool, locationID)
+		if sErr != nil {
+			return "", nil, sErr
+		}
+		return fmt.Sprintf("Today: %d orders | Gross %s | Net %s | Avg %s",
 			row.OrderCount,
-			float64(row.GrossSalesCents)/100,
-			float64(row.NetSalesCents)/100,
-			float64(row.AvgOrderValueCents)/100,
+			set.Format(row.GrossSalesCents),
+			set.Format(row.NetSalesCents),
+			set.Format(row.AvgOrderValueCents),
 		), nil, nil
 
 	case "view_kds_status":

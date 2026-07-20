@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Search, RefreshCw } from 'lucide-react';
+import { useMoney, useDateTime } from '@/context/locale-context';
 
 // Map backend status values to badge variants.
 const STATUS_VARIANT = {
@@ -17,34 +18,26 @@ const STATUS_VARIANT = {
   fraud_hold: 'destructive',
 };
 
-function formatCurrency(cents, currency = 'ZAR') {
-  const major = cents / 100;
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(major);
-}
-
-function formatDate(iso) {
-  if (!iso) return 'Never';
-  return new Date(iso).toLocaleDateString('en-ZA', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 /**
  * LookupCard — the "Lookup" tab content.
  * Handles lookup, reload, and refund actions for a found card.
  */
 export function LookupCard() {
+  // A card carries its own currency, which may differ from the active
+  // location's (a gift card sold before a currency change); the card's own
+  // value wins whenever one is loaded, falling back to the active location's
+  // only before a lookup has returned a card.
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [card, setCard] = useState(null); // LookupResult
+  const { format: formatCurrency, parse: parseAmount } = useMoney({
+    currency: card?.currency,
+  });
+  const { formatDate } = useDateTime();
+  const fmtExpiry = (iso) =>
+    iso ? formatDate(iso, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never';
 
   // Reload sub-form state
   const [reloadAmount, setReloadAmount] = useState('');
@@ -82,8 +75,11 @@ export function LookupCard() {
 
   async function handleReload(e) {
     e.preventDefault();
-    const cents = Math.round(parseFloat(reloadAmount) * 100);
-    if (!cents || cents <= 0) {
+    // parseAmount understands the currency's own exponent and the operator's
+    // decimal mark, and returns null on a typo like '12.345' in a 2-decimal
+    // currency rather than silently charging 1234.
+    const cents = parseAmount(reloadAmount);
+    if (cents === null || cents <= 0) {
       setReloadError('Enter a valid amount.');
       return;
     }
@@ -112,14 +108,14 @@ export function LookupCard() {
       current_balance_cents: data.balance_after_cents,
     }));
     setReloadAmount('');
-    setReloadSuccess(`Reloaded ${formatCurrency(cents, card.currency)}. New balance: ${formatCurrency(data.balance_after_cents, card.currency)}`);
+    setReloadSuccess(`Reloaded ${formatCurrency(cents)}. New balance: ${formatCurrency(data.balance_after_cents)}`);
     setReloadLoading(false);
   }
 
   async function handleRefund(e) {
     e.preventDefault();
-    const cents = Math.round(parseFloat(refundAmount) * 100);
-    if (!cents || cents <= 0) {
+    const cents = parseAmount(refundAmount);
+    if (cents === null || cents <= 0) {
       setRefundError('Enter a valid amount.');
       return;
     }
@@ -148,7 +144,7 @@ export function LookupCard() {
     }));
     setRefundAmount('');
     setRefundNotes('');
-    setRefundSuccess(`Refunded ${formatCurrency(cents, card.currency)}. New balance: ${formatCurrency(data.balance_after_cents, card.currency)}`);
+    setRefundSuccess(`Refunded ${formatCurrency(cents)}. New balance: ${formatCurrency(data.balance_after_cents)}`);
     setRefundLoading(false);
   }
 
@@ -218,7 +214,7 @@ export function LookupCard() {
               <div>
                 <p className="text-muted-foreground text-xs mb-0.5">Balance</p>
                 <p className="font-semibold text-lg">
-                  {formatCurrency(card.current_balance_cents, card.currency)}
+                  {formatCurrency(card.current_balance_cents)}
                 </p>
               </div>
               <div>
@@ -227,7 +223,7 @@ export function LookupCard() {
               </div>
               <div>
                 <p className="text-muted-foreground text-xs mb-0.5">Expires</p>
-                <p className="font-medium">{formatDate(card.expires_at)}</p>
+                <p className="font-medium">{fmtExpiry(card.expires_at)}</p>
               </div>
             </div>
 

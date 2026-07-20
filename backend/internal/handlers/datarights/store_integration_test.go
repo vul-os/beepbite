@@ -70,46 +70,46 @@ func seedOrg(t *testing.T, ctx context.Context, label string) string {
 	return id
 }
 
-// seedRegion ensures a ZA region row exists (referenced by locations).
-// Uses ON CONFLICT DO NOTHING so parallel tests are safe.
+// seedRegion is retained as a no-op shim.
+//
+// It used to look up (and, failing that, insert) a row in a `regions` table
+// carrying South Africa's currency, timezone and 15% VAT — a table that does
+// not exist in the current migration set; it survives only under
+// migrations/legacy. Because a missing relation raises an error that is not
+// pgx.ErrNoRows, the fallback never fired and every test in this file failed at
+// setup.
+//
+// Locale now lives on the location itself (migration 056), so there is nothing
+// to seed. The shim keeps the call sites readable rather than deleting a
+// parameter from every one of them.
 func seedRegion(t *testing.T, ctx context.Context) string {
 	t.Helper()
-	var id string
-	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		// Prefer existing ZA region (seeded by migration 014).
-		scanErr := tx.QueryRow(ctx,
-			`SELECT id FROM regions WHERE code = 'ZA' LIMIT 1`,
-		).Scan(&id)
-		if scanErr == nil {
-			return nil // already exists
-		}
-		if !errors.Is(scanErr, pgx.ErrNoRows) {
-			return scanErr
-		}
-		// Insert a minimal region if the seed migration wasn't run.
-		return tx.QueryRow(ctx, `
-INSERT INTO regions (code, name, currency, timezone, default_tax_rate, default_tax_name)
-VALUES ('ZA', 'South Africa', 'ZAR', 'Africa/Johannesburg', 15.00, 'VAT')
-ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
-RETURNING id`,
-		).Scan(&id)
-	})
-	if err != nil {
-		t.Fatalf("seedRegion: %v", err)
-	}
-	return id
+	return ""
 }
 
 // seedLocation inserts a location row for orgID.
+// seedLocation inserts a location configured for JAPAN, not South Africa.
+//
+// The fixture deliberately uses a zero-decimal currency (JPY), a non-UTC
+// timezone and a tax label that is not "VAT". A fixture in the developer's own
+// country cannot catch a hardcoded /100 or a UTC day boundary, which is exactly
+// how those bugs survived.
+//
+// regionID is accepted and ignored; see seedRegion.
 func seedLocation(t *testing.T, ctx context.Context, orgID, regionID string) string {
+	_ = regionID
 	t.Helper()
 	var id string
 	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
-INSERT INTO locations (organization_id, region_id, name)
-VALUES ($1, $2, 'Test Location')
+INSERT INTO locations (
+    organization_id, name, country, currency_code, timezone, locale,
+    tax_rate, tax_inclusive, tax_label, phone_country_code
+)
+VALUES ($1, 'Test Location', 'JP', 'JPY', 'Asia/Tokyo', 'ja-JP',
+        10.00, true, '消費税', '81')
 RETURNING id`,
-			orgID, regionID,
+			orgID,
 		).Scan(&id)
 	})
 	if err != nil {

@@ -341,7 +341,7 @@ const DocsIndex = () => {
               {[
                 {
                   q: 'WhatsApp notification not sending',
-                  a: 'Check the customer phone number includes a country code (e.g. +27...) and that your WhatsApp Business number is verified.',
+                  a: "Check the customer phone number includes a country code (a '+' followed by the dialling code) and that your WhatsApp Business number is verified.",
                 },
                 {
                   q: 'Card payment declined',
@@ -376,17 +376,21 @@ const DocsIndex = () => {
                 <div className="text-xs text-gray-500">Email</div>
                 <div className="text-sm font-bold text-gray-900">support@beepbite.io</div>
               </a>
+              {/* Deliberately not a wa.me link. The support number this used to
+                  hardcode was South African, and the obvious replacement — a
+                  placeholder wa.me short link — is worse than none: it looks
+                  clickable and 404s. Email is the one support channel that is
+                  real and country-neutral, so this points at it until a
+                  verified WhatsApp support number exists to link to. */}
               <a
-                href="https://wa.me/27118765432"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="mailto:support@beepbite.io?subject=WhatsApp%20support"
                 className="rounded-xl bg-white border border-emerald-200 p-3 hover:border-emerald-300 hover:shadow-sm transition-all"
               >
                 <div className="text-xs text-gray-500 flex items-center gap-1">
                   <WhatsAppIcon className="w-3 h-3 text-emerald-500" />
                   WhatsApp
                 </div>
-                <div className="text-sm font-bold text-gray-900">+27 11 876 5432</div>
+                <div className="text-sm font-bold text-gray-900">Ask us to set up WhatsApp</div>
               </a>
             </div>
             <div className="mt-4">

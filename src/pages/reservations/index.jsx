@@ -12,19 +12,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
+import { useDateTime } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
 import ReservationCard from './components/reservation-card';
 import ReservationForm from './components/reservation-form';
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function ReservationsPage() {
   const { activeLocation } = useAuth();
+  const { today } = useDateTime();
   const locationId = activeLocation?.id;
 
-  const [date, setDate] = useState(todayISO());
+  // The store's local trading date, not `new Date().toISOString().slice(0, 10)`
+  // (the UTC date — wrong for most of the day in most timezones).
+  const [date, setDate] = useState(today());
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

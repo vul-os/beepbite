@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api-client';
 import { applyOrderAdjustment, getStaff } from '@/services/pos';
+import { useMoney } from '@/context/locale-context';
 
 const REASONS = [
   { value: 'refund', label: 'Refund' },
@@ -64,6 +65,9 @@ export default function ReturnModal({
   initialOrder = null,
   onSuccess,
 }) {
+  // Line totals arrive as major-unit floats; `scale` is 1 in JPY, 1000 in KWD.
+  const { format, scale } = useMoney();
+
   // ---- order lookup state ----
   const [orderQuery, setOrderQuery] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -293,7 +297,7 @@ export default function ReturnModal({
                             {oi.item_name || oi.name || `Item ${oi.id?.slice(0, 6)}`}
                           </p>
                           <p className="text-xs text-gray-500 tabular-nums">
-                            Qty {oi.quantity} · R{parseFloat(oi.total_price || 0).toFixed(2)}
+                            Qty {oi.quantity} · {format(Math.round(parseFloat(oi.total_price || 0) * scale))}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5">

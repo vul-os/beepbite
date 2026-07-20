@@ -26,6 +26,14 @@ import {
   Settings
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { formatMoney, currencyScale } from "@/lib/currency";
+
+// This preview's prices/revenue are illustrative sample data, not tied to any
+// real store — no currency is assumed (see src/lib/currency.js). Mock values
+// stay major-unit floats and are scaled to minor units right before
+// formatMoney renders them, the same convention real money uses elsewhere.
+const DEMO_MONEY_SCALE = currencyScale();
+const money = (major) => formatMoney(Math.round((major || 0) * DEMO_MONEY_SCALE));
 
 const MenuManagementPreview = ({ className }) => {
   const [activeTab, setActiveTab] = useState('inventory');
@@ -376,7 +384,7 @@ const MenuManagementPreview = ({ className }) => {
 
                                 {/* Price and Sales */}
                                 <div className="flex justify-between text-xs">
-                                  <span className="text-gray-600">Price: <span className="font-medium text-purple-600">R{item.price.toFixed(2)}</span></span>
+                                  <span className="text-gray-600">Price: <span className="font-medium text-purple-600">{money(item.price)}</span></span>
                                   <span className="text-gray-600">Sold: <span className="font-medium">{item.sold_today}</span></span>
                                 </div>
                               </div>
@@ -405,7 +413,7 @@ const MenuManagementPreview = ({ className }) => {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm text-gray-600">Revenue Today</p>
-                            <p className="text-xl font-bold text-green-600">R{totalRevenue.toFixed(2)}</p>
+                            <p className="text-xl font-bold text-green-600">{money(totalRevenue)}</p>
                           </div>
                           <DollarSign className="w-8 h-8 text-green-600" />
                         </div>
@@ -501,7 +509,7 @@ const MenuManagementPreview = ({ className }) => {
                           </div>
                           <div className="text-right">
                             <p className="font-medium text-sm">{item.sold_today} sold</p>
-                            <p className="text-xs text-gray-500">R{(item.price * item.sold_today).toFixed(2)}</p>
+                            <p className="text-xs text-gray-500">{money(item.price * item.sold_today)}</p>
                           </div>
                         </motion.div>
                       ))}

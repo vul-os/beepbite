@@ -12,7 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/tax"
 )
 
 // Sentinel errors mapped to HTTP status codes by Handler.
@@ -107,17 +110,31 @@ func (s *Store) OpenTab(
 			return err
 		}
 
+		// The location's currency, timezone and tax posture in one cached
+		// query — the tab's day boundary, tax rate and currency all come from
+		// here rather than from literals.
+		settings, err := locations.SettingsFor(ctx, s.pool, locationID)
+		if err != nil {
+			return fmt.Errorf("resolving location settings: %w", err)
+		}
+
 		// Generate a short per-day order number:
 		//   count all orders at this location today + 1 → "1", "2", …
 		// This mirrors the pattern used by the pos package.
+		//
+		// "Today" is the location's TRADING day (migration 057's
+		// orders.business_date), not the UTC day. Comparing UTC day
+		// truncations rolled the tab numbering over at 02:00 in Johannesburg
+		// and at 16:00 — mid-service — in Los Angeles.
+		businessDate := bizday.Date(time.Now(), settings.Zone())
+
 		var seq int64
 		if err := tx.QueryRow(ctx, `
 			SELECT COUNT(*) + 1
 			FROM orders
 			WHERE location_id = $1
-			  AND date_trunc('day', created_at AT TIME ZONE 'UTC')
-			    = date_trunc('day', now() AT TIME ZONE 'UTC')
-		`, locationID).Scan(&seq); err != nil {
+			  AND business_date = $2::date
+		`, locationID, businessDate).Scan(&seq); err != nil {
 			return err
 		}
 		orderNumber := fmt.Sprintf("%d", seq)
@@ -143,7 +160,9 @@ func (s *Store) OpenTab(
 				tax_cents,
 				total_cents,
 				tax_rate,
-				tax_inclusive
+				tax_inclusive,
+				currency_code,
+				business_date
 			) VALUES (
 				$1, $2, $3,
 				'confirmed',
@@ -153,8 +172,10 @@ func (s *Store) OpenTab(
 				$4,
 				$5,
 				0, 0, 0, 0, 0,
-				15.00,
-				true
+				$6,
+				$7,
+				$8,
+				$9::date
 			)
 			RETURNING
 				id, order_number, location_id, organization_id,
@@ -164,9 +185,16 @@ func (s *Store) OpenTab(
 				0::bigint AS item_count,
 				created_at, updated_at`
 
+		// The tax rate and inclusive flag are snapshotted from the location's
+		// configuration. They were literals — 15.00 and true — i.e. South
+		// African VAT, hardcoded into every tab opened anywhere in the world,
+		// bypassing the tax resolution the rest of the POS already did.
 		return scanTab(tx.QueryRow(ctx, q,
 			locationID, orgID, orderNumber,
 			nullTabName, nullCustomer,
+			settings.Tax.Rate.Percent(), settings.Tax.Inclusive,
+			nullStr(settings.Currency.Code),
+			businessDate,
 		), &t)
 	})
 	if err != nil {
@@ -353,21 +381,19 @@ func (s *Store) AppendItems(
 			return err
 		}
 
-		// Tax computation — mirrors the POS store convention:
-		//   inclusive (e.g. South African VAT 15%):
-		//     tax_cents   = round(subtotal * rate / (100 + rate))
-		//     total_cents = subtotal  (tax is already embedded)
-		//   exclusive:
-		//     tax_cents   = round(subtotal * rate / 100)
-		//     total_cents = subtotal + tax_cents
-		var taxCents, totalCents int64
-		if taxInclusive {
-			taxCents = int64(float64(subtotalCents) * taxRate / (100.0 + taxRate))
-			totalCents = subtotalCents
-		} else {
-			taxCents = int64(float64(subtotalCents) * taxRate / 100.0)
-			totalCents = subtotalCents + taxCents
-		}
+		// Tax is recomputed from the rate and convention SNAPSHOTTED on this
+		// tab when it was opened, so a mid-service settings change cannot
+		// restate a tab a customer is already sitting behind.
+		//
+		// The arithmetic moved to internal/tax: the previous version used
+		// float64 and int64() truncation rather than rounding, which biased
+		// every tab's tax down by up to a cent and made a refund fail to mirror
+		// its sale.
+		taxed := tax.Config{
+			Rate:      tax.RateFromPercent(taxRate),
+			Inclusive: taxInclusive,
+		}.Compute(subtotalCents)
+		taxCents, totalCents := taxed.Tax, taxed.Gross
 
 		// Update the order's financial summary.
 		if _, err := tx.Exec(ctx, `

@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { DenominationGrid } from './denomination-grid';
 import { api } from '@/lib/api-client';
+import { useMoney } from '@/context/locale-context';
 import { Loader2, LockKeyhole } from 'lucide-react';
 
 /**
@@ -25,6 +26,8 @@ import { Loader2, LockKeyhole } from 'lucide-react';
  *   staffId: string
  *   expectedCents: number
  *   onClosed: (closedSession) => void
+ *
+ * Requires LocaleProvider above it.
  */
 export function CloseSessionModal({
   open,
@@ -34,6 +37,7 @@ export function CloseSessionModal({
   expectedCents,
   onClosed,
 }) {
+  const { format, parse, symbol, scale, decimals } = useMoney();
   const [denomCounts, setDenomCounts] = useState({});
   const [denomTotalCents, setDenomTotalCents] = useState(0);
   const [useDenomsForTotal, setUseDenomsForTotal] = useState(false);
@@ -51,7 +55,7 @@ export function CloseSessionModal({
 
   const declaredCents = useDenomsForTotal
     ? denomTotalCents
-    : Math.round(parseFloat(manualCents || '0') * 100);
+    : parse(manualCents) ?? 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,7 +96,7 @@ export function CloseSessionModal({
           </DialogTitle>
           {!isBlind && (
             <DialogDescription>
-              Expected balance: R{(expectedCents / 100).toFixed(2)}
+              Expected balance: {format(expectedCents)}
             </DialogDescription>
           )}
           {isBlind && (
@@ -119,13 +123,14 @@ export function CloseSessionModal({
             <DenominationGrid counts={denomCounts} onChange={handleDenomChange} />
           ) : (
             <div className="space-y-1">
-              <Label htmlFor="declared-amount">Declared closing amount (R)</Label>
+              <Label htmlFor="declared-amount">Declared closing amount ({symbol})</Label>
               <input
                 id="declared-amount"
                 type="number"
                 min="0"
-                step="0.01"
-                placeholder="0.00"
+                // One minor unit. A fixed 0.01 makes a JPY till reject ¥1.
+                step={(1 / scale).toFixed(decimals)}
+                placeholder={(0).toFixed(decimals)}
                 value={manualCents}
                 onChange={(e) => setManualCents(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
@@ -136,7 +141,7 @@ export function CloseSessionModal({
           {/* Declared total preview */}
           <div className="flex justify-between text-sm rounded-md bg-muted px-3 py-2">
             <span className="text-muted-foreground">Your declared total</span>
-            <span className="font-semibold">R{(declaredCents / 100).toFixed(2)}</span>
+            <span className="font-semibold">{format(declaredCents)}</span>
           </div>
 
           {/* Notes */}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useMoney } from '@/context/locale-context';
 
 const TYPE_LABELS = {
   paid_in:    { label: 'Paid In',    color: 'bg-green-100 text-green-800 border-green-200' },
@@ -14,11 +15,6 @@ const TYPE_LABELS = {
 };
 
 const PAGE_SIZE = 10;
-
-function fmt(cents) {
-  const sign = cents < 0 ? '-' : '+';
-  return `${sign}R${(Math.abs(cents) / 100).toFixed(2)}`;
-}
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -35,9 +31,17 @@ function fmtDate(iso) {
  *
  * Props:
  *   movements: array of movement objects from the session detail
+ *
+ * Requires LocaleProvider above it.
  */
 export function MovementsList({ movements = [] }) {
+  const { format } = useMoney();
   const [page, setPage] = useState(1);
+
+  // Explicit +/- prefix on an absolute amount: an inflow needs a visible '+',
+  // which no currency format supplies.
+  const fmtSigned = (cents) =>
+    `${cents < 0 ? '-' : '+'}${format(Math.abs(cents))}`;
 
   if (movements.length === 0) {
     return (
@@ -68,7 +72,7 @@ export function MovementsList({ movements = [] }) {
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-2">
               <span className={`font-mono font-medium ${positive ? 'text-green-700' : 'text-red-700'}`}>
-                {fmt(m.amount_cents)}
+                {fmtSigned(m.amount_cents)}
               </span>
               <span className="text-xs text-muted-foreground">{fmtDate(m.created_at)}</span>
             </div>

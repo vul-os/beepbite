@@ -12,10 +12,20 @@
 //     subtotal:    number,   // cents
 //     tax:         number,   // cents
 //     total:       number,   // cents
-//     currency:    string,   // e.g. 'ZAR'
+//     currency:    string,   // ISO 4217, e.g. 'ZAR' — see note below
+//     locale?:     string,   // BCP-47, e.g. 'ja-JP' — see note below
 //     tipOptions?: number[], // cents, for the optional tip selector
 //     selectedTip?: number,  // cents — last tip chosen by customer
 //   }
+//
+// CURRENCY COMES OVER THE WIRE, NOT FROM CONTEXT
+//
+// This route is opened as a standalone window, so it may render outside any
+// LocaleProvider — there is nothing in this tree to ask what currency the store
+// trades in. It therefore takes `currency` and `locale` off the broadcast
+// payload and formats with them directly. If the publisher omits them the
+// amounts render as bare numbers, which is the honest outcome: guessing a
+// currency here would print the customer's total in somebody else's money.
 //
 // The tip selector (optional) lets the customer pick a preset tip amount.
 // When they tap a tip button the display broadcasts back:
@@ -29,18 +39,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Monitor, Receipt, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatMoney } from '@/lib/currency';
 
 const CHANNEL_NAME = 'bb_customer_display';
 const STORAGE_KEY = 'bb.customer_display_state';
-
-// ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
-
-function formatCurrency(cents, currency = 'ZAR') {
-  const symbol = currency === 'ZAR' ? 'R' : currency + ' ';
-  return `${symbol}${(cents / 100).toFixed(2)}`;
-}
 
 // ---------------------------------------------------------------------------
 // BroadcastChannel + localStorage sync
@@ -112,6 +114,13 @@ function useDisplayState() {
 export default function CustomerDisplay() {
   const { state, broadcastTip } = useDisplayState();
 
+  const currency = state?.currency;
+  const locale = state?.locale;
+  const money = useCallback(
+    (cents) => formatMoney(cents, { currency, locale }),
+    [currency, locale],
+  );
+
   if (!state || !state.items || state.items.length === 0) {
     return <IdleScreen />;
   }
@@ -138,7 +147,7 @@ export default function CustomerDisplay() {
                   <p className="text-sm text-muted-foreground">× {item.qty}</p>
                 </div>
                 <p className="font-medium tabular-nums">
-                  {formatCurrency(item.unitCents * item.qty, state.currency)}
+                  {money(item.unitCents * item.qty)}
                 </p>
               </div>
             ))}
@@ -149,27 +158,24 @@ export default function CustomerDisplay() {
         <section className="bg-muted rounded-lg p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span>Subtotal</span>
-            <span className="tabular-nums">{formatCurrency(state.subtotal, state.currency)}</span>
+            <span className="tabular-nums">{money(state.subtotal)}</span>
           </div>
           {state.tax > 0 && (
             <div className="flex justify-between text-sm">
               <span>Tax</span>
-              <span className="tabular-nums">{formatCurrency(state.tax, state.currency)}</span>
+              <span className="tabular-nums">{money(state.tax)}</span>
             </div>
           )}
           {state.selectedTip > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Tip</span>
-              <span className="tabular-nums">{formatCurrency(state.selectedTip, state.currency)}</span>
+              <span className="tabular-nums">{money(state.selectedTip)}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
             <span>Total</span>
             <span className="tabular-nums">
-              {formatCurrency(
-                (state.total ?? 0) + (state.selectedTip ?? 0),
-                state.currency,
-              )}
+              {money((state.total ?? 0) + (state.selectedTip ?? 0))}
             </span>
           </div>
         </section>
@@ -179,7 +185,7 @@ export default function CustomerDisplay() {
           <TipSelector
             options={state.tipOptions}
             selected={state.selectedTip ?? 0}
-            currency={state.currency}
+            format={money}
             onSelect={broadcastTip}
           />
         )}
@@ -210,7 +216,7 @@ function IdleScreen() {
 // Tip selector
 // ---------------------------------------------------------------------------
 
-function TipSelector({ options, selected, currency, onSelect }) {
+function TipSelector({ options, selected, format, onSelect }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -225,7 +231,7 @@ function TipSelector({ options, selected, currency, onSelect }) {
             className="h-14 text-base"
             onClick={() => onSelect(amt === selected ? 0 : amt)}
           >
-            {formatCurrency(amt, currency)}
+            {format(amt)}
           </Button>
         ))}
         <Button

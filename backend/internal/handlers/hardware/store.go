@@ -285,7 +285,12 @@ func (s *Store) GetOrderSnapshot(ctx context.Context, orderID string) (*OrderSna
 					0
 				),
 				o.total_cents,
-				COALESCE(o.currency_code, 'ZAR'),
+				-- No currency fallback. An order written before the location's
+				-- currency was configured has currency_code NULL; printing it as
+				-- rand would put "R 120.00" on a Lisbon or Tokyo kitchen ticket
+				-- and nothing on the paper would say the figure was invented.
+				-- '' flows through to money.Format, which prints the bare number.
+				COALESCE(o.currency_code, ''),
 				l.name,
 				l.address
 			FROM orders o

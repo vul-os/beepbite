@@ -46,6 +46,8 @@ import {
   voidInvoice,
   downloadInvoicePDF,
 } from '@/services/invoicing';
+import { useLocale } from '@/context/locale-context';
+import { formatMoney } from '@/lib/currency';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -56,15 +58,6 @@ function fmtDate(iso) {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function fmtCents(cents, currency) {
-  if (cents == null) return '—';
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency || 'ZAR',
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
 }
 
 const STATUS_VARIANT = {
@@ -90,6 +83,11 @@ const STATUS_LABEL = {
 export default function InvoiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { currency: activeCurrency, locale } = useLocale();
+  // fmtCents needs the reader's locale, which only the hook can supply, so it
+  // lives inside the component rather than as a module-level helper.
+  const fmtCents = (cents, currency) =>
+    cents == null ? '—' : formatMoney(cents, { currency, locale });
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -175,7 +173,7 @@ export default function InvoiceDetailPage() {
   }
 
   const inv = invoice;
-  const currency = inv.currency || 'ZAR';
+  const currency = inv.currency || activeCurrency || '';
   const isDraft = inv.status === 'draft';
   const isIssued = inv.status === 'sent' || inv.status === 'overdue';
   const lines = inv.lines ?? [];

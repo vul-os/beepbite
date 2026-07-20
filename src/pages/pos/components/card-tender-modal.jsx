@@ -11,10 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
-
-function formatRands(cents) {
-  return `R ${(cents / 100).toFixed(2)}`
-}
+import { useMoney } from "@/context/locale-context"
 
 export function CardTenderModal({
   open,
@@ -26,6 +23,7 @@ export function CardTenderModal({
 }) {
   const [reference, setReference] = useState("")
   const [confirmed, setConfirmed] = useState(false)
+  const { format } = useMoney()
 
   // Reset internal state each time the modal opens
   useEffect(() => {
@@ -62,7 +60,7 @@ export function CardTenderModal({
               Amount due
             </p>
             <p className="mt-1 text-3xl font-bold text-orange-500">
-              {formatRands(amountDueCents)}
+              {format(amountDueCents)}
             </p>
           </div>
 

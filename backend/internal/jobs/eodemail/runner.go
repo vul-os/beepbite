@@ -1,9 +1,20 @@
 // Package eodemail provides a daily end-of-day email summary job.
 //
 // Design notes:
-//   - Runs once per day at 21:00 local time (after the typical close-of-business
-//     window) by waiting for the next occurrence of that hour, matching the
-//     nextRunAt pattern used by auditretention and dunning.
+//   - Each location is sent its summary at 21:00 *in that location's own
+//     timezone*, covering that location's own trading day. Both halves used to
+//     be wrong in different ways: the day window was cut at UTC midnight while
+//     the schedule fired at 21:00 on the server's clock. For a Los Angeles
+//     store on a UTC server that meant an email at 13:00 local containing the
+//     sales from 16:00 the previous afternoon to 16:00 that afternoon — a
+//     "day" the owner has never worked and cannot reconcile against the till.
+//   - Because zones differ per location, the sweep wakes hourly and sends to
+//     the locations whose local clock has just reached 21:00, rather than
+//     waking once for a single global hour.
+//   - A restart inside the same hour that a location's 21:00 falls in can send
+//     that location a second copy of its summary; the job has no per-location
+//     sent-marker to key off. This is unchanged from the previous single-hour
+//     schedule and is the reason the summary is informational only.
 //   - A pg_try_advisory_lock (key=0xBEEF_0020) prevents concurrent runs when
 //     multiple replicas are deployed. The lock is session-scoped and released
 //     automatically when the dedicated connection is returned to the pool.
@@ -36,8 +47,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/email"
+	"github.com/beepbite/backend/internal/locations"
 )
 
 const (
@@ -52,9 +65,9 @@ const (
 	//  0xBEEF_0020  eodemail  ← this job
 	advisoryLockKey = int64(0xBEEF_0020)
 
-	// runHour is the local hour (0–23) at which the daily summary fires.
-	// 21:00 captures a full trading day while still arriving in the owner's
-	// inbox the same evening.
+	// runHour is the hour (0–23) *in the location's own timezone* at which
+	// that location's daily summary fires. 21:00 captures a full trading day
+	// while still arriving in the owner's inbox the same evening.
 	runHour = 21
 )
 
@@ -78,8 +91,8 @@ func NewRunner(pool *pgxpool.Pool, registry email.Registry) *Runner {
 func (r *Runner) Start(ctx context.Context) {
 	go func() {
 		for {
-			next := nextRunAt(runHour)
-			log.Printf("eodemail: next sweep scheduled at %s", next.Format(time.RFC3339))
+			next := nextTopOfHour(time.Now())
+			log.Printf("eodemail: next tick at %s", next.Format(time.RFC3339))
 
 			select {
 			case <-ctx.Done():
@@ -91,8 +104,9 @@ func (r *Runner) Start(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			if err := r.RunOnce(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				log.Printf("eodemail: RunOnce error: %v", err)
+			// onlyDue: send only to locations where it is now 21:00 locally.
+			if err := r.sweep(ctx, true); err != nil && !errors.Is(err, context.Canceled) {
+				log.Printf("eodemail: sweep error: %v", err)
 			}
 		}
 	}()
@@ -107,6 +121,14 @@ func (r *Runner) Start(ctx context.Context) {
 //  3. For each location compute today's day KPIs (gross, net, tax, tips, orders,
 //     new customers) and email the owner.
 func (r *Runner) RunOnce(ctx context.Context) error {
+	return r.sweep(ctx, false)
+}
+
+// sweep is the body of a run. When onlyDue is true it skips any location whose
+// local clock is not currently at runHour, which is how one hourly tick serves
+// stores in many timezones. RunOnce passes false so an operator or a test can
+// force a send regardless of the hour.
+func (r *Runner) sweep(ctx context.Context, onlyDue bool) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -141,21 +163,47 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 	log.Printf("eodemail: sending summaries for %d location(s)", len(locs))
 
 	// ── Step 3: per-location summary + email ─────────────────────────────────
-	now := time.Now().UTC()
-	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	dayEnd := dayStart.Add(24 * time.Hour)
+	//
+	// The day window is computed per location rather than once for the sweep:
+	// two locations in different zones are in different trading days at the
+	// same instant, and each owner's report must match their own till.
+	now := time.Now()
 
 	var lastErr error
 	for _, loc := range locs {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+
+		zone := r.zoneFor(ctx, loc.LocationID)
+		if onlyDue && now.In(zone).Hour() != runHour {
+			continue
+		}
+
+		// Half-open [dayStart, dayEnd) in the store's zone, stepped by calendar
+		// date so DST-shortened and DST-lengthened days keep their real length.
+		dayStart, dayEnd := bizday.Bounds(now, zone)
+
 		if err := r.processLocation(ctx, loc, dayStart, dayEnd); err != nil {
 			log.Printf("eodemail: location=%s (%s): %v", loc.LocationID, loc.LocationName, err)
 			lastErr = err
 		}
 	}
 	return lastErr
+}
+
+// zoneFor resolves a location's configured timezone, falling back to UTC.
+//
+// A location whose settings cannot be read still gets its summary — on UTC
+// boundaries, as before — because a missing timezone is not a reason to stop
+// reporting sales.
+func (r *Runner) zoneFor(ctx context.Context, locationID string) *time.Location {
+	settings, err := locations.SettingsFor(ctx, r.db, locationID)
+	if err != nil {
+		log.Printf("eodemail: location=%s — settings lookup failed (%v), using UTC boundaries", locationID, err)
+		return time.UTC
+	}
+	return settings.Zone()
 }
 
 // processLocation computes the day KPIs for one location and emails the owner.
@@ -197,6 +245,10 @@ func (r *Runner) processLocation(ctx context.Context, loc locationRow, dayStart,
 
 // buildEmailMessage constructs the email.Message for one location summary.
 func buildEmailMessage(loc locationRow, kpi dayKPI, day time.Time) email.Message {
+	// day arrives as the start of the local trading day and carries the
+	// location's zone, so Format prints the date the owner would write on the
+	// cash-up sheet — not the UTC date, which for an evening send in the
+	// Americas is already tomorrow.
 	dateStr := day.Format("2006-01-02")
 	subject := fmt.Sprintf("End-of-Day Summary — %s — %s", loc.LocationName, dateStr)
 
@@ -239,15 +291,15 @@ func buildEmailMessage(loc locationRow, kpi dayKPI, day time.Time) email.Message
 	}
 }
 
-// nextRunAt returns the next wall-clock time at which the given hour (0–23)
-// falls.  Mirrors the helper used by auditretention, dunning, and walletrefill.
-func nextRunAt(hour int) time.Time {
-	now := time.Now()
-	candidate := time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, now.Location())
-	if !candidate.After(now) {
-		candidate = candidate.Add(24 * time.Hour)
-	}
-	return candidate
+// nextTopOfHour returns the next instant at which some minute-zero occurs.
+//
+// The tick is deliberately absolute (Truncate on an instant) rather than
+// wall-clock arithmetic: it needs to fire hourly everywhere, and it is the
+// per-location check in sweep — not this helper — that decides whose 21:00 it
+// is. Zones offset by 30 or 45 minutes (India, Nepal, Chatham) therefore get
+// their summary at the top of the hour their local 21:00 falls in.
+func nextTopOfHour(now time.Time) time.Time {
+	return now.Truncate(time.Hour).Add(time.Hour)
 }
 
 // centsToStr formats an int64 cent value as a decimal string with two decimal

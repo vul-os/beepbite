@@ -2,6 +2,7 @@
 // client-side currency utilities. Used by the POS workspace checkout flow.
 
 import { api } from '@/lib/api-client';
+import { formatMoney, parseMoney } from '@/lib/currency';
 
 // ---- Payment method catalogue -----------------------------------------------
 
@@ -138,20 +139,31 @@ export async function chargeOrdersWithLegs({ orders, legs, processedByStaffId })
 // ---- Currency utilities -----------------------------------------------------
 
 /**
- * Convert integer cents to a "R XX.XX" display string.
- * e.g. 1250 → "R 12.50"
+ * Format an integer minor-unit amount for display.
+ *
+ * Not a hook, so the currency must be passed in — callers inside components
+ * should prefer useMoney().format. There is no default currency: an
+ * unconfigured location renders a bare number rather than a foreign symbol.
+ *
+ * @param {number|string} minor    amount in the currency's smallest unit
+ * @param {string}        [currency] ISO 4217 code
+ * @param {string}        [locale]   BCP-47 tag; omit for the reader's own
  */
-export function formatRand(cents) {
-  const n = typeof cents === 'number' ? cents : Number(cents) || 0;
-  return `R ${(n / 100).toFixed(2)}`;
+export function formatAmount(minor, currency, locale) {
+  return formatMoney(minor, { currency, locale });
 }
 
 /**
- * Parse a Rand value (number or string) to integer cents.
- * e.g. "12.50" → 1250, "12" → 1200, 12.5 → 1250. Negative input returns 0.
+ * Parse a typed major-unit value into integer minor units.
+ * e.g. ('12.50', 'USD') → 1250; ('1000', 'JPY') → 1000.
+ *
+ * The currency decides the scale: a fixed ×100 charges a yen customer 100× the
+ * ticket and a dinar customer a tenth of it.
+ *
+ * @returns {number} minor units; 0 for unparseable or negative input
  */
-export function centsFromRand(value) {
-  const n = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
-  if (isNaN(n) || n < 0) return 0;
-  return Math.round(n * 100);
+export function minorFromInput(value, currency) {
+  const minor = parseMoney(value, currency);
+  if (minor == null || minor < 0) return 0;
+  return minor;
 }

@@ -78,6 +78,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/context/auth-context';
+import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { emojiFor } from '@/lib/item-emoji';
@@ -91,6 +92,7 @@ import ModifierGroupsEditor from './modifier-groups-editor';
 
 const Menu = () => {
   const { activeLocation } = useAuth();
+  const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -558,11 +560,11 @@ const Menu = () => {
     }
   };
 
+  // Item prices are stored as major-unit floats (rands/dollars, not cents), so
+  // they are scaled up to the currency's minor unit before going through the
+  // minor-unit-based formatter.
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR'
-    }).format(amount || 0);
+    return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
   // Enhanced filtering

@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DenominationGrid } from './denomination-grid';
 import { api } from '@/lib/api-client';
+import { useMoney } from '@/context/locale-context';
 import { Loader2, Unlock } from 'lucide-react';
 
 /**
@@ -14,8 +15,11 @@ import { Loader2, Unlock } from 'lucide-react';
  *   drawerId: string
  *   staffId: string         — currently logged-in staff id (used as opened_by_staff_id)
  *   onOpened: (session) => void
+ *
+ * Requires LocaleProvider above it.
  */
 export function OpenSessionForm({ drawerId, staffId, onOpened }) {
+  const { format, parse, symbol, scale, decimals } = useMoney();
   const [floatMajor, setFloatMajor] = useState('');
   const [denomCounts, setDenomCounts] = useState({});
   const [denomTotalCents, setDenomTotalCents] = useState(0);
@@ -28,14 +32,16 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
     setDenomCounts(counts);
     setDenomTotalCents(totalCents);
     if (useFloat === 'denominations') {
-      setFloatMajor((totalCents / 100).toFixed(2));
+      // Raw major-unit digits, not format(): this feeds a type="number" input,
+      // which rejects grouping marks and currency symbols.
+      setFloatMajor((totalCents / scale).toFixed(decimals));
     }
   };
 
   const openingFloatCents =
     useFloat === 'denominations'
       ? denomTotalCents
-      : Math.round(parseFloat(floatMajor || '0') * 100);
+      : parse(floatMajor) ?? 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -98,13 +104,14 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
 
           {useFloat === 'manual' ? (
             <div className="space-y-1">
-              <Label htmlFor="opening-float">Opening float (R)</Label>
+              <Label htmlFor="opening-float">Opening float ({symbol})</Label>
               <Input
                 id="opening-float"
                 type="number"
                 min="0"
-                step="0.01"
-                placeholder="0.00"
+                // One minor unit. A fixed 0.01 makes a JPY till reject ¥1.
+                step={(1 / scale).toFixed(decimals)}
+                placeholder={(0).toFixed(decimals)}
                 value={floatMajor}
                 onChange={(e) => setFloatMajor(e.target.value)}
                 className="max-w-xs"
@@ -137,7 +144,7 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
 
           <div className="flex items-center gap-3 pt-1">
             <span className="text-sm text-muted-foreground">Opening float:</span>
-            <span className="font-semibold">R{(openingFloatCents / 100).toFixed(2)}</span>
+            <span className="font-semibold">{format(openingFloatCents)}</span>
           </div>
 
           {error && (

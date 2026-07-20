@@ -170,7 +170,7 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
             <Input
               id="display_phone"
               name="display_phone"
-              placeholder="e.g. +27 82 123 4567"
+              placeholder="International format, starting with +"
               value={form.display_phone}
               onChange={handleChange}
             />
@@ -182,7 +182,7 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
             <Input
               id="country"
               name="country"
-              placeholder="e.g. ZA"
+              placeholder="Two-letter country code"
               maxLength={2}
               value={form.country}
               onChange={handleChange}
@@ -195,7 +195,7 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
             <Input
               id="regions"
               name="regions"
-              placeholder="e.g. gauteng, western-cape"
+              placeholder="Region slugs, comma-separated"
               value={form.regions}
               onChange={handleChange}
             />

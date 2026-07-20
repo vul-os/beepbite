@@ -36,7 +36,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { formatPrice } from '@/lib/currency';
+import { useMoney } from '@/context/locale-context';
 import { fetchRecentOrders } from '@/services/reorder';
 
 // ---------------------------------------------------------------------------
@@ -103,8 +103,9 @@ function LoadingSkeleton() {
 // ---------------------------------------------------------------------------
 
 function ReorderCard({ order, onSelect }) {
+  const { format } = useMoney();
   const summary = summariseItems(order.items);
-  const price = formatPrice(order.total_cents, 'ZAR');
+  const price = format(order.total_cents);
   const when = relativeTime(order.created_at);
 
   return (

@@ -46,6 +46,8 @@ import {
   issueInvoice,
   downloadInvoicePDF,
 } from '@/services/invoicing';
+import { useLocale } from '@/context/locale-context';
+import { formatMoney } from '@/lib/currency';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -56,15 +58,6 @@ function fmtDate(iso) {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function fmtCents(cents, currency) {
-  if (cents == null) return '—';
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency || 'ZAR',
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
 }
 
 const STATUS_VARIANT = {
@@ -89,6 +82,13 @@ const STATUS_LABEL = {
 
 export default function InvoicesPage() {
   const navigate = useNavigate();
+  const { currency: activeCurrency, locale } = useLocale();
+  // fmtCents needs the reader's locale, which only the hook can supply, so it
+  // lives inside the component rather than as a module-level helper. An
+  // invoice's own currency wins; the active location is only a fallback for
+  // invoices that predate the currency field.
+  const fmtCents = (cents, currency) =>
+    cents == null ? '—' : formatMoney(cents, { currency: currency || activeCurrency || '', locale });
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

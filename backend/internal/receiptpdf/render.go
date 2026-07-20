@@ -19,10 +19,10 @@
 //	│  Item          Qty  Unit  Total      │  line items
 //	│  …modifier…                          │
 //	├──────────────────────────────────────┤
-//	│  Subtotal                      R x   │  totals
-//	│  Tax                           R x   │
-//	│  Tip                           R x   │
-//	│  TOTAL                         R x   │
+//	│  Subtotal                    R 12,50 │  totals
+//	│  Tax                          R 1,88 │
+//	│  Tip                          R 0,00 │
+//	│  TOTAL                       R 14,38 │
 //	├──────────────────────────────────────┤
 //	│  Method        Paid    Tip  Change   │  payments
 //	├──────────────────────────────────────┤
@@ -38,12 +38,32 @@ import (
 	"github.com/go-pdf/fpdf"
 
 	"github.com/beepbite/backend/internal/handlers/receipts"
+	"github.com/beepbite/backend/internal/money"
 )
+
+// Opts carries the two presentation facts a Receipt does not itself hold: how
+// many minor units make up one unit of its currency, and whose number
+// conventions to print it with.
+//
+// Both come from the order's location (locations.SettingsFor). They are
+// parameters rather than constants because neither is a property of the
+// receipt: a ¥ receipt has zero decimal places and a KD receipt has three, so
+// a renderer that assumes two prints ¥1000 as "¥10.00" and KD 1.234 as
+// "KD 12.34" — off by 100× and 10× respectively.
+type Opts struct {
+	// Decimals is the currency's minor-unit exponent (currencies.decimal_digits).
+	Decimals int
+	// Locale is the BCP-47 tag for grouping/decimal separators. Empty selects
+	// CLDR root, which belongs to no country.
+	Locale string
+}
 
 // Render converts receipt into a PDF document and returns the raw bytes.
 // Returns a non-nil error only when fpdf itself reports an internal error
 // (which is very rare for well-formed inputs).
-func Render(r *receipts.Receipt) ([]byte, error) {
+//
+// opts must describe the currency named by r.CurrencyCode; see Opts.
+func Render(r *receipts.Receipt, opts Opts) ([]byte, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(10, 10, 10)
 	pdf.SetAutoPageBreak(true, 15)
@@ -105,8 +125,8 @@ func Render(r *receipts.Receipt) ([]byte, error) {
 		pdf.SetX(10)
 		pdf.CellFormat(contentW*0.50, 5, truncate(li.ItemName, 36), "", 0, "L", false, 0, "")
 		pdf.CellFormat(contentW*0.10, 5, fmt.Sprintf("%d", li.Quantity), "", 0, "C", false, 0, "")
-		pdf.CellFormat(contentW*0.20, 5, formatCents(li.UnitPriceCents, r.CurrencyCode), "", 0, "R", false, 0, "")
-		pdf.CellFormat(contentW*0.20, 5, formatCents(li.TotalPriceCents, r.CurrencyCode), "", 1, "R", false, 0, "")
+		pdf.CellFormat(contentW*0.20, 5, formatCents(li.UnitPriceCents, r.CurrencyCode, opts), "", 0, "R", false, 0, "")
+		pdf.CellFormat(contentW*0.20, 5, formatCents(li.TotalPriceCents, r.CurrencyCode, opts), "", 1, "R", false, 0, "")
 
 		// Modifiers — indented, smaller font.
 		if len(li.Modifiers) > 0 {
@@ -116,7 +136,7 @@ func Render(r *receipts.Receipt) ([]byte, error) {
 				label := "+ " + truncate(m.Name, 34)
 				pdf.CellFormat(contentW*0.60, 4, label, "", 0, "L", false, 0, "")
 				pdf.CellFormat(contentW*0.20, 4, "", "", 0, "R", false, 0, "")
-				pdf.CellFormat(contentW*0.20-4, 4, formatCents(m.PriceCentsSnapshot, r.CurrencyCode), "", 1, "R", false, 0, "")
+				pdf.CellFormat(contentW*0.20-4, 4, formatCents(m.PriceCentsSnapshot, r.CurrencyCode, opts), "", 1, "R", false, 0, "")
 			}
 			pdf.SetFont("Helvetica", "", 9)
 		}
@@ -148,7 +168,7 @@ func Render(r *receipts.Receipt) ([]byte, error) {
 		}
 		pdf.SetX(10)
 		pdf.CellFormat(labelW, 5, row.label, "", 0, "R", false, 0, "")
-		pdf.CellFormat(amtW, 5, formatCents(row.cents, r.CurrencyCode), "", 1, "R", false, 0, "")
+		pdf.CellFormat(amtW, 5, formatCents(row.cents, r.CurrencyCode, opts), "", 1, "R", false, 0, "")
 	}
 
 	// ── Payments ─────────────────────────────────────────────────────────────
@@ -167,9 +187,9 @@ func Render(r *receipts.Receipt) ([]byte, error) {
 		for _, p := range r.Payments {
 			pdf.SetX(10)
 			pdf.CellFormat(contentW*0.30, 5, p.Method, "", 0, "L", false, 0, "")
-			pdf.CellFormat(contentW*0.25, 5, formatCents(p.AmountPaidCents, r.CurrencyCode), "", 0, "R", false, 0, "")
-			pdf.CellFormat(contentW*0.20, 5, formatCents(p.TipAmountCents, r.CurrencyCode), "", 0, "R", false, 0, "")
-			pdf.CellFormat(contentW*0.25, 5, formatCents(p.ChangeGivenCents, r.CurrencyCode), "", 1, "R", false, 0, "")
+			pdf.CellFormat(contentW*0.25, 5, formatCents(p.AmountPaidCents, r.CurrencyCode, opts), "", 0, "R", false, 0, "")
+			pdf.CellFormat(contentW*0.20, 5, formatCents(p.TipAmountCents, r.CurrencyCode, opts), "", 0, "R", false, 0, "")
+			pdf.CellFormat(contentW*0.25, 5, formatCents(p.ChangeGivenCents, r.CurrencyCode, opts), "", 1, "R", false, 0, "")
 		}
 	}
 
@@ -205,38 +225,37 @@ func drawHRule(pdf *fpdf.Fpdf, contentW float64) {
 	pdf.SetY(y + 2)
 }
 
-// formatCents formats cents as a currency string, e.g. "R 12.50" for ZAR.
-// The currency symbol is a simple prefix mapping; unknown codes fall back to
-// the ISO code followed by a space.
-func formatCents(cents int64, currencyCode string) string {
-	symbol := currencySymbol(currencyCode)
-	neg := ""
-	if cents < 0 {
-		neg = "-"
-		cents = -cents
-	}
-	return fmt.Sprintf("%s%s%d.%02d", neg, symbol, cents/100, cents%100)
+// formatCents renders a minor-unit amount for the receipt.
+//
+// It delegates to money.Format, which owns the symbol, the symbol's position,
+// the separators and the digit count for every currency CLDR knows. The switch
+// this replaced knew eight currencies and assumed every one of them had two
+// decimal places, so a Tokyo store's ¥1000 line printed as "JPY 10.00".
+//
+// The result is then constrained to what the PDF can actually draw — see
+// latin1Safe.
+func formatCents(cents int64, currencyCode string, opts Opts) string {
+	return latin1Safe(
+		money.Format(cents, currencyCode, opts.Decimals, opts.Locale),
+		func() string { return money.FormatCode(cents, currencyCode, opts.Decimals, opts.Locale) },
+	)
 }
 
-func currencySymbol(code string) string {
-	switch code {
-	case "ZAR":
-		return "R "
-	case "USD":
-		return "$ "
-	case "EUR":
-		return "€ "
-	case "GBP":
-		return "£ "
-	case "KES":
-		return "KSh "
-	case "NGN":
-		return "₦ "
-	case "GHS":
-		return "GH₵ "
-	default:
-		return code + " "
+// latin1Safe returns s when every rune in it survives the Latin-1 encoding the
+// built-in Helvetica font uses, and the alternative otherwise.
+//
+// fpdf's core fonts cannot draw a codepoint above U+00FF: the yen sign CLDR
+// emits for JPY (U+FFE5) and the naira sign for NGN (U+20A6) would come out as
+// blank boxes or dropped glyphs. A total whose currency has silently vanished
+// from a printed receipt is worse than one labelled with an ISO code, so the
+// fallback trades the symbol for "JPY 1,000" — always ASCII, always legible.
+func latin1Safe(s string, alt func() string) string {
+	for _, r := range s {
+		if r > 0xFF {
+			return alt()
+		}
 	}
+	return s
 }
 
 // truncate shortens s to at most maxLen runes, appending "…" when trimmed.

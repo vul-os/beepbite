@@ -9,11 +9,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
+import { useMoney } from '@/context/locale-context';
 import { AlertCircle, CheckCircle } from 'lucide-react';
-
-function fmtCents(cents) {
-  return `R ${(cents / 100).toFixed(2)}`;
-}
 
 function fmtPct(v) {
   return `${(v * 100).toFixed(1)}%`;
@@ -37,6 +34,10 @@ export function MatchModal({ invoice, open, onClose, onMatched }) {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState('');
+  // The invoice is denominated in the supplier's currency, which need not be
+  // the store's — every amount on this modal, including the PO-side prices it
+  // is compared against, belongs to that invoice.
+  const { format: fmtCents } = useMoney({ currency: invoice?.currency });
 
   async function runMatch() {
     if (!invoice) return;
