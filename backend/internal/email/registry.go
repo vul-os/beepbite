@@ -8,8 +8,10 @@
 //     JSON object.  See each adapter file for the expected JSON keys.
 //
 //  2. Platform default: env var EMAIL_PROVIDER_DEFAULT selects the provider
-//     code; RESEND_API_KEY / EMAIL_FROM_DEFAULT supply the credentials.
-//     Resend is used when EMAIL_PROVIDER_DEFAULT is unset.
+//     code; the provider's own env vars (SMTP_HOST etc.) and
+//     EMAIL_FROM_DEFAULT supply the credentials. SMTP is used when
+//     EMAIL_PROVIDER_DEFAULT is unset — it is the only transport a
+//     self-hoster can point at their own server without signing up to anyone.
 //
 // Metering hook — IMPORTANT:
 //
