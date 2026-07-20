@@ -15,7 +15,7 @@ import {
 import { CardResult } from './card-result';
 import { AlertCircle, RefreshCw, X } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-import { useLocale, useDateTime } from '@/context/locale-context';
+import { useLocale, useMoney, useDateTime } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import CustomerSearch from '@/pages/pos/components/customer-search';
 
@@ -32,9 +32,10 @@ const STAFF_NONE = '__none__';
 export function IssueForm() {
   const { activeOrganization, activeLocation } = useAuth();
   const { currency } = useLocale();
+  const { parse: parseAmount } = useMoney();
   const { today } = useDateTime();
 
-  const [balanceDollars, setBalanceDollars] = useState('');
+  const [balanceInput, setBalanceInput] = useState('');
   const [cardType, setCardType] = useState('digital'); // 'physical' | 'digital'
   const [expiresAt, setExpiresAt] = useState('');      // local date string yyyy-mm-dd
   const [pin, setPin] = useState('');
@@ -74,7 +75,7 @@ export function IssueForm() {
   }, [activeLocation]);
 
   function resetForm() {
-    setBalanceDollars('');
+    setBalanceInput('');
     setCardType('digital');
     setExpiresAt('');
     setPin('');
@@ -88,8 +89,11 @@ export function IssueForm() {
     e.preventDefault();
     setError('');
 
-    const balanceCents = Math.round(parseFloat(balanceDollars) * 100);
-    if (!balanceCents || balanceCents < 0) {
+    // parseAmount scales by the currency's own exponent, so ¥1000 becomes 1000
+    // minor units and KD 1.000 becomes 1000 — not the 100000 and 100 a literal
+    // *100 would produce.
+    const balanceCents = parseAmount(balanceInput);
+    if (balanceCents === null || balanceCents <= 0) {
       setError('Enter a valid initial balance.');
       return;
     }
@@ -164,8 +168,8 @@ export function IssueForm() {
               min="0"
               step="0.01"
               placeholder="0.00"
-              value={balanceDollars}
-              onChange={(e) => setBalanceDollars(e.target.value)}
+              value={balanceInput}
+              onChange={(e) => setBalanceInput(e.target.value)}
               required
             />
           </div>

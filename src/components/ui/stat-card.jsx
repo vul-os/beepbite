@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  *
  *   <StatCard
  *     label="Gross sales"
- *     value="R 4,820"
+ *     value={formatMoney(482000, { currency, locale })}
  *     delta={12.4}                // positive => green up, negative => red down
  *     deltaLabel="vs last week"
  *     icon={DollarSign}
