@@ -1,163 +1,212 @@
+<div align="center">
+
 # BeepBite
 
-Free, open-source restaurant point-of-sale with a WhatsApp-first ordering channel. Built for the South African market.
+### A restaurant point-of-sale you actually own.
 
-**You run it.** There is no hosted BeepBite, no subscription, no rake and no
-account to sign up for. It is a Go binary and a Postgres database on hardware
-you control.
+Front of house, kitchen, delivery and a **WhatsApp ordering channel** — one
+system, running on your own hardware. No cloud account, no per-order fee, no
+platform standing between you and your customers.
 
-BeepBite **records tenders; it does not process cards.** Cash, your own card
-machine, bank transfer and vouchers are recorded against the order and
-reconciled into the drawer at close. No gateway, no PCI scope, no
-money-transmitter exposure.
+<sub>Part of <strong><a href="https://vulos.org">VulOS</a></strong> — the open, self-hostable web OS &amp; app suite. Runs standalone, or as an app hosted by the Vulos OS.</sub>
 
-Competitive bar: Toast, Square for Restaurants, Lightspeed, TouchBistro, Lavu. See [ROADMAP.md](ROADMAP.md) for the current gap analysis and status.
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-FF6B35.svg)](LICENSE)
+[![Self-hostable](https://img.shields.io/badge/self--hostable-your%20hardware-E8871E)](docs/setup.md)
+[![Platform fee](https://img.shields.io/badge/platform%20fee-none-14B8A6)](#what-beepbite-is-not)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://golang.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
 
-## Architecture
+[**Quick start**](#quick-start) · [**Features**](#features) · [**How it works**](#how-it-works) · [**Status**](#status) · [**Docs**](docs/) · [**Roadmap**](ROADMAP.md)
 
-Monorepo with three independently deployable pieces:
+<sub><em>Vulos — rooted in <strong>vula</strong>, the Zulu and Xhosa word for <strong>open</strong>.</em></sub>
 
-```
-beepbite-mono/
-├── backend/              Go HTTP API (replaces Supabase)
-│   ├── cmd/server/       chi router, entrypoint
-│   ├── cmd/migrate/      migrations CLI
-│   ├── migrations/       numbered .sql files, applied in order
-│   └── internal/
-│       ├── auth/         email JWT + rotating refresh
-│       ├── staffauth/    POS username/password + PIN login
-│       ├── chatbot/      WhatsApp webhook state machine
-│       ├── handlers/     data (REST), pos, kds, cashdrawer, promotions,
-│       │                 whatsappsend, whatsappwebhook
-│       ├── payments/     PaymentProvider seam — manual tender only
-│       ├── integrations/ whatsapp, mapbox
-│       ├── db/           pgx pool
-│       └── config/       env loader
-├── src/                  React 19 + Vite + Tailwind + shadcn/ui
-│   ├── lib/api-client.js Thin supabase-js-shaped client on fetch
-│   ├── pages/            Dashboard, menu, orders, staff, auth…
-│   └── services/         Domain helpers
-├── docs/                 Public docs
-└── ROADMAP.md            Competitive-gap roadmap (source of truth)
-```
+</div>
 
-The frontend used to call Supabase directly; it now hits the Go backend through
-`src/lib/api-client.js`, which exposes the same `.from()` / `.rpc()` / `.auth.*`
-surface so callsites didn't need to change.
+---
 
-## Tech stack
+## What is BeepBite?
 
-- **Backend**: Go 1.25, chi router, pgx v5, Postgres 15+
-- **Frontend**: React 19, Vite, Tailwind CSS, Radix UI / shadcn/ui
-- **Integrations** (all optional): WhatsApp Cloud API with your own Meta credentials, Mapbox for delivery geocoding, SMTP for transactional email, Gemini for the AI floor-plan generator
-- **Auth**: email + password and staff PIN. JWT HS256 access tokens (15 min) + opaque sha-256-hashed rotating refresh tokens (30 days). No third-party identity provider.
-- **Payments**: none. See the `PaymentProvider` seam in `backend/internal/payments` — `Charge` / `Refund` / `GetStatus`, one implementation, manual tender.
+A complete restaurant system: take the order, cook it, serve it, deliver it,
+and know what it cost you. A Go API and a React app running against your own
+Postgres — on a laptop in the back office, a machine in the cupboard, or a VM
+you rent.
+
+What makes it different is **who it belongs to**. Delivery platforms take
+15–30% of every order and own the customer relationship. Cloud POS vendors
+charge per terminal per month and hold your data hostage to a subscription.
+BeepBite takes nothing and holds nothing, because there is no BeepBite service
+— there is only the copy you run.
+
+Its ordering channel is **WhatsApp**, which for most of the world is where
+customers already are. Someone messages your number and orders in the app they
+use all day: no download, no signup, no app-store listing to maintain.
+
+> [!NOTE]
+> **Status: pre-1.0 and under active rebuild.** The POS, kitchen, inventory and
+> ordering surfaces are substantially built; several architectural changes are
+> in flight. Read [Status](#status) for an honest per-area breakdown before
+> deploying this anywhere real.
+
+## Features
+
+| Front of house | Kitchen &amp; stock |
+|---|---|
+| Touch POS — tabs, splits, voids, comps, manager approval | Kitchen display with per-station routing and expo |
+| Floor plan and table management | Recipes, costing, and the 86 list |
+| Customer-facing display | Suppliers, purchase orders, goods receipts |
+| Reservations and waitlist | Invoice matching and waste tracking |
+| Gift cards, store credit, house accounts | Stock counts and reorder suggestions |
+
+| Money &amp; people | Ordering &amp; delivery |
+|---|---|
+| Cash drawer sessions and reconciliation | WhatsApp ordering bot |
+| Tenders — cash, card, transfer, voucher | QR-at-table ordering |
+| Promotions, coupons, loyalty | Delivery zones, driver app, live tracking |
+| Invoicing and house-account billing | Pickup slots and order status |
+| Time clock, payroll, tip pools | Public customer tracking page |
+
+**Infrastructure you can trust**
+
+- **Your database, your building.** Postgres you control. Nothing phones home,
+  and a fresh install makes no outbound network calls at all.
+- **No payment facilitator.** BeepBite records tenders; it never touches your
+  money. "Card" means your own card machine on your own counter. No PCI scope,
+  no settlement delay, no cut of your revenue.
+- **Row-level security**, with tenant scoping enforced server-side from the
+  authenticated identity — never from a filter the client supplies.
+- **Audit log and idempotency keys** throughout, so a retried request can't
+  double-charge.
+- **Every integration is optional.** WhatsApp, maps and AI are each off unless
+  you supply your own credentials.
+
+## What BeepBite is not
+
+- **Not a marketplace.** It will not bring you customers. It stops a
+  marketplace from owning the ones you already have.
+- **Not a payment processor.** It records what was tendered. Bring your own
+  card machine and your own bank.
+- **Not a hosted service.** No signup, no dashboard we operate, nobody to call.
+  You run it, you back it up, you own the consequences.
+- **Not finished.** See [Status](#status).
 
 ## Quick start
 
 ```bash
-# 1. Postgres
+# 1. Database
 createdb beepbite
 
-# 2. Env vars — DATABASE_URL and JWT_SECRET are the only required ones.
-#    Everything else in .env.example is an optional integration.
+# 2. Configure — set DATABASE_URL and JWT_SECRET
 cp .env.example .env
 
-# 3. Run migrations
-cd backend
-go run ./cmd/migrate --env=local --up
-#   --reset drops and re-applies; --down just drops.
+# 3. Migrate
+cd backend && go run ./cmd/migrate --env=local --up
 
-# 4. Backend
+# 4. API
 go run ./cmd/server --env=local
 
-# 5. Frontend
-cd ..
-npm install
-npm run dev        # http://localhost:5173
-# npm run build -- --mode=dev    # dev bundle
-# npm run build -- --mode=main   # prod bundle
+# 5. App
+cd .. && npm install && npm run dev        # http://localhost:5173
 ```
 
-## What's built vs what's pending
-
-See [ROADMAP.md](ROADMAP.md) for the live list. Today the schema and Go handlers
-cover: staff auth (password + PIN), tables / dine-in, KDS, cash drawer, voids /
-comps with manager approval, promotions + coupon engine, suppliers &
-purchasing, gift cards / store credit / house accounts, menu scheduling / 86
-list, audit log, idempotency keys, and reporting views.
-
-Notable gaps still open: tip pooling, staff pay rates, delivery zones,
-frontend POS login screen, analytics dashboard rewire, and finishing the
-WhatsApp webhook chatbot port.
-
-## Key design notes
-
-- **RLS is off.** The backend trusts JWT identity; the frontend is responsible
-  for including `organization_id` / `location_id` in filter predicates. This is
-  a conscious simplification — revisit when tighter enforcement is needed.
-- **Data REST layer** is allowlisted (`backend/internal/handlers/data/allowlist.go`).
-  Unknown tables / RPCs return 404.
-- **Embedded joins** resolve one level deep (what the app uses). Deeper nesting
-  would require a PostgREST-equivalent.
-- **Money is cents (bigint).** Everything new uses int64 cents. A few legacy
-  tables still use `decimal(10,2)` — conversion helpers live alongside the
-  engines that need them.
-- **Staff vs member auth** share a JWT secret, disambiguated by audience claim.
-  Splitting into a dedicated `STAFF_JWT_SECRET` is blocked on key-rotation
-  tooling.
-
-## Deploy
-
-BeepBite is meant to be self-hosted. There is no vendor to sign up with; run the
-binary wherever you like — a laptop, a NAS, a Pi, a cheap VPS.
+Want something to look at first?
 
 ```bash
-# Backend: build a static binary and run it behind your own TLS terminator.
-cd backend && go build -o beepbite-api ./cmd/server
-./beepbite-api --env=local
-
-# Frontend: a static bundle. Serve dist/ from any web server.
-npm run build
+cd backend && go run ./cmd/seeddemo        # demo restaurant with data
 ```
 
-Point `VITE_API_URL` at wherever the backend listens, and `CORS_ORIGINS` back at
-wherever the frontend is served from.
+## How it works
 
-### Migrations
+```mermaid
+flowchart LR
+  subgraph Customer
+    W["WhatsApp"]
+    Q["QR at table"]
+    T["Tracking page"]
+  end
+  subgraph "Your hardware"
+    API["Go API<br/><i>chi · pgx</i>"]
+    DB[("Postgres")]
+    UI["POS · KDS · Floor<br/><i>React</i>"]
+  end
+  D["Driver app"]
+  W --> API
+  Q --> API
+  UI --> API
+  API --> DB
+  API --> D
+  API --> T
+```
+
+Orders arrive from WhatsApp, a table QR code, or the till, and land in one
+order stream. They route to the right kitchen station and, if they're going
+out, to a driver — with a tracking link for the customer. Live updates are
+server-sent events, so there is no polling and no message broker to operate.
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | — | Postgres connection string. **Required.** |
+| `JWT_SECRET` | — | Signing key for access tokens. **Required.** |
+| `PORT` | `8080` | API listen port |
+| `WHATSAPP_TOKEN` | — | Meta Cloud API token. WhatsApp ordering stays off without it. |
+| `WHATSAPP_PHONE_ID` | — | Meta phone number ID |
+| `MAPBOX_TOKEN` | — | Delivery-zone geocoding. Optional. |
+
+See [docs/setup.md](docs/setup.md) for the full list.
+
+## Status
+
+An honest per-area account, because a feature that silently does nothing is
+worse than one that says it isn't built:
+
+| Area | State |
+|---|---|
+| POS, KDS, floor plan, orders | **Built** — substantially complete, covered by integration and e2e tests |
+| Inventory, purchasing, recipes | **Built** |
+| Gift cards, loyalty, house accounts | **Built** |
+| Delivery zones, driver, tracking | **Built**, but less exercised than the POS |
+| WhatsApp ordering | **Built** — needs your own Meta credentials |
+| Payments | **Tender recording only, by design.** Card processing was deliberately removed |
+| Currency &amp; locale neutrality | **In progress.** Currency resolves per location; locale, tax and timezone assumptions are still being removed |
+| Single binary + SQLite | **Planned, not done.** Postgres is required today |
+| Offline-first sync between sites | **Designed, not implemented** |
+| Screenshots | **Not yet** — the UI is mid-rebuild and anything captured now would be stale |
+
+## Development
 
 ```bash
-cd backend
-
-go run ./cmd/migrate --env=local --up
-go run ./cmd/migrate --env=main  --up   # your production DATABASE_URL
-go run ./cmd/migrate --env=dev   --up   # your staging DATABASE_URL
+npm run dev              # frontend on :5173
+npm run build            # production bundle
+npm run test:unit        # vitest
+npm run test:e2e         # playwright
+cd backend && go test ./...
+cd backend && go run ./cmd/tests     # integration + pentest suites
 ```
-
-Idempotent — only un-applied migrations run, tracked in `schema_migrations`.
-
-### Reset DB (destructive)
-
-`--reset` drops the `public` schema and re-applies all migrations from scratch.
-
-```bash
-cd backend
-
-go run ./cmd/migrate --env=main --reset   # WIPES prod data
-go run ./cmd/migrate --env=dev  --reset   # WIPES dev data
-```
-
-Take your own backup first — `pg_dump` before you reset anything you care about.
 
 ## Documentation
 
-- [Setup](docs/setup.md)
-- [User guide](docs/user-guide.md)
-- [Features](docs/features.md)
-- [API](docs/api.md)
-- [Development](docs/development.md)
-- [Troubleshooting](docs/troubleshooting.md)
+| Doc | |
+|---|---|
+| [Setup](docs/setup.md) | Install, configure, deploy |
+| [User guide](docs/user-guide.md) | Running a service day to day |
+| [Features](docs/features.md) | What each surface does |
+| [API](docs/api.md) | HTTP contract |
+| [Development](docs/development.md) | Working on the code |
+| [Troubleshooting](docs/troubleshooting.md) | When it misbehaves |
+| [Roadmap](ROADMAP.md) | Gap analysis and what's next |
+
+## Contributing
+
+Issues and pull requests welcome. Read [ROADMAP.md](ROADMAP.md) first — some
+gaps are deliberate design choices and some are simply unbuilt, and the
+difference matters.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE)
+
+<div align="center">
+<sub><strong>Built with purpose. Open by design.</strong></sub>
+</div>
