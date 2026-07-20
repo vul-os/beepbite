@@ -119,13 +119,9 @@ We share data with the following trusted service providers:
 |---|---|---|
 | **BeepBite / Exolution Technologies** | POS platform, data storage | South Africa / Fly.io (EU & US) |
 | **Cloudflare R2** | Media & file storage | Global CDN |
-| **Paystack** | Card payment processing (ZA) | South Africa |
-| **Stripe** | Card payment processing (intl.) | US / EU |
-| **Resend / SendGrid** | Transactional email | US |
 | **Meta (WhatsApp Business API)** | Order & notification messaging | US |
-| **Anthropic** | AI-assisted menu suggestions | US |
+| **Anthropic** | AI-assisted floor plans and owner assistant | US |
 | **OpenAI** | AI-assisted features | US |
-| **Google** | Authentication (Google Sign-in) | US |
 
 We do not sell your personal information to third parties.
 

@@ -17,9 +17,9 @@ import { ChefHat, Bell, BarChart3, Zap } from 'lucide-react';
 // Feature bullets shown in the branded right panel
 const FEATURES = [
   { icon: Bell,      text: 'Instant order alerts, zero missed tickets' },
-  { icon: ChefHat,   text: 'AI-powered floor plans & menus in seconds' },
+  { icon: ChefHat,   text: 'AI-powered floor plans in seconds' },
   { icon: BarChart3, text: 'Live sales analytics for every location' },
-  { icon: Zap,       text: 'Stripe, Paystack & PayFast — all in one place' },
+  { icon: Zap,       text: 'Self-hosted and yours — no per-order platform fee' },
 ];
 
 const AuthLayout = ({ children }) => (
