@@ -73,7 +73,7 @@ func NewHandler(svc *ai.Service) http.HandlerFunc {
 			return
 		}
 
-		// Validate the location (and access) up front, mirroring aimenu. This
+		// Validate the location (and access) up front. This
 		// 404s on not-found / denied via the ServiceError carried back.
 		loc, err := svc.GetLocation(r.Context(), raw.LocationID)
 		if err != nil {

@@ -2,7 +2,7 @@
 //
 // Drafts are produced by the import_menu_from_* tools and held in memory
 // until the owner reviews them. On commit, the draft is handed back to the
-// aimenu handler's confirm logic. Drafts are keyed by a short random token
+// ai package confirm logic. Drafts are keyed by a short random token
 // and expire after 30 minutes (GC on access).
 //
 // No persistence: a server restart clears all pending drafts. That is fine
