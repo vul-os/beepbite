@@ -14,7 +14,6 @@ import {
   Loader2,
   AlertCircle,
   ExternalLink,
-  Lock,
   Info
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
@@ -30,9 +29,6 @@ const Account = () => {
     full_name: '',
     username: ''
   });
-
-  // Check if user signed in with Google
-  const isGoogleAuth = user?.app_metadata?.provider === 'google';
 
   useEffect(() => {
     if (user) {
@@ -204,31 +200,11 @@ const Account = () => {
 
         <TabsContent value="profile" className="space-y-6 mt-2">
 
-      {/* Google Auth Warning */}
-      {isGoogleAuth && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-blue-800 mb-1">
-                  Google Account Connected
-                </p>
-                <p className="text-xs text-blue-700">
-                  Since you signed in with Google, some profile fields cannot be edited directly. 
-                  Your information is synced from your Google account.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Save Buttons */}
       {/* Save Button - Fixed for mobile */}
       <Button
         onClick={saveAccount}
-        disabled={saving || isGoogleAuth}
+        disabled={saving}
         className="fixed bottom-6 right-6 w-14 h-14 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
         size="lg"
       >
@@ -243,7 +219,7 @@ const Account = () => {
       <div className="hidden sm:flex justify-end">
         <Button 
           onClick={saveAccount}
-          disabled={saving || isGoogleAuth}
+          disabled={saving}
           className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
         >
           {saving ? (
@@ -275,40 +251,30 @@ const Account = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Full Name
-                {isGoogleAuth && <Lock className="w-3 h-3 text-gray-400 inline ml-1" />}
               </label>
               <Input
                 placeholder="Your full name"
                 value={formData.full_name}
                 onChange={(e) => handleInputChange('full_name', e.target.value)}
-                disabled={isGoogleAuth}
                 className="w-full"
               />
               <p className="text-xs text-gray-500 mt-1">
-                {isGoogleAuth 
-                  ? "This field is managed by your Google account"
-                  : "This is your display name shown to other users"
-                }
+This is your display name shown to other users
               </p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Username
-                {isGoogleAuth && <Lock className="w-3 h-3 text-gray-400 inline ml-1" />}
               </label>
               <Input
                 placeholder="Choose a unique username"
                 value={formData.username}
                 onChange={(e) => handleInputChange('username', e.target.value)}
-                disabled={isGoogleAuth}
                 className="w-full"
               />
               <p className="text-xs text-gray-500 mt-1">
-                {isGoogleAuth 
-                  ? "This field is managed by your Google account"
-                  : "Must be at least 3 characters long and unique"
-                }
+Must be at least 3 characters long and unique
               </p>
             </div>
 
@@ -385,13 +351,8 @@ const Account = () => {
             <div>
               <label className="text-sm font-medium text-gray-700">Account Type</label>
               <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className={cn(
-                  "text-xs font-medium",
-                  isGoogleAuth 
-                    ? "bg-blue-100 text-blue-800 border-blue-300"
-                    : "bg-gray-100 text-gray-700 border-gray-300"
-                )}>
-                  {isGoogleAuth ? 'Google Account' : 'Email Account'}
+                <Badge variant="outline" className="text-xs font-medium bg-gray-100 text-gray-700 border-gray-300">
+                  Email Account
                 </Badge>
               </div>
             </div>

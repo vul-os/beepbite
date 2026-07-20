@@ -12,7 +12,7 @@ import AuthLayout from './auth-layout';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp } = useAuth();
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -70,16 +70,6 @@ const SignUpPage = () => {
     }
   };
 
-  const handleGoogleSignUp = async () => {
-    try {
-      setIsLoading(true);
-      await signInWithGoogle();
-    } catch (error) {
-      setErrors(prev => ({ ...prev, submit: error.message }));
-      setIsLoading(false);
-    }
-  };
-
   return (
     <AuthLayout>
       <Card variant="elevated" className="w-full">
@@ -101,25 +91,6 @@ const SignUpPage = () => {
                 <AlertDescription className="text-sm">{errors.submit}</AlertDescription>
               </Alert>
             )}
-          </div>
-
-          {/* Google SSO */}
-          <Button
-            variant="outline"
-            className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border-border bg-background hover:bg-muted text-sm font-medium shadow-sm transition-all"
-            onClick={handleGoogleSignUp}
-            disabled={isLoading}
-            aria-label="Continue with Google"
-          >
-            <img src="/google.png" alt="" aria-hidden="true" className="w-4 h-4" />
-            Continue with Google
-          </Button>
-
-          {/* Divider */}
-          <div className="relative flex items-center">
-            <span className="flex-1 border-t border-border" />
-            <span className="px-3 text-xs text-muted-foreground font-medium">or</span>
-            <span className="flex-1 border-t border-border" />
           </div>
 
           {/* Form */}
