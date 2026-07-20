@@ -42,8 +42,9 @@ const MenuManagement = () => {
         <Screenshot
           variant="browser"
           url="app.beepbite.io/menu"
-          alt="The menu editor with categories on the left, items in the middle and the item editor on the right."
-          caption="Menu editor — drop the real screenshot in /public/docs/menu-editor.png"
+          src="/docs/menu-editor.png"
+          alt="The menu editor: search and category filters at the top, items listed below with price, cost and margin."
+          caption="Menu editor — items, cost and margin at a glance"
         />
       </Section>
 
