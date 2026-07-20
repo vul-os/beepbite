@@ -24,12 +24,11 @@ import (
 func TestPaymentFlow_MarkPaid_AuditRow_Void_AdjustmentRow(t *testing.T) {
 	pool := openPool(t)
 	ctx := context.Background()
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 
 	// ---------- Seed tenant ----------
 	orgID := seedOrg(t, pool, "PayFlow E2E Org "+suffix)
-	locID := seedLocation(t, pool, orgID, "PayFlow Loc "+suffix, regionID)
+	locID := seedLocation(t, pool, orgID, "PayFlow Loc "+suffix)
 
 	// ---------- Create order directly via SQL ----------
 	orderID := seedPayflowOrder(t, pool, orgID, locID)

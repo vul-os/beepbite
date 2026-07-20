@@ -49,8 +49,8 @@ func seedLocation(t *testing.T, ctx context.Context, pool *pgxpool.Pool, label s
 		t.Fatalf("insert org: %v", err)
 	}
 	if err := pool.QueryRow(ctx, `
-		INSERT INTO locations (organization_id, name, region_id)
-		VALUES ($1, $2, (SELECT id FROM regions WHERE code = 'ZA' LIMIT 1))
+		INSERT INTO locations (organization_id, name)
+		VALUES ($1, $2)
 		RETURNING id`,
 		orgID, label+" Loc",
 	).Scan(&locID); err != nil {

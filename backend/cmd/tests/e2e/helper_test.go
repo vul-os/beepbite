@@ -108,20 +108,7 @@ func svcQueryRow(t *testing.T, pool *pgxpool.Pool, dest any, query string, args 
 	}
 }
 
-// zaRegionID returns the UUID of the 'ZA' region required for location inserts.
 // Skips the test when the seed row is missing (migrations not applied).
-func zaRegionID(t *testing.T, pool *pgxpool.Pool) string {
-	t.Helper()
-	var id string
-	ctx := context.Background()
-	err := db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT id FROM regions WHERE code = 'ZA' LIMIT 1`).Scan(&id)
-	})
-	if err != nil {
-		t.Skipf("ZA region not found in DB (migrations not applied?): %v", err)
-	}
-	return id
-}
 
 // seedOrg inserts a test organisation and returns its UUID.
 // Registers a t.Cleanup that deletes the org (cascades to locations etc.).
@@ -144,12 +131,12 @@ func seedOrg(t *testing.T, pool *pgxpool.Pool, name string) string {
 // on_delivery_payment_methods is seeded with ["cash"] so that
 // pos.Store.CreateOrder can fall back to on-delivery when no payment
 // credential is configured (avoiding ErrNoPaymentMethodAvailable).
-func seedLocation(t *testing.T, pool *pgxpool.Pool, orgID, name, regionID string) string {
+func seedLocation(t *testing.T, pool *pgxpool.Pool, orgID, name string) string {
 	t.Helper()
 	var id string
 	svcQueryRow(t, pool, &id,
-		`INSERT INTO locations (organization_id, name, region_id, on_delivery_payment_methods)
-		 VALUES ($1, $2, $3, ARRAY['cash']::text[]) RETURNING id`, orgID, name, regionID)
+		`INSERT INTO locations (organization_id, name, on_delivery_payment_methods)
+		 VALUES ($1, $2, ARRAY['cash']::text[]) RETURNING id`, orgID, name)
 	return id
 }
 

@@ -30,36 +30,36 @@ import (
 
 // seedMarketplaceLocation inserts a marketplace-visible location and returns its UUID.
 // slug must be globally unique; city is used for the city-filter test.
-func seedMarketplaceLocation(t *testing.T, pool *pgxpool.Pool, orgID, name, regionID, slug, city string) string {
+func seedMarketplaceLocation(t *testing.T, pool *pgxpool.Pool, orgID, name, slug, city string) string {
 	t.Helper()
 	var id string
 	svcQueryRow(t, pool, &id, `
 		INSERT INTO locations (
-		    organization_id, name, region_id, slug, city,
+		    organization_id, name, slug, city,
 		    is_marketplace_visible, is_active,
 		    on_delivery_payment_methods,
 		    offers_collection
 		)
-		VALUES ($1, $2, $3, $4, $5, true, true, ARRAY['cash']::text[], true)
+		VALUES ($1, $2, $3, $4, true, true, ARRAY['cash']::text[], true)
 		RETURNING id`,
-		orgID, name, regionID, slug, city)
+		orgID, name, slug, city)
 	return id
 }
 
 // seedPrivateLocation inserts a location that is NOT marketplace-visible.
-func seedPrivateLocation(t *testing.T, pool *pgxpool.Pool, orgID, name, regionID, slug, city string) string {
+func seedPrivateLocation(t *testing.T, pool *pgxpool.Pool, orgID, name, slug, city string) string {
 	t.Helper()
 	var id string
 	svcQueryRow(t, pool, &id, `
 		INSERT INTO locations (
-		    organization_id, name, region_id, slug, city,
+		    organization_id, name, slug, city,
 		    is_marketplace_visible, is_active,
 		    on_delivery_payment_methods,
 		    offers_collection
 		)
-		VALUES ($1, $2, $3, $4, $5, false, true, ARRAY['cash']::text[], true)
+		VALUES ($1, $2, $3, $4, false, true, ARRAY['cash']::text[], true)
 		RETURNING id`,
-		orgID, name, regionID, slug, city)
+		orgID, name, slug, city)
 	return id
 }
 
@@ -100,19 +100,18 @@ func buildMarketplaceRouter(pool *pgxpool.Pool) http.Handler {
 
 func TestMarketplace_ListStores_CityFilter(t *testing.T) {
 	pool := openPool(t)
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 	city := "TestCity_" + suffix
 
 	// Two orgs, one location each, same city.
 	orgAID := seedOrg(t, pool, "MktA_"+suffix)
 	orgBID := seedOrg(t, pool, "MktB_"+suffix)
-	locAID := seedMarketplaceLocation(t, pool, orgAID, "Alpha Diner "+suffix, regionID, "alpha-diner-"+suffix, city)
-	locBID := seedMarketplaceLocation(t, pool, orgBID, "Beta Bistro "+suffix, regionID, "beta-bistro-"+suffix, city)
+	locAID := seedMarketplaceLocation(t, pool, orgAID, "Alpha Diner "+suffix, "alpha-diner-"+suffix, city)
+	locBID := seedMarketplaceLocation(t, pool, orgBID, "Beta Bistro "+suffix, "beta-bistro-"+suffix, city)
 
 	// Private location — must NOT appear.
 	orgPID := seedOrg(t, pool, "MktPriv_"+suffix)
-	_ = seedPrivateLocation(t, pool, orgPID, "Private Eats "+suffix, regionID, "private-eats-"+suffix, city)
+	_ = seedPrivateLocation(t, pool, orgPID, "Private Eats "+suffix, "private-eats-"+suffix, city)
 
 	// Suppress "declared but not used" for location IDs (we assert via HTTP).
 	_ = locAID
@@ -160,13 +159,12 @@ func TestMarketplace_ListStores_CityFilter(t *testing.T) {
 
 func TestMarketplace_ListStores_NameFilter(t *testing.T) {
 	pool := openPool(t)
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 	city := "FilterCity_" + suffix
 
 	orgID := seedOrg(t, pool, "MktFilter_"+suffix)
-	_ = seedMarketplaceLocation(t, pool, orgID, "Unique Grill "+suffix, regionID, "unique-grill-"+suffix, city)
-	_ = seedMarketplaceLocation(t, pool, orgID, "Other Place "+suffix, regionID, "other-place-"+suffix, city)
+	_ = seedMarketplaceLocation(t, pool, orgID, "Unique Grill "+suffix, "unique-grill-"+suffix, city)
+	_ = seedMarketplaceLocation(t, pool, orgID, "Other Place "+suffix, "other-place-"+suffix, city)
 
 	router := buildMarketplaceRouter(pool)
 
@@ -209,12 +207,11 @@ func TestMarketplace_GetStore_MenuSnapshot(t *testing.T) {
 	pool := openPool(t)
 	ctx := context.Background()
 	_ = ctx
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 
 	orgID := seedOrg(t, pool, "MktMenu_"+suffix)
 	slug := "menu-store-" + suffix
-	locID := seedMarketplaceLocation(t, pool, orgID, "Menu Store "+suffix, regionID, slug, "MenuCity_"+suffix)
+	locID := seedMarketplaceLocation(t, pool, orgID, "Menu Store "+suffix, slug, "MenuCity_"+suffix)
 
 	catID := seedCategory(t, pool, locID, "Mains "+suffix)
 	itemID := seedMarketplaceItem(t, pool, locID, catID, "Burger "+suffix, 89.00)
@@ -271,8 +268,6 @@ func TestMarketplace_GetStore_MenuSnapshot(t *testing.T) {
 
 func TestMarketplace_GetStore_UnknownSlug_Returns404(t *testing.T) {
 	pool := openPool(t)
-	regionID := zaRegionID(t, pool)
-	_ = regionID
 
 	router := buildMarketplaceRouter(pool)
 
@@ -287,14 +282,13 @@ func TestMarketplace_GetStore_UnknownSlug_Returns404(t *testing.T) {
 
 func TestMarketplace_PrivateStore_NotInResults(t *testing.T) {
 	pool := openPool(t)
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 	city := "SecCity_" + suffix
 
 	// Private org + location.
 	orgID := seedOrg(t, pool, "MktSec_"+suffix)
 	privateSlug := "secret-store-" + suffix
-	_ = seedPrivateLocation(t, pool, orgID, "Secret Store "+suffix, regionID, privateSlug, city)
+	_ = seedPrivateLocation(t, pool, orgID, "Secret Store "+suffix, privateSlug, city)
 
 	router := buildMarketplaceRouter(pool)
 
