@@ -205,7 +205,7 @@ tracking, both of which would record a tender rather than move money.
 - Dine-in order taking
 - Table management
 - Kitchen ticket printing
-- Payment processing at counter
+- Tender recorded at the counter
 - Receipt printing
 
 **Table Service**
