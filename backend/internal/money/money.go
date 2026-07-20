@@ -25,7 +25,6 @@ import (
 	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
-	"golang.org/x/text/number"
 )
 
 // MaxDecimals is the largest minor-unit exponent ISO 4217 defines (3, for the
@@ -94,80 +93,82 @@ func Decimal(minor int64, decimals int) string {
 //
 // The locale drives presentation only. It never changes the amount, and it
 // never changes which currency the amount is in — a German-locale receipt for a
-// Japanese store still reads "1.000 ¥", not euros.
+// Japanese store still reads "¥ 1.000", not euros.
 //
 // An empty or unparseable locale falls back to language.Und, whose CLDR root
 // formatting is neutral rather than any one country's convention. An unknown
 // currency code falls back to "<CODE> <decimal>" so the amount stays legible
 // and unambiguous instead of being dropped.
+//
+// `decimals` scales the integer into major units and must match the currency
+// (see the package doc). The number of digits actually *printed* comes from
+// CLDR's own table for that currency, which is the ISO 4217 exponent — so a
+// correct `decimals` and CLDR always agree, and a wrong one shows up as a
+// visibly wrong amount rather than a silently wrong one.
 func Format(minor int64, currencyCode string, decimals int, locale string) string {
-	code := strings.ToUpper(strings.TrimSpace(currencyCode))
-
-	unit, err := currency.ParseISO(code)
-	if err != nil {
-		// Unknown/blank code: never guess a symbol. Show the code verbatim.
-		if code == "" {
-			return Decimal(minor, decimals)
-		}
-		return code + " " + Decimal(minor, decimals)
-	}
-
-	tag := parseLocale(locale)
-	major, frac := Split(minor, decimals)
-
-	// Rebuild the value as a decimal for x/text. number.Decimal formats from a
-	// float64, so feed it the smallest float that can round-trip this amount
-	// and pin the fraction digits — the integer parts above are the source of
-	// truth for what those digits are.
-	v := float64(major) + float64(frac)/float64(Scale(decimals))
-	if minor < 0 && major == 0 {
-		v = -v
-	}
-
-	p := message.NewPrinter(tag)
-	return p.Sprint(currency.Symbol(unit.Amount(number.Decimal(v,
-		number.MinFractionDigits(decimals),
-		number.MaxFractionDigits(decimals),
-	)))) //nolint:staticcheck // x/text's currency formatting entry point
+	return render(minor, currencyCode, decimals, locale, currency.Symbol)
 }
 
 // FormatCode is Format but with the ISO code instead of the symbol — "ZAR 12.50"
 // rather than "R 12.50".
 //
 // Use it in consolidated multi-currency reports, where two locations' symbols
-// can collide ($ is USD, CAD, AUD, and a dozen more) and the reader needs to
-// know which currency a column is actually in.
+// can collide ($ is USD, CAD, AUD, SGD and a dozen more) and the reader needs
+// to know which currency a column is actually in.
 func FormatCode(minor int64, currencyCode string, decimals int, locale string) string {
+	return render(minor, currencyCode, decimals, locale, currency.ISO)
+}
+
+// render is the shared body of Format and FormatCode; `kind` selects whether
+// x/text emits the symbol or the ISO code.
+func render(minor int64, currencyCode string, decimals int, locale string, kind currency.Formatter) string {
 	code := strings.ToUpper(strings.TrimSpace(currencyCode))
 	if code == "" {
+		// Never invent a symbol for a missing code — show the bare number.
 		return Decimal(minor, decimals)
 	}
 	unit, err := currency.ParseISO(code)
 	if err != nil {
+		// Unknown code (a private or crypto unit): keep it legible and explicit.
 		return code + " " + Decimal(minor, decimals)
 	}
-	tag := parseLocale(locale)
+
+	p := message.NewPrinter(parseLocale(locale))
+	return p.Sprint(kind(unit.Amount(majorValue(minor, decimals))))
+}
+
+// majorValue converts minor units to a major-unit float64 for the formatting
+// layer only.
+//
+// This is the single place a float touches money, and it is the last step
+// before pixels: the integer division and remainder above are exact, and
+// float64 represents every value up to 2^53 minor units without loss — far
+// beyond any realistic order total. No arithmetic is performed on the result.
+func majorValue(minor int64, decimals int) float64 {
 	major, frac := Split(minor, decimals)
 	v := float64(major) + float64(frac)/float64(Scale(decimals))
 	if minor < 0 && major == 0 {
 		v = -v
 	}
-	p := message.NewPrinter(tag)
-	return p.Sprint(currency.ISO(unit.Amount(number.Decimal(v,
-		number.MinFractionDigits(decimals),
-		number.MaxFractionDigits(decimals),
-	)))) //nolint:staticcheck // x/text's currency formatting entry point
+	return v
 }
 
-// Parse reads a major-unit decimal string ("12.50", "1 000,50", "¥1000") into
-// minor units, using integer arithmetic throughout — the string is never routed
-// through a float, so 0.29 cannot arrive as 28 cents.
+// Parse reads a major-unit decimal string ("12.50", "1 000,50", "¥1 234.50")
+// into minor units, using integer arithmetic throughout — the string is never
+// routed through a float, so 0.29 cannot arrive as 28 cents.
 //
-// It accepts either '.' or ',' as the decimal separator and ignores spaces,
-// underscores, and apostrophes used as grouping marks, because operators type
-// prices the way their locale taught them. More fractional digits than the
-// currency allows is an error rather than a silent truncation: "12.345" in USD
-// is a typo worth surfacing, not 1234 cents.
+// It accepts either '.' or ',' as the decimal separator, because "12,50" and
+// "12.50" are the same price to a German and an American operator respectively.
+// When both appear ("1,234.50" / "1.234,50") the *last* one is the decimal
+// separator and the earlier ones are grouping — this is true in every locale
+// CLDR describes. Spaces, non-breaking spaces, apostrophes and underscores are
+// dropped as grouping marks, and stray symbols or codes are ignored.
+//
+// More fractional digits than the currency has is an error, never a silent
+// truncation. That makes a single ambiguous input — "1,234" in a 2-decimal
+// currency, which could be 1234 or 1.234 depending on where the typist learned
+// to write numbers — fail loudly rather than resolve to a guess that is wrong
+// half the time. Callers wanting the unambiguous reading should send "1234".
 func Parse(s string, decimals int) (int64, error) {
 	raw := strings.TrimSpace(s)
 	if raw == "" {
@@ -212,15 +213,8 @@ func Parse(s string, decimals int) (int64, error) {
 	if sepIdx >= 0 {
 		intPart, fracPart = digits[:sepIdx], digits[sepIdx:]
 	}
-	// A trailing group of exactly 3 after a separator, in a 2-decimal currency,
-	// is grouping ("1,234") not a fraction. Only treat it as a fraction when it
-	// fits the currency's scale.
 	if len(fracPart) > decimals {
-		if sepIdx >= 0 && len(fracPart) == 3 && decimals != 3 {
-			intPart, fracPart = digits, ""
-		} else {
-			return 0, fmt.Errorf("%w: %q has more than %d decimal places", ErrInvalidAmount, s, decimals)
-		}
+		return 0, fmt.Errorf("%w: %q has more than %d decimal place(s)", ErrInvalidAmount, s, decimals)
 	}
 
 	var minor int64
