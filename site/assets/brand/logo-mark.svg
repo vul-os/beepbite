@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BeepBite mark">
+  <rect width="64" height="64" rx="15" fill="#141416"/>
+  <circle cx="31" cy="33" r="17" fill="none" stroke="#FF6B35" stroke-width="4.5"/>
+  <circle cx="45.5" cy="20.5" r="9.5" fill="#141416"/>
+</svg>

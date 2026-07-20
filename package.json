@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "test:unit": "NODE_OPTIONS=--max-old-space-size=512 vitest run",
     "test:unit:watch": "NODE_OPTIONS=--max-old-space-size=512 vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "docs:sync": "node scripts/sync-docs.mjs",
+    "docs:check": "node scripts/sync-docs.mjs --check"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

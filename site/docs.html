@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BeepBite docs</title>
+<meta name="description" content="BeepBite documentation — setup, user guide, features, API, development, troubleshooting, roadmap.">
+<link rel="icon" href="./assets/brand/favicon.svg">
+<style>*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#0A0A0B; --bg-soft:#0F0F11; --panel:#141416; --panel-2:#1A1A1D;
+  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.13);
+  --text:#FAFAFA; --muted:#A1A1AA; --faint:#71717A; --body:#D4D4D8;
+  --code-bg:#0C0C0E; --code-text:#D4D4D8; --chip:rgba(255,255,255,.07);
+  --radius:16px; --max:1120px;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono","Geist Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+@media(prefers-color-scheme:light){
+  :root{
+    --bg:#FBFAF9; --bg-soft:#F4F2F0; --panel:#FFFFFF; --panel-2:#F7F5F3;
+    --border:rgba(24,20,16,.10); --border-2:rgba(24,20,16,.16);
+    --text:#18140F; --muted:#5C574F; --faint:#8A847A; --body:#2C2822;
+    --code-bg:#17151A; --code-text:#E4E4E7; --chip:rgba(24,20,16,.06);
+  }
+}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;font-size:16px}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:
+  radial-gradient(1100px 600px at 82% -10%, color-mix(in srgb,var(--accent) 10%, transparent), transparent 60%),
+  radial-gradient(900px 500px at -10% 8%, color-mix(in srgb,var(--accent-2) 8%, transparent), transparent 55%),
+  var(--bg);}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+
+/* Header */
+.site-header{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 74%, transparent);border-bottom:1px solid var(--border)}
+.nav{display:flex;align-items:center;gap:18px;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;letter-spacing:-.03em}
+.brand .tile{width:34px;height:34px;border-radius:9px;overflow:hidden;flex:none;box-shadow:0 1px 0 rgba(255,255,255,.10) inset, 0 4px 14px rgba(0,0,0,.28)}
+.brand .tile img{width:100%;height:100%;object-fit:contain}
+.brand .bite{color:var(--accent)}
+.nav-spacer{flex:1}
+.nav-links{display:flex;align-items:center;gap:22px}
+.nav-links a{color:var(--muted);font-size:14.5px;font-weight:500;transition:color .15s}
+.nav-links a:hover{color:var(--text)}
+.vulos-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--border-2);border-radius:999px;font-size:13px;color:var(--muted);transition:border-color .15s,color .15s}
+.vulos-badge:hover{border-color:var(--accent);color:var(--text)}
+.vulos-badge img{width:16px;height:16px;border-radius:4px}
+@media(max-width:820px){.nav-links{display:none}}
+
+/* Footer */
+.site-footer{border-top:1px solid var(--border);margin-top:40px;padding:40px 0}
+.foot{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between}
+.foot .left{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+.foot .left img{width:20px;height:20px;border-radius:5px}
+.foot .links{display:flex;gap:20px;flex-wrap:wrap}
+.foot .links a{color:var(--muted);font-size:14px}
+.foot .links a:hover{color:var(--text)}
+.foot-note{color:var(--faint);font-size:13px;margin-top:22px;max-width:760px}
+.foot-note code{font-family:var(--mono);font-size:.9em}
+
+/* Status strip */
+.docs-status{border:1px solid color-mix(in srgb,var(--warn) 42%, transparent);background:color-mix(in srgb,var(--warn) 11%, transparent);border-radius:12px;padding:13px 16px;margin:22px 0 0;font-size:14px;color:var(--muted)}
+.docs-status b{color:var(--text)}
+.docs-status b::before{content:"⚠ ";color:var(--warn)}
+
+/* Docs viewer */
+.docs-shell{display:grid;grid-template-columns:250px 1fr;gap:36px;align-items:start;padding:26px 0 70px}
+@media(max-width:900px){.docs-shell{grid-template-columns:1fr}}
+.docs-nav{position:sticky;top:84px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);padding:14px}
+.docs-nav .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:6px 10px}
+.docs-nav .label+.label{margin-top:8px;border-top:1px solid var(--border);padding-top:12px}
+.docs-nav a{display:block;padding:8px 11px;border-radius:9px;color:var(--muted);font-size:14.5px;font-weight:500;transition:.15s}
+.docs-nav a:hover{background:var(--chip);color:var(--text)}
+.docs-nav a.active{background:color-mix(in srgb,var(--accent) 15%, transparent);color:var(--text)}
+@media(max-width:900px){.docs-nav{position:static}}
+.docs-main{min-width:0}
+.markdown{font-size:16px}
+.markdown>*:first-child{margin-top:0}
+.markdown h1{font-size:34px;letter-spacing:-.03em;margin:.2em 0 .5em;border-bottom:1px solid var(--border);padding-bottom:.3em}
+.markdown h2{font-size:25px;letter-spacing:-.02em;margin:1.6em 0 .6em;border-bottom:1px solid var(--border);padding-bottom:.25em}
+.markdown h3{font-size:19px;margin:1.4em 0 .5em}
+.markdown h4{font-size:16px;margin:1.3em 0 .4em;color:var(--text)}
+.markdown p,.markdown li{color:var(--body)}
+.markdown a{color:var(--accent);text-decoration:none}
+.markdown a:hover{text-decoration:underline}
+.markdown code{font-family:var(--mono);font-size:.88em;background:var(--chip);padding:2px 6px;border-radius:6px}
+.markdown pre{background:var(--code-bg);border:1px solid var(--border-2);border-radius:12px;padding:16px 18px;overflow:auto}
+.markdown pre code{background:none;padding:0;font-size:13.5px;line-height:1.7;color:var(--code-text)}
+.markdown blockquote{margin:1em 0;padding:.4em 1em;border-left:3px solid var(--accent);background:var(--chip);color:var(--muted);border-radius:0 8px 8px 0}
+.markdown blockquote p{color:var(--muted)}
+/* GitHub-style alerts: > [!WARNING] etc. */
+.markdown blockquote.callout{border-left-width:4px;padding:.8em 1.1em;border-radius:0 10px 10px 0}
+.markdown blockquote.callout .callout-label{display:block;font-weight:700;font-size:12px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:.35em}
+.markdown blockquote.callout p{color:var(--body)}
+.markdown blockquote.cw{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%, transparent)}
+.markdown blockquote.cw .callout-label{color:var(--warn)}
+.markdown blockquote.cc{border-left-color:#DC2626;background:color-mix(in srgb,#DC2626 9%, transparent)}
+.markdown blockquote.cc .callout-label{color:#DC2626}
+.markdown blockquote.ci{border-left-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%, transparent)}
+.markdown blockquote.ci .callout-label{color:var(--accent)}
+.markdown blockquote.cn{border-left-color:#3B82F6;background:color-mix(in srgb,#3B82F6 9%, transparent)}
+.markdown blockquote.cn .callout-label{color:#3B82F6}
+.markdown blockquote.ct{border-left-color:#14B8A6;background:color-mix(in srgb,#14B8A6 9%, transparent)}
+.markdown blockquote.ct .callout-label{color:#14B8A6}
+.markdown table{border-collapse:collapse;width:100%;margin:1.2em 0;font-size:14.5px;display:block;overflow:auto}
+.markdown th,.markdown td{border:1px solid var(--border-2);padding:9px 12px;text-align:left}
+.markdown th{background:var(--panel);font-weight:600}
+.markdown img{border-radius:10px;margin:1em 0;border:1px solid var(--border)}
+.markdown hr{border:none;border-top:1px solid var(--border);margin:2em 0}
+.markdown .mermaid{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin:1.2em 0;text-align:center;overflow:auto}
+.docs-title{font-size:13px;color:var(--faint);margin-bottom:6px}
+.docs-error{color:#DC2626;background:color-mix(in srgb,#DC2626 8%, transparent);border:1px solid color-mix(in srgb,#DC2626 25%, transparent);padding:14px 16px;border-radius:10px}
+.docs-error code{font-family:var(--mono)}
+</style>
+<style>:root{--accent:#FF6B35;--accent-2:#E8541A;--warn:#F5A524}</style>
+<script src="./assets/vendor/marked.umd.js"></script>
+<script src="./assets/vendor/mermaid.min.js"></script>
+</head>
+<body>
+<header class="site-header"><div class="wrap nav">
+    <a class="brand" href="./index.html"><span class="tile"><img src="./assets/brand/logo-mark.svg" alt="BeepBite mark"></span>Beep<span class="bite">Bite</span></a>
+    <div class="nav-spacer"></div>
+    <nav class="nav-links">
+      <a href="./index.html#problem">The problem</a>
+      <a href="./index.html#features">Features</a>
+      <a href="./index.html#how">How it works</a>
+      <a href="./docs.html">Docs</a>
+      <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <a class="vulos-badge" href="https://vulos.org" target="_blank" rel="noopener" title="Part of VulOS">
+      <img src="./assets/vulos-logo.png" alt="VulOS">Part of VulOS
+    </a>
+  </div></header>
+<div class="wrap">
+  <div class="docs-status"><b>BeepBite is pre-1.0 and under active rebuild.</b> POS, kitchen, inventory and WhatsApp ordering are substantially built and tested; other ordering channels and the single-binary target are not. Each chapter is accurate as of the repository it was copied from — see <a href="#features">Features</a> and <a href="#roadmap">Roadmap</a> for the honest state of each surface.</div>
+</div>
+<div class="wrap docs-shell">
+  <aside class="docs-nav">
+    <div class="label">BeepBite docs</div>
+        <a data-slug="setup" href="#setup">Setup</a>
+        <a data-slug="user-guide" href="#user-guide">User guide</a>
+        <a data-slug="features" href="#features">Features</a>
+        <a data-slug="api" href="#api">API</a>
+        <a data-slug="development" href="#development">Development</a>
+        <a data-slug="troubleshooting" href="#troubleshooting">Troubleshooting</a>
+    <div class="label">Project</div>
+        <a data-slug="roadmap" href="#roadmap">Roadmap</a>
+        <a data-slug="changelog" href="#changelog">Changelog</a>
+  </aside>
+  <main class="docs-main">
+    <div class="docs-title" id="crumb"></div>
+    <article class="markdown" id="content">Loading…</article>
+  </main>
+</div>
+<footer class="site-footer"><div class="wrap">
+    <div class="foot">
+      <div class="left"><img src="./assets/vulos-logo.png" alt="VulOS"> <span>Part of <a href="https://vulos.org" target="_blank" rel="noopener" style="color:var(--text)">VulOS</a> — open, self-hostable apps. Standalone by design.</span></div>
+      <div class="links">
+        <a href="./index.html">Home</a>
+        <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
+        <a href="./LICENSE.txt">License</a>
+        <a href="https://vulos.org" target="_blank" rel="noopener">vulos.org</a>
+      </div>
+    </div>
+    <p class="foot-note">These pages are copied from the repository's own <code>docs/</code> by <code>npm run docs:sync</code> — never by hand — so what you read here cannot drift from what is in the repo. <code>marked</code> and <code>mermaid</code> are vendored; this page fetches nothing from any third party.</p>
+  </div></footer>
+<script>
+// The site is served from site/; docs are copied here from the repo's own
+// markdown by scripts/sync-docs.mjs. Never edit site/docs/*.md by hand.
+const DOCS = [
+  {"slug":"setup","title":"Setup","path":"./docs/setup.md"},
+  {"slug":"user-guide","title":"User guide","path":"./docs/user-guide.md"},
+  {"slug":"features","title":"Features","path":"./docs/features.md"},
+  {"slug":"api","title":"API","path":"./docs/api.md"},
+  {"slug":"development","title":"Development","path":"./docs/development.md"},
+  {"slug":"troubleshooting","title":"Troubleshooting","path":"./docs/troubleshooting.md"},
+  {"slug":"roadmap","title":"Roadmap","path":"./docs/roadmap.md"},
+  {"slug":"changelog","title":"Changelog","path":"./docs/changelog.md"}
+];
+const bySlug = Object.fromEntries(DOCS.map(d=>[d.slug,d]));
+const byFile = Object.fromEntries(DOCS.map(d=>[d.path.split('/').pop().toLowerCase(),d]));
+// Working/internal notes (tasks.md, README.md, etc.) are synced to site/docs/
+// too, by the same mechanical script, but are not part of the curated nav —
+// link them out to GitHub instead of silently 404ing.
+const OFFSITE = {
+  'readme.md':'https://github.com/vul-os/beepbite/blob/main/README.md',
+  'tasks.md':'https://github.com/vul-os/beepbite/blob/main/tasks.md',
+  'plan.md':'https://github.com/vul-os/beepbite/blob/main/PLAN.md',
+  'license':'https://github.com/vul-os/beepbite/blob/main/LICENSE'
+};
+const content = document.getElementById('content');
+const crumb = document.getElementById('crumb');
+let mermaidReady = false;
+try {
+  const dark = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: light)').matches;
+  mermaid.initialize({ startOnLoad:false, theme: dark ? 'dark' : 'default', securityLevel:'loose', themeVariables:{ fontFamily:'var(--sans)' } });
+  mermaidReady = true;
+} catch(e){}
+
+if (window.marked && marked.setOptions) marked.setOptions({ gfm:true, breaks:false });
+
+function setActive(slug){
+  document.querySelectorAll('.docs-nav a').forEach(a=>a.classList.toggle('active', a.dataset.slug===slug));
+}
+
+// GitHub alert blockquotes (`> [!WARNING]`) are plain text to marked. These
+// carry honest build-status warnings inline in the docs, so they are
+// rendered as real callouts rather than shipped as literal "[!WARNING]".
+const ALERTS = {NOTE:['cn','Note'],TIP:['ct','Tip'],IMPORTANT:['ci','Important'],WARNING:['cw','Warning'],CAUTION:['cc','Caution']};
+function renderCallouts(){
+  content.querySelectorAll('blockquote').forEach(bq=>{
+    const first = bq.querySelector('p');
+    if(!first) return;
+    const m = first.innerHTML.match(/^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br\s*\/?>)?\s*/i);
+    if(!m) return;
+    const [cls,label] = ALERTS[m[1].toUpperCase()];
+    first.innerHTML = first.innerHTML.slice(m[0].length);
+    if(!first.textContent.trim() && !first.querySelector('img')) first.remove();
+    const tag = document.createElement('span');
+    tag.className = 'callout-label';
+    tag.textContent = label;
+    bq.classList.add('callout', cls);
+    bq.insertBefore(tag, bq.firstChild);
+  });
+}
+
+async function renderMermaid(){
+  if(!mermaidReady) return;
+  const blocks = [...content.querySelectorAll('code.language-mermaid')];
+  blocks.forEach(code=>{
+    const div = document.createElement('div');
+    div.className='mermaid';
+    div.textContent = code.textContent;
+    code.closest('pre').replaceWith(div);
+  });
+  const nodes = content.querySelectorAll('.mermaid');
+  if(nodes.length){ try { await mermaid.run({ nodes }); } catch(e){ console.warn('mermaid', e); } }
+}
+
+async function load(slug){
+  const doc = bySlug[slug] || DOCS[0];
+  setActive(doc.slug);
+  crumb.textContent = doc.title;
+  content.innerHTML = 'Loading…';
+  try {
+    const res = await fetch(doc.path, {cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const md = await res.text();
+    content.innerHTML = marked.parse(md);
+
+    // Image paths: chapters reference screenshots relative to docs/, but the
+    // site serves them from ./screenshots/.
+    content.querySelectorAll('img').forEach(img=>{
+      const s=img.getAttribute('src')||'';
+      if(/^(https?:|data:)/i.test(s)) return;
+      const m=s.match(/(?:\.\.\/)*(?:docs\/)?screenshots\/(.+)$/);
+      if(m) img.setAttribute('src','./screenshots/'+m[1]);
+      const a=s.match(/(?:\.\.\/)*(?:docs\/)?assets\/(.+)$/);
+      if(a) img.setAttribute('src','./assets/'+a[1]);
+    });
+
+    // Cross-doc links (setup.md, ../ROADMAP.md#next, docs/troubleshooting.md)
+    // become sidebar navigation; anything we do not serve goes to GitHub.
+    content.querySelectorAll('a[href]').forEach(a=>{
+      const h=a.getAttribute('href')||'';
+      if(/^(https?:|mailto:)/i.test(h)) return;
+      if(h.startsWith('#')) return;
+      const m=h.match(/([^\/]+\.md)(#.*)?$/i);
+      if(m){
+        const key=m[1].toLowerCase();
+        const target = byFile[key];
+        if(target){ a.setAttribute('href','#'+target.slug); return; }
+        if(OFFSITE[key]){ a.setAttribute('href',OFFSITE[key]); return; }
+      }
+      const bare=h.replace(/^.*\//,'').toLowerCase();
+      if(OFFSITE[bare]) a.setAttribute('href',OFFSITE[bare]);
+    });
+
+    content.querySelectorAll('a[href^="http"]').forEach(a=>{a.target='_blank';a.rel='noopener';});
+    renderCallouts();
+    await renderMermaid();
+    window.scrollTo({top:0});
+  } catch(err){
+    content.innerHTML = '<div class="docs-error">Could not load <code>'+doc.path.split('/').pop()+'</code> — '+err.message+
+      '. If you are viewing this from the filesystem, serve the <code>site/</code> directory over HTTP instead; and make sure <code>npm run docs:sync</code> has been run.</div>';
+  }
+}
+
+function current(){ return (location.hash||'').replace('#','') || DOCS[0].slug; }
+window.addEventListener('hashchange', ()=>load(current()));
+load(current());
+</script>
+</body>
+</html>
