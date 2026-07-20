@@ -11,9 +11,6 @@
 -- New columns vs legacy:
 --   auth_users.is_platform_admin        (Now-16)
 --   organizations.default_currency_code (legacy 38)
---   organizations.subscription_tier     (ROADMAP Now-11)
---   organizations.auto_refill_threshold_cents (ROADMAP Now-1)
---   organizations.auto_refill_target_cents    (ROADMAP Now-1)
 --   organization_members.capabilities jsonb  (ROADMAP Now-16 / plan §002)
 --   organization_members.role CHECK extended: adds 'kitchen','pos','driver'
 --   organization_invites.role CHECK extended to match organization_members
@@ -31,8 +28,7 @@
 --   handle_new_user(), handle_new_organization() are INCLUDED here because
 --   they directly depend on the tables in this migration and have no other
 --   natural home. handle_new_organization() references locations (migration
---   008) and regions (seed in 014); the function body guards with
---   "IF default_region_id IS NULL THEN RAISE NOTICE ... RETURN NEW; END IF"
+--   008); the function is a no-op when a location already exists.
 --   so it is safe before seed data exists. The trigger fires after this
 --   migration runs and quietly no-ops until seed is present.
 -- =============================================================================
@@ -235,18 +231,13 @@ CREATE POLICY profiles_delete ON profiles FOR DELETE
 -- ---------------------------------------------------------------------------
 -- 6. organizations
 -- ---------------------------------------------------------------------------
--- Source: legacy 2 + 38 (default_currency_code) + plan (subscription_tier,
---   auto_refill_threshold_cents, auto_refill_target_cents).
+-- Source: legacy 2 + 38 (default_currency_code).
 
 CREATE TABLE organizations (
     id                          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
     name                        text        NOT NULL,
     is_active                   boolean     NOT NULL DEFAULT true,
     default_currency_code       text        REFERENCES currencies(code) DEFAULT 'ZAR', -- legacy 38
-    subscription_tier           text        NOT NULL DEFAULT 'free'                     -- [NEW] Now-11
-        CHECK (subscription_tier IN ('free', 'starter', 'growth', 'enterprise')),
-    auto_refill_threshold_cents bigint,                                                 -- [NEW] Now-1
-    auto_refill_target_cents    bigint,                                                 -- [NEW] Now-1
     created_at                  timestamptz NOT NULL DEFAULT timezone('utc', now()),
     updated_at                  timestamptz NOT NULL DEFAULT timezone('utc', now())
 );
@@ -845,33 +836,18 @@ CREATE TRIGGER on_auth_user_created
 -- NEW ORGANIZATION TRIGGER (legacy 43)
 -- ---------------------------------------------------------------------------
 -- Auto-creates a default location when a new organization is inserted.
--- Depends on locations (migration 008) and regions seed (migration 014).
--- The function guards with RAISE NOTICE and RETURN NEW if no regions exist
--- so it is safe to install now and becomes effective once seed data is loaded.
+-- Depends on locations (migration 007).
 
 CREATE OR REPLACE FUNCTION public.handle_new_organization()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE
-    default_region_id uuid;
 BEGIN
     -- Skip if a location already exists for this org.
     IF EXISTS (SELECT 1 FROM public.locations WHERE organization_id = NEW.id) THEN
         RETURN NEW;
     END IF;
 
-    SELECT id INTO default_region_id
-    FROM public.regions
-    WHERE is_active = true
-    ORDER BY code
-    LIMIT 1;
-
-    IF default_region_id IS NULL THEN
-        RAISE NOTICE 'handle_new_organization: no active regions configured; skipping default location';
-        RETURN NEW;
-    END IF;
-
-    INSERT INTO public.locations (organization_id, name, region_id)
-    VALUES (NEW.id, NEW.name, default_region_id);
+    INSERT INTO public.locations (organization_id, name)
+    VALUES (NEW.id, NEW.name);
 
     RETURN NEW;
 END;

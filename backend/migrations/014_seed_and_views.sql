@@ -2,12 +2,11 @@
 -- MIGRATION 014 — SEED DATA + REPORTING VIEWS
 -- =============================================================================
 -- Sources: legacy 22 (reporting_views.sql), legacy 28 (triggers_and_report_views.sql),
---          legacy 33 (labor_cost_views.sql), legacy 26 (regions seed),
---          legacy 38 (currencies seed), legacy 27 (subscription_plans seed),
+--          legacy 33 (labor_cost_views.sql), legacy 38 (currencies seed),
 --          schema-consolidation-plan.md §1.014 and ROADMAP Now-1.
 --
 -- NO new tables. This migration only:
---   A. Seed data: regions, currencies, payment_providers, subscription_plans
+--   A. Seed data: currencies, payment_methods
 --   B. Reporting views (all with security_invoker = on):
 --        daily_sales_summary, hourly_sales_heatmap, menu_engineering,
 --        labor_hours_daily, labor_cost_daily, sales_per_labor_hour,
@@ -19,7 +18,7 @@
 -- under the caller's RLS context. The caller's app.current_org_id session var
 -- is already set by middleware, so RLS on underlying tables applies correctly.
 --
--- Reference tables (regions, currencies, payment_providers, subscription_plans)
+-- Reference tables (currencies, payment_methods)
 -- are NOT under RLS per schema-consolidation-plan.md §5.
 -- Access pattern: GRANT SELECT TO PUBLIC; REVOKE INSERT/UPDATE/DELETE FROM PUBLIC.
 -- =============================================================================
@@ -55,273 +54,32 @@ ON CONFLICT (code) DO UPDATE
 
 
 -- ---------------------------------------------------------------------------
--- A.2  regions
--- ZA, NG, KE, GH, US, GB, EU — each with currency + timezone + payment_provider.
--- payment_provider is the default provider for new locations in that region.
--- EU is a synthetic multi-country entry for Stripe-based EU deployments.
+-- A.2  payment_methods
+-- The complete tender vocabulary. BeepBite records how money moved at the
+-- counter; it never processes a card.
+--
+--   cash      — notes and coins into the drawer.
+--   card      — swiped on the SHOP'S OWN card machine. No card data touches
+--               BeepBite and there is no gateway involved.
+--   transfer  — EFT / instant bank transfer; reference captured for recon.
+--   voucher   — gift card, meal voucher or comp instrument.
+--
+-- requires_reference forces the operator to capture an external identifier
+-- (card-machine slip number, EFT reference, voucher serial) so the shop can
+-- reconcile against its own bank or card-machine statement.
 -- ---------------------------------------------------------------------------
-INSERT INTO regions (code, name, currency, timezone, payment_provider, default_tax_rate, default_tax_name, is_active)
+INSERT INTO payment_methods (code, name, kind, is_active, requires_reference, supports_tips)
 VALUES
-    ('ZA', 'South Africa',          'ZAR', 'Africa/Johannesburg',  'paystack', 15.00, 'VAT',  true),
-    ('NG', 'Nigeria',               'NGN', 'Africa/Lagos',         'paystack',  7.50, 'VAT',  true),
-    ('KE', 'Kenya',                 'KES', 'Africa/Nairobi',       'paystack', 16.00, 'VAT',  true),
-    ('GH', 'Ghana',                 'GHS', 'Africa/Accra',         'paystack', 15.00, 'VAT',  true),
-    ('US', 'United States',         'USD', 'America/New_York',     'stripe',    0.00, 'Tax',  true),
-    ('GB', 'United Kingdom',        'GBP', 'Europe/London',        'stripe',   20.00, 'VAT',  true),
-    ('EU', 'European Union',        'EUR', 'Europe/Berlin',        'stripe',   20.00, 'VAT',  true)
+    ('cash',     'Cash',          'offline', true, false, true),
+    ('card',     'Card Machine',  'offline', true, true,  true),
+    ('transfer', 'Bank Transfer', 'offline', true, true,  false),
+    ('voucher',  'Voucher',       'offline', true, true,  false)
 ON CONFLICT (code) DO UPDATE
-    SET name              = EXCLUDED.name,
-        currency          = EXCLUDED.currency,
-        timezone          = EXCLUDED.timezone,
-        payment_provider  = EXCLUDED.payment_provider,
-        default_tax_rate  = EXCLUDED.default_tax_rate,
-        default_tax_name  = EXCLUDED.default_tax_name,
-        is_active         = EXCLUDED.is_active;
-
-
--- ---------------------------------------------------------------------------
--- A.3  payment_providers
--- Registry: paystack (active), stripe (active), payfast (disabled by default).
--- The `code` column is the unique key used in regions.payment_provider and
--- location_payment_credentials.provider_code.
--- ---------------------------------------------------------------------------
-INSERT INTO payment_providers (code, display_name, status)
-VALUES
-    ('paystack', 'Paystack',  'active'),
-    ('stripe',   'Stripe',    'active'),
-    ('payfast',  'PayFast',   'inactive')
-ON CONFLICT (code) DO UPDATE
-    SET display_name = EXCLUDED.display_name,
-        status       = EXCLUDED.status;
-
-
--- ---------------------------------------------------------------------------
--- A.4  subscription_plans
--- Tiers: Free $0, Starter $39/loc, Growth $249/loc, Scale $799/loc (USD).
--- Amounts stored in USD cents (monthly_fee_cents). Wallet-billed model: fee
--- is a ledger debit, not a Stripe subscription.
---
--- Quotas (included per location per billing month, per ROADMAP Now-1):
---   orders:              Free=500,  Starter=2000,  Growth=10000, Scale=unlimited
---   whatsapp_outbound:   Free=200,  Starter=1000,  Growth=5000,  Scale=unlimited
---   llm_messages:        Free=100,  Starter=500,   Growth=2000,  Scale=unlimited
---   email_outbound:      Free=500,  Starter=2000,  Growth=10000, Scale=unlimited
---   bulk_imports:        Free=0,    Starter=5,     Growth=25,    Scale=unlimited
---
--- Overage rates (USD cents per unit, per ROADMAP Now-1):
---   orders:              $0.02  = 2 cents
---   whatsapp_outbound:   $0.05  = 5 cents
---   llm_messages:        $0.10  = 10 cents
---   email_outbound:      $0.001 = 0.1 cents → stored as numeric in features jsonb
---   bulk_imports:        $0.50  = 50 cents
---
--- tier_code CHECK constraint in legacy 27 used ('free','starter','growth','pro').
--- We extend it here to add 'scale'. If the CHECK still exists, we widen it first.
--- ---------------------------------------------------------------------------
-
--- Widen the tier_code CHECK to include 'scale' (it was 'pro' in legacy 27).
--- We use a DO block to be idempotent: drop the old CHECK name if present,
--- add the new one only if absent.
-DO $$
-BEGIN
-    -- Remove legacy constraint if it exists (it may have varied names across envs).
-    ALTER TABLE subscription_plans DROP CONSTRAINT IF EXISTS subscription_plans_tier_code_check;
-EXCEPTION WHEN OTHERS THEN
-    NULL;  -- already gone or never existed; safe to continue
-END $$;
-
-ALTER TABLE subscription_plans
-    ADD CONSTRAINT subscription_plans_tier_code_check
-    CHECK (tier_code IN ('free', 'starter', 'growth', 'scale'));
-
-INSERT INTO subscription_plans (
-    tier_code,
-    display_name,
-    description,
-    monthly_fee_cents,
-    annual_fee_cents,
-    transaction_fee_percentage,
-    transaction_fee_fixed_cents,
-    payout_fee_percentage,
-    payout_fee_fixed_cents,
-    max_locations,
-    max_staff,
-    max_orders_per_month,
-    features,
-    is_active,
-    sort_order,
-    billed_in_currency_code
-)
-VALUES
-    (
-        'free',
-        'Free',
-        'Offline payments only. Up to 500 orders/mo. No LLM chat. No payouts. '
-        '90-day inactivity auto-pause.',
-        0,        -- $0/month
-        0,
-        3.500, 200,
-        0.000, 500,
-        1,        -- max 1 location
-        5,        -- max 5 staff
-        500,
-        jsonb_build_object(
-            'kds',              false,
-            'multi_location',   false,
-            'online_payments',  false,
-            'llm_chat',         false,
-            'whatsapp_ordering',false,
-            'payouts',          false,
-            'included_quotas',  jsonb_build_object(
-                'orders',             500,
-                'whatsapp_outbound',  200,
-                'llm_messages',       100,
-                'email_outbound',     500,
-                'bulk_imports',         0
-            ),
-            'overage_rates_cents', jsonb_build_object(
-                'orders',             2,
-                'whatsapp_outbound',  5,
-                'llm_messages',      10,
-                'email_outbound',     0,   -- not available on free
-                'bulk_imports',       0    -- not available on free
-            )
-        ),
-        true,
-        0,
-        'USD'
-    ),
-    (
-        'starter',
-        'Starter',
-        '$39/location/month. Online payments, KDS, WhatsApp ordering, '
-        'up to 2000 orders/mo.',
-        3900,     -- $39/month in USD cents
-        42120,    -- $421.20/year (10% discount)
-        2.900, 150,
-        0.000, 500,
-        1,        -- max 1 location
-        20,
-        2000,
-        jsonb_build_object(
-            'kds',              true,
-            'multi_location',   false,
-            'online_payments',  true,
-            'llm_chat',         true,
-            'whatsapp_ordering',true,
-            'payouts',          true,
-            'included_quotas',  jsonb_build_object(
-                'orders',             2000,
-                'whatsapp_outbound',  1000,
-                'llm_messages',        500,
-                'email_outbound',     2000,
-                'bulk_imports',          5
-            ),
-            'overage_rates_cents', jsonb_build_object(
-                'orders',             2,
-                'whatsapp_outbound',  5,
-                'llm_messages',      10,
-                'email_outbound',     0,
-                'bulk_imports',      50
-            )
-        ),
-        true,
-        1,
-        'USD'
-    ),
-    (
-        'growth',
-        'Growth',
-        '$249/location/month. Multi-location, lower transaction fees, '
-        'up to 10 000 orders/mo.',
-        24900,    -- $249/month in USD cents
-        268920,   -- $2689.20/year (10% discount)
-        2.500, 100,
-        0.000, 0,
-        NULL,     -- unlimited locations
-        NULL,     -- unlimited staff
-        10000,
-        jsonb_build_object(
-            'kds',              true,
-            'multi_location',   true,
-            'online_payments',  true,
-            'llm_chat',         true,
-            'whatsapp_ordering',true,
-            'payouts',          true,
-            'included_quotas',  jsonb_build_object(
-                'orders',             10000,
-                'whatsapp_outbound',   5000,
-                'llm_messages',        2000,
-                'email_outbound',     10000,
-                'bulk_imports',          25
-            ),
-            'overage_rates_cents', jsonb_build_object(
-                'orders',             2,
-                'whatsapp_outbound',  5,
-                'llm_messages',      10,
-                'email_outbound',     0,
-                'bulk_imports',      50
-            )
-        ),
-        true,
-        2,
-        'USD'
-    ),
-    (
-        'scale',
-        'Scale',
-        '$799/location/month. Unlimited orders, lowest transaction fees, '
-        'free payouts, dedicated support.',
-        79900,    -- $799/month in USD cents
-        862920,   -- $8629.20/year (10% discount)
-        2.000, 50,
-        0.000, 0,
-        NULL,     -- unlimited
-        NULL,     -- unlimited
-        NULL,     -- unlimited
-        jsonb_build_object(
-            'kds',              true,
-            'multi_location',   true,
-            'online_payments',  true,
-            'llm_chat',         true,
-            'whatsapp_ordering',true,
-            'payouts',          true,
-            'dedicated_support',true,
-            'included_quotas',  jsonb_build_object(
-                'orders',             NULL,   -- unlimited (NULL = no cap)
-                'whatsapp_outbound',  NULL,
-                'llm_messages',       NULL,
-                'email_outbound',     NULL,
-                'bulk_imports',       NULL
-            ),
-            'overage_rates_cents', jsonb_build_object(
-                'orders',             0,
-                'whatsapp_outbound',  0,
-                'llm_messages',       0,
-                'email_outbound',     0,
-                'bulk_imports',       0
-            )
-        ),
-        true,
-        3,
-        'USD'
-    )
-ON CONFLICT (tier_code) DO UPDATE
-    SET display_name                 = EXCLUDED.display_name,
-        description                  = EXCLUDED.description,
-        monthly_fee_cents            = EXCLUDED.monthly_fee_cents,
-        annual_fee_cents             = EXCLUDED.annual_fee_cents,
-        transaction_fee_percentage   = EXCLUDED.transaction_fee_percentage,
-        transaction_fee_fixed_cents  = EXCLUDED.transaction_fee_fixed_cents,
-        payout_fee_percentage        = EXCLUDED.payout_fee_percentage,
-        payout_fee_fixed_cents       = EXCLUDED.payout_fee_fixed_cents,
-        max_locations                = EXCLUDED.max_locations,
-        max_staff                    = EXCLUDED.max_staff,
-        max_orders_per_month         = EXCLUDED.max_orders_per_month,
-        features                     = EXCLUDED.features,
-        is_active                    = EXCLUDED.is_active,
-        sort_order                   = EXCLUDED.sort_order,
-        billed_in_currency_code      = EXCLUDED.billed_in_currency_code;
+    SET name               = EXCLUDED.name,
+        kind               = EXCLUDED.kind,
+        is_active          = EXCLUDED.is_active,
+        requires_reference = EXCLUDED.requires_reference,
+        supports_tips      = EXCLUDED.supports_tips;
 
 
 -- =============================================================================
@@ -796,16 +554,11 @@ SELECT
     op.payment_method_code,
     COUNT(*)::bigint                                     AS txn_count,
     COALESCE(SUM(op.amount_paid_cents), 0)::bigint       AS gross_cents,
-    COALESCE(SUM(
-        COALESCE(pf.processing_fee_cents, 0) + COALESCE(pf.gateway_fee_cents, 0)
-    ), 0)::bigint                                        AS processing_fee_cents,
-    COALESCE(SUM(
-        COALESCE(pf.merchant_amount_cents, op.amount_paid_cents)
-    ), 0)::bigint                                        AS net_cents,
+    0::bigint                                            AS processing_fee_cents,
+    COALESCE(SUM(op.amount_paid_cents), 0)::bigint       AS net_cents,
     COALESCE(SUM(op.tip_amount_cents), 0)::bigint        AS tip_cents
 FROM order_payments op
 JOIN orders o         ON o.id  = op.order_id
-LEFT JOIN payment_fees pf ON pf.payment_id = op.id
 WHERE op.payment_status = 'completed'
   AND o.status <> 'cancelled'
 GROUP BY
@@ -959,8 +712,7 @@ COMMENT ON FUNCTION refresh_reporting_views() IS
 -- =============================================================================
 -- DONE — Migration 014
 -- No new tables.
--- Seed: currencies (8 rows), regions (7 rows), payment_providers (3 rows),
---       subscription_plans (4 rows: free/starter/growth/scale).
+-- Seed: currencies (8 rows), payment_methods (4 rows: cash/card/transfer/voucher).
 -- Views (10): daily_sales_summary, hourly_sales_heatmap, menu_engineering,
 --              labor_hours_daily, labor_cost_daily, sales_per_labor_hour,
 --              theoretical_vs_actual_cogs, revenue_by_payment_method,
