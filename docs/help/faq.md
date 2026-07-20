@@ -60,13 +60,19 @@ Yes. Use **Menu → Schedules** to restrict items or categories to specific days
 ## Payments
 
 **Q: Which payment providers are supported?**
-Paystack, Stripe, Yoco, Zapper, Cash and On-delivery. Multiple providers can be active simultaneously per location.
+None, by design. BeepBite records tenders — cash, your own card machine, bank
+transfer, voucher, and the two on-delivery variants — and never processes a
+card. There is no gateway to connect and no merchant account to open.
 
 **Q: Is my customer's card data stored?**
-No. Card data is handled entirely by the payment provider (Paystack, Stripe, etc.) and never touches BeepBite servers.
+No. It never reaches BeepBite at all. The card is run on your own machine; all
+BeepBite stores is the amount and whatever reference you type in. That is why
+there is no PCI scope.
 
-**Q: How do I add processing fees?**
-Go to **Settings → Location → Payments → Fees** and configure a fixed or percentage fee per provider.
+**Q: Can I add online card payments?**
+Not out of the box. The backend defines a `PaymentProvider` seam
+(`Charge` / `Refund` / `GetStatus`) so a self-hoster can write a
+bring-your-own-key adapter, but no such adapter ships.
 
 ---
 

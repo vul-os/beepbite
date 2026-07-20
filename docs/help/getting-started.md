@@ -38,14 +38,13 @@ Add staff so they can take orders or manage the kitchen.
 
 See [staff.md](./staff.md) and [drivers.md](./drivers.md) for details.
 
-## 5. Connect a payment provider
+## 5. Check your tender types
 
-Enable at least one way for customers to pay.
+There is nothing to connect. BeepBite records how the customer paid; it does not
+process cards. Cash, your own card machine, bank transfer, vouchers and the
+on-delivery variants all work out of the box.
 
-- **Online providers**: Paystack, Stripe, Yoco, Zapper — go to **Settings → Location → Payments**.
-- **Cash / on-delivery**: no setup needed; select *Cash* or *On delivery* on the POS payment screen.
-
-See [payments.md](./payments.md) for provider-specific instructions.
+See [payments.md](./payments.md).
 
 ## 6. Take your first order
 

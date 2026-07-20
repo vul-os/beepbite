@@ -96,7 +96,7 @@ localStorage.removeItem('bb.auth')
 
 **Password reset emails not arriving**
 
-The backend sends reset emails via the configured Resend provider. In local dev, `RESEND_API_KEY` is typically absent, so no email is sent. The backend still returns 200 (it never reveals whether the address exists). To test the reset flow locally, watch backend stdout for the reset URL:
+The backend sends reset emails via the configured email provider (SMTP by default). In local dev no provider is usually configured, so no email is sent. The backend still returns 200 (it never reveals whether the address exists). To test the reset flow locally, watch backend stdout for the reset URL:
 
 ```
 email send password_reset to <email> FAILED: no provider configured

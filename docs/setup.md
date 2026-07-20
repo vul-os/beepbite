@@ -28,7 +28,7 @@ JWT_SECRET=<random 32+ char secret>
 VITE_API_URL=http://localhost:8080
 ```
 
-Other keys (Google OAuth, WhatsApp, Paystack, Stripe, Resend, Mapbox, OpenAI) are optional for local development — the app degrades gracefully when they are absent.
+`DATABASE_URL` and `JWT_SECRET` are the only required vars. Everything else in `.env.example` (WhatsApp, SMTP, Mapbox, Gemini) is an optional integration and the app degrades gracefully when absent.
 
 ## 3. Run migrations
 
@@ -74,7 +74,7 @@ npm run build:dev       # dev bundle  (VITE_MODE=dev)
 
 ## Deploying
 
-See the **Deploy** section in [README.md](../README.md) for Cloud Run (backend) and Firebase Hosting (frontend) commands.
+See the **Deploy** section in [README.md](../README.md). BeepBite is self-hosted: a Go binary plus a static frontend bundle, running wherever you choose.
 
 ## Troubleshooting
 
