@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useMoney } from '@/context/locale-context';
 
 const DEBOUNCE_MS = 500;
@@ -85,16 +86,16 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
   const hasOverride = value !== '' && !isNaN(parseFloat(value));
 
   return (
-    <tr className="border-b last:border-0 hover:bg-gray-50 transition-colors">
-      <td className="py-3 pr-4">
-        <span className="text-sm font-medium text-gray-800">{item.name}</span>
-      </td>
-      <td className="py-3 pr-4 tabular-nums text-sm text-gray-600">
+    <TableRow>
+      <TableCell className="py-3 pr-4">
+        <span className="text-sm font-medium text-foreground">{item.name}</span>
+      </TableCell>
+      <TableCell className="py-3 pr-4 tabular-nums text-sm text-muted-foreground">
         {item.price != null ? fmt(item.price) : '—'}
-      </td>
-      <td className="py-3 pr-4">
+      </TableCell>
+      <TableCell className="py-3 pr-4">
         <div className="relative w-36">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{symbol}</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">{symbol}</span>
           <Input
             type="number"
             min="0"
@@ -105,10 +106,10 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
             className={`pl-6 h-8 text-sm ${hasOverride ? 'border-orange-300 focus-visible:ring-orange-400' : ''}`}
           />
         </div>
-      </td>
-      <td className="py-3 w-8">
+      </TableCell>
+      <TableCell className="py-3 w-8">
         {status === 'saving' && (
-          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
         {status === 'saved' && (
           <Check className="h-4 w-4 text-green-500" />
@@ -118,8 +119,8 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
             <AlertCircle className="h-4 w-4 text-red-500" />
           </div>
         )}
-      </td>
-      <td className="py-3">
+      </TableCell>
+      <TableCell className="py-3">
         {hasOverride && item.price != null && (() => {
           const override = parseFloat(value);
           const diff = item.price - override;
@@ -133,8 +134,8 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
             </Badge>
           );
         })()}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -216,8 +217,8 @@ export default function HappyHourPrices({
 
   if (items.length === 0) {
     return (
-      <div className="text-center text-sm text-gray-400 py-12">
-        <Utensils className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+      <div className="text-center text-sm text-muted-foreground py-12">
+        <Utensils className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
         No items found for this location.
       </div>
     );
@@ -225,42 +226,40 @@ export default function HappyHourPrices({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         Enter an override price for items during this schedule window. Leave blank to use the
         regular price. Changes are saved automatically after 500 ms.
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-2 pr-4 font-medium text-gray-600">Item</th>
-              <th className="text-left py-2 pr-4 font-medium text-gray-600">Regular Price</th>
-              <th className="text-left py-2 pr-4 font-medium text-gray-600">
-                <span className="flex items-center gap-1">
-                  <DollarSign className="h-3.5 w-3.5 text-orange-500" />
-                  Happy-Hour Price
-                </span>
-              </th>
-              <th className="w-8" />
-              <th className="text-left py-2 font-medium text-gray-600">Discount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => {
-              const priceRow = priceRows.find((r) => r.item_id === item.id);
-              return (
-                <PriceRow
-                  key={item.id}
-                  item={item}
-                  priceRow={priceRow}
-                  onSave={handleSave}
-                  onDelete={handleDelete}
-                />
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Item</TableHead>
+            <TableHead>Regular Price</TableHead>
+            <TableHead>
+              <span className="flex items-center gap-1">
+                <DollarSign className="h-3.5 w-3.5 text-orange-500" />
+                Happy-Hour Price
+              </span>
+            </TableHead>
+            <TableHead className="w-8" />
+            <TableHead>Discount</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => {
+            const priceRow = priceRows.find((r) => r.item_id === item.id);
+            return (
+              <PriceRow
+                key={item.id}
+                item={item}
+                priceRow={priceRow}
+                onSave={handleSave}
+                onDelete={handleDelete}
+              />
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }

@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import {
   Shield,
   ShieldCheck,
@@ -186,17 +187,14 @@ export default function SecuritySettings() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-2xl space-y-6 py-6 px-4 sm:px-0">
+    <PageContainer className="max-w-2xl">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Shield className="h-6 w-6 text-orange-500" />
-          Security
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage your account security settings.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Settings"
+        title="Security"
+        description="Manage your account security settings."
+        icon={Shield}
+      />
 
       {/* Error banner */}
       {error && (
@@ -211,7 +209,7 @@ export default function SecuritySettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {step === STEP.ENABLED ? (
-              <ShieldCheck className="h-5 w-5 text-green-500" />
+              <ShieldCheck className="h-5 w-5 text-beepbite-success" />
             ) : (
               <ShieldOff className="h-5 w-5 text-muted-foreground" />
             )}
@@ -260,7 +258,7 @@ export default function SecuritySettings() {
                 <p className="text-sm font-medium">
                   1. Scan this QR code with your authenticator app
                 </p>
-                <div className="inline-block p-3 bg-white rounded-lg border shadow-sm">
+                <div className="inline-block p-3 bg-card rounded-lg border shadow-sm">
                   <QRCodeSVG value={otpauthURL} size={180} />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -309,9 +307,9 @@ export default function SecuritySettings() {
           {/* ── BACKUP CODES: show once ── */}
           {step === STEP.BACKUP_SHOWN && (
             <div className="space-y-4">
-              <Alert className="border-green-200 bg-green-50">
-                <ShieldCheck className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-700">
+              <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/40">
+                <ShieldCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-700 dark:text-green-300">
                   2FA is now enabled. Save these backup codes in a safe place —
                   they will not be shown again.
                 </AlertDescription>
@@ -347,7 +345,7 @@ export default function SecuritySettings() {
               {step === STEP.ENABLED && (
                 <Button
                   variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50 gap-1.5"
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1.5"
                   onClick={() => { setStep(STEP.DISABLING); clearError(); }}
                 >
                   <ShieldOff className="h-4 w-4" />
@@ -429,6 +427,6 @@ export default function SecuritySettings() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

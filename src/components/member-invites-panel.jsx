@@ -27,12 +27,12 @@ const ROLE_OPTIONS = [
 // Badge colour mapping by role.
 function roleBadgeClass(role) {
   switch (role) {
-    case 'manager': return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'staff':   return 'bg-green-50 text-green-700 border-green-200';
-    case 'kitchen': return 'bg-amber-50 text-amber-700 border-amber-200';
-    case 'pos':     return 'bg-purple-50 text-purple-700 border-purple-200';
-    case 'owner':   return 'bg-orange-50 text-orange-700 border-orange-200';
-    default:        return 'bg-gray-50 text-gray-600 border-gray-200';
+    case 'manager': return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
+    case 'staff':   return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800';
+    case 'kitchen': return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800';
+    case 'pos':     return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800';
+    case 'owner':   return 'bg-primary/10 text-primary border-primary/20';
+    default:        return 'bg-muted text-muted-foreground border-border';
   }
 }
 
@@ -120,7 +120,7 @@ export default function MemberInvitesPanel() {
   };
 
   return (
-    <Card className="border-blue-100 bg-white">
+    <Card className="border-blue-200/60 dark:border-blue-900/60 bg-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="w-5 h-5 text-blue-500" />
@@ -134,7 +134,7 @@ export default function MemberInvitesPanel() {
         {/* Invite form */}
         <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="email"
               required
@@ -146,7 +146,7 @@ export default function MemberInvitesPanel() {
             />
           </div>
           <Select value={role} onValueChange={setRole}>
-            <SelectTrigger className="w-full sm:w-36 border-gray-200 focus:ring-blue-200 focus:border-blue-300">
+            <SelectTrigger className="w-full sm:w-36 border-border focus:ring-blue-300/50 focus:border-blue-400">
               <SelectValue placeholder="Role" />
             </SelectTrigger>
             <SelectContent>
@@ -168,7 +168,7 @@ export default function MemberInvitesPanel() {
 
         {/* Feedback message */}
         {msg && (
-          <div className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 ${msg.kind === 'ok' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          <div className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 ${msg.kind === 'ok' ? 'bg-[hsl(var(--beepbite-success))]/10 text-[hsl(var(--beepbite-success))] border border-[hsl(var(--beepbite-success))]/30' : 'bg-destructive/10 text-destructive border border-destructive/30'}`}>
             {msg.kind === 'ok'
               ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
@@ -178,20 +178,20 @@ export default function MemberInvitesPanel() {
 
         {/* Pending invites */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Pending invites</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">Pending invites</h4>
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading…
             </div>
           ) : invites.length === 0 ? (
-            <p className="text-sm text-gray-500">No pending invites.</p>
+            <p className="text-sm text-muted-foreground">No pending invites.</p>
           ) : (
-            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+            <ul className="divide-y divide-border rounded-lg border border-border">
               {invites.map((inv) => (
                 <li key={inv.id} className="flex items-center justify-between gap-3 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{inv.email}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground truncate">{inv.email}</p>
+                    <p className="text-xs text-muted-foreground">
                       {inv.status || 'pending'}
                       {inv.created_at ? ` · ${new Date(inv.created_at).toLocaleDateString()}` : ''}
                     </p>
@@ -204,7 +204,7 @@ export default function MemberInvitesPanel() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRevoke(inv.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       aria-label={`Revoke invite for ${inv.email}`}
                     >
                       <X className="w-4 h-4" />
@@ -218,20 +218,20 @@ export default function MemberInvitesPanel() {
 
         {/* Active members */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Active team members</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">Active team members</h4>
           {loadingMembers ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading…
             </div>
           ) : members.length === 0 ? (
-            <p className="text-sm text-gray-500">No active members yet. Invited members appear here once they sign up.</p>
+            <p className="text-sm text-muted-foreground">No active members yet. Invited members appear here once they sign up.</p>
           ) : (
-            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+            <ul className="divide-y divide-border rounded-lg border border-border">
               {members.map((m) => (
                 <li key={m.profile_id} className="flex items-center justify-between gap-3 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{m.full_name || m.email}</p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-sm font-medium text-foreground truncate">{m.full_name || m.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">
                       {m.full_name ? m.email : ''}
                       {m.joined_at ? `${m.full_name ? ' · ' : ''}since ${new Date(m.joined_at).toLocaleDateString()}` : ''}
                     </p>
@@ -245,7 +245,7 @@ export default function MemberInvitesPanel() {
                       size="sm"
                       disabled={removingId === m.profile_id}
                       onClick={() => handleRemoveMember(m)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       aria-label={`Remove ${m.email}`}
                     >
                       {removingId === m.profile_id

@@ -9,9 +9,9 @@ const NotFoundPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <Card className="border-gray-200 shadow-xl">
+        <Card className="border-border shadow-xl">
           <CardContent className="p-8 text-center">
             {/* Logo */}
             <div className="mb-8">
@@ -26,15 +26,15 @@ const NotFoundPage = () => {
             </div>
 
             {/* Icon */}
-            <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-6">
-              <Search className="w-8 h-8 text-orange-600" />
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+              <Search className="w-8 h-8 text-primary" />
             </div>
 
             {/* Main Message */}
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl font-bold text-foreground mb-4">
               Page Not Found
             </h2>
-            <p className="text-gray-600 mb-8 leading-relaxed">
+            <p className="text-muted-foreground mb-8 leading-relaxed">
               Sorry, we couldn't find the page you're looking for. The page might have been moved, deleted, or the URL might be incorrect.
             </p>
 
@@ -48,11 +48,11 @@ const NotFoundPage = () => {
                 <Home className="w-4 h-4 mr-2" />
                 Go to Homepage
               </Button>
-              
+
               <Button
                 onClick={() => navigate(-1)}
                 variant="outline"
-                className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="w-full"
                 size="lg"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -61,12 +61,12 @@ const NotFoundPage = () => {
             </div>
 
             {/* Additional Help */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-500">
+            <div className="mt-8 pt-6 border-t border-border">
+              <p className="text-sm text-muted-foreground">
                 Need help? Contact our support team or visit our{' '}
                 <button
                   onClick={() => navigate('/docs')}
-                  className="text-orange-600 hover:text-orange-700 font-medium underline"
+                  className="text-primary hover:text-primary/80 font-medium underline"
                 >
                   documentation
                 </button>

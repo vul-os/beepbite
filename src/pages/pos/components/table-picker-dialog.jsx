@@ -13,7 +13,7 @@ import { Search, Users, Loader2, CheckCircle2, MapPin } from "lucide-react"
 
 // Visual tokens — mirrors tables-strip.jsx STATUS map
 const STATUS = {
-  available:      { outline: "border-green-400",  bg: "bg-green-50",   text: "text-green-700",  dot: "bg-green-500"  },
+  available:      { outline: "border-emerald-400", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
   occupied:       { outline: "border-red-400",    bg: "bg-red-50",     text: "text-red-700",    dot: "bg-red-400"    },
   reserved:       { outline: "border-amber-400",  bg: "bg-amber-50",   text: "text-amber-700",  dot: "bg-amber-400"  },
   out_of_service: { outline: "border-gray-200",   bg: "bg-gray-100",   text: "text-gray-400",   dot: "bg-gray-300"   },

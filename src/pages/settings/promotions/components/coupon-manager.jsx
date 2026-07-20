@@ -10,15 +10,28 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 import { useCouponCodes } from '../hooks/use-promotions';
 
 const EMPTY_CODE = { code: '', max_uses: 1, per_customer_limit: '' };
 
 export default function CouponManager({ promotionId, promotionName }) {
   const { codes, loading, addCode, deleteCode } = useCouponCodes(promotionId);
+  const { toast } = useToast();
   const [form, setForm] = useState(EMPTY_CODE);
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState('');
+  const [codeToDelete, setCodeToDelete] = useState(null);
 
   const handleChange = (field, value) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -44,12 +57,20 @@ export default function CouponManager({ promotionId, promotionName }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this coupon code?')) return;
-    try { await deleteCode(id); } catch (err) { alert(err.message); }
+  const handleDeleteConfirm = async () => {
+    if (!codeToDelete) return;
+    try {
+      await deleteCode(codeToDelete.id);
+      toast({ title: 'Coupon code deleted.' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+    } finally {
+      setCodeToDelete(null);
+    }
   };
 
   return (
+    <>
     <Accordion type="single" collapsible className="w-full">
       <AccordionItem value="coupons" className="border rounded-lg px-4">
         <AccordionTrigger className="text-sm font-medium">
@@ -92,7 +113,7 @@ export default function CouponManager({ promotionId, promotionName }) {
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(c.id)}
+                    onClick={() => setCodeToDelete(c)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -163,5 +184,31 @@ export default function CouponManager({ promotionId, promotionName }) {
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+
+      <AlertDialog open={Boolean(codeToDelete)} onOpenChange={(v) => !v && setCodeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete coupon code?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {codeToDelete && (
+                <>
+                  "{codeToDelete.code}" will be permanently deleted
+                  {promotionName ? ` from ${promotionName}` : ''}. This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

@@ -22,12 +22,12 @@ export const PageHeader = ({ eyebrow, title, description, lastUpdated, readTime 
         {eyebrow}
       </div>
     )}
-    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-gray-900">{title}</h1>
+    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-foreground">{title}</h1>
     {description && (
-      <p className="mt-3 sm:mt-4 text-base sm:text-lg text-gray-600 leading-relaxed max-w-3xl">{description}</p>
+      <p className="mt-3 sm:mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-3xl">{description}</p>
     )}
     {(lastUpdated || readTime) && (
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {readTime && <span>{readTime} read</span>}
         {readTime && lastUpdated && <span aria-hidden>·</span>}
         {lastUpdated && <span>Updated {lastUpdated}</span>}
@@ -58,11 +58,11 @@ export const Screenshot = ({
           <img src={src} alt={alt} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <>
-            <div className="w-12 h-12 rounded-2xl bg-white border border-orange-100 shadow-sm flex items-center justify-center mb-3">
+            <div className="w-12 h-12 rounded-2xl bg-card border border-primary/15 shadow-sm flex items-center justify-center mb-3">
               <ImageIcon className="w-5 h-5 text-orange-500" />
             </div>
-            <div className="text-sm font-semibold text-gray-700">Screenshot placeholder</div>
-            <div className="text-xs text-gray-500 mt-0.5 max-w-md">{alt}</div>
+            <div className="text-sm font-semibold text-foreground">Screenshot placeholder</div>
+            <div className="text-xs text-muted-foreground mt-0.5 max-w-md">{alt}</div>
           </>
         )}
         {/* Subtle dotted background */}
@@ -86,7 +86,7 @@ export const Screenshot = ({
           </div>
         </div>
         {caption && (
-          <figcaption className="mt-3 text-center text-xs text-gray-500">{caption}</figcaption>
+          <figcaption className="mt-3 text-center text-xs text-muted-foreground">{caption}</figcaption>
         )}
       </figure>
     );
@@ -95,29 +95,29 @@ export const Screenshot = ({
   if (variant === 'plain') {
     return (
       <figure className={cn('my-6', className)}>
-        <div className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm">{Body}</div>
-        {caption && <figcaption className="mt-2.5 text-sm text-gray-500">{caption}</figcaption>}
+        <div className="rounded-2xl border border-border overflow-hidden shadow-sm">{Body}</div>
+        {caption && <figcaption className="mt-2.5 text-sm text-muted-foreground">{caption}</figcaption>}
       </figure>
     );
   }
 
   return (
     <figure className={cn('my-6 sm:my-8', className)}>
-      <div className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm bg-white">
-        <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-gray-100 bg-gray-50">
+      <div className="rounded-2xl border border-border overflow-hidden shadow-sm bg-card">
+        <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border/60 bg-muted">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-300" />
           <span className="w-2.5 h-2.5 rounded-full bg-amber-300" />
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-300" />
           {url && (
             <div className="ml-3 flex-1 min-w-0">
-              <div className="text-xs text-gray-500 bg-white border border-gray-200 rounded-md px-2.5 py-1 truncate">{url}</div>
+              <div className="text-xs text-muted-foreground bg-card border border-border rounded-md px-2.5 py-1 truncate">{url}</div>
             </div>
           )}
         </div>
         {Body}
       </div>
       {caption && (
-        <figcaption className="mt-2.5 text-sm text-gray-500 text-center sm:text-left">{caption}</figcaption>
+        <figcaption className="mt-2.5 text-sm text-muted-foreground text-center sm:text-left">{caption}</figcaption>
       )}
     </figure>
   );
@@ -180,8 +180,8 @@ export const Steps = ({ children }) => {
 
 export const Step = ({ title, children }) => (
   <div>
-    {title && <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1.5">{title}</h3>}
-    <div className="text-sm sm:text-base text-gray-600 leading-relaxed">{children}</div>
+    {title && <h3 className="text-base sm:text-lg font-bold text-foreground mb-1.5">{title}</h3>}
+    <div className="text-sm sm:text-base text-muted-foreground leading-relaxed">{children}</div>
   </div>
 );
 
@@ -191,23 +191,23 @@ export const Section = ({ id, title, kicker, children }) => (
     {kicker && (
       <div className="text-xs uppercase tracking-wider text-orange-600 font-semibold mb-1.5">{kicker}</div>
     )}
-    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
-      <a href={id ? `#${id}` : undefined} className="group inline-flex items-center gap-2 hover:text-orange-600 transition-colors">
+    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+      <a href={id ? `#${id}` : undefined} className="group inline-flex items-center gap-2 hover:text-primary transition-colors">
         {title}
         {id && <span className="opacity-0 group-hover:opacity-50 text-base">#</span>}
       </a>
     </h2>
-    <div className="mt-4 text-[15px] sm:text-base text-gray-700 leading-relaxed">{children}</div>
+    <div className="mt-4 text-[15px] sm:text-base text-foreground leading-relaxed">{children}</div>
   </section>
 );
 
 // ----- Key/value table for definitions, requirements -----
 export const KeyValueList = ({ items }) => (
-  <dl className="not-prose my-5 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white overflow-hidden">
+  <dl className="not-prose my-5 divide-y divide-border rounded-xl border border-border bg-card overflow-hidden">
     {items.map((item) => (
       <div key={item.label} className="grid grid-cols-3 gap-3 px-4 sm:px-5 py-3 text-sm">
-        <dt className="font-semibold text-gray-700 col-span-1">{item.label}</dt>
-        <dd className="col-span-2 text-gray-600">{item.value}</dd>
+        <dt className="font-semibold text-foreground col-span-1">{item.label}</dt>
+        <dd className="col-span-2 text-muted-foreground">{item.value}</dd>
       </div>
     ))}
   </dl>
@@ -253,13 +253,13 @@ export const PrevNext = ({ prev, next }) => (
     {prev ? (
       <Link
         to={prev.href}
-        className="group rounded-xl border border-gray-200 bg-white p-4 hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
+        className="group rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:bg-primary/5 transition-colors"
       >
-        <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
           <ChevronLeft className="w-3.5 h-3.5" />
           Previous
         </div>
-        <div className="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{prev.title}</div>
+        <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{prev.title}</div>
       </Link>
     ) : (
       <span />
@@ -267,13 +267,13 @@ export const PrevNext = ({ prev, next }) => (
     {next ? (
       <Link
         to={next.href}
-        className="group rounded-xl border border-gray-200 bg-white p-4 sm:text-right hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
+        className="group rounded-xl border border-border bg-card p-4 sm:text-right hover:border-primary/40 hover:bg-primary/5 transition-colors"
       >
-        <div className="flex sm:justify-end items-center gap-1.5 text-xs text-gray-500 mb-1">
+        <div className="flex sm:justify-end items-center gap-1.5 text-xs text-muted-foreground mb-1">
           Next
           <ChevronRight className="w-3.5 h-3.5" />
         </div>
-        <div className="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{next.title}</div>
+        <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{next.title}</div>
       </Link>
     ) : (
       <span />
@@ -285,7 +285,7 @@ export const PrevNext = ({ prev, next }) => (
 export const TopicCard = ({ to, icon, title, description, badge }) => (
   <Link
     to={to}
-    className="group relative block rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 hover:border-orange-300 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+    className="group relative block rounded-2xl border border-border bg-card p-5 sm:p-6 hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all"
   >
     {badge && (
       <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
@@ -295,8 +295,8 @@ export const TopicCard = ({ to, icon, title, description, badge }) => (
     <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-rose-100 text-orange-600 mb-3.5">
       {icon}
     </div>
-    <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{title}</h3>
-    <p className="mt-1.5 text-sm text-gray-600 leading-relaxed">{description}</p>
+    <h3 className="text-base sm:text-lg font-bold text-foreground group-hover:text-primary transition-colors">{title}</h3>
+    <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{description}</p>
     <div className="mt-3.5 inline-flex items-center gap-1 text-sm font-semibold text-orange-600">
       Read guide
       <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -307,13 +307,13 @@ export const TopicCard = ({ to, icon, title, description, badge }) => (
 // ----- Inline TOC for long pages -----
 export const TableOfContents = ({ items }) => (
   <div className="not-prose hidden xl:block xl:fixed xl:top-32 xl:right-8 w-56">
-    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">On this page</div>
-    <ul className="space-y-2 text-sm border-l border-gray-200">
+    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">On this page</div>
+    <ul className="space-y-2 text-sm border-l border-border">
       {items.map((it) => (
         <li key={it.id}>
           <a
             href={`#${it.id}`}
-            className="block pl-3 -ml-px border-l border-transparent text-gray-600 hover:text-orange-600 hover:border-orange-400 transition-colors"
+            className="block pl-3 -ml-px border-l border-transparent text-muted-foreground hover:text-primary hover:border-primary/60 transition-colors"
           >
             {it.title}
           </a>

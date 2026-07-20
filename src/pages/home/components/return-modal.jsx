@@ -243,7 +243,7 @@ export default function ReturnModal({
             <Label htmlFor="ret-order">Order number</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="ret-order"
                   className="pl-9"
@@ -274,8 +274,8 @@ export default function ReturnModal({
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Order</p>
-                  <p className="font-semibold text-gray-900">#{order.order_number}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Order</p>
+                  <p className="font-semibold text-foreground">#{order.order_number}</p>
                 </div>
                 {order.status && (
                   <span className="text-xs px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
@@ -285,7 +285,7 @@ export default function ReturnModal({
               </div>
 
               {orderItems.length === 0 ? (
-                <p className="text-sm text-gray-500">No line items loaded.</p>
+                <p className="text-sm text-muted-foreground">No line items loaded.</p>
               ) : (
                 <div className="divide-y border rounded-md">
                   {orderItems.map((oi) => {
@@ -296,7 +296,7 @@ export default function ReturnModal({
                           <p className="text-sm font-medium truncate">
                             {oi.item_name || oi.name || `Item ${oi.id?.slice(0, 6)}`}
                           </p>
-                          <p className="text-xs text-gray-500 tabular-nums">
+                          <p className="text-xs text-muted-foreground tabular-nums">
                             Qty {oi.quantity} · {format(Math.round(parseFloat(oi.total_price || 0) * scale))}
                           </p>
                         </div>
@@ -347,12 +347,12 @@ export default function ReturnModal({
             ))}
           </select>
           {reason === 'void' && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Void cancels the entire order (no items selected required).
             </p>
           )}
           {reason === 'refund' && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Refunds reverse a completed payment for the whole order.
             </p>
           )}
@@ -364,7 +364,7 @@ export default function ReturnModal({
             'rounded-lg border bg-gradient-to-r from-amber-50 to-orange-50 border-orange-200 p-4 space-y-3',
           )}
         >
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <ShieldCheck className="w-4 h-4 text-orange-500" />
             Manager Authorization Required
           </div>

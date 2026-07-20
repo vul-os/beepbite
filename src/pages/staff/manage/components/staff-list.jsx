@@ -3,20 +3,14 @@ import { Search, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { getRoleColor } from '@/lib/role-colors';
 
 function getInitials(first, last) {
   return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
 }
-
-const ROLE_COLORS = {
-  owner:   'bg-orange-100 text-orange-800 border-orange-200',
-  admin:   'bg-purple-100 text-purple-800 border-purple-200',
-  manager: 'bg-blue-100 text-blue-800 border-blue-200',
-  cashier: 'bg-green-100 text-green-800 border-green-200',
-  kitchen: 'bg-gray-100 text-gray-700 border-gray-200',
-};
 
 export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
   const [query, setQuery] = useState('');
@@ -31,13 +25,13 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
   });
 
   return (
-    <aside className="flex flex-col h-full border-r border-gray-100 bg-white">
+    <aside className="flex flex-col h-full border-r border-border bg-card">
       {/* search */}
-      <div className="p-3 border-b border-gray-100">
+      <div className="p-3 border-b border-border">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            className="pl-9 h-9 text-sm border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+            className="pl-9 h-9 text-sm border-border focus:border-orange-300 focus:ring-orange-200"
             placeholder="Search staff…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -54,7 +48,7 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <User className="w-8 h-8 mb-2" />
             <p className="text-sm">{query ? 'No match' : 'No staff members'}</p>
           </div>
@@ -64,21 +58,22 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
               const active = selectedStaff?.id === m.id;
               return (
                 <li key={m.id}>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => onSelect(m)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors',
+                      'w-full h-auto flex items-center justify-start gap-3 px-3 py-2.5 rounded-lg text-left font-normal',
                       active
-                        ? 'bg-orange-50 text-orange-900'
-                        : 'hover:bg-gray-50 text-gray-800',
+                        ? 'bg-orange-50 text-orange-900 hover:bg-orange-50 hover:text-orange-900'
+                        : 'text-foreground',
                     )}
                   >
                     <Avatar className="h-9 w-9 shrink-0">
                       <AvatarFallback
                         className={cn(
                           'text-xs font-semibold',
-                          active ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600',
+                          active ? 'bg-orange-100 text-orange-700' : 'bg-muted text-muted-foreground',
                         )}
                       >
                         {getInitials(m.first_name, m.last_name)}
@@ -91,10 +86,7 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <Badge
                           variant="outline"
-                          className={cn(
-                            'text-[10px] px-1.5 py-0 capitalize',
-                            ROLE_COLORS[m.role] ?? 'bg-gray-50 text-gray-600 border-gray-200',
-                          )}
+                          className={cn('text-[10px] px-1.5 py-0 capitalize', getRoleColor(m.role))}
                         >
                           {m.role}
                         </Badge>
@@ -108,7 +100,7 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
                         )}
                       </div>
                     </div>
-                  </button>
+                  </Button>
                 </li>
               );
             })}

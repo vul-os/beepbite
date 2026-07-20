@@ -37,6 +37,8 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { useAuth } from '@/context/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { useDeliveryZones } from './hooks/use-delivery-zones';
 import ZoneForm from './components/zone-form';
 
@@ -52,6 +54,7 @@ function fmtCents(cents) {
 
 export default function DeliveryZonesPage() {
   const { activeLocation, activeOrganization } = useAuth();
+  const { toast } = useToast();
 
   const {
     zones,
@@ -83,8 +86,9 @@ export default function DeliveryZonesPage() {
         await createZone(payload);
       }
       closeSheet();
+      toast({ title: editing?.id ? 'Zone updated.' : 'Zone created.' });
     } catch (err) {
-      alert(err.message);
+      toast({ variant: 'destructive', title: 'Save failed', description: err.message });
     } finally {
       setSaving(false);
     }
@@ -94,9 +98,14 @@ export default function DeliveryZonesPage() {
 
   const confirmDelete = async () => {
     if (!toDelete) return;
-    try { await deleteZone(toDelete.id); }
-    catch (err) { alert(err.message); }
-    finally { setToDelete(null); }
+    try {
+      await deleteZone(toDelete.id);
+      toast({ title: 'Zone deactivated.' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Deactivate failed', description: err.message });
+    } finally {
+      setToDelete(null);
+    }
   };
 
   // ---- no location guard ----
@@ -114,24 +123,21 @@ export default function DeliveryZonesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <MapPin className="h-6 w-6 text-orange-500" />
-            Delivery zones
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Define deliverable areas with per-zone fees and ETAs for {activeLocation.name}.
-          </p>
-        </div>
-        <Button onClick={openNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New zone
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Settings"
+        title="Delivery zones"
+        description={`Define deliverable areas with per-zone fees and ETAs for ${activeLocation.name}.`}
+        icon={MapPin}
+        actions={
+          <Button onClick={openNew} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New zone
+          </Button>
+        }
+      />
 
       {/* Error */}
       {error && (
@@ -281,6 +287,6 @@ export default function DeliveryZonesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

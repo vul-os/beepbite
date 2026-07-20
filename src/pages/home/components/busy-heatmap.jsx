@@ -18,11 +18,11 @@ const HOURS = Array.from({ length: 24 }, (_, h) => {
 function cellBg(norm) {
   if (norm === 0) return 'hsl(var(--muted))';
   const alpha = 0.15 + norm * 0.85;
-  return `rgba(249,115,22,${alpha.toFixed(2)})`;
+  return `hsl(var(--primary) / ${alpha.toFixed(2)})`;
 }
 
 function cellText(norm) {
-  return norm > 0.55 ? '#fff' : 'hsl(var(--foreground))';
+  return norm > 0.55 ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))';
 }
 
 function HeatmapSkeleton() {

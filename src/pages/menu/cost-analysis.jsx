@@ -221,7 +221,7 @@ const CostAnalysis = ({ activeLocation }) => {
       default:
         return {
           label: 'Unknown',
-          color: 'bg-gray-100 text-gray-800',
+          color: 'bg-muted text-foreground',
           icon: Info,
           description: 'Status unknown'
         };
@@ -282,8 +282,8 @@ const CostAnalysis = ({ activeLocation }) => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <Calculator className="h-8 w-8 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Please select a location to view cost analysis</p>
+          <Calculator className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Please select a location to view cost analysis</p>
         </div>
       </div>
     );
@@ -297,8 +297,8 @@ const CostAnalysis = ({ activeLocation }) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Avg Profit Margin</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-muted-foreground">Avg Profit Margin</p>
+                <p className="text-2xl font-bold text-foreground">
                   {formatPercentage(avgProfitMargin)}
                 </p>
               </div>
@@ -311,8 +311,8 @@ const CostAnalysis = ({ activeLocation }) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Profit</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-muted-foreground">Total Profit</p>
+                <p className="text-2xl font-bold text-foreground">
                   {formatCurrency(totalProfit)}
                 </p>
               </div>
@@ -325,8 +325,8 @@ const CostAnalysis = ({ activeLocation }) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Items Analyzed</p>
-                <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
+                <p className="text-sm font-medium text-muted-foreground">Items Analyzed</p>
+                <p className="text-2xl font-bold text-foreground">{totalItems}</p>
               </div>
               <BarChart3 className="h-8 w-8 text-purple-600" />
             </div>
@@ -337,8 +337,8 @@ const CostAnalysis = ({ activeLocation }) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Needs Attention</p>
-                <p className="text-2xl font-bold text-gray-900">{problematicItems}</p>
+                <p className="text-sm font-medium text-muted-foreground">Needs Attention</p>
+                <p className="text-2xl font-bold text-foreground">{problematicItems}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-600" />
             </div>
@@ -351,7 +351,7 @@ const CostAnalysis = ({ activeLocation }) => {
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Search items..."
                 value={searchTerm}
@@ -419,13 +419,13 @@ const CostAnalysis = ({ activeLocation }) => {
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-              <span className="text-gray-600">Analyzing costs...</span>
+              <span className="text-muted-foreground">Analyzing costs...</span>
             </div>
           ) : filteredData.length === 0 ? (
             <div className="text-center py-12">
-              <Calculator className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No analysis data found</h3>
-              <p className="text-gray-600">
+              <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No analysis data found</h3>
+              <p className="text-muted-foreground">
                 {analysisData.length === 0 
                   ? 'No recipes found for analysis. Create some recipes first.'
                   : 'No items match your current filters. Try adjusting your search criteria.'
@@ -441,13 +441,13 @@ const CostAnalysis = ({ activeLocation }) => {
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                    className="flex items-center gap-4 p-4 border border-border rounded-lg hover:border-border transition-colors"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {getItemTypeIcon(item.recipe_type)}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-gray-900 truncate">{item.name}</h4>
+                          <h4 className="font-semibold text-foreground truncate">{item.name}</h4>
                           <Badge variant="outline">{item.recipe_type}</Badge>
                           <TooltipProvider>
                             <Tooltip>
@@ -466,22 +466,22 @@ const CostAnalysis = ({ activeLocation }) => {
                         
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <p className="text-gray-600">Selling Price</p>
+                            <p className="text-muted-foreground">Selling Price</p>
                             <p className="font-semibold">{formatCurrency(item.price)}</p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-600">Cost (Manual)</p>
+                            <p className="text-muted-foreground">Cost (Manual)</p>
                             <p className="font-semibold">{formatCurrency(item.listed_cost)}</p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-600">Cost (Calculated)</p>
+                            <p className="text-muted-foreground">Cost (Calculated)</p>
                             <p className="font-semibold">{formatCurrency(item.calculated_cost)}</p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-600">Profit Margin</p>
+                            <p className="text-muted-foreground">Profit Margin</p>
                             <div className="flex items-center gap-2">
                               <p className={cn(
                                 "font-semibold",
@@ -516,10 +516,10 @@ const CostAnalysis = ({ activeLocation }) => {
                     </div>
                     
                     <div className="text-right">
-                      <div className="text-lg font-bold text-gray-900">
+                      <div className="text-lg font-bold text-foreground">
                         {formatCurrency(item.profit_amount)}
                       </div>
-                      <div className="text-sm text-gray-600">profit</div>
+                      <div className="text-sm text-muted-foreground">profit</div>
                     </div>
                   </div>
                 );
@@ -560,7 +560,7 @@ const CostAnalysis = ({ activeLocation }) => {
                     </div>
                     <div className="text-2xl font-bold mb-1">{count}</div>
                     <Progress value={percentage} className="h-2 mb-1" />
-                    <div className="text-xs text-gray-600">{formatPercentage(percentage)}</div>
+                    <div className="text-xs text-muted-foreground">{formatPercentage(percentage)}</div>
                   </div>
                 );
               })}

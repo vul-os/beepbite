@@ -39,21 +39,21 @@ const CustomAvatarUrlDocs = () => {
                   <Image className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">Quick Requirements</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-2">Quick Requirements</h2>
                   <ul className="space-y-2">
-                    <li className="flex items-center gap-2 text-sm text-gray-700">
+                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-600" />
                       Direct image URL (may or may not have file extension)
                     </li>
-                    <li className="flex items-center gap-2 text-sm text-gray-700">
+                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-600" />
                       Square aspect ratio (1:1) recommended
                     </li>
-                    <li className="flex items-center gap-2 text-sm text-gray-700">
+                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-600" />
                       Minimum 100x100 pixels, 400x400 pixels recommended
                     </li>
-                    <li className="flex items-center gap-2 text-sm text-gray-700">
+                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-600" />
                       Any hosting service that provides direct image links
                     </li>
@@ -172,17 +172,17 @@ const CustomAvatarUrlDocs = () => {
                     note: "Ensure direct access to image file"
                   }
                 ].map((service, index) => (
-                  <Card key={index} className="border-gray-200 hover:border-orange-200 transition-colors">
+                  <Card key={index} className="border-border hover:border-orange-200 transition-colors">
                     <CardContent className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-1">{service.name}</h3>
+                      <h3 className="font-semibold text-foreground mb-1">{service.name}</h3>
                       <p className="text-xs text-orange-600 mb-2">{service.url}</p>
-                      <p className="text-sm text-gray-600 mb-3">{service.description}</p>
+                      <p className="text-sm text-muted-foreground mb-3">{service.description}</p>
                       {service.note && (
                         <p className="text-xs text-blue-600 mb-2 italic">{service.note}</p>
                       )}
                       <ul className="space-y-1">
                         {service.pros.map((pro, i) => (
-                          <li key={i} className="text-xs text-gray-500 flex items-center gap-1">
+                          <li key={i} className="text-xs text-muted-foreground flex items-center gap-1">
                             <CheckCircle className="w-3 h-3 text-green-600" />
                             {pro}
                           </li>
@@ -230,13 +230,13 @@ const CustomAvatarUrlDocs = () => {
                     description: "Go to Account Settings, paste the URL in the Avatar URL field, and save your changes."
                   }
                 ].map((item, index) => (
-                  <div key={index} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex gap-4 p-4 bg-muted rounded-lg">
                     <div className="w-8 h-8 rounded-full beepbite-gradient flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                       {item.step}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
-                      <p className="text-sm text-gray-600">{item.description}</p>
+                      <h3 className="font-semibold text-foreground mb-1">{item.title}</h3>
+                      <p className="text-sm text-muted-foreground">{item.description}</p>
                     </div>
                   </div>
                 ))}
@@ -310,9 +310,9 @@ const CustomAvatarUrlDocs = () => {
 
             {/* Help */}
             <section>
-              <div className="text-center bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Need Help?</h3>
-                <p className="text-gray-600 mb-4">
+              <div className="text-center bg-muted rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-2">Need Help?</h3>
+                <p className="text-muted-foreground mb-4">
                   If you're still having trouble setting up your custom avatar, our support team is here to help.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -325,7 +325,7 @@ const CustomAvatarUrlDocs = () => {
                   </a>
                   <a
                     href="/docs"
-                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-muted transition-colors"
                   >
                     <ExternalLink className="w-4 h-4" />
                     Browse Documentation

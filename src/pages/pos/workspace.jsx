@@ -152,7 +152,7 @@ function ItemCountdownPill({ remaining }) {
   if (remaining === null || remaining === undefined) return null;
   if (remaining === 0) {
     return (
-      <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-500 text-white leading-none">
+      <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-destructive text-destructive-foreground leading-none">
         Sold out
       </span>
     );
@@ -1339,7 +1339,7 @@ export default function PosWorkspacePage() {
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
                           is86
                             ? 'bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-400'
-                            : 'bg-white/90 text-gray-400 border border-gray-200 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-red-500 hover:text-white hover:border-red-500 focus-visible:ring-red-400',
+                            : 'bg-card/90 text-muted-foreground border border-border opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive focus-visible:ring-destructive',
                           busy86 && 'opacity-60 cursor-wait',
                         )}
                       >

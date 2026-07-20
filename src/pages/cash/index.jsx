@@ -12,6 +12,7 @@ import { api } from '@/lib/api-client';
 import { OpenSessionForm } from './components/open-session-form';
 import { SessionCard } from './components/session-card';
 import { EodReportCard } from './components/eod-report-card';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { Loader2, AlertCircle, Vault } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -145,19 +146,15 @@ export default function CashPage() {
   if (!locationId) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3">
-        <AlertCircle className="h-12 w-12 text-gray-400" />
-        <p className="text-gray-600">Please select a location to manage cash drawers.</p>
+        <AlertCircle className="h-12 w-12 text-muted-foreground" />
+        <p className="text-muted-foreground">Please select a location to manage cash drawers.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      {/* Page heading */}
-      <div className="flex items-center gap-3">
-        <Vault className="h-7 w-7 text-orange-500" />
-        <h1 className="text-2xl font-bold text-gray-900">Cash Drawer</h1>
-      </div>
+    <PageContainer className="max-w-3xl mx-auto">
+      <PageHeader icon={Vault} title="Cash Drawer" />
 
       {/* Drawer selector */}
       <div className="space-y-1 max-w-xs">
@@ -239,6 +236,6 @@ export default function CashPage() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

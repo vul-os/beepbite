@@ -72,15 +72,17 @@ function ShiftCell({ shift, onDelete, deleting }) {
       >
         {shift.status}
       </Badge>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => onDelete(shift)}
         disabled={deleting}
-        className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600"
+        className="absolute bottom-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 hover:bg-transparent"
         aria-label="Delete shift"
       >
         <Trash2 className="w-3 h-3" />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -117,7 +119,7 @@ function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm bg-white">
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="w-4 h-4 text-orange-500" />
@@ -228,13 +230,13 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
     <div className="space-y-4">
       {/* week nav */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={prevWeek} className="text-gray-600">
+        <Button variant="ghost" size="sm" onClick={prevWeek} className="text-muted-foreground">
           <ChevronLeft className="w-4 h-4" />
         </Button>
-        <p className="text-sm font-semibold text-gray-800">
+        <p className="text-sm font-semibold text-foreground">
           {fmt(weekAnchor)} – {fmt(addDays(weekAnchor, 6))}
         </p>
-        <Button variant="ghost" size="sm" onClick={nextWeek} className="text-gray-600">
+        <Button variant="ghost" size="sm" onClick={nextWeek} className="text-muted-foreground">
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
@@ -253,14 +255,14 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
               <div
                 className={cn(
                   'text-center text-xs font-medium py-1 rounded-t-md',
-                  isToday ? 'bg-orange-500 text-white' : 'bg-gray-50 text-gray-500',
+                  isToday ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground',
                 )}
               >
                 {fmtShort(day)}
               </div>
 
               {/* shifts */}
-              <div className="flex-1 min-h-[80px] border border-gray-100 rounded-b-md p-1 space-y-1 bg-white relative">
+              <div className="flex-1 min-h-[80px] border border-border rounded-b-md p-1 space-y-1 bg-card relative">
                 {loading ? (
                   <Skeleton className="h-10 rounded" />
                 ) : (
@@ -274,23 +276,25 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
                   ))
                 )}
                 {/* add button on hover */}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setCreateDate(iso)}
-                  className="absolute inset-0 flex items-end justify-center pb-1 opacity-0 hover:opacity-100 transition-opacity"
+                  className="absolute inset-0 h-auto w-auto flex items-end justify-center pb-1 opacity-0 hover:opacity-100 hover:bg-transparent transition-opacity"
                   aria-label={`Add shift on ${iso}`}
                 >
                   <span className="w-5 h-5 rounded-full bg-orange-100 border border-orange-300 flex items-center justify-center text-orange-600">
                     <Plus className="w-3 h-3" />
                   </span>
-                </button>
+                </Button>
               </div>
             </div>
           );
         })}
       </div>
 
-      <p className="text-xs text-gray-400 text-center">
+      <p className="text-xs text-muted-foreground text-center">
         Click the + on any day cell to add a shift. Hover a shift to delete.
       </p>
 

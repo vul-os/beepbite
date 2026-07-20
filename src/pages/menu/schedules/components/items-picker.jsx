@@ -100,7 +100,7 @@ export default function ItemsPicker({
     <div className="space-y-4">
       {/* search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search items…"
           value={search}
@@ -110,15 +110,15 @@ export default function ItemsPicker({
       </div>
 
       {/* count summary */}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         {linked.length} of {items.length} items linked to this schedule.
         {items.length === 0 && ' Items not linked to any schedule are available at all times.'}
       </p>
 
       {/* list */}
       {filtered.length === 0 ? (
-        <div className="text-center text-sm text-gray-400 py-8">
-          <Utensils className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+        <div className="text-center text-sm text-muted-foreground py-8">
+          <Utensils className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           {search ? 'No items match your search.' : 'No items found for this location.'}
         </div>
       ) : (
@@ -131,7 +131,7 @@ export default function ItemsPicker({
               <div
                 key={item.id}
                 className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                  isLinked ? 'border-orange-300 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                  isLinked ? 'border-orange-300 bg-orange-50' : 'border-border hover:border-border'
                 }`}
                 onClick={() => !isToggling && handleToggle(item)}
               >
@@ -147,7 +147,7 @@ export default function ItemsPicker({
                     {item.name}
                   </Label>
                   {item.price != null && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {formatMoneyValue(Math.round(item.price * currencyScaleValue))}
                     </span>
                   )}

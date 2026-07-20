@@ -1,5 +1,7 @@
 import React from 'react';
+import { Gift } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 import { LookupCard } from './components/lookup-card';
 import { IssueForm } from './components/issue-form';
 
@@ -11,13 +13,12 @@ import { IssueForm } from './components/issue-form';
  */
 export default function GiftCardsPage() {
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Gift Cards</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Look up, reload, refund, or issue gift cards.
-        </p>
-      </div>
+    <PageContainer className="max-w-3xl">
+      <PageHeader
+        icon={Gift}
+        title="Gift Cards"
+        description="Look up, reload, refund, or issue gift cards."
+      />
 
       <Tabs defaultValue="lookup">
         <TabsList>
@@ -33,6 +34,6 @@ export default function GiftCardsPage() {
           <IssueForm />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

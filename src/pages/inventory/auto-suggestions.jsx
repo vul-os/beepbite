@@ -7,6 +7,7 @@ import { AlertCircle, Zap, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useMoney } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 export default function AutoSuggestionsPage() {
   const { activeLocation } = useAuth();
@@ -90,33 +91,28 @@ export default function AutoSuggestionsPage() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-600">Select a location to view auto-PO suggestions.</p>
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Select a location to view auto-PO suggestions.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Zap className="w-6 h-6 text-orange-500" />
-            Auto-PO Suggestions
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Low-stock items at {activeLocation.name} with a preferred supplier
-          </p>
-        </div>
-        <Button
-          onClick={createSelected}
-          disabled={creating || selected.size === 0 || suggestions.length === 0}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-        >
-          <ShoppingCart className="w-4 h-4 mr-2" />
-          {creating ? 'Creating…' : `Create ${selected.size} selected PO${selected.size !== 1 ? 's' : ''}`}
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={Zap}
+        title="Auto-PO Suggestions"
+        description={`Low-stock items at ${activeLocation.name} with a preferred supplier`}
+        actions={
+          <Button
+            onClick={createSelected}
+            disabled={creating || selected.size === 0 || suggestions.length === 0}
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            {creating ? 'Creating…' : `Create ${selected.size} selected PO${selected.size !== 1 ? 's' : ''}`}
+          </Button>
+        }
+      />
 
       {/* Create results */}
       {createResults.length > 0 && (
@@ -137,7 +133,7 @@ export default function AutoSuggestionsPage() {
       {loading && (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-32 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-32 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       )}
@@ -152,8 +148,8 @@ export default function AutoSuggestionsPage() {
       {!loading && !error && suggestions.length === 0 && (
         <Card className="border-orange-100">
           <CardContent className="p-10 text-center">
-            <Zap className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No low-stock items with a preferred supplier found.</p>
+            <Zap className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">No low-stock items with a preferred supplier found.</p>
           </CardContent>
         </Card>
       )}
@@ -171,7 +167,7 @@ export default function AutoSuggestionsPage() {
                   />
                   <label htmlFor={`sug-${idx}`} className="cursor-pointer flex-1">
                     <CardTitle className="text-base">{sug.supplier_name}</CardTitle>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Estimated total: {fmtCents(sug.estimated_total_cents)} &middot; {sug.lines.length} line{sug.lines.length !== 1 ? 's' : ''}
                     </p>
                   </label>
@@ -181,7 +177,7 @@ export default function AutoSuggestionsPage() {
               <CardContent>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-gray-500 border-b border-orange-100">
+                    <tr className="text-xs text-muted-foreground border-b border-orange-100">
                       <th className="text-left py-1">Item ID</th>
                       <th className="text-right py-1">Qty</th>
                       <th className="text-left py-1 pl-2">Unit</th>
@@ -198,10 +194,10 @@ export default function AutoSuggestionsPage() {
                       );
                       return (
                         <tr key={li} className="border-b border-orange-50 last:border-0">
-                          <td className="py-1 text-gray-700 font-mono text-xs truncate max-w-[120px]">{line.inventory_item_id}</td>
-                          <td className="py-1 text-right text-gray-700">{line.ordered_quantity}</td>
-                          <td className="py-1 pl-2 text-gray-500">{line.ordered_unit}</td>
-                          <td className="py-1 text-right text-gray-700">{fmtCents(line.ordered_unit_price_cents)}</td>
+                          <td className="py-1 text-foreground font-mono text-xs truncate max-w-[120px]">{line.inventory_item_id}</td>
+                          <td className="py-1 text-right text-foreground">{line.ordered_quantity}</td>
+                          <td className="py-1 pl-2 text-muted-foreground">{line.ordered_unit}</td>
+                          <td className="py-1 text-right text-foreground">{fmtCents(line.ordered_unit_price_cents)}</td>
                           <td className="py-1 text-right font-medium">{fmtCents(lineTotal)}</td>
                         </tr>
                       );
@@ -224,6 +220,6 @@ export default function AutoSuggestionsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

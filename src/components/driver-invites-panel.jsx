@@ -89,10 +89,10 @@ export default function DriverInvitesPanel() {
   };
 
   return (
-    <Card className="border-orange-100 bg-white">
+    <Card className="border-primary/15 bg-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Truck className="w-5 h-5 text-orange-500" />
+          <Truck className="w-5 h-5 text-primary" />
           Drivers
         </CardTitle>
         <CardDescription>
@@ -102,7 +102,7 @@ export default function DriverInvitesPanel() {
       <CardContent className="space-y-4">
         <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="email"
               required
@@ -113,31 +113,31 @@ export default function DriverInvitesPanel() {
               aria-label="Driver email"
             />
           </div>
-          <Button type="submit" disabled={submitting || !email.trim()} className="bg-orange-500 hover:bg-orange-600 text-white">
+          <Button type="submit" disabled={submitting || !email.trim()}>
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Invite driver'}
           </Button>
         </form>
 
         {msg && (
-          <div className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 ${msg.kind === 'ok' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          <div className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 ${msg.kind === 'ok' ? 'bg-[hsl(var(--beepbite-success))]/10 text-[hsl(var(--beepbite-success))] border border-[hsl(var(--beepbite-success))]/30' : 'bg-destructive/10 text-destructive border border-destructive/30'}`}>
             {msg.kind === 'ok' ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             <span>{msg.text}</span>
           </div>
         )}
 
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Pending invites</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">Pending invites</h4>
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
           ) : invites.length === 0 ? (
-            <p className="text-sm text-gray-500">No pending driver invites.</p>
+            <p className="text-sm text-muted-foreground">No pending driver invites.</p>
           ) : (
-            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+            <ul className="divide-y divide-border rounded-lg border border-border">
               {invites.map((inv) => (
                 <li key={inv.id} className="flex items-center justify-between gap-3 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{inv.email}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground truncate">{inv.email}</p>
+                    <p className="text-xs text-muted-foreground">
                       {inv.status || 'pending'}
                       {inv.created_at ? ` · ${new Date(inv.created_at).toLocaleDateString()}` : ''}
                     </p>
@@ -148,7 +148,7 @@ export default function DriverInvitesPanel() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRevoke(inv.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       aria-label={`Revoke invite for ${inv.email}`}
                     >
                       <X className="w-4 h-4" />
@@ -161,18 +161,18 @@ export default function DriverInvitesPanel() {
         </div>
 
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Active drivers</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">Active drivers</h4>
           {loadingDrivers ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
           ) : drivers.length === 0 ? (
-            <p className="text-sm text-gray-500">No active drivers yet. Invited drivers appear here once they sign up.</p>
+            <p className="text-sm text-muted-foreground">No active drivers yet. Invited drivers appear here once they sign up.</p>
           ) : (
-            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+            <ul className="divide-y divide-border rounded-lg border border-border">
               {drivers.map((d) => (
                 <li key={d.profile_id} className="flex items-center justify-between gap-3 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{d.full_name || d.email}</p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-sm font-medium text-foreground truncate">{d.full_name || d.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">
                       {d.full_name ? d.email : 'driver'}
                       {d.joined_at ? ` · since ${new Date(d.joined_at).toLocaleDateString()}` : ''}
                     </p>
@@ -182,7 +182,7 @@ export default function DriverInvitesPanel() {
                     size="sm"
                     disabled={removingId === d.profile_id}
                     onClick={() => handleRemoveDriver(d)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     aria-label={`Remove driver ${d.email}`}
                   >
                     {removingId === d.profile_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}

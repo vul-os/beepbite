@@ -28,7 +28,7 @@ export default function LiveOrdersPanel({
       case 'ready':               return 'bg-green-100 text-green-800 border-green-200';
       case 'out_for_delivery':    return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'pending_on_delivery': return 'bg-amber-100 text-amber-800 border-amber-200';
-      default:                    return 'bg-gray-100 text-gray-800 border-gray-200';
+      default:                    return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -78,7 +78,7 @@ export default function LiveOrdersPanel({
           {activeCount > 0 && (
             <span
               aria-label={`${activeCount} active orders`}
-              className="ml-auto text-xs font-bold bg-primary text-white rounded-full px-2.5 py-0.5 tabular-nums"
+              className="ml-auto text-xs font-bold bg-primary text-primary-foreground rounded-full px-2.5 py-0.5 tabular-nums"
             >
               {activeCount}
             </span>

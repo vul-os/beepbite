@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 
 import {
   searchTenants,
@@ -64,10 +65,10 @@ function formatDateTime(iso) {
 function StatusBadge({ status }) {
   const s = (status || '').toLowerCase();
   if (s === 'active') {
-    return <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">{status}</Badge>;
+    return <Badge className="bg-beepbite-success/15 text-beepbite-success border-beepbite-success/30 hover:bg-beepbite-success/15">{status}</Badge>;
   }
   if (s === 'paused') {
-    return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100">{status}</Badge>;
+    return <Badge variant="secondary" className="bg-beepbite-warning/15 text-beepbite-warning border-beepbite-warning/30 hover:bg-beepbite-warning/15">{status}</Badge>;
   }
   if (s === 'suspended' || s === 'banned') {
     return <Badge variant="destructive">{status}</Badge>;
@@ -149,7 +150,7 @@ function TenantDetail({ orgId, onBack }) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <span className="text-sm">Loading tenant…</span>
       </div>
     );
@@ -196,7 +197,7 @@ function TenantDetail({ orgId, onBack }) {
           {isPaused ? (
             <Button
               size="sm"
-              className="gap-1 bg-green-600 hover:bg-green-700 text-white"
+              className="gap-1 bg-beepbite-success hover:bg-beepbite-success/90 text-white"
               onClick={() => setUnpauseDialogOpen(true)}
             >
               <Play className="h-3.5 w-3.5" />
@@ -260,7 +261,7 @@ function TenantDetail({ orgId, onBack }) {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Bell className="h-4 w-4 text-orange-500" />
+            <Bell className="h-4 w-4 text-primary" />
             Active Alarms
             {alarms.length > 0 && (
               <Badge variant="destructive" className="ml-1">{alarms.length}</Badge>
@@ -275,14 +276,14 @@ function TenantDetail({ orgId, onBack }) {
               {alarms.map((alarm, i) => (
                 <li
                   key={alarm.id || i}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-200"
+                  className="flex items-start gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20"
                 >
-                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-red-800">{alarm.name || alarm.type || 'Alarm'}</p>
-                    {alarm.message && <p className="text-xs text-red-600 mt-0.5">{alarm.message}</p>}
+                    <p className="text-sm font-medium text-destructive">{alarm.name || alarm.type || 'Alarm'}</p>
+                    {alarm.message && <p className="text-xs text-destructive/80 mt-0.5">{alarm.message}</p>}
                     {alarm.triggered_at && (
-                      <p className="text-xs text-red-500 mt-1">{formatDateTime(alarm.triggered_at)}</p>
+                      <p className="text-xs text-destructive/70 mt-1">{formatDateTime(alarm.triggered_at)}</p>
                     )}
                   </div>
                 </li>
@@ -368,44 +369,34 @@ export default function AdminDashboardPage() {
   // If viewing a tenant detail
   if (selectedOrgId) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Header strip stays visible in detail */}
-        <div className="flex items-center gap-3 border-b border-border pb-4">
-          <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center">
-            <Shield className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold leading-tight text-foreground">Platform Admin</h1>
-            <p className="text-xs text-muted-foreground">Tenant detail</p>
-          </div>
-        </div>
+      <PageContainer className="max-w-4xl mx-auto px-4 py-6">
+        <PageHeader
+          title="Platform Admin"
+          description="Tenant detail"
+          icon={Shield}
+        />
         <TenantDetail orgId={selectedOrgId} onBack={() => setSelectedOrgId(null)} />
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center gap-3 border-b border-border pb-5">
-        <div className="h-10 w-10 rounded-xl bg-orange-500 flex items-center justify-center shadow-sm">
-          <Shield className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Platform Admin</h1>
-          <p className="text-sm text-muted-foreground">Manage tenants and platform health.</p>
-        </div>
-      </div>
+    <PageContainer className="max-w-6xl mx-auto px-4 py-6">
+      <PageHeader
+        title="Platform Admin"
+        description="Manage tenants and platform health."
+        icon={Shield}
+      />
 
       {/* 403 Guard */}
       {is403 && (
-        <Card className="border-orange-200 bg-orange-50">
+        <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
-              <Shield className="h-6 w-6 text-orange-600" />
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Shield className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-base font-semibold text-orange-900">Not a Platform Admin</h2>
-            <p className="text-sm text-orange-700 max-w-sm">
+            <h2 className="text-base font-semibold text-foreground">Not a Platform Admin</h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
               Your account does not have platform-admin privileges. Contact the system administrator to request access.
             </p>
           </CardContent>
@@ -426,14 +417,16 @@ export default function AdminDashboardPage() {
                 onChange={(e) => setQuery(e.target.value)}
               />
               {query && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label="Clear search"
                 >
                   <X className="h-4 w-4" />
-                </button>
+                </Button>
               )}
             </div>
           </CardHeader>
@@ -442,7 +435,7 @@ export default function AdminDashboardPage() {
             {/* Loading */}
             {loadingList && (
               <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="text-sm">Searching tenants…</span>
               </div>
             )}
@@ -484,7 +477,7 @@ export default function AdminDashboardPage() {
                   {tenants.map((t) => (
                     <TableRow
                       key={t.org_id}
-                      className="cursor-pointer hover:bg-orange-50/60 transition-colors"
+                      className="cursor-pointer hover:bg-primary/5 transition-colors"
                       onClick={() => setSelectedOrgId(t.org_id)}
                     >
                       <TableCell className="font-medium">{t.name || '—'}</TableCell>
@@ -502,6 +495,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -19,7 +19,7 @@ function PinButton({ children, onClick, disabled }) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center justify-center w-16 h-16 rounded-xl text-xl font-semibold bg-white border border-gray-200 shadow-sm hover:bg-gray-50 active:scale-95 transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed"
+      className="flex items-center justify-center w-16 h-16 rounded-xl text-xl font-semibold bg-card border border-border shadow-sm hover:bg-muted active:scale-95 transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {children}
     </button>
@@ -235,7 +235,7 @@ const PosLoginPage = () => {
                   alt="BeepBite"
                   className="w-8 h-8 filter brightness-0 invert"
                 />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-lg" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full animate-pulse shadow-lg" />
               </div>
             </div>
             <h1 className="text-3xl font-bold tracking-tight">
@@ -270,7 +270,7 @@ const PosLoginPage = () => {
               {/* ---- Password tab ---- */}
               <TabsContent value="password">
                 {pwErrors.submit && (
-                  <Alert variant="destructive" className="mb-4 border-l-4 border-red-500 bg-red-50/80">
+                  <Alert variant="destructive" className="mb-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="text-sm">{pwErrors.submit}</AlertDescription>
                   </Alert>
@@ -298,11 +298,11 @@ const PosLoginPage = () => {
                           }
                         }}
                         disabled={pwLoading}
-                        className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pwErrors.username ? 'border-red-400' : ''}`}
+                        className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pwErrors.username ? 'border-destructive' : ''}`}
                       />
                     </div>
                     {pwErrors.username && (
-                      <p className="text-xs text-red-500">{pwErrors.username}</p>
+                      <p className="text-xs text-destructive">{pwErrors.username}</p>
                     )}
                   </div>
 
@@ -322,11 +322,11 @@ const PosLoginPage = () => {
                         value={pwForm.password}
                         onChange={handlePwChange}
                         disabled={pwLoading}
-                        className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pwErrors.password ? 'border-red-400' : ''}`}
+                        className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pwErrors.password ? 'border-destructive' : ''}`}
                       />
                     </div>
                     {pwErrors.password && (
-                      <p className="text-xs text-red-500">{pwErrors.password}</p>
+                      <p className="text-xs text-destructive">{pwErrors.password}</p>
                     )}
                   </div>
 
@@ -350,7 +350,7 @@ const PosLoginPage = () => {
               {/* ---- PIN tab ---- */}
               <TabsContent value="pin">
                 {pinErrors.submit && (
-                  <Alert variant="destructive" className="mb-4 border-l-4 border-red-500 bg-red-50/80">
+                  <Alert variant="destructive" className="mb-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="text-sm">{pinErrors.submit}</AlertDescription>
                   </Alert>
@@ -372,18 +372,18 @@ const PosLoginPage = () => {
                       onChange={handlePinUsernameChange}
                       onKeyDown={handlePinUsernameKeyDown}
                       disabled={pinLoading}
-                      className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pinErrors.username ? 'border-red-400' : ''}`}
+                      className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pinErrors.username ? 'border-destructive' : ''}`}
                     />
                   </div>
                   {pinErrors.username && (
-                    <p className="text-xs text-red-500">{pinErrors.username}</p>
+                    <p className="text-xs text-destructive">{pinErrors.username}</p>
                   )}
                 </div>
 
                 {/* PIN dot indicator */}
                 <PinDots length={pinForm.pin.length} maxLength={6} />
                 {pinErrors.pin && (
-                  <p className="text-xs text-red-500 text-center mb-2">{pinErrors.pin}</p>
+                  <p className="text-xs text-destructive text-center mb-2">{pinErrors.pin}</p>
                 )}
 
                 {/* Numpad */}

@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/logo-mark.svg" alt="BeepBite" width="110" />
+
 # BeepBite
 
 ### A restaurant point-of-sale you actually own.
@@ -8,7 +10,7 @@ Front of house, kitchen, delivery, and however your customers already order —
 one system, running on your own hardware. No cloud account, no per-order fee,
 no platform standing between you and them.
 
-<sub>Part of <strong><a href="https://vulos.org">VulOS</a></strong> — the open, self-hostable web OS &amp; app suite. Runs standalone, or as an app hosted by the Vulos OS.</sub>
+<sub><img src="docs/assets/vulos-logo.png" height="14" alt="VulOS"> Part of <strong><a href="https://vulos.org">VulOS</a></strong> — the open, self-hostable web OS &amp; app suite. Runs standalone, or as an app hosted by the Vulos OS.</sub>
 
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-FF6B35.svg)](LICENSE)

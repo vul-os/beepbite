@@ -200,7 +200,7 @@ export default function DriverPortal() {
       <div className="bg-white border-b border-orange-100 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Truck className="w-5 h-5 text-orange-500" />
-          <h1 className="text-lg font-bold text-gray-900">Driver Portal</h1>
+          <h1 className="text-lg font-bold text-foreground">Driver Portal</h1>
         </div>
         <Button
           variant="ghost"

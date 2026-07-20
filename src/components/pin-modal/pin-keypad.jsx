@@ -24,9 +24,9 @@ function KeyButton({ children, onClick, disabled, variant = 'digit' }) {
     'flex items-center justify-center rounded-2xl text-xl font-semibold transition-all duration-100 select-none touch-manipulation';
   const variants = {
     digit:
-      'w-[72px] h-[72px] bg-white border border-gray-200 shadow-sm hover:bg-gray-50 active:scale-95 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed sm:w-20 sm:h-20',
+      'w-[72px] h-[72px] bg-card border border-border shadow-sm hover:bg-muted active:scale-95 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed sm:w-20 sm:h-20',
     action:
-      'w-[72px] h-[72px] bg-gray-100 border border-gray-200 shadow-sm hover:bg-gray-200 active:scale-95 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed sm:w-20 sm:h-20',
+      'w-[72px] h-[72px] bg-muted border border-border shadow-sm hover:bg-muted/70 active:scale-95 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed sm:w-20 sm:h-20',
   };
 
   return (
@@ -52,7 +52,7 @@ function PinDots({ length, maxLength }) {
           className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-150 ${
             i < length
               ? 'bg-primary border-primary scale-110'
-              : 'bg-transparent border-gray-300'
+              : 'bg-transparent border-border'
           }`}
         />
       ))}
@@ -87,7 +87,7 @@ const PinKeypad = ({
       <PinDots length={pin.length} maxLength={maxLength} />
 
       {error && (
-        <p role="alert" className="text-xs text-red-500 text-center mb-2 px-2">
+        <p role="alert" className="text-xs text-destructive text-center mb-2 px-2">
           {error}
         </p>
       )}
@@ -107,7 +107,7 @@ const PinKeypad = ({
         {/* Bottom row: CLR | 0 | ⌫ */}
         <div className="flex gap-2.5">
           <KeyButton variant="action" onClick={onClear} disabled={loading || pin.length === 0}>
-            <span className="text-sm font-medium text-gray-600">CLR</span>
+            <span className="text-sm font-medium text-muted-foreground">CLR</span>
           </KeyButton>
           <KeyButton onClick={() => onDigit('0')} disabled={loading || pin.length >= maxLength}>
             0

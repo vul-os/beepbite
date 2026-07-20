@@ -122,26 +122,26 @@ const Sidebar = ({ pathname, onItemClick = () => {} }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-background">
       <div className="px-4 sm:px-5 pt-5 pb-3">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search docs..."
-            className="pl-8 h-9 text-sm border-gray-200 focus-visible:ring-orange-300"
+            className="pl-8 h-9 text-sm"
           />
         </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 sm:px-3 pb-6 space-y-5">
         {filtered.length === 0 && (
-          <div className="px-3 py-6 text-sm text-gray-500 text-center">No matches for "{query}".</div>
+          <div className="px-3 py-6 text-sm text-muted-foreground text-center">No matches for "{query}".</div>
         )}
         {filtered.map((section) => (
           <div key={section.title}>
-            <div className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            <div className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {section.title}
             </div>
             <ul className="space-y-0.5">
@@ -150,14 +150,14 @@ const Sidebar = ({ pathname, onItemClick = () => {} }) => {
                 const isActive = pathname === item.href;
                 const className = `group flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors ${
                   isActive
-                    ? 'bg-orange-50 text-orange-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-foreground hover:bg-muted hover:text-foreground'
                 }`;
                 const inner = (
                   <>
-                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-orange-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
                     <span className="truncate">{item.title}</span>
-                    {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                    {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
                   </>
                 );
                 if (item.external) {
@@ -188,11 +188,11 @@ const Sidebar = ({ pathname, onItemClick = () => {} }) => {
         ))}
       </nav>
 
-      <div className="border-t border-gray-100 p-4 bg-gray-50/60">
-        <div className="text-xs text-gray-500 mb-2">Need help?</div>
+      <div className="border-t border-border p-4 bg-muted/60">
+        <div className="text-xs text-muted-foreground mb-2">Need help?</div>
         <a
           href="mailto:support@beepbite.io"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80"
         >
           Contact support
           <ChevronRight className="w-3.5 h-3.5" />
@@ -203,19 +203,19 @@ const Sidebar = ({ pathname, onItemClick = () => {} }) => {
 };
 
 const Breadcrumbs = ({ title }) => (
-  <nav aria-label="Breadcrumb" className="text-sm text-gray-500 mb-6 flex items-center gap-1.5 flex-wrap">
-    <Link to="/" className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors">
+  <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground mb-6 flex items-center gap-1.5 flex-wrap">
+    <Link to="/" className="inline-flex items-center gap-1 hover:text-primary transition-colors">
       <Home className="w-3.5 h-3.5" />
       Home
     </Link>
-    <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-    <Link to="/docs" className="hover:text-orange-600 transition-colors">
+    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
+    <Link to="/docs" className="hover:text-primary transition-colors">
       Docs
     </Link>
     {title && (
       <>
-        <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-        <span className="text-gray-700 font-medium truncate max-w-[200px] sm:max-w-none">{title}</span>
+        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
+        <span className="text-foreground font-medium truncate max-w-[200px] sm:max-w-none">{title}</span>
       </>
     )}
   </nav>
@@ -229,22 +229,22 @@ const DocsLayout = ({ children, title, description, hideSidebar = false }) => {
   const isHome = location.pathname === '/docs';
 
   return (
-    <div className="bg-white text-gray-900">
+    <div className="bg-background text-foreground">
       <div className="lg:flex">
         {/* ===== Sidebar (desktop) ===== */}
         {!hideSidebar && (
-          <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0 border-r border-gray-200 bg-white sticky top-16 self-start h-[calc(100vh-4rem)]">
+          <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0 border-r border-border bg-background sticky top-16 self-start h-[calc(100vh-4rem)]">
             <div className="h-full flex flex-col">
-              <div className="px-5 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="px-5 pt-6 pb-4 border-b border-border flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-orange-600">BeepBite</div>
-                  <div className="text-base font-bold text-gray-900">Documentation</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-primary">BeepBite</div>
+                  <div className="text-base font-bold text-foreground">Documentation</div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/')}
-                  className="text-xs text-gray-500 hover:text-gray-900 px-2"
+                  className="text-xs text-muted-foreground hover:text-foreground px-2"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 mr-1" />
                   Site
@@ -256,11 +256,11 @@ const DocsLayout = ({ children, title, description, hideSidebar = false }) => {
         )}
 
         {/* ===== Mobile top bar ===== */}
-        <div className="lg:hidden sticky top-16 z-30 bg-white/90 backdrop-blur border-b border-gray-100">
+        <div className="lg:hidden sticky top-16 z-30 bg-background/90 backdrop-blur border-b border-border">
           <div className="flex items-center gap-3 px-4 py-2.5">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="px-2.5 h-9 border-gray-200">
+                <Button variant="outline" size="sm" className="px-2.5 h-9">
                   <MenuIcon className="w-4 h-4" />
                   <span className="text-xs ml-1.5">Docs menu</span>
                 </Button>
@@ -269,10 +269,10 @@ const DocsLayout = ({ children, title, description, hideSidebar = false }) => {
                 <VisuallyHidden>
                   <SheetTitle>Documentation navigation</SheetTitle>
                 </VisuallyHidden>
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-orange-600">BeepBite</div>
-                    <div className="text-base font-bold text-gray-900">Documentation</div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-primary">BeepBite</div>
+                    <div className="text-base font-bold text-foreground">Documentation</div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => setOpen(false)} className="px-2">
                     <X className="w-4 h-4" />
@@ -282,10 +282,10 @@ const DocsLayout = ({ children, title, description, hideSidebar = false }) => {
               </SheetContent>
             </Sheet>
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] uppercase tracking-wider text-orange-600 font-semibold leading-tight">
+              <div className="text-[11px] uppercase tracking-wider text-primary font-semibold leading-tight">
                 {isHome ? 'Documentation' : 'Guide'}
               </div>
-              <div className="text-sm font-bold text-gray-900 truncate">{title || 'Docs'}</div>
+              <div className="text-sm font-bold text-foreground truncate">{title || 'Docs'}</div>
             </div>
           </div>
         </div>
@@ -294,7 +294,7 @@ const DocsLayout = ({ children, title, description, hideSidebar = false }) => {
         <main className="flex-1 min-w-0">
           {/* Subtle decorative banner on docs home */}
           {isHome && (
-            <div className="absolute inset-x-0 top-16 h-64 -z-10 bg-gradient-to-b from-orange-50/60 to-transparent" />
+            <div className="absolute inset-x-0 top-16 h-64 -z-10 bg-gradient-to-b from-primary/5 to-transparent" />
           )}
 
           <div className={`mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-12 ${isHome ? 'max-w-6xl' : 'max-w-3xl xl:max-w-4xl'}`}>

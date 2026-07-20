@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import {
   Dialog,
   DialogContent,
@@ -286,9 +287,9 @@ function EntriesPanel({ entries, isManager, onRefresh, onEntryEdited }) {
         )}
 
         {filtered.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-6">No entries yet.</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No entries yet.</p>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[28rem] overflow-y-auto">
+          <div className="divide-y divide-border max-h-[28rem] overflow-y-auto">
             {filtered.map((entry) => (
               <div
                 key={entry.id}
@@ -299,23 +300,25 @@ function EntriesPanel({ entries, isManager, onRefresh, onEntryEdited }) {
                     <Badge variant={badgeVariant(entry.entry_type)} className="text-xs shrink-0">
                       {entryTypeLabel(entry.entry_type)}
                     </Badge>
-                    <span className="text-xs text-gray-500 truncate">
+                    <span className="text-xs text-muted-foreground truncate">
                       {formatTimestamp(entry.timestamp)}
                     </span>
                   </div>
                   {entry.notes && (
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.notes}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>
                   )}
                 </div>
                 {isManager && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setEditingEntry(entry)}
-                    className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground"
                     aria-label="Edit entry"
                   >
                     <Edit2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -403,20 +406,18 @@ export default function TimeClockPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Time Clock</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Record staff clock-ins and clock-outs.
-          {isManager && ' Manager edit is enabled for your account.'}
-        </p>
-      </div>
+    <PageContainer className="max-w-5xl mx-auto">
+      <PageHeader
+        icon={Clock}
+        title="Time Clock"
+        description={`Record staff clock-ins and clock-outs.${isManager ? ' Manager edit is enabled for your account.' : ''}`}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           {loadingStaff ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-gray-500">
+              <CardContent className="py-12 text-center text-sm text-muted-foreground">
                 Loading staff…
               </CardContent>
             </Card>
@@ -429,7 +430,7 @@ export default function TimeClockPage() {
           <div>
             {loadingEntries ? (
               <Card>
-                <CardContent className="py-12 text-center text-sm text-gray-500">
+                <CardContent className="py-12 text-center text-sm text-muted-foreground">
                   Loading entries…
                 </CardContent>
               </Card>
@@ -444,6 +445,6 @@ export default function TimeClockPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

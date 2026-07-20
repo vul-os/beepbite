@@ -62,7 +62,7 @@ const tooltipStyle = {
 
 const axisStyle = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' };
 const gridStroke = 'hsl(var(--border))';
-const ORANGE_PALETTE = ['#f97316', '#fb923c', '#fdba74', '#fed7aa'];
+const ORANGE_PALETTE = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-3) / 0.6)'];
 
 // Empty state shown inside a chart area
 function ChartEmpty({ message }) {
@@ -391,10 +391,10 @@ const Reports = () => {
                       <Line
                         type="monotone"
                         dataKey="avgResponse"
-                        stroke="#f97316"
+                        stroke="hsl(var(--chart-1))"
                         strokeWidth={2.5}
-                        dot={{ fill: '#f97316', strokeWidth: 0, r: 3 }}
-                        activeDot={{ r: 5, fill: '#ea580c', strokeWidth: 0 }}
+                        dot={{ fill: 'hsl(var(--chart-1))', strokeWidth: 0, r: 3 }}
+                        activeDot={{ r: 5, fill: 'hsl(var(--chart-1))', strokeWidth: 0 }}
                       />
                     </ReLineChart>
                   </ResponsiveContainer>
@@ -474,7 +474,7 @@ const Reports = () => {
                         label={{ value: 'Orders', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }}
                       />
                       <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [v, n === 'orders' ? 'Orders' : 'Avg Response (min)']} />
-                      <Bar dataKey="orders" fill="#f97316" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="orders" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -506,8 +506,8 @@ const Reports = () => {
                     >
                       <defs>
                         <linearGradient id="orderGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f97316" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#f97316" stopOpacity={0.02} />
+                          <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} strokeOpacity={0.5} />
@@ -519,11 +519,11 @@ const Reports = () => {
                       <Area
                         type="monotone"
                         dataKey="orders"
-                        stroke="#f97316"
+                        stroke="hsl(var(--chart-1))"
                         strokeWidth={2.5}
                         fill="url(#orderGradient)"
-                        dot={{ fill: '#f97316', strokeWidth: 0, r: 3 }}
-                        activeDot={{ r: 5, fill: '#ea580c', strokeWidth: 0 }}
+                        dot={{ fill: 'hsl(var(--chart-1))', strokeWidth: 0, r: 3 }}
+                        activeDot={{ r: 5, fill: 'hsl(var(--chart-1))', strokeWidth: 0 }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -582,15 +582,15 @@ const Reports = () => {
                       ]}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar yAxisId="left" dataKey="orders" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Orders" />
+                    <Bar yAxisId="left" dataKey="orders" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} name="Orders" />
                     <Line
                       yAxisId="right"
                       type="monotone"
                       dataKey="avgTimeMinutes"
-                      stroke="#f97316"
+                      stroke="hsl(var(--chart-1))"
                       strokeWidth={2.5}
-                      dot={{ fill: '#f97316', strokeWidth: 0, r: 4 }}
-                      activeDot={{ r: 6, fill: '#ea580c', strokeWidth: 0 }}
+                      dot={{ fill: 'hsl(var(--chart-1))', strokeWidth: 0, r: 4 }}
+                      activeDot={{ r: 6, fill: 'hsl(var(--chart-1))', strokeWidth: 0 }}
                       name="Avg Response Time"
                     />
                   </ComposedChart>

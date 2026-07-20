@@ -52,6 +52,7 @@ import { Switch } from "@/components/ui/switch";
 import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
+import { COMPLEXITY_COLORS } from '@/lib/status-colors';
 
 const RecipeBuilder = ({ 
   item, 
@@ -272,14 +273,7 @@ const RecipeBuilder = ({
     }
   };
 
-  const getComplexityColor = (complexity) => {
-    switch (complexity) {
-      case 'simple': return 'text-green-600';
-      case 'moderate': return 'text-yellow-600';
-      case 'complex': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
+  const getComplexityColor = (complexity) => COMPLEXITY_COLORS[complexity] || 'bg-muted text-muted-foreground';
 
   // Filter available items - only show recipe ingredients
   const filteredAvailableItems = availableItems.filter(availableItem => {
@@ -302,7 +296,7 @@ const RecipeBuilder = ({
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-4" />
-          <p className="text-gray-600">No item selected for recipe building</p>
+          <p className="text-muted-foreground">No item selected for recipe building</p>
         </div>
       </div>
     );
@@ -315,18 +309,18 @@ const RecipeBuilder = ({
         <div>
           <div className="flex items-center gap-3 mb-2">
             {getItemTypeIcon(item.recipe_type)}
-            <h2 className="text-xl font-semibold text-gray-900">{item.name}</h2>
+            <h2 className="text-xl font-semibold text-foreground">{item.name}</h2>
             <Badge variant="outline">{item.recipe_type}</Badge>
           </div>
           {item.description && (
-            <p className="text-gray-600 text-sm">{item.description}</p>
+            <p className="text-muted-foreground text-sm">{item.description}</p>
           )}
         </div>
         <div className="text-right">
-          <p className="text-lg font-semibold text-gray-900">
+          <p className="text-lg font-semibold text-foreground">
             {formatCurrency(item.price)}
           </p>
-          <p className="text-sm text-gray-600">Selling Price</p>
+          <p className="text-sm text-muted-foreground">Selling Price</p>
         </div>
       </div>
 
@@ -335,8 +329,8 @@ const RecipeBuilder = ({
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900">{recipeStats.totalComponents}</p>
-              <p className="text-sm text-gray-600">Components</p>
+              <p className="text-2xl font-bold text-foreground">{recipeStats.totalComponents}</p>
+              <p className="text-sm text-muted-foreground">Components</p>
             </div>
           </CardContent>
         </Card>
@@ -344,8 +338,8 @@ const RecipeBuilder = ({
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900">{recipeStats.maxLevel}</p>
-              <p className="text-sm text-gray-600">Max Level</p>
+              <p className="text-2xl font-bold text-foreground">{recipeStats.maxLevel}</p>
+              <p className="text-sm text-muted-foreground">Max Level</p>
             </div>
           </CardContent>
         </Card>
@@ -353,10 +347,10 @@ const RecipeBuilder = ({
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className={cn("text-2xl font-bold", getComplexityColor(recipeStats.complexity))}>
+              <p className={cn("inline-block rounded-lg px-3 py-0.5 text-2xl font-bold", getComplexityColor(recipeStats.complexity))}>
                 {recipeStats.complexity}
               </p>
-              <p className="text-sm text-gray-600">Complexity</p>
+              <p className="text-sm text-muted-foreground">Complexity</p>
             </div>
           </CardContent>
         </Card>
@@ -364,10 +358,10 @@ const RecipeBuilder = ({
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-foreground">
                 {formatCurrency(recipeStats.totalCost)}
               </p>
-              <p className="text-sm text-gray-600">Total Cost</p>
+              <p className="text-sm text-muted-foreground">Total Cost</p>
             </div>
           </CardContent>
         </Card>
@@ -396,7 +390,7 @@ const RecipeBuilder = ({
               <TreePine className="h-5 w-5" />
               Recipe Components ({components.length})
             </CardTitle>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               Total: {formatCurrency(recipeStats.totalCost)}
             </div>
           </CardHeader>
@@ -407,17 +401,17 @@ const RecipeBuilder = ({
               </div>
             ) : components.length === 0 ? (
               <div className="text-center py-8">
-                <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">No components added yet</p>
-                <p className="text-sm text-gray-500">Add items from the available items list</p>
+                <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-muted-foreground">No components added yet</p>
+                <p className="text-sm text-muted-foreground">Add items from the available items list</p>
               </div>
             ) : (
               components.map((component, index) => (
                 <div
                   key={component.id}
-                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                  className="flex items-center gap-3 p-3 border border-border rounded-lg hover:border-border transition-colors"
                 >
-                  <div className="flex items-center gap-2 text-gray-400">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <GripVertical className="h-4 w-4" />
                     <span className="text-xs">{index + 1}</span>
                   </div>
@@ -425,7 +419,7 @@ const RecipeBuilder = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       {getItemTypeIcon(component.child_item?.recipe_type)}
-                      <span className="font-medium text-gray-900 truncate">
+                      <span className="font-medium text-foreground truncate">
                         {component.child_item?.name}
                       </span>
                       {component.child_item?.max_recipe_level > 0 && (
@@ -438,7 +432,7 @@ const RecipeBuilder = ({
                     
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <Label className="text-xs text-gray-600">Quantity</Label>
+                        <Label className="text-xs text-muted-foreground">Quantity</Label>
                         <Input
                           type="number"
                           step="0.001"
@@ -453,7 +447,7 @@ const RecipeBuilder = ({
                       </div>
                       
                       <div>
-                        <Label className="text-xs text-gray-600">Unit</Label>
+                        <Label className="text-xs text-muted-foreground">Unit</Label>
                         <Input
                           value={component.unit || ''}
                           onChange={(e) => updateComponent(component.id, {
@@ -465,7 +459,7 @@ const RecipeBuilder = ({
                       </div>
                       
                       <div>
-                        <Label className="text-xs text-gray-600">Cost/Unit</Label>
+                        <Label className="text-xs text-muted-foreground">Cost/Unit</Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -481,7 +475,7 @@ const RecipeBuilder = ({
                     </div>
                     
                     <div className="flex items-center justify-between mt-2">
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-muted-foreground">
                         Subtotal: {formatCurrency((component.quantity_needed || 0) * (component.cost_per_unit || 0))}
                       </div>
                       <Button
@@ -511,7 +505,7 @@ const RecipeBuilder = ({
             {/* Search and Filter */}
             <div className="space-y-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder="Search items..."
                   value={searchTerm}
@@ -536,22 +530,22 @@ const RecipeBuilder = ({
           <CardContent className="max-h-96 overflow-y-auto space-y-2">
             {filteredAvailableItems.length === 0 ? (
               <div className="text-center py-8">
-                <Search className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">No items found</p>
-                <p className="text-sm text-gray-500">Try adjusting your search criteria</p>
+                <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-muted-foreground">No items found</p>
+                <p className="text-sm text-muted-foreground">Try adjusting your search criteria</p>
               </div>
             ) : (
               filteredAvailableItems.map((availableItem) => (
                 <div
                   key={availableItem.id}
-                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
+                  className="flex items-center justify-between p-3 border border-border rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
                   onClick={() => addComponent(availableItem)}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {getItemTypeIcon(availableItem.recipe_type)}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-gray-900 truncate">
+                        <p className="font-medium text-foreground truncate">
                           {availableItem.name}
                         </p>
                         <Badge variant="outline" className="text-xs">
@@ -565,7 +559,7 @@ const RecipeBuilder = ({
                         )}
                       </div>
                       
-                      <div className="flex items-center gap-4 text-xs text-gray-600">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>{formatCurrency(availableItem.price)}</span>
                         {availableItem.cost_price > 0 && (
                           <span>Cost: {formatCurrency(availableItem.cost_price)}</span>
@@ -610,8 +604,8 @@ const RecipeBuilder = ({
       </Card>
 
       {/* Action Buttons */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <div className="flex items-center gap-4 text-sm text-gray-600">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Hash className="h-4 w-4" />
             <span>{components.length} components</span>

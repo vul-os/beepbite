@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertCircle, Download, Trash2, RotateCcw, Loader2 } from 'lucide-react';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
+import { AlertCircle, Download, Trash2, RotateCcw, Loader2, UserCog } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useDateTime } from '@/context/locale-context';
 import { deleteAccount, restoreAccount, requestDataExport } from '@/services/datarights';
@@ -82,35 +83,40 @@ const AccountSettings = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">Account &amp; Data</h1>
+    <PageContainer className="max-w-2xl">
+      <PageHeader
+        eyebrow="Settings"
+        title="Account & Data"
+        description="Manage your account, export your data, or request deletion."
+        icon={UserCog}
+      />
 
       {/* ── Restore notice (shown when org is soft-deleted) ── */}
       {(isDeleted || restoreState === 'done' || deleteState === 'done') && (
-        <Card className="border-amber-400 bg-amber-50">
+        <Card className="border-beepbite-warning/40 bg-beepbite-warning/10">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-800">
+            <CardTitle className="flex items-center gap-2 text-beepbite-warning">
               <AlertCircle className="h-5 w-5" />
               Account scheduled for deletion
             </CardTitle>
-            <CardDescription className="text-amber-700">
+            <CardDescription className="text-beepbite-warning">
               Your account will be permanently deleted when the 30-day grace period
               expires. You can cancel the deletion below.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {restoreState === 'done' ? (
-              <p className="text-green-700 font-medium">
+              <p className="text-beepbite-success font-medium">
                 Deletion cancelled — your account is active again.
               </p>
             ) : (
               <>
                 {restoreError && (
-                  <p className="text-red-600 text-sm mb-3">{restoreError}</p>
+                  <p className="text-destructive text-sm mb-3">{restoreError}</p>
                 )}
                 <Button
                   variant="outline"
-                  className="border-amber-600 text-amber-800 hover:bg-amber-100"
+                  className="border-beepbite-warning/60 text-beepbite-warning hover:bg-beepbite-warning/10"
                   onClick={handleRestore}
                   disabled={restoreState === 'loading'}
                 >
@@ -138,10 +144,10 @@ const AccountSettings = () => {
         </CardHeader>
         <CardContent className="space-y-3">
           {exportError && (
-            <p className="text-red-600 text-sm">{exportError}</p>
+            <p className="text-destructive text-sm">{exportError}</p>
           )}
           {exportState === 'done' && (
-            <p className="text-green-700 text-sm font-medium">
+            <p className="text-beepbite-success text-sm font-medium">
               Export downloaded successfully.
             </p>
           )}
@@ -162,9 +168,9 @@ const AccountSettings = () => {
 
       {/* ── Delete account ── */}
       {!isDeleted && deleteState !== 'done' && (
-        <Card className="border-red-200">
+        <Card className="border-destructive/30">
           <CardHeader>
-            <CardTitle className="text-red-700">Delete account</CardTitle>
+            <CardTitle className="text-destructive">Delete account</CardTitle>
             <CardDescription>
               Permanently removes your organisation and all associated data after a
               30-day grace period. This action can be reversed within 30 days.
@@ -172,7 +178,7 @@ const AccountSettings = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             {deleteError && (
-              <p className="text-red-600 text-sm">{deleteError}</p>
+              <p className="text-destructive text-sm">{deleteError}</p>
             )}
 
             {deleteState !== 'confirm' ? (
@@ -186,7 +192,7 @@ const AccountSettings = () => {
               </Button>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm text-red-700 font-medium">
+                <p className="text-sm text-destructive font-medium">
                   Are you sure? Your account will be scheduled for permanent
                   deletion in 30 days.
                 </p>
@@ -216,7 +222,7 @@ const AccountSettings = () => {
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

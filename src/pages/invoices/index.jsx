@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -150,29 +151,24 @@ export default function InvoicesPage() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <FileText className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-xl font-semibold">Invoices</h1>
-            <p className="text-sm text-muted-foreground">
-              Create and manage invoices for your B2B customers.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={load} disabled={loading} title="Refresh">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="sr-only">Refresh</span>
-          </Button>
-          <Button onClick={() => navigate('/invoices/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            New invoice
-          </Button>
-        </div>
-      </div>
+    <PageContainer className="max-w-5xl">
+      <PageHeader
+        icon={FileText}
+        title="Invoices"
+        description="Create and manage invoices for your B2B customers."
+        actions={
+          <>
+            <Button variant="outline" size="icon" onClick={load} disabled={loading} title="Refresh">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="sr-only">Refresh</span>
+            </Button>
+            <Button onClick={() => navigate('/invoices/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              New invoice
+            </Button>
+          </>
+        }
+      />
 
       {/* Error */}
       {error && (
@@ -348,6 +344,6 @@ export default function InvoicesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

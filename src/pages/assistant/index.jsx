@@ -123,16 +123,19 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
               Menu import draft — {decisions.length} items
             </CardTitle>
           </div>
-          <button
-            className="text-amber-600 hover:text-amber-800"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-amber-600 hover:text-amber-800 hover:bg-amber-100"
             onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? 'Collapse draft' : 'Expand draft'}
           >
             {expanded ? (
               <ChevronUp className="w-4 h-4" />
             ) : (
               <ChevronDown className="w-4 h-4" />
             )}
-          </button>
+          </Button>
         </div>
       </CardHeader>
 
@@ -166,7 +169,7 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
                   return (
                     <div
                       key={idx}
-                      className="bg-white border rounded-lg px-3 py-2 flex items-center gap-3"
+                      className="bg-card border rounded-lg px-3 py-2 flex items-center gap-3"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.name || '—'}</p>
@@ -179,25 +182,23 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
                       </div>
                       <div className="flex gap-1 shrink-0">
                         {['create_new', 'update', 'skip'].map((act) => (
-                          <button
+                          <Button
                             key={act}
+                            size="sm"
+                            variant={d.action === act ? 'default' : 'outline'}
+                            className="h-7 px-2 text-xs"
                             onClick={() => setAction(idx, act)}
-                            className={cn(
-                              'text-xs px-2 py-1 rounded border transition-colors',
-                              d.action === act
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background hover:bg-muted border-border',
-                            )}
+                            aria-pressed={d.action === act}
                           >
                             {act === 'create_new' ? (
-                              <RefreshCw className="w-3 h-3 inline mr-1" />
+                              <RefreshCw className="w-3 h-3 mr-1" />
                             ) : act === 'update' ? (
-                              <CheckCircle className="w-3 h-3 inline mr-1" />
+                              <CheckCircle className="w-3 h-3 mr-1" />
                             ) : (
-                              <SkipForward className="w-3 h-3 inline mr-1" />
+                              <SkipForward className="w-3 h-3 mr-1" />
                             )}
                             {actionLabel[act]}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     </div>

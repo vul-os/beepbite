@@ -129,8 +129,8 @@ export default function SalesTrendChart({ series = [], period = 'week', currency
             <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#f97316" stopOpacity={0.01} />
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
@@ -150,16 +150,16 @@ export default function SalesTrendChart({ series = [], period = 'week', currency
               />
               <Tooltip
                 content={<CustomTooltip currency={currency} />}
-                cursor={{ stroke: '#f97316', strokeWidth: 1, strokeDasharray: '4 2' }}
+                cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '4 2' }}
               />
               <Area
                 type="monotone"
                 dataKey="sales_cents"
-                stroke="#f97316"
+                stroke="hsl(var(--primary))"
                 strokeWidth={2.5}
                 fill="url(#salesGradient)"
                 dot={false}
-                activeDot={{ r: 5, fill: '#f97316', strokeWidth: 2.5, stroke: '#fff' }}
+                activeDot={{ r: 5, fill: 'hsl(var(--primary))', strokeWidth: 2.5, stroke: 'hsl(var(--card))' }}
               />
             </AreaChart>
           </ResponsiveContainer>

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { CreditCard } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { OnDeliverySection } from './on-delivery-section';
 
 /**
@@ -29,14 +31,13 @@ export default function LocationPaymentsPage() {
   }, [syncFromLocation]);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Payment options for {locationName}</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Choose how customers can pay when their order is handed over. Orders are settled in
-          the POS &mdash; BeepBite does not process card payments on your behalf.
-        </p>
-      </div>
+    <PageContainer className="max-w-3xl">
+      <PageHeader
+        eyebrow="Settings"
+        title={`Payment options for ${locationName}`}
+        description="Choose how customers can pay when their order is handed over. Orders are settled in the POS — BeepBite does not process card payments on your behalf."
+        icon={CreditCard}
+      />
 
       {locationId && (
         <OnDeliverySection
@@ -45,6 +46,6 @@ export default function LocationPaymentsPage() {
           onMethodsChange={setMethods}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

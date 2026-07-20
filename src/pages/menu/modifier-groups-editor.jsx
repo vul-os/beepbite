@@ -87,7 +87,7 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
           placeholder="Delta cents"
           title="Price delta in cents (e.g. 50 = +R0.50)"
         />
-        <div className="flex items-center gap-1 text-xs text-gray-500">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Switch
             id={`def-${mod.id || 'new'}`}
             checked={form.is_default}
@@ -98,7 +98,7 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
         <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" onClick={commit} disabled={saving || !form.name.trim()}>
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
         </Button>
-        <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:bg-gray-50" onClick={cancel}>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:bg-muted" onClick={cancel}>
           <X className="w-3.5 h-3.5" />
         </Button>
       </div>
@@ -108,22 +108,22 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
   return (
     <div className={cn(
       'flex items-center gap-2 py-1.5 px-2 rounded-lg border',
-      mod.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-dashed border-gray-300 opacity-60',
+      mod.is_active ? 'bg-card border-border' : 'bg-muted border-dashed border-border opacity-60',
     )}>
-      <span className="flex-1 text-sm font-medium text-gray-800 truncate">{mod.name}</span>
+      <span className="flex-1 text-sm font-medium text-foreground truncate">{mod.name}</span>
       {mod.price_delta_cents !== 0 && (
         <span className={cn('text-xs font-semibold tabular-nums', mod.price_delta_cents > 0 ? 'text-orange-600' : 'text-green-600')}>
           {fmtDelta(mod.price_delta_cents)}
         </span>
       )}
       {mod.is_default && <Badge className="text-[10px] py-0 h-5 bg-orange-100 text-orange-700 border-orange-200">default</Badge>}
-      <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-gray-700" onClick={() => setEditing(true)} title="Edit">
+      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setEditing(true)} title="Edit">
         <Edit className="w-3 h-3" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-amber-600" onClick={() => onToggleActive(mod)} title={mod.is_active ? '86 this option' : 'Re-enable'}>
+      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-amber-600" onClick={() => onToggleActive(mod)} title={mod.is_active ? '86 this option' : 'Re-enable'}>
         {mod.is_active ? <ToggleRight className="w-3.5 h-3.5 text-green-500" /> : <ToggleLeft className="w-3.5 h-3.5" />}
       </Button>
-      <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-red-600" onClick={() => onDelete(mod)} title="Delete">
+      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-600" onClick={() => onDelete(mod)} title="Delete">
         <Trash2 className="w-3 h-3" />
       </Button>
     </div>
@@ -253,11 +253,11 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-border overflow-hidden shadow-sm">
       {/* Group header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border-b border-gray-200">
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-muted border-b border-border">
         <button type="button" onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 flex-1 min-w-0 text-left">
-          {open ? <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-500 shrink-0" />}
+          {open ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
           {editingGroup ? (
             <Input
               className="h-7 text-sm font-semibold flex-1"
@@ -267,7 +267,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
               autoFocus
             />
           ) : (
-            <span className="text-sm font-semibold text-gray-800 truncate">{group.name}</span>
+            <span className="text-sm font-semibold text-foreground truncate">{group.name}</span>
           )}
         </button>
 
@@ -275,7 +275,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
           {editingGroup ? (
             <>
               {/* min / max inline */}
-              <div className="flex items-center gap-1 text-xs text-gray-600">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>Min</span>
                 <Input
                   className="h-6 w-12 text-xs text-center px-1"
@@ -295,12 +295,12 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
               </div>
               <div className="flex items-center gap-1 text-xs">
                 <Switch checked={groupForm.is_required} onCheckedChange={(v) => setGroupForm((f) => ({ ...f, is_required: v }))} />
-                <span className="text-gray-600">Required</span>
+                <span className="text-muted-foreground">Required</span>
               </div>
               <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={saveGroup} disabled={savingGroup}>
                 {savingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
               </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400" onClick={() => { setGroupForm({ ...group }); setEditingGroup(false); }}>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => { setGroupForm({ ...group }); setEditingGroup(false); }}>
                 <X className="w-3.5 h-3.5" />
               </Button>
             </>
@@ -310,10 +310,10 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
                 {group.min_select}–{group.max_select}
               </Badge>
               {group.is_required && <Badge className="text-[10px] py-0 h-5 bg-red-100 text-red-700 border-red-200">required</Badge>}
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-gray-700" onClick={() => setEditingGroup(true)}>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setEditingGroup(true)}>
                 <Edit className="w-3 h-3" />
               </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-red-600" onClick={() => onDeleteGroup(group)}>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-600" onClick={() => onDeleteGroup(group)}>
                 <Trash2 className="w-3 h-3" />
               </Button>
             </>
@@ -323,11 +323,11 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
 
       {/* Modifiers list */}
       {open && (
-        <div className="px-3 py-2 space-y-1.5 bg-white">
+        <div className="px-3 py-2 space-y-1.5 bg-card">
           {loadingMods ? (
-            <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
           ) : modifiers.length === 0 ? (
-            <p className="text-xs text-gray-400 italic text-center py-2">No options yet — add one below.</p>
+            <p className="text-xs text-muted-foreground italic text-center py-2">No options yet — add one below.</p>
           ) : (
             modifiers.map((m) => (
               <ModifierRow
@@ -360,14 +360,14 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
                 placeholder="Delta (cents)"
                 title="e.g. 50 = +R0.50, -100 = -R1.00"
               />
-              <div className="flex items-center gap-1 text-xs text-gray-600">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Switch checked={newMod.is_default} onCheckedChange={(v) => setNewMod((f) => ({ ...f, is_default: v }))} />
                 <span>Default</span>
               </div>
               <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={addNewMod} disabled={!newMod.name.trim()}>
                 <Check className="w-3.5 h-3.5" />
               </Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400" onClick={() => { setAddingMod(false); setNewMod(emptyModifier()); }}>
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => { setAddingMod(false); setNewMod(emptyModifier()); }}>
                 <X className="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -452,7 +452,7 @@ export default function ModifierGroupsEditor({ itemId }) {
 
   if (!itemId) {
     return (
-      <div className="text-center py-6 text-gray-400 text-sm">
+      <div className="text-center py-6 text-muted-foreground text-sm">
         Save the item first, then add modifier groups.
       </div>
     );
@@ -462,8 +462,8 @@ export default function ModifierGroupsEditor({ itemId }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-700">Modifier Groups</p>
-          <p className="text-xs text-gray-500">Define choices the cashier or customer must / can make (e.g. "Choose a size", "Extra toppings").</p>
+          <p className="text-sm font-medium text-foreground">Modifier Groups</p>
+          <p className="text-xs text-muted-foreground">Define choices the cashier or customer must / can make (e.g. "Choose a size", "Extra toppings").</p>
         </div>
         {!addingGroup && (
           <Button size="sm" onClick={() => setAddingGroup(true)}
@@ -514,7 +514,7 @@ export default function ModifierGroupsEditor({ itemId }) {
                   checked={newGroup.is_required}
                   onCheckedChange={(v) => setNewGroup((f) => ({ ...f, is_required: v }))}
                 />
-                <Label htmlFor="ng-req" className="text-xs text-gray-600 cursor-pointer">Required</Label>
+                <Label htmlFor="ng-req" className="text-xs text-muted-foreground cursor-pointer">Required</Label>
               </div>
             </div>
           </div>
@@ -533,11 +533,11 @@ export default function ModifierGroupsEditor({ itemId }) {
 
       {/* Existing groups */}
       {loading ? (
-        <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
       ) : groups.length === 0 && !addingGroup ? (
-        <div className="text-center py-6 border border-dashed border-gray-200 rounded-xl">
-          <p className="text-sm text-gray-400">No modifier groups yet.</p>
-          <p className="text-xs text-gray-400 mt-0.5">Click "Add Group" to create one.</p>
+        <div className="text-center py-6 border border-dashed border-border rounded-xl">
+          <p className="text-sm text-muted-foreground">No modifier groups yet.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Click "Add Group" to create one.</p>
         </div>
       ) : (
         <div className="space-y-3">

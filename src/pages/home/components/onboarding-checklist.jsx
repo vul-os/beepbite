@@ -229,7 +229,7 @@ const OnboardingChecklist = ({ onComplete }) => {
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="h-44 rounded-2xl bg-orange-400/30 animate-pulse" />
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />
+            <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />
           ))}
         </div>
       </div>
@@ -311,8 +311,8 @@ const OnboardingChecklist = ({ onComplete }) => {
                       step.done
                         ? 'border-green-200 bg-green-50/60'
                         : step.isPrimary && !step.done
-                        ? 'border-orange-300 bg-white shadow-md ring-1 ring-orange-100'
-                        : 'border-gray-200 bg-white',
+                        ? 'border-orange-300 bg-card shadow-md ring-1 ring-orange-100'
+                        : 'border-border bg-card',
                       isDisabled && 'opacity-60'
                     )}
                     aria-disabled={isDisabled}
@@ -327,7 +327,7 @@ const OnboardingChecklist = ({ onComplete }) => {
                             <Circle
                               className={cn(
                                 'w-6 h-6',
-                                step.isPrimary ? 'text-orange-400' : 'text-gray-300'
+                                step.isPrimary ? 'text-orange-400' : 'text-muted-foreground'
                               )}
                             />
                           )}
@@ -343,7 +343,7 @@ const OnboardingChecklist = ({ onComplete }) => {
                                   ? 'bg-green-100'
                                   : step.isPrimary
                                   ? 'bg-orange-100'
-                                  : 'bg-gray-100'
+                                  : 'bg-muted'
                               )}
                               aria-hidden="true"
                             >
@@ -354,14 +354,14 @@ const OnboardingChecklist = ({ onComplete }) => {
                                     ? 'text-green-600'
                                     : step.isPrimary
                                     ? 'text-orange-500'
-                                    : 'text-gray-500'
+                                    : 'text-muted-foreground'
                                 )}
                               />
                             </div>
                             <span
                               className={cn(
                                 'font-semibold text-sm',
-                                step.done ? 'text-green-800 line-through decoration-green-400' : 'text-gray-900'
+                                step.done ? 'text-green-800 line-through decoration-green-400' : 'text-foreground'
                               )}
                             >
                               {step.label}
@@ -381,7 +381,7 @@ const OnboardingChecklist = ({ onComplete }) => {
                             )}
                           </div>
 
-                          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                             {step.done
                               ? step.alwaysDone
                                 ? step.description
@@ -394,34 +394,38 @@ const OnboardingChecklist = ({ onComplete }) => {
                           {/* Service style inline picker */}
                           {step.isServiceStyleStep && !isDisabled && (
                             <div className="mt-3 grid grid-cols-2 gap-2">
-                              <button
+                              <Button
                                 type="button"
+                                variant="outline"
                                 onClick={() => handlePickServiceStyle('dine_in')}
+                                aria-pressed={serviceStyle === 'dine_in'}
                                 className={cn(
-                                  'flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                                  'h-auto flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold whitespace-normal focus-visible:ring-2 focus-visible:ring-orange-400',
                                   serviceStyle === 'dine_in'
-                                    ? 'border-orange-400 bg-orange-50 text-orange-700'
-                                    : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:bg-orange-50'
+                                    ? 'border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-50'
+                                    : 'border-border bg-card text-muted-foreground hover:border-orange-300 hover:bg-orange-50'
                                 )}
                               >
                                 <UtensilsCrossed className="w-5 h-5" />
                                 <span>Dine-in</span>
-                                <span className="text-[10px] font-normal text-gray-400 leading-tight">Tables &amp; floor plan</span>
-                              </button>
-                              <button
+                                <span className="text-[10px] font-normal text-muted-foreground leading-tight">Tables &amp; floor plan</span>
+                              </Button>
+                              <Button
                                 type="button"
+                                variant="outline"
                                 onClick={() => handlePickServiceStyle('takeaway')}
+                                aria-pressed={serviceStyle === 'takeaway'}
                                 className={cn(
-                                  'flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                                  'h-auto flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold whitespace-normal focus-visible:ring-2 focus-visible:ring-orange-400',
                                   serviceStyle === 'takeaway'
-                                    ? 'border-orange-400 bg-orange-50 text-orange-700'
-                                    : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:bg-orange-50'
+                                    ? 'border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-50'
+                                    : 'border-border bg-card text-muted-foreground hover:border-orange-300 hover:bg-orange-50'
                                 )}
                               >
                                 <ShoppingBag className="w-5 h-5" />
                                 <span>Takeaway</span>
-                                <span className="text-[10px] font-normal text-gray-400 leading-tight">Counter / market stall</span>
-                              </button>
+                                <span className="text-[10px] font-normal text-muted-foreground leading-tight">Counter / market stall</span>
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -435,7 +439,7 @@ const OnboardingChecklist = ({ onComplete }) => {
                               'shrink-0 gap-1 h-9 px-3 rounded-lg focus-visible:ring-2 focus-visible:ring-offset-1',
                               step.isPrimary
                                 ? 'bg-orange-500 hover:bg-orange-600 text-white focus-visible:ring-orange-400'
-                                : 'bg-gray-900 hover:bg-gray-800 text-white focus-visible:ring-gray-400'
+                                : 'bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-ring'
                             )}
                           >
                             {step.actionLabel}
@@ -455,7 +459,7 @@ const OnboardingChecklist = ({ onComplete }) => {
           </ol>
 
           {/* Footer hint */}
-          <p className="text-center text-xs text-gray-400 px-4">
+          <p className="text-center text-xs text-muted-foreground px-4">
             You can revisit these steps any time from Settings. The checklist disappears once you have at least one location.
           </p>
         </div>

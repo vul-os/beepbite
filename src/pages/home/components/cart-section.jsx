@@ -72,7 +72,7 @@ const CartSection = ({
   const totalMinor = taxInclusive ? subtotalMinor : subtotalMinor + taxMinor;
   // Reusable header strip showing the register-open badge for the POS flow.
   const registerBadge = hasPosCheckout && registerSession ? (
-    <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-orange-100 bg-gradient-to-r from-green-50 to-emerald-50">
+    <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-primary/15 bg-gradient-to-r from-green-50 to-emerald-50">
       <div className="flex items-center gap-2 text-xs font-medium text-green-700">
         <Unlock className="w-3.5 h-3.5" />
         Register open
@@ -81,13 +81,14 @@ const CartSection = ({
         )}
       </div>
       {onProcessReturn && (
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={onProcessReturn}
-          className="text-xs font-medium text-orange-600 hover:text-orange-700 hover:underline"
+          className="h-auto p-0 text-xs font-medium text-primary hover:text-primary/80"
         >
           Process Return
-        </button>
+        </Button>
       )}
     </div>
   ) : null;
@@ -98,9 +99,9 @@ const CartSection = ({
         {registerBadge}
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
-            <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Cart is empty</h3>
-            <p className="text-gray-500">Add items from the menu to get started.</p>
+            <ShoppingCart className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">Cart is empty</h3>
+            <p className="text-muted-foreground">Add items from the menu to get started.</p>
             {lastPlacedOrderNumber && (
               <div className="mt-6 inline-flex items-center gap-2 px-3 py-2 rounded-full bg-green-50 text-green-700 border border-green-200 text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <CheckCircle2 className="w-4 h-4" />
@@ -122,18 +123,18 @@ const CartSection = ({
           const originalItem = items.find(i => i.id === item.id);
           
           return (
-            <Card key={item.cartItemKey} className="border border-orange-200 hover:shadow-md transition-shadow">
+            <Card key={item.cartItemKey} className="border border-primary/20 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 {/* Top Row: Item Name and Edit Button */}
                 <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-medium text-gray-900 flex-1 pr-2">{item.name}</h4>
+                  <h4 className="font-medium text-foreground flex-1 pr-2">{item.name}</h4>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => toggleCartItemExpanded(item.cartItemKey)}
                     className={cn(
-                      "h-8 w-8 p-0 rounded-full border-orange-200 transition-colors",
-                      isExpanded ? "bg-orange-100 border-orange-400" : ""
+                      "h-8 w-8 p-0 rounded-full border-primary/20 transition-colors",
+                      isExpanded ? "bg-primary/15 border-primary" : ""
                     )}
                   >
                     <Edit className="w-4 h-4" />
@@ -145,10 +146,10 @@ const CartSection = ({
                   <div className="mb-3">
                     <div className="flex flex-wrap gap-1">
                       {item.variationDetails.map((variation, index) => (
-                        <span key={index} className="inline-block bg-gray-100 rounded-full px-2 py-1 text-xs text-gray-700">
+                        <span key={index} className="inline-block bg-muted rounded-full px-2 py-1 text-xs text-muted-foreground">
                           <span className="font-medium">{variation.variationName}:</span> {variation.optionName}
                           {variation.priceModifier !== 0 && (
-                            <span className="text-orange-600 ml-1">
+                            <span className="text-primary ml-1">
                               {variation.priceModifier > 0 ? '+' : ''}{format(Math.round(variation.priceModifier * scale))}
                             </span>
                           )}
@@ -160,35 +161,38 @@ const CartSection = ({
 
                 {/* Expandable Variation Edit Section */}
                 {isExpanded && originalItem?.item_variations && (
-                  <div className="mb-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                    <h5 className="text-sm font-medium text-gray-900 mb-3">Edit Options:</h5>
+                  <div className="mb-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                    <h5 className="text-sm font-medium text-foreground mb-3">Edit Options:</h5>
                     <div className="space-y-3">
                       {originalItem.item_variations.map((variation) => (
                         <div key={variation.id} className="space-y-2">
-                          <label className="text-xs font-medium text-gray-700 block">
+                          <label className="text-xs font-medium text-muted-foreground block">
                             {variation.name} {variation.is_required && <span className="text-red-500">*</span>}
                           </label>
                           <div className="grid grid-cols-1 gap-1">
                             {variation.item_variation_options?.map((option) => (
-                              <button
+                              <Button
                                 key={option.id}
+                                type="button"
+                                variant="outline"
+                                aria-pressed={tempVariationSelections[item.cartItemKey]?.[variation.id] === option.id}
                                 onClick={() => updateTempVariation(item.cartItemKey, variation.id, option.id)}
                                 className={cn(
-                                  "text-left p-2 rounded border transition-colors text-xs",
+                                  "h-auto justify-start text-left p-2 text-xs font-normal",
                                   tempVariationSelections[item.cartItemKey]?.[variation.id] === option.id
-                                    ? "border-orange-400 bg-orange-100 text-orange-700"
-                                    : "border-gray-200 hover:border-orange-300 hover:bg-orange-50"
+                                    ? "border-primary bg-primary/15 text-primary hover:bg-primary/15"
+                                    : "hover:border-primary/30 hover:bg-primary/5"
                                 )}
                               >
-                                <div className="flex justify-between items-center">
+                                <div className="flex justify-between items-center w-full">
                                   <span className="font-medium">{option.name}</span>
                                   {option.price_modifier !== 0 && (
-                                    <span className="text-orange-600">
+                                    <span className="text-primary">
                                       {option.price_modifier > 0 ? '+' : ''}{format(Math.round(parseFloat(option.price_modifier || 0) * scale))}
                                     </span>
                                   )}
                                 </div>
-                              </button>
+                              </Button>
                             ))}
                           </div>
                         </div>
@@ -207,7 +211,7 @@ const CartSection = ({
                         <Button
                           size="sm"
                           onClick={() => saveInlineVariationEdit(item.cartItemKey)}
-                          className="flex-1 h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                          className="flex-1 h-7 text-xs"
                         >
                           Save
                         </Button>
@@ -224,7 +228,7 @@ const CartSection = ({
                       size="sm"
                       variant="outline"
                       onClick={() => updateCartQuantity(item.cartItemKey, item.quantity - 1)}
-                      className="h-7 w-7 p-0 rounded-full border-orange-200"
+                      className="h-7 w-7 p-0 rounded-full border-primary/20"
                     >
                       <Minus className="w-3 h-3" />
                     </Button>
@@ -236,7 +240,7 @@ const CartSection = ({
                     <Button
                       size="sm"
                       onClick={() => updateCartQuantity(item.cartItemKey, item.quantity + 1)}
-                      className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600"
+                      className="h-7 w-7 p-0 rounded-full"
                     >
                       <Plus className="w-3 h-3" />
                     </Button>
@@ -246,7 +250,7 @@ const CartSection = ({
                       size="sm"
                       variant="outline"
                       onClick={() => openFractionalQtyModal(item)}
-                      className="h-7 w-7 p-0 rounded-full border-orange-200 hover:bg-orange-50"
+                      className="h-7 w-7 p-0 rounded-full border-primary/20 hover:bg-primary/5"
                     >
                       <Settings className="w-3 h-3" />
                     </Button>
@@ -254,10 +258,10 @@ const CartSection = ({
 
                   {/* Price and Per-Item Cost - Bottom Right */}
                   <div className="text-right">
-                    <div className="text-lg font-bold text-orange-600">
+                    <div className="text-lg font-bold text-primary">
                       {format(Math.round(item.price * item.quantity * scale))}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {format(Math.round(parseFloat(item.price) * scale))} each
                     </div>
                   </div>
@@ -269,22 +273,22 @@ const CartSection = ({
       </div>
       
       {/* Cart Footer */}
-      <div className="border-t border-gray-200 bg-gray-50 p-6">
+      <div className="border-t border-border bg-muted p-6">
         {hasPosCheckout ? (
           <>
             <div className="space-y-1 mb-3 text-sm">
-              <div className="flex justify-between text-gray-600">
+              <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
                 <span className="tabular-nums">{format(netMinor)}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
+              <div className="flex justify-between text-muted-foreground">
                 <span>{taxLabel}{taxInclusive ? ' (incl.)' : ''}</span>
                 <span className="tabular-nums">{format(taxMinor)}</span>
               </div>
-              <div className="h-px bg-gray-200 my-2" />
+              <div className="h-px bg-border my-2" />
               <div className="flex justify-between text-lg font-bold">
-                <span className="text-gray-900">Total</span>
-                <span className="text-orange-600 tabular-nums">{format(totalMinor)}</span>
+                <span className="text-foreground">Total</span>
+                <span className="text-primary tabular-nums">{format(totalMinor)}</span>
               </div>
             </div>
 
@@ -297,7 +301,7 @@ const CartSection = ({
                 onClick={clearCart}
                 variant="outline"
                 disabled={placingOrder}
-                className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50"
+                className="flex-1 border-primary/30 text-primary hover:bg-primary/10"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Clear
@@ -305,7 +309,7 @@ const CartSection = ({
               <Button
                 onClick={onPlaceOrder}
                 disabled={placingOrder || !registerSession}
-                className="flex-[2] bg-orange-500 hover:bg-orange-600 text-white h-12 text-lg font-semibold shadow-md"
+                className="flex-[2] h-12 text-lg font-semibold shadow-md"
               >
                 {placingOrder ? (
                   <>
@@ -322,7 +326,7 @@ const CartSection = ({
               <Button
                 onClick={onProcessReturn}
                 variant="outline"
-                className="w-full border-gray-200 text-gray-700 hover:bg-gray-100"
+                className="w-full border-border text-muted-foreground hover:bg-muted"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Process Return
@@ -332,8 +336,8 @@ const CartSection = ({
         ) : (
           <>
             <div className="flex justify-between items-center mb-4">
-              <span className="text-xl font-bold text-gray-900">Total:</span>
-              <span className="text-2xl font-bold text-orange-600">
+              <span className="text-xl font-bold text-foreground">Total:</span>
+              <span className="text-2xl font-bold text-primary">
                 {format(subtotalMinor)}
               </span>
             </div>
@@ -341,14 +345,14 @@ const CartSection = ({
               <Button
                 onClick={clearCart}
                 variant="outline"
-                className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50"
+                className="flex-1 border-primary/30 text-primary hover:bg-primary/10"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Clear
               </Button>
               <Button
                 onClick={() => setIsCreateOrderOpen(true)}
-                className="flex-2 bg-orange-500 hover:bg-orange-600 text-white h-12 text-lg font-semibold"
+                className="flex-2 h-12 text-lg font-semibold"
               >
                 Create Order
               </Button>

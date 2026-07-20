@@ -7,7 +7,7 @@ const ProtectedRoute = ({
   redirectPath = '/signin',
   loadingComponent = (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="text-lg text-gray-500">Checking authorization...</div>
+      <div className="text-lg text-muted-foreground">Checking authorization...</div>
     </div>
   )
 }) => {

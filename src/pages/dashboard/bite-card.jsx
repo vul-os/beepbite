@@ -49,9 +49,9 @@ const BiteCard = ({
         return 'bg-green-100 text-green-800 border-green-200';
       case 'completed':
       case 'delivered':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-foreground border-border';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-foreground border-border';
     }
   };
 
@@ -59,12 +59,12 @@ const BiteCard = ({
   const readyAt = order.ready_at ?? null;
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-orange-500 min-h-fit">
+    <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary min-h-fit">
       <CardHeader className="pb-3 px-4 pt-4">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Hash className="w-4 h-4 text-orange-600 shrink-0" />
+            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <Hash className="w-4 h-4 text-primary shrink-0" />
               <span className="truncate">{order.order_number}</span>
             </CardTitle>
           </div>
@@ -91,11 +91,11 @@ const BiteCard = ({
       
       <CardContent className="space-y-4 px-4 pb-4">
         <div className="space-y-2">
-          <div className="flex items-center text-sm text-gray-600">
-            <Phone className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Phone className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
             <span className="truncate">{customerWhatsapp}</span>
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span key={currentTime.getTime()}>
@@ -165,8 +165,8 @@ const BiteCard = ({
               disabled={['completed', 'delivered'].includes(order.status)}
               className={`h-10 text-sm transition-all duration-200 ${
                 ['completed', 'delivered'].includes(order.status)
-                  ? 'bg-gray-600 text-white cursor-not-allowed' 
-                  : 'hover:bg-gray-50 hover:border-gray-200 hover:text-gray-700'
+                  ? 'cursor-not-allowed'
+                  : 'hover:bg-muted hover:border-border hover:text-foreground'
               }`}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -179,7 +179,7 @@ const BiteCard = ({
             <Button
               size="lg"
               onClick={() => onCompleteOrder(order.id, order.order_number)}
-              className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-bold text-base shadow-lg hover:shadow-xl transition-all duration-300"
+              className="w-full h-12 font-bold text-base shadow-lg hover:shadow-xl transition-all duration-300"
             >
               <CheckCircle className="w-5 h-5 mr-2" />
               COMPLETE ORDER
@@ -191,7 +191,7 @@ const BiteCard = ({
             <Button
               variant="outline"
               size="default"
-              className="flex-1 h-10 text-sm hover:bg-orange-50 hover:border-orange-200"
+              className="flex-1 h-10 text-sm hover:bg-primary/10 hover:border-primary/20"
               onClick={() => {
                 // Send notification functionality will be implemented here
               }}

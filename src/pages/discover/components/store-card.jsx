@@ -59,7 +59,7 @@ export default function StoreCard({ store }) {
               : 'bg-black/60 text-white/80'
           }`}
         >
-          <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-white' : 'bg-gray-400'}`} />
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-white' : 'bg-muted-foreground'}`} />
           {store.is_open ? 'Open' : 'Closed'}
         </span>
 

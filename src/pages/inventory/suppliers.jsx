@@ -14,6 +14,7 @@ import { Building2, Plus, Edit, Search, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useSuppliers } from './hooks/use-suppliers';
 import { SupplierForm } from './components/supplier-form';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 export default function SuppliersPage() {
   const { activeOrganization } = useAuth();
@@ -27,8 +28,8 @@ export default function SuppliersPage() {
   if (!activeOrganization) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-600">Select an organisation to manage suppliers.</p>
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Select an organisation to manage suppliers.</p>
       </div>
     );
   }
@@ -77,24 +78,21 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-orange-500" />
-            Suppliers
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Manage vendor master for {activeOrganization.name}</p>
-        </div>
-        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
-          <Plus className="w-4 h-4 mr-2" /> New Supplier
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={Building2}
+        title="Suppliers"
+        description={`Manage vendor master for ${activeOrganization.name}`}
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-2" /> New Supplier
+          </Button>
+        }
+      />
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           className="pl-9"
           placeholder="Search suppliers…"
@@ -107,7 +105,7 @@ export default function SuppliersPage() {
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-28 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-28 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       )}
@@ -122,8 +120,8 @@ export default function SuppliersPage() {
       {!loading && !error && filtered.length === 0 && (
         <Card className="border-orange-100">
           <CardContent className="p-10 text-center">
-            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">
+            <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">
               {search ? 'No suppliers match your search.' : 'No suppliers yet. Create the first one.'}
             </p>
             {!search && (
@@ -141,17 +139,17 @@ export default function SuppliersPage() {
             <Card key={sup.id} className="border-orange-100 hover:border-orange-300 transition-colors">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base font-semibold text-gray-900">{sup.name}</CardTitle>
+                  <CardTitle className="text-base font-semibold text-foreground">{sup.name}</CardTitle>
                   <Badge
                     variant="outline"
-                    className={sup.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500'}
+                    className={sup.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-muted text-muted-foreground'}
                   >
                     {sup.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
-                {sup.display_name && <p className="text-xs text-gray-500">{sup.display_name}</p>}
+                {sup.display_name && <p className="text-xs text-muted-foreground">{sup.display_name}</p>}
               </CardHeader>
-              <CardContent className="text-sm space-y-1 text-gray-600">
+              <CardContent className="text-sm space-y-1 text-muted-foreground">
                 {sup.payment_terms_days != null && (
                   <p>Net {sup.payment_terms_days} days</p>
                 )}
@@ -173,7 +171,7 @@ export default function SuppliersPage() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) { setModalOpen(false); setEditTarget(null); } }}>
-        <DialogContent className="max-w-xl bg-white">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>{editTarget ? 'Edit Supplier' : 'New Supplier'}</DialogTitle>
             <DialogDescription>
@@ -189,6 +187,6 @@ export default function SuppliersPage() {
           />
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

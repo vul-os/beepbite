@@ -14,6 +14,7 @@ import { AlertCircle, LayoutGrid, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
 import { useTables } from './hooks/use-tables';
@@ -92,38 +93,34 @@ export default function FloorLive() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
-        <AlertCircle className="w-12 h-12 text-gray-400 mb-3" />
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-3" />
         <h2 className="text-xl font-semibold">No location selected</h2>
-        <p className="text-gray-600 mt-1">Pick a location to view its floor.</p>
+        <p className="text-muted-foreground mt-1">Pick a location to view its floor.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <LayoutGrid className="w-7 h-7 text-blue-500" />
-            Floor
-          </h1>
-          <p className="text-gray-600 mt-1 text-sm">
-            Live table status for {activeLocation.name} — auto-refreshing every {LIVE_REFRESH_MS / 1000}s.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button asChild size="sm">
-            <Link to="/floor/edit">
-              <Settings2 className="h-4 w-4 mr-2" />
-              Edit Floor
-            </Link>
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={LayoutGrid}
+        title="Floor"
+        description={`Live table status for ${activeLocation.name} — auto-refreshing every ${LIVE_REFRESH_MS / 1000}s.`}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/floor/edit">
+                <Settings2 className="h-4 w-4 mr-2" />
+                Edit Floor
+              </Link>
+            </Button>
+          </div>
+        }
+      />
 
       {/* Status summary */}
       <Card>
@@ -159,8 +156,8 @@ export default function FloorLive() {
         <Card>
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-8 w-8 text-rose-500 mx-auto mb-2" />
-            <h3 className="font-medium text-gray-900 mb-1">Couldn&apos;t load floor</h3>
-            <p className="text-sm text-gray-600 mb-4">{error}</p>
+            <h3 className="font-medium text-foreground mb-1">Couldn&apos;t load floor</h3>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
             <Button size="sm" variant="outline" onClick={refresh}>Try again</Button>
           </CardContent>
         </Card>
@@ -177,16 +174,16 @@ export default function FloorLive() {
 
           {loading && tables.length === 0 ? (
             <Card>
-              <CardContent className="p-12 text-center text-gray-500">
+              <CardContent className="p-12 text-center text-muted-foreground">
                 Loading floor…
               </CardContent>
             </Card>
           ) : tables.length === 0 ? (
             <Card>
               <CardContent className="p-10 text-center">
-                <LayoutGrid className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 mb-1">No floor plan yet</h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <LayoutGrid className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="font-medium text-foreground mb-1">No floor plan yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
                   Design your floor plan — place tables in the editor — before cashiers
                   can seat dine-in guests at the POS.
                 </p>
@@ -200,7 +197,7 @@ export default function FloorLive() {
             </Card>
           ) : visibleTables.length === 0 ? (
             <Card>
-              <CardContent className="p-8 text-center text-gray-600 text-sm">
+              <CardContent className="p-8 text-center text-muted-foreground text-sm">
                 No tables in this section.
               </CardContent>
             </Card>
@@ -214,6 +211,6 @@ export default function FloorLive() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

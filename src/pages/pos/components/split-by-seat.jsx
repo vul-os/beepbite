@@ -104,7 +104,7 @@ function SeatHeader({ seat, onRemove, canRemove }) {
         <button
           type="button"
           onClick={() => onRemove(seat.id)}
-          className="text-gray-400 hover:text-red-500 ml-auto shrink-0"
+          className="text-muted-foreground hover:text-destructive ml-auto shrink-0"
           aria-label={`Remove ${seat.label}`}
         >
           <X className="w-3 h-3" />
@@ -339,7 +339,7 @@ export default function SplitBySeat({
                         <button
                           type="button"
                           onClick={() => handleRemoveSeat(seat.id)}
-                          className="text-gray-400 hover:text-red-500"
+                          className="text-muted-foreground hover:text-destructive"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -372,7 +372,7 @@ export default function SplitBySeat({
                         const allocated = Object.values(assignments[item.key] || {}).reduce((s, v) => s + v, 0);
                         const unallocated = item.quantity - allocated;
                         return (
-                          <tr key={item.key} className={cn('border-b last:border-0', unallocated > 0 && 'bg-red-50/30')}>
+                          <tr key={item.key} className={cn('border-b last:border-0', unallocated > 0 && 'bg-destructive/5')}>
                             <td className="px-3 py-2">
                               <span className="font-medium text-gray-900 line-clamp-1">{item.name}</span>
                               <span className="text-gray-400 ml-1">({format(Math.abs(item.unitCents))}/ea)</span>
@@ -414,7 +414,7 @@ export default function SplitBySeat({
                                 </td>
                               );
                             })}
-                            <td className={cn('px-2 py-2 text-center font-semibold tabular-nums', unallocated > 0 ? 'text-red-500' : 'text-green-600')}>
+                            <td className={cn('px-2 py-2 text-center font-semibold tabular-nums', unallocated > 0 ? 'text-destructive' : 'text-green-600')}>
                               {unallocated}
                             </td>
                           </tr>
@@ -436,7 +436,7 @@ export default function SplitBySeat({
                 </div>
 
                 {unallocatedItems.length > 0 && (
-                  <p className="text-xs text-red-600">
+                  <p className="text-xs text-destructive">
                     {unallocatedItems.length} item(s) not fully assigned — allocate all quantities before splitting.
                   </p>
                 )}
