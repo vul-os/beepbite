@@ -340,7 +340,8 @@ Your POS dashboard provides real-time oversight of restaurant operations:
 ## Security and Compliance
 
 ### POS Security
-- PCI DSS compliance for payment processing
+- No PCI scope — BeepBite never sees card data, because it records tenders
+  rather than processing cards
 - User authentication and access control
 - Transaction audit trails
 - Data encryption and protection
@@ -357,11 +358,12 @@ Your POS dashboard provides real-time oversight of restaurant operations:
 
 ### Common POS Issues
 
-#### Payment Processing Problems
-- Verify payment terminal connectivity
-- Check internet connection for card processing
-- Review payment method configurations
-- Test with different cards or payment types
+#### Tender Recording Problems
+- Confirm the cash drawer session is open — a closed session rejects tenders
+- Review the configured tender types for the location
+- Check the order is not already fully tendered
+- Card machine faults are between you and your acquirer; BeepBite only records
+  the amount you key in
 - Contact payment processor if issues persist
 
 #### Inventory Discrepancies
