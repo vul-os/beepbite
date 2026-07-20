@@ -9,6 +9,7 @@ import { MovementsList } from './movements-list';
 import { CloseSessionModal } from './close-session-modal';
 import { api } from '@/lib/api-client';
 import { hasCapability } from '@/services/pos';
+import { useMoney } from '@/context/locale-context';
 import { Loader2, LockKeyhole, PlusCircle, Wallet } from 'lucide-react';
 
 // Movement types with inflow/outflow sign convention
@@ -38,8 +39,11 @@ function fmtDate(iso) {
  *   staffId: string
  *   onMovementAdded: () => void   — refetch signal
  *   onSessionClosed: (session) => void
+ *
+ * Requires LocaleProvider above it.
  */
 export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed }) {
+  const { format, parse, symbol, scale, decimals } = useMoney();
   const [movType, setMovType] = useState('paid_in');
   const [amountMajor, setAmountMajor] = useState('');
   const [reason, setReason] = useState('');
@@ -63,7 +67,7 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
   const handleAddMovement = async (e) => {
     e.preventDefault();
     setMovError(null);
-    const absVal = Math.round(parseFloat(amountMajor || '0') * 100);
+    const absVal = Math.abs(parse(amountMajor) ?? 0);
     if (movType !== 'no_sale' && absVal === 0) {
       setMovError('Amount must be non-zero');
       return;
@@ -130,13 +134,13 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
             <div>
               <p className="text-muted-foreground">Opening float</p>
               <p className="font-medium">
-                R{((session.opening_float_cents || 0) / 100).toFixed(2)}
+                {format(session.opening_float_cents || 0)}
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Expected balance</p>
               <p className="font-semibold text-orange-600">
-                R{(expectedCents / 100).toFixed(2)}
+                {format(expectedCents)}
               </p>
             </div>
           </div>
@@ -180,14 +184,15 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
                 {/* Amount */}
                 <div className="space-y-1">
                   <Label htmlFor="mov-amount" className="text-xs text-muted-foreground">
-                    Amount (R) {sign < 0 && '— outflow'}
+                    Amount ({symbol}) {sign < 0 && '— outflow'}
                   </Label>
                   <Input
                     id="mov-amount"
                     type="number"
                     min="0"
-                    step="0.01"
-                    placeholder="0.00"
+                    // One minor unit. A fixed 0.01 makes a JPY till reject ¥1.
+                    step={(1 / scale).toFixed(decimals)}
+                    placeholder={(0).toFixed(decimals)}
                     value={amountMajor}
                     onChange={(e) => setAmountMajor(e.target.value)}
                     disabled={movType === 'no_sale'}

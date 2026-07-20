@@ -1,11 +1,7 @@
 import { Plus, Users, Circle, LayoutGrid, PencilRuler } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-
-function formatRands(cents) {
-  if (!cents) return null
-  return `R ${(cents / 100).toFixed(2)}`
-}
+import { useMoney } from "@/context/locale-context"
 
 // Maps table status to visual tokens
 const STATUS = {
@@ -22,9 +18,12 @@ function SkeletonTile() {
 }
 
 function TableTile({ table, isActive, onSelect }) {
+  const { format } = useMoney()
   const s = STATUS[table.status] ?? STATUS.available
   const disabled = table.status === "out_of_service"
-  const subtotal = formatRands(table.subtotal_cents)
+  // A zero/absent subtotal stays null so the tile hides the line entirely.
+  const subtotalCents = table.subtotal_cents
+  const subtotal = subtotalCents ? format(subtotalCents) : null
   const label = table.status === "occupied" ? "Occupied table" : table.status === "reserved" ? "Reserved table" : "Available table"
 
   return (
@@ -81,7 +80,9 @@ function TableTile({ table, isActive, onSelect }) {
 }
 
 function WalkInTile({ walkIn, isActive, onSelect }) {
-  const subtotal = formatRands(walkIn.subtotal_cents)
+  const { format } = useMoney()
+  const subtotalCents = walkIn.subtotal_cents
+  const subtotal = subtotalCents ? format(subtotalCents) : null
 
   return (
     <button

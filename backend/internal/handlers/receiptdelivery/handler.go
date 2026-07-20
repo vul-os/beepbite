@@ -1,6 +1,7 @@
 package receiptdelivery
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -14,12 +15,15 @@ import (
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/email"
 	"github.com/beepbite/backend/internal/integrations/whatsapp"
+	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/phone"
 	"github.com/beepbite/backend/internal/receiptpdf"
 )
 
 // Handler wires the receipt-delivery HTTP routes.
 type Handler struct {
 	store    *Store
+	pool     *pgxpool.Pool    // needed to resolve a location's currency/locale
 	emailReg email.Registry   // may be nil — email routes return 503 when absent
 	waClient *whatsapp.Client // may be nil — WA route returns 503 when absent
 }
@@ -35,6 +39,7 @@ type Handler struct {
 func NewHandler(pool *pgxpool.Pool, emailReg email.Registry, waClient *whatsapp.Client) *Handler {
 	return &Handler{
 		store:    NewStore(pool),
+		pool:     pool,
 		emailReg: emailReg,
 		waClient: waClient,
 	}
@@ -148,11 +153,17 @@ func (h *Handler) postEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	set, setErr := locations.SettingsFor(r.Context(), h.pool, locID)
+	if setErr != nil {
+		writeErr(w, http.StatusInternalServerError, "resolve location settings: "+setErr.Error())
+		return
+	}
+
 	if sErr := provider.Send(r.Context(), email.Message{
 		To:      toEmail,
 		Subject: "Your receipt from " + receipt.StoreName,
-		Text:    formatReceiptText(receipt),
-		HTML:    formatReceiptHTML(receipt),
+		Text:    formatReceiptText(receipt, set),
+		HTML:    formatReceiptHTML(receipt, set),
 	}); sErr != nil {
 		writeErr(w, http.StatusBadGateway, "email send failed: "+sErr.Error())
 		return
@@ -168,7 +179,12 @@ func (h *Handler) postEmail(w http.ResponseWriter, r *http.Request) {
 
 // whatsAppRequest is the optional JSON body for the whatsapp endpoint.
 type whatsAppRequest struct {
-	To string `json:"to"` // E.164 phone number, e.g. "+27821234567"
+	// To is an E.164 phone number including the country code and leading "+",
+	// e.g. "+15551234567" or "+441632960123". National formats are rejected:
+	// this endpoint has no location context to read them against, and a number
+	// interpreted under the wrong country would deliver a customer's receipt —
+	// with their name, order and address on it — to an unrelated stranger.
+	To string `json:"to"`
 }
 
 func (h *Handler) postWhatsApp(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +209,18 @@ func (h *Handler) postWhatsApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	to := req.To
-	if to == "" {
+	if to != "" {
+		// A caller-supplied recipient is untrusted input that redirects a
+		// receipt away from the customer on the order, so it must be exactly
+		// E.164 — no normalisation guesswork on a value this sensitive.
+		// Numbers already on the order (below) are passed through as stored,
+		// since rewriting them here would only mask bad data at rest.
+		if !phone.IsE164(to) {
+			writeErr(w, http.StatusBadRequest,
+				"to must be an E.164 phone number including the country code, e.g. +15551234567")
+			return
+		}
+	} else {
 		contact, cErr := h.store.GetOrderContact(r.Context(), orderID)
 		if cErr == nil {
 			to = contact.WhatsAppNumber
@@ -211,7 +238,13 @@ func (h *Handler) postWhatsApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body := formatReceiptText(receipt)
+	set, setErr := h.receiptSettings(r.Context(), orderID)
+	if setErr != nil {
+		h.mapErr(w, setErr)
+		return
+	}
+
+	body := formatReceiptText(receipt, set)
 	if _, wErr := h.waClient.SendText(to, body, false); wErr != nil {
 		writeErr(w, http.StatusBadGateway, "whatsapp send failed: "+wErr.Error())
 		return
@@ -242,7 +275,18 @@ func (h *Handler) buildPDF(r *http.Request, orderID string) ([]byte, string, err
 		return nil, "", err
 	}
 
-	pdfBytes, err := receiptpdf.Render(receipt)
+	// The currency exponent and locale are properties of the location, not of
+	// the renderer: without them a ¥ or KD receipt prints amounts that are off
+	// by a factor of 100 or 10.
+	set, err := locations.SettingsFor(r.Context(), h.pool, locID)
+	if err != nil {
+		return nil, "", fmt.Errorf("resolve location settings: %w", err)
+	}
+
+	pdfBytes, err := receiptpdf.Render(receipt, receiptpdf.Opts{
+		Decimals: set.Decimals(),
+		Locale:   set.Locale,
+	})
 	if err != nil {
 		return nil, "", fmt.Errorf("render pdf: %w", err)
 	}
@@ -251,6 +295,16 @@ func (h *Handler) buildPDF(r *http.Request, orderID string) ([]byte, string, err
 	orgID := db.ScopeFromContext(r.Context()).OrgID
 
 	return pdfBytes, orgID, nil
+}
+
+// receiptSettings resolves the currency/locale posture of an order's location,
+// which is what every printed amount on that receipt must be formatted with.
+func (h *Handler) receiptSettings(ctx context.Context, orderID string) (locations.Settings, error) {
+	locID, err := h.store.OrderLocationID(ctx, orderID)
+	if err != nil {
+		return locations.Settings{}, err
+	}
+	return locations.SettingsFor(ctx, h.pool, locID)
 }
 
 func (h *Handler) mapErr(w http.ResponseWriter, err error) {

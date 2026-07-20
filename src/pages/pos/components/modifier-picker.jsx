@@ -19,15 +19,22 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const fmtDelta = (cents) => {
+
+/**
+ * Signed price delta for a modifier, e.g. "+$1.50".
+ *
+ * Takes `format` rather than closing over one: the sign is ours but the amount
+ * belongs to the active currency, and a module-level helper cannot call a hook.
+ */
+const fmtDelta = (cents, format) => {
   if (!cents) return null;
-  const abs = Math.abs(cents) / 100;
-  return (cents > 0 ? '+' : '-') + 'R' + abs.toFixed(2);
+  return (cents > 0 ? '+' : '-') + format(Math.abs(cents));
 };
 
 // ---------------------------------------------------------------------------
@@ -96,6 +103,7 @@ function useItemModifiers(itemId) {
 // ---------------------------------------------------------------------------
 export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) {
   const { groups, loading } = useItemModifiers(open ? item?.id : null);
+  const { format, scale } = useMoney();
 
   // selections: Map<groupId, Set<modifierId>>
   const [selections, setSelections] = useState({});
@@ -171,7 +179,9 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
     return { extraCents: extra, selectedModifiers: mods };
   }, [groups, selections]);
 
-  const basePriceCents = Math.round((parseFloat(item?.price) || 0) * 100);
+  // `item.price` is a major-unit decimal string; only the currency knows how
+  // many minor units that is.
+  const basePriceCents = Math.round((parseFloat(item?.price) || 0) * scale);
   const linePriceCents = basePriceCents + extraCents;
 
   const handleConfirm = () => {
@@ -192,15 +202,15 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
             Customise — {item?.name}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-2 text-sm">
-            <span>Base: <span className="font-semibold tabular-nums text-gray-900">R{(basePriceCents / 100).toFixed(2)}</span></span>
+            <span>Base: <span className="font-semibold tabular-nums text-gray-900">{format(basePriceCents)}</span></span>
             {extraCents !== 0 && (
               <>
                 <span className="text-gray-400">+</span>
                 <span className={cn('font-semibold tabular-nums', extraCents > 0 ? 'text-orange-600' : 'text-green-600')}>
-                  {fmtDelta(extraCents)}
+                  {fmtDelta(extraCents, format)}
                 </span>
                 <span className="text-gray-400">= Total</span>
-                <span className="font-bold tabular-nums text-gray-900">R{(linePriceCents / 100).toFixed(2)}</span>
+                <span className="font-bold tabular-nums text-gray-900">{format(linePriceCents)}</span>
               </>
             )}
           </DialogDescription>
@@ -274,7 +284,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
                               'text-sm font-semibold tabular-nums shrink-0',
                               m.price_delta_cents > 0 ? 'text-orange-600' : 'text-green-600',
                             )}>
-                              {fmtDelta(m.price_delta_cents)}
+                              {fmtDelta(m.price_delta_cents, format)}
                             </span>
                           )}
                         </button>
@@ -302,7 +312,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
             disabled={!isValid || loading}
             onClick={handleConfirm}
           >
-            Add to ticket — R{(linePriceCents / 100).toFixed(2)}
+            Add to ticket — {format(linePriceCents)}
           </Button>
         </div>
       </DialogContent>

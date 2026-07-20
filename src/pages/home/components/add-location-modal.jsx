@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { MapPin, Loader2 } from 'lucide-react';
 import AddressAutocomplete from '@/components/address-autocomplete';
+import { countryOptions } from '@/lib/locale-data';
 
 const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
   const { activeOrganization, fetchLocations } = useAuth();
@@ -31,7 +32,14 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
   const [city, setCity] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
-  const [country, setCountry] = useState('South Africa');
+  // No preselected country. An operator adding their first location has to say
+  // where it is; guessing on their behalf is how every other country-specific
+  // default in this codebase got there.
+  //
+  // This is an ISO 3166-1 alpha-2 CODE, not a display name. It used to be a
+  // free-text field holding "South Africa", which migration 056 would now reject
+  // outright — locations.country carries a CHECK of ^[A-Z]{2}$.
+  const [country, setCountry] = useState('');
   const [regionId, setRegionId] = useState('');
   const [regions, setRegions] = useState([]);
   const [loadingRegions, setLoadingRegions] = useState(false);
@@ -52,9 +60,9 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
         if (cancelled) return;
         if (error) throw error;
         setRegions(data || []);
-        // Default to ZA
-        const za = (data || []).find((r) => r.code === 'ZA');
-        if (za) setRegionId(za.id);
+        // Deliberately no auto-selected region. The region carries the currency
+        // (it is rendered as "Name (CUR)"), so preselecting one silently
+        // denominates the new location — the operator picks it.
       } catch (err) {
         console.error('Failed to load regions:', err);
       } finally {
@@ -68,7 +76,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
     setName('');
     setAddress('');
     setCity('');
-    setCountry('South Africa');
+    setCountry('');
     setRegionId('');
     setSubmitting(false);
   };
@@ -79,6 +87,8 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
   };
 
   const isValid = name.trim().length >= 2 && regionId;
+
+  const countries = useMemo(() => countryOptions(), []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,7 +102,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
         region_id: regionId,
         ...(address.trim() && { address: address.trim() }),
         ...(city.trim() && { city: city.trim() }),
-        ...(country.trim() && { country: country.trim() }),
+        ...(country && { country }),
         ...(lat !== '' && { latitude: parseFloat(lat) }),
         ...(lng !== '' && { longitude: parseFloat(lng) }),
       };
@@ -198,7 +208,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
             <Label htmlFor="loc-address">Street address</Label>
             <AddressAutocomplete
               id="loc-address"
-              placeholder="Start typing a South African address…"
+              placeholder="Start typing an address…"
               value={address}
               onChange={setAddress}
               onSelect={(s) => {
@@ -218,7 +228,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
               <Label htmlFor="loc-city">City</Label>
               <Input
                 id="loc-city"
-                placeholder="e.g. Cape Town"
+                placeholder="City or town"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 disabled={submitting}
@@ -227,14 +237,22 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="loc-country">Country</Label>
-              <Input
-                id="loc-country"
-                placeholder="South Africa"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
+              <Select
+                value={country || undefined}
+                onValueChange={setCountry}
                 disabled={submitting}
-                maxLength={80}
-              />
+              >
+                <SelectTrigger id="loc-country">
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {countries.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.name} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

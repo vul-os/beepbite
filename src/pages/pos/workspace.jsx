@@ -57,6 +57,7 @@ import { emojiFor } from '@/lib/item-emoji';
 
 import { useAuth } from '@/context/auth-context';
 import { useActor } from '@/context/actor-token-context';
+import { useDateTime, useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { useToast } from '@/hooks/use-toast';
 import { usePinModal } from '@/hooks/use-pin-modal';
@@ -124,16 +125,18 @@ const uuid = () =>
   (crypto?.randomUUID?.() ||
     `cli-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
 
-const priceCents = (p) => Math.round((parseFloat(p) || 0) * 100);
-
 /**
  * Compute remaining_today from the raw daily countdown columns.
  * Returns null when daily_quantity is null/undefined (unlimited).
  * Returns GREATEST(daily_quantity - today's sold count, 0) otherwise.
+ *
+ * `todayStr` is the store's LOCAL trading date and must be passed in. Deriving
+ * it here from toISOString() would give the UTC date, so a Los Angeles till
+ * would roll over to tomorrow's counters at 16:00 and show today's sold-out
+ * items as available again.
  */
-function computeRemainingToday(item) {
+function computeRemainingToday(item, todayStr) {
   if (item.daily_quantity == null) return null;
-  const todayStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
   const soldToday =
     item.daily_counter_date === todayStr
       ? (item.daily_sold_count ?? 0)
@@ -195,6 +198,10 @@ export default function PosWorkspacePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { activeLocation, user, userProfile, signOut } = useAuth();
+  const { format, scale } = useMoney();
+  const { today } = useDateTime();
+  // The store's local trading date, not the browser's UTC one.
+  const todayStr = today();
 
   // ----- PIN re-auth (actor expiry) -------------------------------------
   // usePinModal auto-triggers the PIN modal when the actor expires while on
@@ -528,7 +535,7 @@ export default function PosWorkspacePage() {
             payment_status: o.payment_status || 'pending',
             total_cents: typeof o.total_amount_cents === 'number'
               ? o.total_amount_cents
-              : (typeof o.total === 'number' ? Math.round(o.total * 100) : 0),
+              : (typeof o.total === 'number' ? Math.round(o.total * scale) : 0),
             items: (o.items || []).map((it) => ({
               order_item_id: it.id,
               item_name: it.item_name || it.name,
@@ -536,7 +543,7 @@ export default function PosWorkspacePage() {
               unit_price: it.unit_price,
               total_cents: typeof it.total_cents === 'number'
                 ? it.total_cents
-                : Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * 100),
+                : Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * scale),
               item_status: it.item_status || 'fired',
               notes: it.notes,
             })),
@@ -549,7 +556,7 @@ export default function PosWorkspacePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [activeLocation?.id, refreshTables]);
+  }, [activeLocation?.id, refreshTables, scale]);
 
   // ===== derived =========================================================
 
@@ -571,7 +578,7 @@ export default function PosWorkspacePage() {
     return tables.map((t) => {
       const ticket = Object.values(tickets).find((x) => x.kind === 'table' && x.tableId === t.id);
       const subtotal = ticket
-        ? subtotalCentsOfTicket(ticket)
+        ? subtotalCentsOfTicket(ticket, scale)
         : 0;
       return {
         ...t,
@@ -582,7 +589,7 @@ export default function PosWorkspacePage() {
         status: ticket ? 'occupied' : t.status,
       };
     });
-  }, [tables, sections, tickets]);
+  }, [tables, sections, tickets, scale]);
 
   const walkInTiles = useMemo(() => {
     return Object.values(tickets)
@@ -590,11 +597,11 @@ export default function PosWorkspacePage() {
       .map((t) => ({
         id: t.id,
         label: t.label,
-        subtotal_cents: subtotalCentsOfTicket(t),
+        subtotal_cents: subtotalCentsOfTicket(t, scale),
         item_count: t.newItems.reduce((s, it) => s + it.qty, 0)
                   + t.sentOrders.reduce((s, o) => s + (o.items?.length || 0), 0),
       }));
-  }, [tickets]);
+  }, [tickets, scale]);
 
   // ===== handlers ========================================================
 
@@ -658,7 +665,9 @@ export default function PosWorkspacePage() {
   // commitAddItem — called directly (no modifiers) or after modifier picker confirms.
   const commitAddItem = useCallback((item, { extraCents = 0, selectedModifiers = [], linePriceCents = null } = {}) => {
     const basePrice = parseFloat(item.price || 0);
-    const linePrice = linePriceCents != null ? linePriceCents / 100 : basePrice + (extraCents / 100);
+    // Cart lines carry a major-unit price, so minor units are divided back by
+    // the currency's scale — 100 would turn a ¥120 modifier into ¥1.20.
+    const linePrice = linePriceCents != null ? linePriceCents / scale : basePrice + (extraCents / scale);
     updateTicket(activeTicket.id, (t) => {
       // Only stack quantity when there are no per-line modifier overrides.
       const canStack = selectedModifiers.length === 0;
@@ -687,7 +696,7 @@ export default function PosWorkspacePage() {
         ],
       };
     });
-  }, [activeTicket]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTicket, scale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAddItem = useCallback(async (item) => {
     if (!activeTicket) {
@@ -776,7 +785,7 @@ export default function PosWorkspacePage() {
         item_name: ni.name,
         quantity: ni.qty,
         unit_price: ni.price,
-        total_cents: Math.round(ni.price * ni.qty * 100),
+        total_cents: Math.round(ni.price * ni.qty * scale),
         item_status: 'fired',
       }));
       const sentOrder = {
@@ -785,7 +794,7 @@ export default function PosWorkspacePage() {
         created_at: new Date().toISOString(),
         payment_status: 'pending',
         total_cents: typeof result.total === 'number'
-          ? Math.round(result.total * 100)
+          ? Math.round(result.total * scale)
           : sentItems.reduce((s, it) => s + it.total_cents, 0),
         items: sentItems,
       };
@@ -804,7 +813,7 @@ export default function PosWorkspacePage() {
     } finally {
       setSending(false);
     }
-  }, [activeTicket, registerSession, activeLocation?.id, toast]);
+  }, [activeTicket, registerSession, activeLocation?.id, toast, scale]);
 
   const handleOpenCharge = () => {
     if (!activeTicket || activeTicket.sentOrders.length === 0) return;
@@ -1008,7 +1017,7 @@ export default function PosWorkspacePage() {
     );
   }
 
-  const activeTicketTotalCents = activeTicket ? subtotalCentsOfTicket(activeTicket) : 0;
+  const activeTicketTotalCents = activeTicket ? subtotalCentsOfTicket(activeTicket, scale) : 0;
   const activeUnpaidCents = activeTicket
     ? activeTicket.sentOrders
         .filter((o) => o.payment_status !== 'paid')
@@ -1267,7 +1276,7 @@ export default function PosWorkspacePage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filteredItems.map((it) => {
-                  const remaining = computeRemainingToday(it);
+                  const remaining = computeRemainingToday(it, todayStr);
                   const soldOutToday = remaining !== null && remaining === 0;
                   const is86 = !!it.is_86ed;
                   const soldOut = soldOutToday || is86;
@@ -1279,7 +1288,7 @@ export default function PosWorkspacePage() {
                         type="button"
                         onClick={() => handleAddItem(it)}
                         disabled={isDisabled}
-                        aria-label={`Add ${it.name} — R${parseFloat(it.price || 0).toFixed(2)}${is86 ? ' (86 — sold out)' : soldOutToday ? ' (sold out)' : ''}`}
+                        aria-label={`Add ${it.name} — ${format(Math.round(parseFloat(it.price || 0) * scale))}${is86 ? ' (86 — sold out)' : soldOutToday ? ' (sold out)' : ''}`}
                         className={cn(
                           'flex w-full flex-col rounded-2xl bg-white border-2 overflow-hidden text-left',
                           'transition-all duration-150',
@@ -1303,7 +1312,7 @@ export default function PosWorkspacePage() {
                           <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{it.name}</h3>
                           <div className="flex items-end justify-between mt-2">
                             <span className="text-base font-bold text-gray-900 tabular-nums">
-                              R{parseFloat(it.price || 0).toFixed(2)}
+                              {format(Math.round(parseFloat(it.price || 0) * scale))}
                             </span>
                             {!isDisabled && (
                               <span
@@ -1389,7 +1398,7 @@ export default function PosWorkspacePage() {
           <DialogHeader>
             <DialogTitle>How is the customer paying?</DialogTitle>
             <DialogDescription>
-              Total due: <span className="font-bold tabular-nums text-gray-900">R{(activeUnpaidCents / 100).toFixed(2)}</span>
+              Total due: <span className="font-bold tabular-nums text-gray-900">{format(activeUnpaidCents)}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 mt-3">
@@ -1532,17 +1541,20 @@ export default function PosWorkspacePage() {
 // Helpers used in render that aren't worth hooks
 // ---------------------------------------------------------------------------
 
-function subtotalCentsOfTicket(t) {
+// `scale` is the active currency's minor units per major unit. Cart lines and
+// order items carry major-unit decimals, so converting them with a literal 100
+// misprices every currency that is not two-decimal.
+function subtotalCentsOfTicket(t, scale) {
   if (!t) return 0;
   const newC = t.newItems.reduce(
-    (sum, ni) => sum + Math.round((parseFloat(ni.price) || 0) * (ni.qty || 0) * 100),
+    (sum, ni) => sum + Math.round((parseFloat(ni.price) || 0) * (ni.qty || 0) * scale),
     0,
   );
   const sentC = t.sentOrders.reduce((s, o) => {
     if (typeof o.total_cents === 'number') return s + o.total_cents;
     return s + (o.items || []).reduce((lc, it) => {
       if (typeof it.total_cents === 'number') return lc + it.total_cents;
-      return lc + Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * 100);
+      return lc + Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * scale);
     }, 0);
   }, 0);
   return newC + sentC;

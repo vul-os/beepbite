@@ -39,7 +39,16 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
 // ListTodaysSpecials returns all items in the org (filtered by location_id
 // when non-empty) where is_daily_special = true AND (special_date IS NULL OR
-// special_date = CURRENT_DATE). Results are ordered by item name.
+// special_date is today at that item's own location). Results are ordered by
+// item name.
+//
+// "Today" is resolved per row, in the timezone of the location the item belongs
+// to, by joining locations. CURRENT_DATE — what this used to compare against —
+// is the Postgres *session* timezone, which is a property of the database
+// server and of no restaurant at all. On a UTC server that made a Los Angeles
+// store's Tuesday specials appear on the menu from 16:00 Monday and vanish at
+// 16:00 Tuesday, mid-service. Resolving per row also means one query stays
+// correct for an org whose locations span several zones.
 func (s *Store) ListTodaysSpecials(ctx context.Context, locationID string) ([]Special, error) {
 	out := []Special{}
 
@@ -52,8 +61,10 @@ SELECT i.id,
        i.special_date,
        i.image_url
   FROM items i
+  LEFT JOIN locations l ON l.id = i.location_id
  WHERE i.is_daily_special = true
-   AND (i.special_date IS NULL OR i.special_date = CURRENT_DATE)
+   AND (i.special_date IS NULL
+        OR i.special_date = (now() AT TIME ZONE COALESCE(l.timezone, 'UTC'))::date)
    AND i.is_active = true
    AND i.is_86ed  = false
 `

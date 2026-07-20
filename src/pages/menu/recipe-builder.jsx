@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,7 @@ const RecipeBuilder = ({
     complexity: 'simple'
   });
   const [showOnlyUsed, setShowOnlyUsed] = useState(false);
+  const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
 
   useEffect(() => {
     if (item) {
@@ -256,11 +258,10 @@ const RecipeBuilder = ({
     }
   };
 
+  // Component costs are major-unit floats, so scale up to minor units before
+  // handing them to the minor-unit-based formatter.
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR'
-    }).format(amount || 0);
+    return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
   const getItemTypeIcon = (type) => {

@@ -29,6 +29,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/db"
 )
 
@@ -148,10 +149,15 @@ func (s *Store) QueryKPI(ctx context.Context, locationID string, from, to time.T
 // ---------------------------------------------------------------------------
 
 // QuerySeriesHour returns hourly buckets formatted as "YYYY-MM-DDTHH" (24 buckets).
-func (s *Store) QuerySeriesHour(ctx context.Context, locationID string, from, to time.Time) ([]SeriesBucket, error) {
+//
+// tz is the location's IANA name. `created_at AT TIME ZONE $4` converts the
+// stored timestamptz to that zone's wall clock before truncation, so the
+// buckets are the hours the staff actually worked. Truncating in UTC labels an
+// LA store's 19:00 dinner peak as 03:00 of the following day.
+func (s *Store) QuerySeriesHour(ctx context.Context, locationID string, from, to time.Time, tz string) ([]SeriesBucket, error) {
 	const q = `
 SELECT
-    TO_CHAR(DATE_TRUNC('hour', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD"T"HH24') AS bucket,
+    TO_CHAR(DATE_TRUNC('hour', created_at AT TIME ZONE $4), 'YYYY-MM-DD"T"HH24') AS bucket,
     COALESCE(SUM(total_cents), 0)::bigint                                             AS sales_cents,
     COUNT(*)::bigint                                                                   AS order_count
 FROM orders
@@ -159,17 +165,20 @@ WHERE location_id = $1
   AND status = 'completed'
   AND created_at >= $2
   AND created_at <  $3
-GROUP BY DATE_TRUNC('hour', created_at AT TIME ZONE 'UTC')
+GROUP BY DATE_TRUNC('hour', created_at AT TIME ZONE $4)
 ORDER BY bucket
 `
-	return s.queryBuckets(ctx, q, locationID, from, to)
+	return s.queryBuckets(ctx, q, locationID, from, to, tz)
 }
 
 // QuerySeriesDay returns daily buckets formatted as "YYYY-MM-DD".
-func (s *Store) QuerySeriesDay(ctx context.Context, locationID string, from, to time.Time) ([]SeriesBucket, error) {
+//
+// tz is the location's IANA name; the day a sale belongs to is the local one,
+// so that each bar on the chart matches one cash-up.
+func (s *Store) QuerySeriesDay(ctx context.Context, locationID string, from, to time.Time, tz string) ([]SeriesBucket, error) {
 	const q = `
 SELECT
-    TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS bucket,
+    TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE $4), 'YYYY-MM-DD') AS bucket,
     COALESCE(SUM(total_cents), 0)::bigint                                    AS sales_cents,
     COUNT(*)::bigint                                                          AS order_count
 FROM orders
@@ -177,17 +186,20 @@ WHERE location_id = $1
   AND status = 'completed'
   AND created_at >= $2
   AND created_at <  $3
-GROUP BY DATE_TRUNC('day', created_at AT TIME ZONE 'UTC')
+GROUP BY DATE_TRUNC('day', created_at AT TIME ZONE $4)
 ORDER BY bucket
 `
-	return s.queryBuckets(ctx, q, locationID, from, to)
+	return s.queryBuckets(ctx, q, locationID, from, to, tz)
 }
 
 // QuerySeriesMonth returns monthly buckets formatted as "YYYY-MM".
-func (s *Store) QuerySeriesMonth(ctx context.Context, locationID string, from, to time.Time) ([]SeriesBucket, error) {
+//
+// tz is the location's IANA name. Without it the first and last few hours of
+// every month fall into the neighbouring bar for any store west of Greenwich.
+func (s *Store) QuerySeriesMonth(ctx context.Context, locationID string, from, to time.Time, tz string) ([]SeriesBucket, error) {
 	const q = `
 SELECT
-    TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS bucket,
+    TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE $4), 'YYYY-MM') AS bucket,
     COALESCE(SUM(total_cents), 0)::bigint                                   AS sales_cents,
     COUNT(*)::bigint                                                         AS order_count
 FROM orders
@@ -195,16 +207,19 @@ WHERE location_id = $1
   AND status = 'completed'
   AND created_at >= $2
   AND created_at <  $3
-GROUP BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC')
+GROUP BY DATE_TRUNC('month', created_at AT TIME ZONE $4)
 ORDER BY bucket
 `
-	return s.queryBuckets(ctx, q, locationID, from, to)
+	return s.queryBuckets(ctx, q, locationID, from, to, tz)
 }
 
-func (s *Store) queryBuckets(ctx context.Context, q, locationID string, from, to time.Time) ([]SeriesBucket, error) {
+func (s *Store) queryBuckets(ctx context.Context, q, locationID string, from, to time.Time, tz string) ([]SeriesBucket, error) {
+	if tz == "" {
+		tz = bizday.UTC
+	}
 	var buckets []SeriesBucket
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, q, locationID, from, to)
+		rows, err := tx.Query(ctx, q, locationID, from, to, tz)
 		if err != nil {
 			return err
 		}
@@ -231,11 +246,14 @@ func (s *Store) queryBuckets(ctx context.Context, q, locationID string, from, to
 // QueryHeatmap aggregates completed orders over the last `weeks` weeks by
 // (DOW, hour). DOW uses EXTRACT(DOW ...) which gives 0=Sunday … 6=Saturday,
 // matching the spec. Only cells that have at least one order are returned.
-func (s *Store) QueryHeatmap(ctx context.Context, locationID string, weeks int) ([]HeatmapCell, error) {
+func (s *Store) QueryHeatmap(ctx context.Context, locationID string, weeks int, tz string) ([]HeatmapCell, error) {
+	if tz == "" {
+		tz = bizday.UTC
+	}
 	const q = `
 SELECT
-    EXTRACT(DOW  FROM created_at AT TIME ZONE 'UTC')::int  AS dow,
-    EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC')::int  AS hour,
+    EXTRACT(DOW  FROM created_at AT TIME ZONE $3)::int  AS dow,
+    EXTRACT(HOUR FROM created_at AT TIME ZONE $3)::int  AS hour,
     COUNT(*)::bigint                                        AS order_count,
     COALESCE(SUM(total_cents), 0)::bigint                  AS sales_cents
 FROM orders
@@ -243,13 +261,13 @@ WHERE location_id = $1
   AND status = 'completed'
   AND created_at >= NOW() - ($2::int * INTERVAL '1 week')
 GROUP BY
-    EXTRACT(DOW  FROM created_at AT TIME ZONE 'UTC'),
-    EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC')
+    EXTRACT(DOW  FROM created_at AT TIME ZONE $3),
+    EXTRACT(HOUR FROM created_at AT TIME ZONE $3)
 ORDER BY dow, hour
 `
 	var cells []HeatmapCell
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, q, locationID, weeks)
+		rows, err := tx.Query(ctx, q, locationID, weeks, tz)
 		if err != nil {
 			return err
 		}

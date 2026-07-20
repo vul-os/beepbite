@@ -19,33 +19,23 @@ import {
   persistRegister,
   getStaff,
 } from '@/services/pos';
-
-// South African denominations — notes (top) then coins (bottom).
-const NOTE_DENOMS = [
-  { key: 'R200', label: 'R200', cents: 20000 },
-  { key: 'R100', label: 'R100', cents: 10000 },
-  { key: 'R50', label: 'R50', cents: 5000 },
-  { key: 'R20', label: 'R20', cents: 2000 },
-  { key: 'R10', label: 'R10', cents: 1000 },
-];
-const COIN_DENOMS = [
-  { key: 'R5', label: 'R5', cents: 500 },
-  { key: 'R2', label: 'R2', cents: 200 },
-  { key: 'R1', label: 'R1', cents: 100 },
-];
-const ALL_DENOMS = [...NOTE_DENOMS, ...COIN_DENOMS];
+import { denominationRows, denominationTotal } from '@/lib/denominations';
+import { useMoney } from '@/context/locale-context';
 
 // Single denomination row with +/- steppers and a per-denom subtotal.
 function DenomRow({ denom, count, onChange }) {
-  const subtotal = (count || 0) * denom.cents;
+  const { format } = useMoney();
+  // The tile's own label — a drawer in Tokyo holds ¥1,000 notes, not R10 ones.
+  const label = format(denom.minor);
+  const subtotal = (count || 0) * denom.minor;
   const setSafe = (val) => onChange(Math.max(0, val | 0));
 
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-orange-200/80 bg-white p-3 shadow-sm">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-900">{denom.label}</span>
+        <span className="text-sm font-semibold text-gray-900">{label}</span>
         <span className="text-xs text-gray-500 tabular-nums">
-          R{(subtotal / 100).toFixed(2)}
+          {format(subtotal)}
         </span>
       </div>
       <div className="flex items-center gap-1.5">
@@ -55,7 +45,7 @@ function DenomRow({ denom, count, onChange }) {
           variant="outline"
           onClick={() => setSafe((count || 0) - 1)}
           className="h-7 w-7 p-0 rounded-full border-orange-200 text-orange-600 hover:bg-orange-50 shrink-0"
-          aria-label={`Decrease ${denom.label}`}
+          aria-label={`Decrease ${label}`}
         >
           <Minus className="w-3 h-3" />
         </Button>
@@ -72,7 +62,7 @@ function DenomRow({ denom, count, onChange }) {
           size="sm"
           onClick={() => setSafe((count || 0) + 1)}
           className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600 text-white shrink-0"
-          aria-label={`Increase ${denom.label}`}
+          aria-label={`Increase ${label}`}
         >
           <Plus className="w-3 h-3" />
         </Button>
@@ -88,6 +78,10 @@ function DenomRow({ denom, count, onChange }) {
  * session id via persistRegister() and invokes onOpened with the new session.
  */
 export default function OpenRegisterModal({ open, onOpenChange, locationId, onOpened }) {
+  const { format, currency } = useMoney();
+  // Which notes and coins exist is a property of the currency, not of the app.
+  const denoms = denominationRows(currency);
+
   const [drawers, setDrawers] = useState([]);
   const [drawerId, setDrawerId] = useState('');
   const [drawersLoading, setDrawersLoading] = useState(false);
@@ -128,10 +122,7 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
     }
   }, [open]);
 
-  const totalCents = ALL_DENOMS.reduce(
-    (sum, d) => sum + (counts[d.key] || 0) * d.cents,
-    0,
-  );
+  const totalCents = denominationTotal(counts, currency);
 
   const handleCountChange = (key, v) => {
     setCounts((prev) => ({ ...prev, [key]: v }));
@@ -211,26 +202,11 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
           )}
         </div>
 
-        {/* Notes section */}
+        {/* Denominations */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-700">Notes</Label>
+          <Label className="text-sm font-medium text-gray-700">Denominations</Label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {NOTE_DENOMS.map((d) => (
-              <DenomRow
-                key={d.key}
-                denom={d}
-                count={counts[d.key] || 0}
-                onChange={(v) => handleCountChange(d.key, v)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Coins section */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-700">Coins</Label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {COIN_DENOMS.map((d) => (
+            {denoms.map((d) => (
               <DenomRow
                 key={d.key}
                 denom={d}
@@ -264,7 +240,7 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
             Opening Float Total
           </div>
           <span className="text-xl font-bold text-orange-600 tabular-nums">
-            R{(totalCents / 100).toFixed(2)}
+            {format(totalCents)}
           </span>
         </div>
 

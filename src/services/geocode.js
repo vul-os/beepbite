@@ -1,7 +1,8 @@
 // geocode.js — thin client over the backend geocode proxy.
 //
-// The backend owns the Mapbox token and biases results toward South Africa.
-// We never expose a Mapbox token in the frontend; we only call our own proxy:
+// The backend owns the Mapbox token and no longer biases results toward any
+// one country, so suggestions are worldwide. We never expose a Mapbox token in
+// the frontend; we only call our own proxy:
 //
 //   GET /geocode/suggest?q=<query>
 //     → { suggestions: [ { place_name, street, suburb, city, postcode, lat, lng }, ... ] }

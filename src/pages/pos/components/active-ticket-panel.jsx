@@ -42,6 +42,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useMoney } from '@/context/locale-context';
 import { hasCapability } from '@/services/pos';
 import AdjustmentMenu from './adjustment-menu';
 import CourseSelect from './course-select';
@@ -49,11 +50,6 @@ import CourseSelect from './course-select';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatRand(cents) {
-  const n = (cents || 0) / 100;
-  return `R ${n.toFixed(2)}`;
-}
 
 function shortOrderNum(order) {
   return order?.order_number ?? (order?.id ? `#${String(order.id).slice(0, 6)}` : '?');
@@ -119,6 +115,7 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 // SentItemRow — individual fired line item.
 // Right-click / long-press opens the AdjustmentMenu for per-item comp/discount.
 function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
+  const { format, scale } = useMoney();
   const status = item.item_status || 'fired';
   const statusColor =
     status === 'ready' ? 'text-green-600 bg-green-50 border-green-200'
@@ -126,8 +123,10 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
     : 'text-gray-500 bg-gray-50 border-gray-200';
 
   const itemId     = item.order_item_id || item.id || null;
+  // `unit_price` arrives as a major-unit decimal string; the multiplier that
+  // turns it into minor units is the currency's, not 100 (¥500 is 500 minor).
   const priceCents = item.total_cents ?? Math.round(
-    (parseFloat(item.unit_price || 0) * (item.quantity || 0)) * 100,
+    (parseFloat(item.unit_price || 0) * (item.quantity || 0)) * scale,
   );
   const canActOnItem = hasCapability('can_comp');
 
@@ -168,7 +167,7 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
           {status === 'fired' ? 'Fired' : status === 'in_progress' ? 'Cooking' : status === 'ready' ? 'Ready' : status}
         </span>
         <span className="text-sm font-medium text-gray-700 tabular-nums shrink-0">
-          {formatRand(priceCents)}
+          {format(priceCents)}
         </span>
       </div>
     </AdjustmentMenu>
@@ -263,7 +262,8 @@ function SentSection({ sentOrders, locationId, onAdjustSuccess }) {
 // ---------------------------------------------------------------------------
 
 function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
-  const lineCents = Math.round((parseFloat(item.price || 0) * (item.qty || 0)) * 100);
+  const { format, scale } = useMoney();
+  const lineCents = Math.round((parseFloat(item.price || 0) * (item.qty || 0)) * scale);
   return (
     <div className="flex flex-col px-3 py-2.5 bg-white gap-1.5">
       <div className="flex items-start gap-2">
@@ -275,7 +275,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
             </p>
           )}
           <p className="text-xs text-gray-400 tabular-nums mt-0.5">
-            {formatRand(Math.round(parseFloat(item.price || 0) * 100))} each
+            {format(Math.round(parseFloat(item.price || 0) * scale))} each
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -314,7 +314,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
         ) : <span />}
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-900 tabular-nums">
-            {formatRand(lineCents)}
+            {format(lineCents)}
           </span>
           <Button
             size="sm"
@@ -380,6 +380,7 @@ function TicketFooter({
   hasUnpaidOrders,
   newItemsCount,
 }) {
+  const { format } = useMoney();
   const canSend = newItemsCount > 0 && !sending && Boolean(ticket);
   const canCharge = hasUnpaidOrders && !sending && Boolean(ticket);
 
@@ -391,13 +392,13 @@ function TicketFooter({
           {sentSubtotalCents > 0 && (
             <div className="flex justify-between text-gray-500">
               <span>Already sent</span>
-              <span className="tabular-nums font-medium">{formatRand(sentSubtotalCents)}</span>
+              <span className="tabular-nums font-medium">{format(sentSubtotalCents)}</span>
             </div>
           )}
           {newSubtotalCents > 0 && (
             <div className="flex justify-between text-orange-600 font-semibold">
               <span>New items</span>
-              <span className="tabular-nums">{formatRand(newSubtotalCents)}</span>
+              <span className="tabular-nums">{format(newSubtotalCents)}</span>
             </div>
           )}
         </div>
@@ -406,7 +407,7 @@ function TicketFooter({
       {/* Grand total */}
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-gray-600">Total</span>
-        <span className="text-2xl font-bold text-gray-900 tabular-nums tracking-tight">{formatRand(totalCents)}</span>
+        <span className="text-2xl font-bold text-gray-900 tabular-nums tracking-tight">{format(totalCents)}</span>
       </div>
 
       {/* Send / Charge — min-height 56px for thumb-friendly tap targets */}
@@ -481,8 +482,10 @@ export default function ActiveTicketPanel({
   courses = [],          // [{ id, name, sort_order }] for CourseSelect (Wave 11 T11.3)
   onSetCourse,           // optional (clientLineId, courseId | null) => void
 }) {
+  const { scale } = useMoney();
+
   const newSubtotalCents = newItems.reduce(
-    (sum, it) => sum + Math.round((parseFloat(it.price || 0) * (it.qty || 0)) * 100),
+    (sum, it) => sum + Math.round((parseFloat(it.price || 0) * (it.qty || 0)) * scale),
     0,
   );
   const sentSubtotalCents = sentOrders.reduce((orderSum, order) => {
@@ -490,7 +493,7 @@ export default function ActiveTicketPanel({
     const items = Array.isArray(order.items) ? order.items : [];
     return orderSum + items.reduce((lineSum, it) => {
       if (typeof it.total_cents === 'number') return lineSum + it.total_cents;
-      return lineSum + Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * 100);
+      return lineSum + Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * scale);
     }, 0);
   }, 0);
   const totalCents = newSubtotalCents + sentSubtotalCents;

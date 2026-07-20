@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertCircle, Download, Trash2, RotateCcw, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useDateTime } from '@/context/locale-context';
 import { deleteAccount, restoreAccount, requestDataExport } from '@/services/datarights';
 
 // ---------------------------------------------------------------------------
@@ -16,6 +17,7 @@ import { deleteAccount, restoreAccount, requestDataExport } from '@/services/dat
 
 const AccountSettings = () => {
   const { activeOrganization } = useAuth();
+  const { today } = useDateTime();
   const isDeleted = Boolean(activeOrganization?.deleted_at);
 
   const [deleteState, setDeleteState]   = useState('idle');   // idle | confirm | loading | done
@@ -71,7 +73,9 @@ const AccountSettings = () => {
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
     a.href     = url;
-    a.download = `beepbite-export-${new Date().toISOString().slice(0, 10)}.json`;
+    // The store's local trading date, not `new Date().toISOString().slice(0, 10)`
+    // (the UTC date — wrong for most of the day in most timezones).
+    a.download = `beepbite-export-${today()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     setExportState('done');

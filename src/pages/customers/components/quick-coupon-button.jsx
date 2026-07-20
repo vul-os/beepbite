@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { createQuickCoupon } from '@/services/quick-coupon';
+import { useDateTime, useMoney } from '@/context/locale-context';
 
 /**
  * QuickCouponButton — renders an inline "Send X% off" form anchored to a
@@ -23,6 +24,10 @@ export function QuickCouponButton({ customerId }) {
   const [result, setResult] = useState(null); // { code, expires_at, percent_off }
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const { format: formatMoney } = useMoney();
+  // The expiry date is the store's, so it renders in the store's timezone —
+  // the browser's default puts a US store's coupon a day out.
+  const { formatDate } = useDateTime();
 
   async function handleSend(e) {
     e.preventDefault();
@@ -99,12 +104,12 @@ export function QuickCouponButton({ customerId }) {
                     {result.percent_off != null
                       ? `${result.percent_off}% off`
                       : result.fixed_off_cents != null
-                        ? `R${(result.fixed_off_cents / 100).toFixed(2)} off`
+                        ? `${formatMoney(result.fixed_off_cents)} off`
                         : 'Discount'}
                   </Badge>
                   {result.expires_at && (
                     <span className="text-xs text-muted-foreground">
-                      Expires {new Date(result.expires_at).toLocaleDateString()}
+                      Expires {formatDate(result.expires_at)}
                     </span>
                   )}
                 </div>

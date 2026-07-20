@@ -125,9 +125,13 @@ func SeedOrg(ctx context.Context, pool *pgxpool.Pool, name string) (orgID, owner
 		}
 
 		// 3. organization
+		//
+		// default_currency_code is passed explicitly because migration 056
+		// dropped the DEFAULT 'ZAR' from the column. Relying on the default
+		// here used to work by accident; it now inserts NULL.
 		if err2 := tx.QueryRow(ctx,
-			`INSERT INTO organizations (name) VALUES ($1) RETURNING id`,
-			name,
+			`INSERT INTO organizations (name, default_currency_code) VALUES ($1, $2) RETURNING id`,
+			name, LocaleZA.CurrencyCode,
 		).Scan(&orgID); err2 != nil {
 			return fmt.Errorf("insert organization: %w", err2)
 		}
@@ -153,25 +157,105 @@ func SeedOrg(ctx context.Context, pool *pgxpool.Pool, name string) (orgID, owner
 // SeedLocation
 // ---------------------------------------------------------------------------
 
-// SeedLocation creates a location for the given org in the ZA region.
-// Returns locationID.
+// Locale is a concrete country posture for a seeded location.
+//
+// Test fixtures name real countries on purpose — unlike production code and
+// unlike the SEED_* driven seeders, a test's whole job is to pin down specific
+// behaviour, and "ZAR, 2 decimals, 15% inclusive" is a fact a test can assert
+// against. What fixtures must not do is name only *one* country: when every
+// seeded location was Johannesburg/ZAR/15%-inclusive, the suite could not tell
+// a correct implementation from one that divided by a hardcoded 100, formatted
+// with a hardcoded symbol, or computed tax the wrong way round, because no
+// fixture ever disagreed with those assumptions.
+//
+// The three below are chosen to disagree on every axis that has ever been
+// hardcoded: minor-unit exponent (2 vs 0), tax convention (inclusive vs
+// exclusive), UTC offset sign, and dial-code length.
+type Locale struct {
+	Country      string // ISO 3166-1 alpha-2
+	City         string
+	CurrencyCode string // ISO 4217; must exist in the currencies table
+	Timezone     string // IANA
+	BCP47        string
+	TaxRate      float64 // percent, as the decimal(5,2) column stores it
+	TaxInclusive bool
+	TaxLabel     string
+	PhoneCC      string // E.164 dial code, no "+"
+}
+
+// The fixture locales. Region rows may not exist for all of them, which
+// SeedLocationIn handles.
+var (
+	// LocaleZA — 2 decimals, tax included in the shelf price. The historical
+	// default, kept so existing expectations still have a home.
+	LocaleZA = Locale{
+		Country: "ZA", City: "Johannesburg", CurrencyCode: "ZAR",
+		Timezone: "Africa/Johannesburg", BCP47: "en-ZA",
+		TaxRate: 15.00, TaxInclusive: true, TaxLabel: "VAT", PhoneCC: "27",
+	}
+
+	// LocaleJP — 0 decimals. ¥1000 is one thousand yen, not ten. Any code path
+	// that still divides by a literal 100 produces a visibly wrong number
+	// against this locale instead of a coincidentally right one.
+	LocaleJP = Locale{
+		Country: "JP", City: "Osaka", CurrencyCode: "JPY",
+		Timezone: "Asia/Tokyo", BCP47: "ja-JP",
+		TaxRate: 10.00, TaxInclusive: true, TaxLabel: "消費税", PhoneCC: "81",
+	}
+
+	// LocaleUS — tax EXCLUSIVE, added at the till rather than baked into the
+	// price, and a west-of-UTC zone whose local day boundary falls on the other
+	// side of midnight UTC. Both are cases the inclusive-only, UTC-only seed
+	// data never reached.
+	LocaleUS = Locale{
+		Country: "US", City: "Denver", CurrencyCode: "USD",
+		Timezone: "America/Denver", BCP47: "en-US",
+		TaxRate: 8.31, TaxInclusive: false, TaxLabel: "Sales Tax", PhoneCC: "1",
+	}
+)
+
+// SeedLocation creates a location for the given org using LocaleZA.
+//
+// It exists so callers that do not care about locale keep working; anything
+// asserting on money, tax or trading days should call SeedLocationIn with an
+// explicit locale so the assertion says which country it is about.
 func SeedLocation(ctx context.Context, pool *pgxpool.Pool, orgID, name, slug string) (locationID string, err error) {
+	return SeedLocationIn(ctx, pool, orgID, name, slug, LocaleZA)
+}
+
+// SeedLocationIn creates a location with an explicit locale posture, including
+// the timezone, tax and dial-code columns migration 056 added.
+//
+// currency_code is always passed explicitly: migration 056 dropped the
+// DEFAULT 'ZAR' from the column, so omitting it now writes NULL and every
+// money assertion downstream fails somewhere far from the cause.
+func SeedLocationIn(ctx context.Context, pool *pgxpool.Pool, orgID, name, slug string, loc Locale) (locationID string, err error) {
 	scope := db.ServiceRoleScope()
 
 	err = db.Scoped(ctx, pool, scope, func(tx pgx.Tx) error {
-		// Resolve ZA region ID.
-		var regionID string
-		if err2 := tx.QueryRow(ctx, `SELECT id FROM regions WHERE code = 'ZA' LIMIT 1`).Scan(&regionID); err2 != nil {
-			return fmt.Errorf("resolve ZA region: %w", err2)
+		// The regions table predates per-location settings and does not carry a
+		// row for every country a fixture might use. A missing region is not a
+		// reason to fail the fixture — region_id is nullable and nothing under
+		// test reads it — so resolve it best-effort.
+		var regionID *string
+		var found string
+		if err2 := tx.QueryRow(ctx,
+			`SELECT id FROM regions WHERE code = $1 LIMIT 1`, loc.Country,
+		).Scan(&found); err2 == nil {
+			regionID = &found
 		}
 
 		if err2 := tx.QueryRow(ctx,
-			`INSERT INTO locations (organization_id, region_id, name, slug, city, country, currency_code)
-			 VALUES ($1, $2, $3, $4, 'Johannesburg', 'ZA', 'ZAR')
+			`INSERT INTO locations (
+				organization_id, region_id, name, slug, city, country, currency_code,
+				timezone, locale, tax_rate, tax_inclusive, tax_label, phone_country_code
+			 )
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			 RETURNING id`,
-			orgID, regionID, name, slug,
+			orgID, regionID, name, slug, loc.City, loc.Country, loc.CurrencyCode,
+			loc.Timezone, loc.BCP47, loc.TaxRate, loc.TaxInclusive, loc.TaxLabel, loc.PhoneCC,
 		).Scan(&locationID); err2 != nil {
-			return fmt.Errorf("insert location: %w", err2)
+			return fmt.Errorf("insert location (%s/%s): %w", loc.Country, loc.CurrencyCode, err2)
 		}
 		return nil
 	})
@@ -438,7 +522,11 @@ func SeedTwoOrgs(ctx context.Context, pool *pgxpool.Pool) (*SeedResult, error) {
 		return nil, fmt.Errorf("SeedTwoOrgs OrgB member: %w", err)
 	}
 
-	locBID, err := SeedLocation(ctx, pool, orgBID, "Org B Cape Town", "org-b-capetown")
+	// Org B deliberately sits in a different locale from Org A: a 0-decimal
+	// currency in a zone east of UTC. Tenant-isolation tests then also prove
+	// that money and trading-day handling stay per-location, which they cannot
+	// show when both orgs share one country.
+	locBID, err := SeedLocationIn(ctx, pool, orgBID, "Org B Osaka", "org-b-osaka", LocaleJP)
 	if err != nil {
 		return nil, fmt.Errorf("SeedTwoOrgs OrgB location: %w", err)
 	}

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
+import { useMoney } from "@/context/locale-context";
 
 const OrderModals = ({
   // Quick Order Creation Modal
@@ -69,6 +70,11 @@ const OrderModals = ({
   setFractionalQtyValue,
   saveFractionalQty
 }) => {
+  // Cart/menu prices arrive as major-unit floats; `scale` converts them to the
+  // minor units format() expects, and is 1 in JPY where a literal 100 is wrong.
+  const { format, scale } = useMoney();
+  const toMinor = (major) => Math.round(parseFloat(major || 0) * scale);
+
   return (
     <>
       {/* Quick Order Creation Dialog */}
@@ -81,7 +87,7 @@ const OrderModals = ({
             </DialogTitle>
             <DialogDescription>
               {cart.length > 0 
-                ? `Create order with ${cart.length} items (Total: R${cartTotal.toFixed(2)})`
+                ? `Create order with ${cart.length} items (Total: ${format(toMinor(cartTotal))})`
                 : "Create a new order with customer details."
               }
             </DialogDescription>
@@ -126,12 +132,12 @@ const OrderModals = ({
                           </span>
                         )}
                       </span>
-                      <span>R{(item.price * item.quantity).toFixed(2)}</span>
+                      <span>{format(toMinor(item.price * item.quantity))}</span>
                     </div>
                   ))}
                   <div className="border-t pt-1 mt-2 font-semibold flex justify-between">
                     <span>Total:</span>
-                    <span>R{cartTotal.toFixed(2)}</span>
+                    <span>{format(toMinor(cartTotal))}</span>
                   </div>
                 </div>
               </div>
@@ -177,7 +183,7 @@ const OrderModals = ({
               Customize Item
             </DialogTitle>
             <DialogDescription>
-              {selectedItem?.name} - R{parseFloat(selectedItem?.price || 0).toFixed(2)}
+              {selectedItem?.name} - {format(toMinor(selectedItem?.price))}
             </DialogDescription>
           </DialogHeader>
           
@@ -204,7 +210,7 @@ const OrderModals = ({
                           <span className="font-medium">{option.name}</span>
                           {option.price_modifier !== 0 && (
                             <span className="text-sm text-orange-600">
-                              {option.price_modifier > 0 ? '+' : ''}R{parseFloat(option.price_modifier || 0).toFixed(2)}
+                              {option.price_modifier > 0 ? '+' : ''}{format(toMinor(option.price_modifier))}
                             </span>
                           )}
                         </div>
@@ -219,7 +225,7 @@ const OrderModals = ({
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-gray-900">Total Price:</span>
                   <span className="text-lg font-bold text-orange-600">
-                    R{(() => {
+                    {(() => {
                       let total = parseFloat(selectedItem.price || 0);
                       selectedItem.item_variations?.forEach(variation => {
                         const selectedOptionId = selectedVariations[variation.id];
@@ -230,7 +236,7 @@ const OrderModals = ({
                           }
                         }
                       });
-                      return total.toFixed(2);
+                      return format(toMinor(total));
                     })()}
                   </span>
                 </div>
@@ -396,7 +402,7 @@ const OrderModals = ({
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-700">Total Price:</span>
                   <span className="text-lg font-bold text-orange-600">
-                    R{(fractionalQtyItem.price * parseFloat(fractionalQtyValue)).toFixed(2)}
+                    {format(toMinor(fractionalQtyItem.price * parseFloat(fractionalQtyValue)))}
                   </span>
                 </div>
               </div>
@@ -503,9 +509,9 @@ const OrderModals = ({
                             )}
                           </div>
                           <div className="text-right">
-                            <div className="font-bold text-orange-600">R{parseFloat(orderItem.total_price).toFixed(2)}</div>
+                            <div className="font-bold text-orange-600">{format(toMinor(orderItem.total_price))}</div>
                             <div className="text-xs text-gray-500">
-                              {orderItem.quantity % 1 === 0 ? orderItem.quantity : parseFloat(orderItem.quantity).toFixed(2)} × R{parseFloat(orderItem.unit_price).toFixed(2)}
+                              {orderItem.quantity % 1 === 0 ? orderItem.quantity : parseFloat(orderItem.quantity).toFixed(2)} × {format(toMinor(orderItem.unit_price))}
                             </div>
                           </div>
                         </div>
@@ -515,13 +521,13 @@ const OrderModals = ({
                           <div className="mt-2">
                             <div className="flex flex-wrap gap-1">
                               {orderItem.order_item_modifiers.map((modifier, index) => {
-                                const priceDelta = (modifier.price_cents_snapshot || 0) / 100;
+                                const priceDelta = modifier.price_cents_snapshot || 0;
                                 return (
                                   <span key={index} className="inline-block bg-blue-100 rounded-full px-2 py-1 text-xs text-blue-700">
                                     <span className="font-medium">{modifier.name_snapshot}</span>
                                     {priceDelta !== 0 && (
                                       <span className="text-blue-600 ml-1">
-                                        {priceDelta > 0 ? '+' : ''}R{priceDelta.toFixed(2)}
+                                        {priceDelta > 0 ? '+' : ''}{format(priceDelta)}
                                       </span>
                                     )}
                                   </span>
@@ -545,19 +551,19 @@ const OrderModals = ({
                       {orderDetails.subtotal_cents != null && (
                         <div className="flex justify-between">
                           <span>Subtotal:</span>
-                          <span>R{(orderDetails.subtotal_cents / 100).toFixed(2)}</span>
+                          <span>{format(orderDetails.subtotal_cents)}</span>
                         </div>
                       )}
                       {orderDetails.tax_cents != null && (
                         <div className="flex justify-between">
                           <span>Tax:</span>
-                          <span>R{(orderDetails.tax_cents / 100).toFixed(2)}</span>
+                          <span>{format(orderDetails.tax_cents)}</span>
                         </div>
                       )}
                       {orderDetails.total_cents != null && (
                         <div className="border-t pt-2 flex justify-between font-bold text-lg">
                           <span>Total:</span>
-                          <span className="text-orange-600">R{(orderDetails.total_cents / 100).toFixed(2)}</span>
+                          <span className="text-orange-600">{format(orderDetails.total_cents)}</span>
                         </div>
                       )}
                     </div>

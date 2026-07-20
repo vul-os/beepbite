@@ -1,9 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useMoney } from '@/context/locale-context';
 import { sendChatMessage } from '../../services/customerchat.js';
 
 // ── Simple ID generator ────────────────────────────────────────────────────────
 function newId() {
   return Math.random().toString(36).slice(2);
+}
+
+// The customer-chat API returns prices as major-unit decimals ("12.50"), not
+// minor units, so each is parsed against the active currency before display —
+// a fixed two decimals reads ¥1000 as "1000.00" and drops a dinar's third.
+function moneyRenderer({ format, parse }) {
+  return (value) => {
+    const minor = parse(value);
+    return minor == null ? '' : format(minor);
+  };
 }
 
 // ── Tool result renderers ──────────────────────────────────────────────────────
@@ -33,6 +44,7 @@ function StoresResult({ data }) {
 }
 
 function MenuResult({ data }) {
+  const money = moneyRenderer(useMoney());
   if (!data?.categories?.length) return <p className="text-sm text-gray-400">No menu items found.</p>;
   return (
     <div className="tool-menu mt-1 space-y-2">
@@ -42,7 +54,7 @@ function MenuResult({ data }) {
           {cat.items.map((item) => (
             <div key={item.id} className="flex justify-between text-sm py-0.5">
               <span>{item.name}</span>
-              <span className="text-gray-500">R {Number(item.price).toFixed(2)}</span>
+              <span className="text-gray-500">{money(item.price)}</span>
             </div>
           ))}
         </div>
@@ -52,29 +64,31 @@ function MenuResult({ data }) {
 }
 
 function CartResult({ data }) {
+  const money = moneyRenderer(useMoney());
   if (!data?.lines?.length) return <p className="text-sm text-gray-400">Cart is empty.</p>;
   return (
     <div className="tool-cart mt-1 border rounded p-2 bg-white">
       {data.lines.map((line) => (
         <div key={line.cart_item_id} className="flex justify-between text-sm py-0.5">
           <span>{line.quantity}× {line.item_name}{line.modifiers?.length ? ` (${line.modifiers.join(', ')})` : ''}</span>
-          <span className="text-gray-500">R {Number(line.total_price).toFixed(2)}</span>
+          <span className="text-gray-500">{money(line.total_price)}</span>
         </div>
       ))}
       <div className="border-t mt-1 pt-1 flex justify-between font-semibold text-sm">
         <span>Subtotal</span>
-        <span>R {Number(data.subtotal).toFixed(2)}</span>
+        <span>{money(data.subtotal)}</span>
       </div>
     </div>
   );
 }
 
 function OrderConfirmationResult({ data }) {
+  const money = moneyRenderer(useMoney());
   return (
     <div className="tool-confirm mt-1 border rounded p-3 bg-green-50">
       <div className="font-semibold text-green-700">Order Confirmed!</div>
       <div className="text-sm text-gray-600 mt-1">Order #{data.order_number}</div>
-      <div className="text-sm text-gray-600">Total: R {Number(data.total_amount).toFixed(2)}</div>
+      <div className="text-sm text-gray-600">Total: {money(data.total_amount)}</div>
     </div>
   );
 }
@@ -89,11 +103,12 @@ function TrackResult({ data }) {
 }
 
 function ItemDetailResult({ data }) {
+  const money = moneyRenderer(useMoney());
   return (
     <div className="tool-item mt-1 border rounded p-2 bg-white text-sm">
       <div className="font-semibold">{data.name}</div>
       {data.description && <div className="text-gray-500 text-xs mt-0.5">{data.description}</div>}
-      <div className="mt-1">Price: R {Number(data.price).toFixed(2)}</div>
+      <div className="mt-1">Price: {money(data.price)}</div>
       {data.variations?.length > 0 && (
         <div className="mt-1">
           {data.variations.map((v) => (

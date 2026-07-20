@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader, PageContainer } from "@/components/ui/page-header";
 import { Reveal } from "@/components/ui/motion";
 import AddressAutocomplete from "@/components/address-autocomplete";
@@ -21,10 +28,18 @@ import {
   Activity,
   UtensilsCrossed,
   ShoppingBag,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
+import { currencyDecimals, currencySymbol, formatMoney } from '@/lib/currency';
+import {
+  countryOptions,
+  currencyOptions,
+  detectedTimezone,
+  timezoneOptions,
+} from '@/lib/locale-data';
 
 // ---------------------------------------------------------------------------
 // Service-style localStorage helpers (same key as workspace.jsx)
@@ -41,6 +56,36 @@ function getServiceStyleLS(locId) {
 function setServiceStyleLS(locId, value) {
   if (!locId) return;
   try { localStorage.setItem(`bb_service_style_${locId}`, value); } catch { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
+// Regional-settings validation
+// ---------------------------------------------------------------------------
+// Each of these mirrors a CHECK constraint added by migration 056. Validating
+// here is not redundant with the database: a constraint violation surfaces as an
+// opaque driver error ("new row violates check constraint
+// locations_tax_rate_range"), which tells an operator nothing about which field
+// to fix. The database remains the authority; this exists to say what is wrong.
+
+/** BCP-47 well-formedness. Intl canonicalises valid tags and throws on the rest. */
+function isValidLocale(tag) {
+  if (!tag) return true; // empty means "use the reader's own", which is valid
+  try {
+    return Intl.getCanonicalLocales(tag).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the runtime's tzdata recognises this zone name. */
+function isValidTimezone(zone) {
+  if (!zone) return false;
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const LocationSettings = () => {
@@ -63,6 +108,19 @@ const LocationSettings = () => {
     latitude: '',
     longitude: '',
 
+    // Regional settings. Every one of these starts EMPTY (or UTC, which belongs
+    // to no country) rather than carrying a default, because a wrong currency or
+    // tax rate is worse than a missing one: the missing one is a visible gap and
+    // the wrong one is a silent mispricing.
+    country: '',
+    currency_code: '',
+    timezone: 'UTC',
+    locale: '',
+    tax_rate: '',
+    tax_inclusive: true,
+    tax_label: '',
+    phone_country_code: '',
+
     // Delivery settings
     delivery_fee: '',
     free_delivery_threshold: '',
@@ -72,6 +130,30 @@ const LocationSettings = () => {
     accepts_pickup: true,
     is_active: true
   });
+
+  // Option lists are built from Intl and are large (~250 countries, ~400
+  // timezones), so they are memoised against the locale that names them rather
+  // than rebuilt on every keystroke elsewhere in the form.
+  const uiLocale = formData.locale.trim();
+  const countries = useMemo(() => countryOptions(uiLocale), [uiLocale]);
+  const currencies = useMemo(() => currencyOptions(uiLocale), [uiLocale]);
+  const timezones = useMemo(() => timezoneOptions(), []);
+
+  // A worked example beats a description: it shows the operator exactly what
+  // their currency, locale and tax choices will do to a real amount before they
+  // commit to them. 123456 minor units is chosen to exercise the grouping mark,
+  // the decimal mark and (in JPY or KWD) the non-2 exponent all at once.
+  const moneyPreview = formatMoney(123456, {
+    currency: formData.currency_code,
+    locale: uiLocale,
+  });
+  const symbolPreview = currencySymbol(formData.currency_code, uiLocale);
+
+  // The delivery-money inputs used step="0.01", which is the rand's (and the
+  // dollar's) smallest unit but not every currency's: a JPY location should step
+  // in whole yen and a KWD one in thousandths. These fields are stored in MAJOR
+  // units, so the step is one minor unit expressed as a major-unit fraction.
+  const moneyStep = String(1 / 10 ** currencyDecimals(formData.currency_code));
 
   useEffect(() => {
     if (locationId) {
@@ -116,6 +198,16 @@ const LocationSettings = () => {
         address: location.address || '',
         latitude: location.latitude || '',
         longitude: location.longitude || '',
+        country: location.country || '',
+        currency_code: location.currency_code || '',
+        timezone: location.timezone || 'UTC',
+        locale: location.locale || '',
+        // ?? rather than || so that a genuine 0% rate round-trips as "0" and is
+        // not re-rendered as an unset field.
+        tax_rate: location.tax_rate ?? '',
+        tax_inclusive: location.tax_inclusive ?? true,
+        tax_label: location.tax_label || '',
+        phone_country_code: location.phone_country_code || '',
         delivery_fee: location.delivery_fee || '',
         free_delivery_threshold: location.free_delivery_threshold || '',
         max_delivery_distance_km: location.max_delivery_distance_km || '',
@@ -156,6 +248,23 @@ const LocationSettings = () => {
         throw new Error('Location name is required');
       }
 
+      const taxRate = formData.tax_rate === '' ? 0 : Number(formData.tax_rate);
+      if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
+        throw new Error('Tax rate must be a percentage between 0 and 100');
+      }
+      if (!isValidTimezone(formData.timezone)) {
+        throw new Error(`"${formData.timezone}" is not a recognised IANA timezone name`);
+      }
+      if (!isValidLocale(formData.locale.trim())) {
+        throw new Error(
+          `"${formData.locale.trim()}" is not a valid BCP-47 locale tag (e.g. pt-PT, ja-JP)`
+        );
+      }
+      const dialCode = formData.phone_country_code.replace(/\D/g, '');
+      if (formData.phone_country_code && !/^[0-9]{1,4}$/.test(dialCode)) {
+        throw new Error('Phone country code must be 1–4 digits, without the plus');
+      }
+
       // Update location data
       const { error: locationError } = await supabase
         .from('locations')
@@ -166,6 +275,18 @@ const LocationSettings = () => {
           address: formData.address.trim() || null,
           latitude: formData.latitude ? parseFloat(formData.latitude) : null,
           longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+          // Empty regional fields are written as NULL, not as a placeholder
+          // value: NULL reads unambiguously as "not configured", whereas any
+          // stand-in ('XXX', 'en-US') would be indistinguishable from a
+          // deliberate choice.
+          country: formData.country || null,
+          currency_code: formData.currency_code || null,
+          timezone: formData.timezone || 'UTC',
+          locale: formData.locale.trim() || null,
+          tax_rate: taxRate,
+          tax_inclusive: formData.tax_inclusive,
+          tax_label: formData.tax_label.trim() || null,
+          phone_country_code: dialCode || null,
           delivery_fee: formData.delivery_fee ? parseFloat(formData.delivery_fee) : null,
           free_delivery_threshold: formData.free_delivery_threshold ? parseFloat(formData.free_delivery_threshold) : null,
           max_delivery_distance_km: formData.max_delivery_distance_km ? parseFloat(formData.max_delivery_distance_km) : null,
@@ -338,13 +459,20 @@ const LocationSettings = () => {
       {/* Settings tabs */}
       <Reveal delay={0.1}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/60 rounded-xl">
+          <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-muted/60 rounded-xl">
             <TabsTrigger
               value="details"
               className="flex items-center gap-2 text-xs sm:text-sm py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary"
             >
               <MapPin className="w-4 h-4" />
               <span>Details</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="regional"
+              className="flex items-center gap-2 text-xs sm:text-sm py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary"
+            >
+              <Globe className="w-4 h-4" />
+              <span>Regional</span>
             </TabsTrigger>
             <TabsTrigger
               value="delivery"
@@ -400,7 +528,14 @@ const LocationSettings = () => {
                       <Input
                         id="whatsapp"
                         type="tel"
-                        placeholder="+27 82 123 4567"
+                        // The example follows the location's own dial code once
+                        // one is configured; until then it stays a shape hint
+                        // rather than any particular country's number.
+                        placeholder={
+                          formData.phone_country_code
+                            ? `+${formData.phone_country_code.replace(/\D/g, '')} …`
+                            : 'International format, e.g. +<country code> <number>'
+                        }
                         value={formData.whatsapp_number}
                         onChange={(e) => handleInputChange('whatsapp_number', e.target.value)}
                         className="rounded-xl h-10"
@@ -427,7 +562,7 @@ const LocationSettings = () => {
                       Address
                     </label>
                     <AddressAutocomplete
-                      placeholder="Start typing a South African address…"
+                      placeholder="Start typing an address…"
                       value={formData.address}
                       onChange={(text) => handleInputChange('address', text)}
                       onSelect={(s) => {
@@ -451,7 +586,9 @@ const LocationSettings = () => {
                         id="latitude"
                         type="number"
                         step="0.000001"
-                        placeholder="-26.2041"
+                        // The old placeholders were Johannesburg's coordinates.
+                        // A valid range is the useful hint and belongs to no city.
+                        placeholder="Decimal degrees, −90 to 90"
                         value={formData.latitude}
                         onChange={(e) => handleInputChange('latitude', e.target.value)}
                         className="rounded-xl h-10"
@@ -466,12 +603,282 @@ const LocationSettings = () => {
                         id="longitude"
                         type="number"
                         step="0.000001"
-                        placeholder="28.0473"
+                        placeholder="Decimal degrees, −180 to 180"
                         value={formData.longitude}
                         onChange={(e) => handleInputChange('longitude', e.target.value)}
                         className="rounded-xl h-10"
                       />
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Reveal>
+
+            {/* Mobile save */}
+            <div className="sm:hidden">
+              <Button
+                onClick={saveLocationSettings}
+                disabled={saving}
+                className="w-full rounded-xl h-11"
+              >
+                {saving ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</>
+                ) : (
+                  <><Save className="w-4 h-4 mr-2" />Save Location Settings</>
+                )}
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── Regional tab ── */}
+          <TabsContent value="regional" className="mt-5 space-y-5">
+            <Reveal>
+              <Card variant="elevated">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Globe className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <CardTitle>Currency &amp; formatting</CardTitle>
+                      <CardDescription className="mt-0.5">
+                        What this location charges in, and how amounts and dates are written.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium text-foreground">
+                        Country
+                      </label>
+                      <Select
+                        value={formData.country || undefined}
+                        onValueChange={(v) => handleInputChange('country', v)}
+                      >
+                        <SelectTrigger className="rounded-xl h-10">
+                          <SelectValue placeholder="Select a country…" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {countries.map((c) => (
+                            <SelectItem key={c.code} value={c.code}>
+                              {c.name} ({c.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Used for address and tax context. It does not by itself set the
+                        currency or timezone — those are chosen separately below.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium text-foreground">
+                        Currency
+                      </label>
+                      <Select
+                        value={formData.currency_code || undefined}
+                        onValueChange={(v) => handleInputChange('currency_code', v)}
+                      >
+                        <SelectTrigger className="rounded-xl h-10">
+                          <SelectValue placeholder="Select a currency…" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {currencies.map((c) => (
+                            <SelectItem key={c.code} value={c.code}>
+                              {c.code} — {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Every price, report and receipt for this location is denominated in
+                        this currency. Changing it does not convert existing amounts.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium text-foreground">
+                        Timezone
+                      </label>
+                      <Select
+                        value={formData.timezone || undefined}
+                        onValueChange={(v) => handleInputChange('timezone', v)}
+                      >
+                        <SelectTrigger className="rounded-xl h-10">
+                          <SelectValue placeholder="Select a timezone…" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {timezones.map((z) => (
+                            <SelectItem key={z} value={z}>
+                              {z}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          Decides when this location&apos;s trading day starts and ends.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs shrink-0"
+                          onClick={() => handleInputChange('timezone', detectedTimezone())}
+                        >
+                          Use mine
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="loc-locale" className="block text-sm font-medium text-foreground">
+                        Locale
+                      </label>
+                      <Input
+                        id="loc-locale"
+                        placeholder="Leave blank to follow each reader’s browser"
+                        value={formData.locale}
+                        onChange={(e) => handleInputChange('locale', e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        A BCP-47 tag such as <code>pt-PT</code>, <code>ja-JP</code> or{' '}
+                        <code>en-GB</code>. Controls how numbers and dates are written, not
+                        which currency they are in.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Worked example of the choices above */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-primary/5 rounded-xl border border-primary/15">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">Preview</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        How an amount will appear to staff and on receipts.
+                      </p>
+                    </div>
+                    <p className="font-display text-xl font-bold text-primary">
+                      {formData.currency_code ? moneyPreview : 'No currency selected'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Reveal>
+
+            <Reveal delay={0.05}>
+              <Card variant="elevated">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <SettingsIcon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <CardTitle>Tax</CardTitle>
+                      <CardDescription className="mt-0.5">
+                        The rate, the convention and what it is called on receipts.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label htmlFor="tax_rate" className="block text-sm font-medium text-foreground">
+                        Tax rate (%)
+                      </label>
+                      <Input
+                        id="tax_rate"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                        value={formData.tax_rate}
+                        onChange={(e) => handleInputChange('tax_rate', e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Leave at 0 where the location charges no tax at the register.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="tax_label" className="block text-sm font-medium text-foreground">
+                        Tax label
+                      </label>
+                      <Input
+                        id="tax_label"
+                        placeholder="VAT, GST, Sales Tax, IVA…"
+                        value={formData.tax_label}
+                        onChange={(e) => handleInputChange('tax_label', e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        What the tax line is called on receipts and reports. Defaults to
+                        &ldquo;Tax&rdquo; when blank.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl border border-border/50">
+                    <div className="pr-4">
+                      <p className="text-sm font-medium text-foreground">Prices include tax</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        On means menu prices already contain the tax — the VAT/GST convention
+                        used across the EU, the UK, Australia, Japan and South Africa. Off
+                        means tax is added at the register, the US and Canadian sales-tax
+                        convention. This changes what customers are charged, not just what
+                        they read.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="tax_inclusive"
+                      checked={formData.tax_inclusive}
+                      onChange={(e) => handleInputChange('tax_inclusive', e.target.checked)}
+                      className="w-4 h-4 shrink-0 accent-primary border-border rounded"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </Reveal>
+
+            <Reveal delay={0.1}>
+              <Card variant="elevated">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base">Phone numbers</CardTitle>
+                  <CardDescription className="mt-0.5">
+                    The dial code used to read local numbers as international ones.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1.5 md:max-w-xs">
+                    <label htmlFor="phone_country_code" className="block text-sm font-medium text-foreground">
+                      Phone country code
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">+</span>
+                      <Input
+                        id="phone_country_code"
+                        inputMode="numeric"
+                        placeholder="1–4 digits"
+                        value={formData.phone_country_code}
+                        onChange={(e) => handleInputChange('phone_country_code', e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Digits only, without the plus. A customer who types a local number
+                      starting with 0 has it stored against this code, so the same person is
+                      not saved twice under two different numbers. Left blank, numbers must
+                      be entered in full international format.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -512,14 +919,14 @@ const LocationSettings = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-1.5">
                       <label htmlFor="delivery_fee" className="block text-sm font-medium text-foreground">
-                        Delivery fee (R)
+                        Delivery fee{symbolPreview ? ` (${symbolPreview})` : ''}
                       </label>
                       <Input
                         id="delivery_fee"
                         type="number"
-                        step="0.01"
+                        step={moneyStep}
                         min="0"
-                        placeholder="25.00"
+                        placeholder="0"
                         value={formData.delivery_fee}
                         onChange={(e) => handleInputChange('delivery_fee', e.target.value)}
                         className="rounded-xl h-10"
@@ -529,14 +936,14 @@ const LocationSettings = () => {
 
                     <div className="space-y-1.5">
                       <label htmlFor="free_delivery_threshold" className="block text-sm font-medium text-foreground">
-                        Free delivery threshold (R)
+                        Free delivery threshold{symbolPreview ? ` (${symbolPreview})` : ''}
                       </label>
                       <Input
                         id="free_delivery_threshold"
                         type="number"
-                        step="0.01"
+                        step={moneyStep}
                         min="0"
-                        placeholder="150.00"
+                        placeholder="0"
                         value={formData.free_delivery_threshold}
                         onChange={(e) => handleInputChange('free_delivery_threshold', e.target.value)}
                         className="rounded-xl h-10"

@@ -17,6 +17,7 @@ import (
 
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/money"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -519,15 +520,32 @@ func (s *Store) ConfirmOrder(ctx context.Context, customerID string) (*OrderConf
 		return nil, fmt.Errorf("confirm_order: resolve org: %w", err)
 	}
 
-	// 3. Resolve currency.
-	cur, curErr := locations.CurrencyFor(ctx, s.pool, cart.LocationID)
-	if curErr != nil {
-		log.Printf("customerchat: ConfirmOrder: CurrencyFor(%s): %v — defaulting ZAR", cart.LocationID, curErr)
-		cur = locations.Currency{Code: "ZAR", Symbol: "R", Decimals: 2}
+	// 3. Resolve currency. A failure here is fatal to the order rather than
+	// something to paper over: the ZAR/R/2 fallback that used to live here wrote
+	// currency_code='ZAR' onto a real orders row, so a Tokyo store's ¥ order was
+	// permanently recorded — and later reported, refunded and reconciled — as
+	// rand. An order denominated in the wrong currency is worse than no order.
+	cur, err := locations.CurrencyFor(ctx, s.pool, cart.LocationID)
+	if err != nil {
+		return nil, fmt.Errorf("confirm_order: resolve currency for location %s: %w", cart.LocationID, err)
 	}
 
+	// orders.currency_code carries a FK to currencies(code), so an unconfigured
+	// location must write NULL rather than ''. NULL reads as "not configured";
+	// '' would simply fail the constraint and take the order down with it.
+	var currencyCode *string
+	if cur.Code != "" {
+		code := cur.Code
+		currencyCode = &code
+	}
+
+	// The minor-unit scale is the currency's, not a literal 100. At 100 a ¥1,000
+	// cart was stored as 100,000 minor units — ¥100,000, a hundredfold
+	// overcharge — and a KWD cart was stored at a tenth of its value.
+	scale := money.Scale(cur.Decimals)
+
 	orderNumber := fmt.Sprintf("CH%08d", time.Now().UnixMilli()%100000000)
-	subtotalCents := int64(math.Round(cart.Subtotal * 100))
+	subtotalCents := int64(math.Round(cart.Subtotal * float64(scale)))
 
 	var orderID string
 	err = db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
@@ -542,14 +560,14 @@ func (s *Store) ConfirmOrder(ctx context.Context, customerID string) (*OrderConf
 			        $5, 0, 0, $5, 0, $6, 30)
 			RETURNING id::text`,
 			orgID, cart.LocationID, customerID, orderNumber,
-			subtotalCents, cur.Code,
+			subtotalCents, currencyCode,
 		).Scan(&orderID); err != nil {
 			return fmt.Errorf("insert order: %w", err)
 		}
 
 		for _, line := range cart.Lines {
-			unitCents := int64(math.Round(line.UnitPrice * 100))
-			totalCents := int64(math.Round(line.TotalPrice * 100))
+			unitCents := int64(math.Round(line.UnitPrice * float64(scale)))
+			totalCents := int64(math.Round(line.TotalPrice * float64(scale)))
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO order_items (order_id, item_id, quantity, unit_price_cents, total_price_cents)
 				VALUES ($1, $2, $3, $4, $5)`,

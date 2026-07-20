@@ -50,6 +50,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -81,6 +82,13 @@ var (
 	// ErrStatusConflict is returned when a concurrent update already moved the
 	// invoice out of the expected status (lost UPDATE race).
 	ErrStatusConflict = errors.New("invoice status changed concurrently — please refresh and retry")
+
+	// ErrCurrencyNotConfigured is returned when an invoice is created without a
+	// currency and the issuing organization has no default_currency_code set.
+	// Migration 056 removed the 'ZAR' column default precisely so this surfaces
+	// as a refusal at creation time instead of an invoice that silently claims
+	// to be denominated in rand.
+	ErrCurrencyNotConfigured = errors.New("no currency: pass currency, or set the organization's default_currency_code")
 )
 
 // ---------------------------------------------------------------------------
@@ -157,7 +165,10 @@ type CreateInvoiceReq struct {
 	Issuer           string `json:"issuer"` // "platform" | "tenant"
 	RecipientName    string `json:"recipient_name"`
 	RecipientAddress string `json:"recipient_address"`
-	Currency         string `json:"currency"` // ISO-4217, e.g. "ZAR"
+	// Currency is the ISO-4217 code the invoice is denominated in. Empty falls
+	// back to the issuing organization's default_currency_code; if that is also
+	// unset, CreateInvoice returns ErrCurrencyNotConfigured rather than guessing.
+	Currency string `json:"currency"`
 	// RecipientOrgID links the invoice to another organization (B2B invoicing).
 	// Required for tenant-issued invoices unless RecipientCustomerID is set.
 	RecipientOrgID *string `json:"recipient_org_id"`
@@ -465,10 +476,6 @@ func (s *Store) CreateInvoice(ctx context.Context, req CreateInvoiceReq, vatNumb
 	}
 	total := subtotal + vatCents
 
-	if req.Currency == "" {
-		req.Currency = "ZAR"
-	}
-
 	snapJSON, err := json.Marshal(recipientSnapshot{
 		Name:    req.RecipientName,
 		Address: req.RecipientAddress,
@@ -486,6 +493,30 @@ func (s *Store) CreateInvoice(ctx context.Context, req CreateInvoiceReq, vatNumb
 
 	var inv Invoice
 	err = db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
+		// invoices.currency is NOT NULL with a char_length = 3 CHECK, so it must
+		// be a real code. When the caller did not name one, take the issuing
+		// organization's configured default — the invoice is issued BY that org,
+		// so its currency is the one the invoice is actually denominated in.
+		//
+		// The old fallback wrote 'ZAR' onto a legal document. An invoice is the
+		// instrument a customer pays against and a tax authority audits; naming
+		// the wrong currency on it is not a display bug, it misstates the debt.
+		currency := req.Currency
+		if currency == "" {
+			var orgCurrency *string
+			if err := tx.QueryRow(ctx, `
+SELECT default_currency_code FROM organizations WHERE id = current_org_id()
+`).Scan(&orgCurrency); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("resolve issuer currency: %w", err)
+			}
+			if orgCurrency != nil {
+				currency = strings.TrimSpace(*orgCurrency)
+			}
+		}
+		if currency == "" {
+			return ErrCurrencyNotConfigured
+		}
+
 		row := tx.QueryRow(ctx, `
 INSERT INTO invoices
     (issuer, issuer_org_id,
@@ -502,7 +533,7 @@ VALUES
 RETURNING`+invoiceSelectCols,
 			req.Issuer,
 			req.RecipientOrgID, req.RecipientCustomerID,
-			snapJSON, req.Currency,
+			snapJSON, currency,
 			subtotal, vatCents, vatRate, vatApplied, total,
 			invoiceNum,
 			metaJSON,

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/beepbite/backend/internal/money"
 )
 
 // ---------------------------------------------------------------------------
@@ -264,28 +266,43 @@ func insertOneOrder(s *seeder, tx pgx.Tx, c *Ctx, rng *rand.Rand, itemNames []st
 
 	var deliveryFeeCents int64
 	if fc.fulfillment == "delivery" {
-		deliveryFeeCents = 3500
+		deliveryFeeCents = s.cfg.Price(3500)
 	}
 
+	// Gratuity and discount are percentages of the subtotal. The percentage is
+	// drawn as an integer basis-point count and applied with DivRound, so no
+	// float ever touches a money value — `int64(float64(subtotal) * pct)`
+	// truncated toward zero and disagreed with the tax engine's rounding.
 	var gratuityCents int64
 	if fc.fulfillment == "dine_in" && rng.Float64() < 0.55 {
-		pct := 0.10 + rng.Float64()*0.05 // 10-15%
-		gratuityCents = int64(float64(subtotalCents) * pct)
+		bp := int64(1000 + rng.Intn(501)) // 10.00%-15.00%
+		gratuityCents = money.DivRound(subtotalCents*bp, 10000)
 	}
 
 	var discountCents int64
 	if rng.Float64() < 0.05 {
-		pct := 0.05 + rng.Float64()*0.10 // 5-15%
-		discountCents = int64(float64(subtotalCents) * pct)
+		bp := int64(500 + rng.Intn(1001)) // 5.00%-15.00%
+		discountCents = money.DivRound(subtotalCents*bp, 10000)
 	}
 
-	totalCents := subtotalCents + deliveryFeeCents + gratuityCents - discountCents
-	if totalCents < 0 {
-		totalCents = 0
+	amountCents := subtotalCents + deliveryFeeCents + gratuityCents - discountCents
+	if amountCents < 0 {
+		amountCents = 0
 	}
 
-	// VAT-inclusive tax component (tax_rate=15%, tax_inclusive=true).
-	taxCents := int64(float64(totalCents) * 15.0 / 115.0)
+	// Tax comes from the configured rate and convention, not from a literal
+	// `total * 15 / 115`. That expression hardcoded both the rate and the
+	// inclusive convention, and being float arithmetic it disagreed with the
+	// integer tax engine by a cent often enough to make seeded orders fail
+	// their own totals check.
+	//
+	// TaxOn handles both conventions: under an inclusive locale amountCents is
+	// already the gross and Gross == amountCents, while under an exclusive one
+	// it is the net and the tax is added on top — so the total must be read
+	// back from the result rather than assumed unchanged.
+	taxed := s.cfg.TaxOn(amountCents)
+	taxCents := taxed.Tax
+	totalCents := taxed.Gross
 
 	orderNum := fmt.Sprintf("CT-%05d", orderSeq)
 
@@ -302,13 +319,16 @@ func insertOneOrder(s *seeder, tx pgx.Tx, c *Ctx, rng *rand.Rand, itemNames []st
 			$1,$2,$3,
 			'completed',$4,$5,
 			$6,$7,$8,$9,$10,$11,
-			15.00,true,'ZAR',
-			$12,
-			$13,$13
+			$12,$13,$14,
+			$15,
+			$16,$16
 		) RETURNING id
 	`, c.LocID, c.OrgID, orderNum,
 		fc.fulfillment, fc.orderType,
 		subtotalCents, deliveryFeeCents, discountCents, taxCents, gratuityCents, totalCents,
+		// tax_rate and tax_inclusive are snapshotted onto the order, which is
+		// what lets a later locale change leave historical takings alone.
+		s.cfg.TaxRatePercent(), s.cfg.TaxInclusive(), s.cfg.Currency,
 		customerID,
 		orderAt,
 	).Scan(&orderID)
@@ -359,6 +379,10 @@ func pickPaymentMethod(rng *rand.Rand, fulfillment string) string {
 // Cash drawer: one register, a few closed sessions + one open session.
 // ---------------------------------------------------------------------------
 
+// openingFloatRef is the drawer's starting float, authored in the 2-decimal
+// reference scale and rescaled per currency like every other seeded amount.
+const openingFloatRef = 100000
+
 func seedCashDrawer(s *seeder, c *Ctx) error {
 	var existing int
 	if err := s.pool.QueryRow(s.ctx,
@@ -405,10 +429,12 @@ func seedCashDrawer(s *seeder, c *Ctx) error {
 			openedAt := day.Add(8 * time.Hour)
 			closedAt := day.Add(22 * time.Hour)
 
-			openingFloat := int64(100000)
-			salesCents := int64(18000 + rng.Intn(30000))
+			openingFloat := s.cfg.Price(openingFloatRef)
+			salesCents := s.cfg.Price(int64(18000 + rng.Intn(30000)))
 			expectedClosing := openingFloat + salesCents
-			overShort := int64(rng.Intn(1500)) - 700 // small over/short variance
+			// A small over/short variance, drawn in the reference scale before
+			// rescaling so it stays a plausible miscount in any currency.
+			overShort := s.cfg.Price(int64(rng.Intn(1500)) - 700)
 			declaredClosing := expectedClosing + overShort
 
 			if _, err := tx.Exec(s.ctx, `
@@ -438,10 +464,10 @@ func seedCashDrawer(s *seeder, c *Ctx) error {
 				status, opened_at, cashier_label
 			) VALUES (
 				$1,$2,
-				100000,
-				'open',$3,'Front Register'
+				$3,
+				'open',$4,'Front Register'
 			)
-		`, drawerID, openedBy, openedAt); err != nil {
+		`, drawerID, openedBy, s.cfg.Price(openingFloatRef), openedAt); err != nil {
 			return fmt.Errorf("insert open cash_drawer_session: %w", err)
 		}
 

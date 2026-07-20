@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/dialog';
 import { ShoppingCart, Plus, AlertCircle, ChevronRight, Send } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useDateTime, useLocale } from '@/context/locale-context';
+import { formatMoney } from '@/lib/currency';
 import { usePOs } from './hooks/use-pos';
 import { useSuppliers } from './hooks/use-suppliers';
 import { POForm } from './components/po-form';
@@ -41,17 +43,10 @@ const STATUS_COLORS = {
   closed: 'bg-gray-200 text-gray-600',
 };
 
-function fmtCents(cents) {
-  return `R ${((cents ?? 0) / 100).toFixed(2)}`;
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString();
-}
-
 export default function PurchaseOrdersPage() {
   const { activeLocation, activeOrganization } = useAuth();
+  const { locale } = useLocale();
+  const { formatDate } = useDateTime();
   const [statusFilter, setStatusFilter] = useState('all');
   const { pos, loading, error, refetch, createPO, submitPO } = usePOs(activeLocation?.id, statusFilter);
   const { suppliers } = useSuppliers(activeOrganization?.id);
@@ -63,6 +58,13 @@ export default function PurchaseOrdersPage() {
   const [detailPO, setDetailPO] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState('');
+
+  // Each PO carries its own currency: a supplier may invoice the store in a
+  // currency the store does not trade in, so the record wins over the location.
+  const fmtCents = (cents, currency) =>
+    formatMoney(cents ?? 0, { currency, locale });
+
+  const fmtDate = (iso) => (iso ? formatDate(iso) : '—');
 
   if (!activeLocation) {
     return (
@@ -179,7 +181,7 @@ export default function PurchaseOrdersPage() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-gray-900">{fmtCents(po.total_cents)}</p>
+                  <p className="font-semibold text-gray-900">{fmtCents(po.total_cents, po.currency)}</p>
                   <p className="text-xs text-gray-500">{po.currency}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
@@ -227,10 +229,10 @@ export default function PurchaseOrdersPage() {
                   <div><span className="text-gray-500">Currency</span><br />{detailPO.currency}</div>
                 </div>
                 <div className="border border-orange-100 rounded p-3 space-y-1 mt-2">
-                  <div className="flex justify-between"><span>Subtotal</span><span>{fmtCents(detailPO.subtotal_cents)}</span></div>
-                  <div className="flex justify-between"><span>Tax</span><span>{fmtCents(detailPO.tax_cents)}</span></div>
-                  <div className="flex justify-between"><span>Shipping</span><span>{fmtCents(detailPO.shipping_cents)}</span></div>
-                  <div className="flex justify-between font-semibold border-t border-orange-100 pt-1"><span>Total</span><span>{fmtCents(detailPO.total_cents)}</span></div>
+                  <div className="flex justify-between"><span>Subtotal</span><span>{fmtCents(detailPO.subtotal_cents, detailPO.currency)}</span></div>
+                  <div className="flex justify-between"><span>Tax</span><span>{fmtCents(detailPO.tax_cents, detailPO.currency)}</span></div>
+                  <div className="flex justify-between"><span>Shipping</span><span>{fmtCents(detailPO.shipping_cents, detailPO.currency)}</span></div>
+                  <div className="flex justify-between font-semibold border-t border-orange-100 pt-1"><span>Total</span><span>{fmtCents(detailPO.total_cents, detailPO.currency)}</span></div>
                 </div>
                 {detailPO.notes && <p className="text-gray-500 italic">{detailPO.notes}</p>}
               </div>

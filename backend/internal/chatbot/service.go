@@ -36,17 +36,25 @@ func NewWithMapbox(pool *pgxpool.Pool, wa *whatsapp.Client, mb *mapbox.Client) *
 	return &Service{pool: pool, wa: wa, mapbox: mb}
 }
 
-// currencySymbolFor returns the currency symbol for a location (e.g. "R" for
-// ZAR).  Falls back to "R" on any error so the chatbot never surfaces a DB
-// failure to the customer.
+// currencySymbolFor returns the currency symbol configured for a location.
+//
+// It returns "" — not a guessed symbol — when the location is unknown or the
+// lookup fails. The previous "R" fallback quoted every price in the WhatsApp
+// ordering flow in rand: a Lisbon customer was shown "R 45.00" for a €45 basket
+// and had no way to tell the symbol was invented rather than configured. A
+// missing symbol prints a bare "45.00", which is ambiguous but not false, and
+// the customer's own context supplies the currency.
+//
+// Errors are still swallowed (logged, not returned) so a transient DB failure
+// degrades the price formatting rather than breaking the conversation.
 func (s *Service) currencySymbolFor(ctx context.Context, locationID string) string {
 	if locationID == "" {
-		return "R"
+		return ""
 	}
 	cur, err := locations.CurrencyFor(ctx, s.pool, locationID)
 	if err != nil {
-		log.Printf("chatbot: currencySymbolFor(%s): %v — falling back to R", locationID, err)
-		return "R"
+		log.Printf("chatbot: currencySymbolFor(%s): %v — rendering amounts without a symbol", locationID, err)
+		return ""
 	}
 	return cur.Symbol
 }

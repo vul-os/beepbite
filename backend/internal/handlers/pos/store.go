@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"time"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/money"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -124,14 +127,44 @@ type OrderLineInput struct {
 // ---------------------------------------------------------------------------
 
 // CreatedOrder is the response returned after successfully creating an order.
+//
+// Amounts are published twice. The *_minor fields are the authoritative ones:
+// integer minor units, exactly as stored, with CurrencyDecimals saying how many
+// of them make a major unit. The bare float fields are the original API shape
+// and are retained for compatibility — they are now scaled by the currency's
+// real exponent rather than by a literal 100, which had been rendering ¥1000 as
+// 10.0 and KD 1.000 as 10.00.
+//
+// New clients should read the *_minor fields; the floats will be removed once
+// nothing depends on them.
 type CreatedOrder struct {
-	OrderID      string   `json:"order_id"`
-	OrderNumber  string   `json:"order_number"`
-	Subtotal     float64  `json:"subtotal"`
-	Tax          float64  `json:"tax"`
-	Gratuity     float64  `json:"gratuity"`
-	Total        float64  `json:"total"`
-	CurrencyCode string   `json:"currency_code"`
+	OrderID     string `json:"order_id"`
+	OrderNumber string `json:"order_number"`
+
+	SubtotalMinor int64 `json:"subtotal_minor"`
+	TaxMinor      int64 `json:"tax_minor"`
+	GratuityMinor int64 `json:"gratuity_minor"`
+	TotalMinor    int64 `json:"total_minor"`
+
+	Subtotal float64 `json:"subtotal"`
+	Tax      float64 `json:"tax"`
+	Gratuity float64 `json:"gratuity"`
+	Total    float64 `json:"total"`
+
+	CurrencyCode string `json:"currency_code"`
+	// CurrencyDecimals is the ISO-4217 minor-unit exponent (0 for JPY, 2 for
+	// most, 3 for KWD). Clients need it to render the *_minor fields and must
+	// not assume 2.
+	CurrencyDecimals int `json:"currency_decimals"`
+
+	// TaxRate is the percentage applied, and TaxInclusive reports whether the
+	// line prices already contained it. Both are snapshotted onto the order.
+	TaxRate      float64 `json:"tax_rate"`
+	TaxInclusive bool    `json:"tax_inclusive"`
+	// TaxLabel is what the receipt should call the tax ("VAT", "GST",
+	// "Sales Tax"). Never assume "VAT" — it does not exist in every country.
+	TaxLabel string `json:"tax_label"`
+
 	KDSTicketIDs []string `json:"kds_ticket_ids"`
 	// Status reflects the on-delivery fallback: "pending_on_delivery" when
 	// payment is deferred to handover; "confirmed" for the normal path.
@@ -262,6 +295,20 @@ func (s *Store) CreateOrder(
 		dailySoldCount   int
 		dailyCounterDate *string // date as string, NULL when never set
 	}
+	// Resolve the location's full locale settings BEFORE any price arithmetic
+	// (5-min cached, one query). Two fields matter here:
+	//
+	//   Currency.Decimals — the minor-unit exponent every price conversion
+	//     below depends on. This used to be resolved AFTER the totals were
+	//     computed, so the exponent could not be consulted where it mattered.
+	//   Zone()            — the timezone that defines this location's trading
+	//     day, and therefore which day the order number belongs to.
+	settings, err := locations.SettingsFor(ctx, s.pool, locationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolving location settings: %w", err)
+	}
+	cur := settings.Currency
+
 	itemCache := make(map[string]itemRow, len(lines))
 	for _, line := range lines {
 		if _, cached := itemCache[line.ItemID]; cached {
@@ -299,7 +346,11 @@ func (s *Store) CreateOrder(
 
 	for i, line := range lines {
 		baseItem := itemCache[line.ItemID]
-		baseCents := int64(math.Round(baseItem.price * 100))
+		// items.price is a decimal(10,2) in MAJOR units; the rest of the order
+		// math is in minor units. The multiplier is the currency's exponent,
+		// not 100: a ¥1000 item priced as 1000.00 is 1000 minor units, and
+		// ×100 would have charged the customer ¥100,000.
+		baseCents := int64(math.Round(baseItem.price * float64(money.Scale(cur.Decimals))))
 		extra := int64(0)
 
 		if len(line.Modifiers) > 0 {
@@ -340,13 +391,24 @@ func (s *Store) CreateOrder(
 		subtotalCents += lineUnitCents[i] * int64(line.Quantity)
 	}
 
-	taxRate, err := TaxRateFor(ctx, s.pool, locationID)
+	taxCfg, err := TaxConfigFor(ctx, s.pool, locationID)
 	if err != nil {
-		return nil, fmt.Errorf("resolving tax rate: %w", err)
+		return nil, fmt.Errorf("resolving tax configuration: %w", err)
 	}
-	// Tax-exclusive: tax is added on top of the subtotal (matches prior behaviour).
-	taxCents := int64(math.Round(float64(subtotalCents) * taxRate / 100.0))
-	totalCents := subtotalCents + taxCents
+	// Whether the subtotal already contains the tax is a property of the
+	// location, not of this code path. This handler previously applied the
+	// exclusive formula unconditionally while writing tax_inclusive=true (the
+	// old schema default) onto the row — so a South African order was recorded
+	// as VAT-inclusive and charged as if VAT-exclusive, overcharging the
+	// customer by the full tax on every POS sale.
+	//
+	// tax.Compute reads the location's convention and does the right one:
+	// inclusive extracts the tax from the subtotal, exclusive adds it on top.
+	taxResult := taxCfg.Compute(subtotalCents)
+	taxRate := taxCfg.Rate.Percent()
+	taxInclusive := taxCfg.Inclusive
+	taxCents := taxResult.Tax
+	totalCents := taxResult.Gross
 
 	// --- 4b. Auto-gratuity (Wave 24) ---
 	// If the location has auto_gratuity_enabled and the order's party_size meets
@@ -361,19 +423,26 @@ func (s *Store) CreateOrder(
 		autoGratuityPercent > 0 &&
 		autoGratuityMinParty > 0 &&
 		effectivePartySize >= autoGratuityMinParty {
-		gratuityCents = int64(math.Round(float64(subtotalCents) * autoGratuityPercent / 100.0))
+		// Integer arithmetic with the same half-away-from-zero rounding the tax
+		// engine uses, so a gratuity on a refunded order reverses exactly.
+		// Basis points keep the percentage exact: 18.00% is 1800, not a float
+		// that drifts.
+		gratuityBP := int64(math.Round(autoGratuityPercent * 100))
+		gratuityCents = money.DivRound(subtotalCents*gratuityBP, 10000)
 		totalCents += gratuityCents
-	}
-
-	// Resolve per-store currency (with 5-min cache).
-	cur, err := locations.CurrencyFor(ctx, s.pool, locationID)
-	if err != nil {
-		return nil, fmt.Errorf("resolving currency: %w", err)
 	}
 
 	// --- 5. Generate sequential order_number per location ---
 	// Uses MAX over today's orders as a lightweight sequence; good enough for a
 	// POS that doesn't need gapless numbering.
+	//
+	// Scoped by the location's TRADING day, not the UTC day. The old query
+	// compared UTC day-truncations, which for a Los Angeles store rolled the
+	// counter over at 16:00 — restarting the numbering in the middle of dinner
+	// service. businessDate is stored on the row (migration 057) so the MAX()
+	// here and the unique index that enforces it agree by construction.
+	businessDate := bizday.Date(time.Now(), settings.Zone())
+
 	var maxSeq int
 	if err := tx.QueryRow(ctx, `
 		SELECT COALESCE(MAX(
@@ -384,8 +453,8 @@ func (s *Store) CreateOrder(
 		), 0)
 		FROM orders
 		WHERE location_id = $1
-		  AND date_trunc('day', created_at AT TIME ZONE 'UTC') = date_trunc('day', now() AT TIME ZONE 'UTC')
-	`, locationID).Scan(&maxSeq); err != nil {
+		  AND business_date = $2::date
+	`, locationID, businessDate).Scan(&maxSeq); err != nil {
 		return nil, err
 	}
 	orderNumber := fmt.Sprintf("POS%04d", maxSeq+1)
@@ -411,15 +480,21 @@ func (s *Store) CreateOrder(
 		    organization_id, location_id, customer_id, order_number,
 		    order_type, fulfillment_type, status, table_session_id,
 		    subtotal_cents, tax_cents, total_cents, tax_rate, tax_inclusive,
-		    currency_code, estimated_prep_time, notes, gratuity_cents
+		    currency_code, estimated_prep_time, notes, gratuity_cents,
+		    business_date
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, $13, 20, $14, $15)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 20, $15, $16, $17::date)
 		RETURNING id
 	`,
 		*orgID, locationID, nullStr(customerID), orderNumber,
 		orderType, fulfillmentTypeFor(orderType), initialStatus, nullStr(tableSessionID),
-		subtotalCents, taxCents, totalCents, taxRate,
+		// tax_inclusive is snapshotted from the location's configuration rather
+		// than hardcoded (it was a literal `false` here). Snapshotting matters:
+		// if the operator later switches convention, this order must still
+		// reconcile against the money that was actually taken for it.
+		subtotalCents, taxCents, totalCents, taxRate, taxInclusive,
 		cur.Code, notes, gratuityCents,
+		businessDate,
 	).Scan(&orderID); err != nil {
 		return nil, err
 	}
@@ -442,24 +517,32 @@ func (s *Store) CreateOrder(
 		if item.dailyQuantity != nil {
 			// Use a SELECT … FOR UPDATE on the items row so concurrent orders
 			// for the same item serialise at the row level within the tx.
+			//
+			// The "today" this resets against is the location's TRADING day,
+			// passed in as businessDate, not Postgres's CURRENT_DATE. Three
+			// different day definitions were in play across this codebase —
+			// UTC, the Postgres session timezone, and the Go server's local
+			// time — so a "12 portions a day" item could replenish at a
+			// different hour than the order counter reset, and neither matched
+			// the kitchen's actual day.
 			var remaining int
 			if err := tx.QueryRow(ctx, `
 				UPDATE items
 				SET daily_sold_count = CASE
-				        WHEN daily_counter_date IS DISTINCT FROM CURRENT_DATE
+				        WHEN daily_counter_date IS DISTINCT FROM $3::date
 				        THEN $1
 				        ELSE daily_sold_count + $1
 				    END,
-				    daily_counter_date = CURRENT_DATE
+				    daily_counter_date = $3::date
 				WHERE id = $2
 				  AND daily_quantity IS NOT NULL
 				RETURNING daily_quantity - CASE
-				        WHEN (daily_counter_date IS DISTINCT FROM CURRENT_DATE
+				        WHEN (daily_counter_date IS DISTINCT FROM $3::date
 				              OR daily_counter_date IS NULL)
 				        THEN 0
 				        ELSE daily_sold_count
 				    END
-			`, line.Quantity, line.ItemID).Scan(&remaining); err != nil {
+			`, line.Quantity, line.ItemID, businessDate).Scan(&remaining); err != nil {
 				return nil, fmt.Errorf("daily countdown for item %s: %w", line.ItemID, err)
 			}
 			// remaining = daily_quantity - new_sold_count (stock left AFTER this
@@ -525,14 +608,31 @@ func (s *Store) CreateOrder(
 		return nil, err
 	}
 
+	// The currency's own exponent, not 100. For a JPY location minorScale is 1,
+	// so ¥1000 publishes as 1000.0 rather than 10.0.
+	minorScale := float64(money.Scale(cur.Decimals))
+
 	return &CreatedOrder{
-		OrderID:       orderID,
-		OrderNumber:   orderNumber,
-		Subtotal:      float64(subtotalCents) / 100,
-		Tax:           float64(taxCents) / 100,
-		Gratuity:      float64(gratuityCents) / 100,
-		Total:         float64(totalCents) / 100,
-		CurrencyCode:  cur.Code,
+		OrderID:     orderID,
+		OrderNumber: orderNumber,
+
+		SubtotalMinor: subtotalCents,
+		TaxMinor:      taxCents,
+		GratuityMinor: gratuityCents,
+		TotalMinor:    totalCents,
+
+		Subtotal: float64(subtotalCents) / minorScale,
+		Tax:      float64(taxCents) / minorScale,
+		Gratuity: float64(gratuityCents) / minorScale,
+		Total:    float64(totalCents) / minorScale,
+
+		CurrencyCode:     cur.Code,
+		CurrencyDecimals: cur.Decimals,
+
+		TaxRate:      taxRate,
+		TaxInclusive: taxInclusive,
+		TaxLabel:     taxCfg.EffectiveLabel(),
+
 		KDSTicketIDs:  kdsTicketIDs,
 		Status:        initialStatus,
 		PaymentMethod: initialPaymentMethod,

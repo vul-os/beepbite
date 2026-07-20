@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Banknote, CheckCircle2, Delete, Loader2 } from 'lucide-react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,32 +14,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useMoney } from '@/context/locale-context';
+import { quickTenderValues } from '@/lib/denominations';
 
 // ---------------------------------------------------------------------------
-// Money helpers — all arithmetic stays in integer cents to avoid float drift.
-// Display-only conversion happens at the render boundary.
+// Money helpers — all arithmetic stays in integer minor units to avoid float
+// drift. Display-only conversion happens at the render boundary.
 // ---------------------------------------------------------------------------
-const centsToDisplay = (cents) => {
-  const abs = Math.abs(cents);
-  const rands = (abs / 100).toFixed(2);
-  return `R ${rands}`;
-};
-
-const displayToCents = (str) => {
-  const n = parseFloat(str);
-  if (isNaN(n) || n < 0) return 0;
-  return Math.round(n * 100);
-};
-
-// SA banknote denominations in cents.
-const SA_NOTES = [
-  { label: 'Exact', value: null },   // sentinel — handled specially
-  { label: 'R 20',  value: 2000 },
-  { label: 'R 50',  value: 5000 },
-  { label: 'R 100', value: 10000 },
-  { label: 'R 200', value: 20000 },
-  { label: 'R 500', value: 50000 },
-];
 
 // Round up `cents` to the nearest multiple of `denom`.
 const roundUpTo = (cents, denom) => Math.ceil(cents / denom) * denom;
@@ -59,17 +40,43 @@ export default function CashTenderModal({
   const [rawInput, setRawInput] = useState('');
   const [confirmed, setConfirmed] = useState(false);
 
+  const { format, parse, currency, symbol, scale, decimals } = useMoney();
+
+  // The raw string is an <input type="number"> value, so it stays a plain
+  // '.'-separated decimal rather than localised text. A zero-decimal currency
+  // (JPY) shows '1000', not '1000.00'.
+  const toInput = useCallback(
+    (minor) => (minor / scale).toFixed(decimals),
+    [scale, decimals],
+  );
+
   // Reset every time the modal opens.
   useEffect(() => {
     if (open) {
-      setRawInput((amountDueCents / 100).toFixed(2));
+      setRawInput(toInput(amountDueCents));
       setConfirmed(false);
     }
-  }, [open, amountDueCents]);
+  }, [open, amountDueCents, toInput]);
 
-  const tenderedCents = displayToCents(rawInput);
+  // Parsed against the currency: '1000' tendered in a JPY store is ¥1000, which
+  // a literal ×100 would read as ¥100 000 and hand back the difference.
+  const parsed = parse(rawInput);
+  const tenderedCents = parsed && parsed > 0 ? parsed : 0;
   const changeCents   = tenderedCents - amountDueCents;
   const canConfirm    = tenderedCents >= amountDueCents && !submitting;
+
+  // Quick-tender chips are the currency's own notes; the "Exact" sentinel stays
+  // first. Labels are rendered, never stored — that is how 'R 200' got baked in.
+  const chips = useMemo(
+    () => [
+      { label: 'Exact', value: null },
+      ...quickTenderValues(currency).map((minor) => ({
+        label: format(minor),
+        value: minor,
+      })),
+    ],
+    [currency, format],
+  );
 
   // ------------------------------------------------------------------
   // Numpad handler — builds the raw string character by character.
@@ -80,16 +87,18 @@ export default function CashTenderModal({
       return;
     }
     setRawInput((prev) => {
+      // A zero-decimal currency (JPY, KRW) has no fractional part to type.
+      if (key === '.' && decimals === 0) return prev;
       // Prevent multiple decimal points.
       if (key === '.' && prev.includes('.')) return prev;
-      // Limit to 2 decimal places.
+      // Limit to the currency's own number of decimal places.
       const dotIdx = prev.indexOf('.');
-      if (dotIdx !== -1 && prev.length - dotIdx > 2) return prev;
+      if (dotIdx !== -1 && prev.length - dotIdx > decimals) return prev;
       // Replace leading lone zero (unless we're adding a decimal).
       if (prev === '0' && key !== '.') return key;
       return prev + key;
     });
-  }, []);
+  }, [decimals]);
 
   // ------------------------------------------------------------------
   // Quick-cash chip handler.
@@ -97,13 +106,13 @@ export default function CashTenderModal({
   const handleChip = useCallback((chip) => {
     if (chip.value === null) {
       // "Exact" — pre-fill exact amount due.
-      setRawInput((amountDueCents / 100).toFixed(2));
+      setRawInput(toInput(amountDueCents));
       return;
     }
     // Round up the amount due to the nearest multiple of this denomination.
     const rounded = roundUpTo(amountDueCents, chip.value);
-    setRawInput((rounded / 100).toFixed(2));
-  }, [amountDueCents]);
+    setRawInput(toInput(rounded));
+  }, [amountDueCents, toInput]);
 
   // ------------------------------------------------------------------
   const handleConfirm = () => {
@@ -132,7 +141,7 @@ export default function CashTenderModal({
               Amount due
             </p>
             <p className="text-4xl font-bold tabular-nums tracking-tight">
-              {centsToDisplay(amountDueCents)}
+              {format(Math.abs(amountDueCents))}
             </p>
           </div>
 
@@ -143,12 +152,12 @@ export default function CashTenderModal({
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
-                R
+                {symbol}
               </span>
               <Input
                 type="number"
                 min="0"
-                step="0.01"
+                step={String(1 / scale)}
                 className="pl-7 text-lg font-semibold tabular-nums h-11"
                 value={rawInput}
                 onChange={(e) => setRawInput(e.target.value)}
@@ -158,7 +167,7 @@ export default function CashTenderModal({
 
           {/* Quick-cash chips */}
           <div className="flex flex-wrap gap-1.5">
-            {SA_NOTES.map((chip) => (
+            {chips.map((chip) => (
               <button
                 key={chip.label}
                 type="button"
@@ -187,8 +196,8 @@ export default function CashTenderModal({
               )}
             >
               {changeCents >= 0
-                ? centsToDisplay(changeCents)
-                : `- ${centsToDisplay(Math.abs(changeCents))}`}
+                ? format(changeCents)
+                : `- ${format(Math.abs(changeCents))}`}
             </p>
           </div>
 

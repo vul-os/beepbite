@@ -30,6 +30,8 @@ import (
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/tax"
 )
 
 // ---------------------------------------------------------------------------
@@ -66,12 +68,28 @@ type modifyOrderReq struct {
 }
 
 // ModifiedOrder is returned on a successful modification.
+//
+// As with CreatedOrder, the *_minor fields are authoritative integer minor
+// units and CurrencyDecimals says how many make a major unit. The float fields
+// are the legacy shape, now scaled by the currency's real exponent instead of a
+// literal 100.
 type ModifiedOrder struct {
-	OrderID      string   `json:"order_id"`
-	Subtotal     float64  `json:"subtotal"`
-	Tax          float64  `json:"tax"`
-	Total        float64  `json:"total"`
-	CurrencyCode string   `json:"currency_code"`
+	OrderID string `json:"order_id"`
+
+	SubtotalMinor int64 `json:"subtotal_minor"`
+	TaxMinor      int64 `json:"tax_minor"`
+	TotalMinor    int64 `json:"total_minor"`
+
+	Subtotal float64 `json:"subtotal"`
+	Tax      float64 `json:"tax"`
+	Total    float64 `json:"total"`
+
+	CurrencyCode     string `json:"currency_code"`
+	CurrencyDecimals int    `json:"currency_decimals"`
+
+	TaxRate      float64 `json:"tax_rate"`
+	TaxInclusive bool    `json:"tax_inclusive"`
+
 	KDSTicketIDs []string `json:"kds_ticket_ids"`
 }
 
@@ -173,11 +191,24 @@ func (s *Store) ModifyOrderItems(
 	}
 
 	// --- 1. Lock the order and resolve location_id / organization_id ---
+	// The order's own tax_rate / tax_inclusive / currency_code are read under
+	// the same lock and REUSED below rather than re-resolved from the location.
+	//
+	// Editing an order must not restate it. If the operator changed their rate,
+	// switched from tax-inclusive to tax-exclusive, or moved currency between
+	// the sale and the edit, recomputing from today's settings would silently
+	// alter money that has in many cases already been taken. The snapshot on
+	// the row is what the customer agreed to.
 	var locationID, orgID string
+	var orderTaxRate float64
+	var orderTaxInclusive bool
+	var orderCurrency *string
 	err = tx.QueryRow(ctx,
-		`SELECT location_id, organization_id FROM orders WHERE id = $1 FOR UPDATE`,
+		`SELECT location_id, organization_id,
+		        CAST(tax_rate AS float8), tax_inclusive, currency_code
+		   FROM orders WHERE id = $1 FOR UPDATE`,
 		orderID,
-	).Scan(&locationID, &orgID)
+	).Scan(&locationID, &orgID, &orderTaxRate, &orderTaxInclusive, &orderCurrency)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrOrderNotFound
 	}
@@ -239,12 +270,26 @@ func (s *Store) ModifyOrderItems(
 		name            string
 		priceDeltaCents int64
 	}
+	// The order's stored currency is authoritative; the location's current
+	// setting is only a fallback for rows written before currency_code was
+	// populated. Resolved before the price loop because its Decimals is the
+	// exponent every conversion below depends on.
+	cur, err := locations.CurrencyFor(ctx, s.pool, locationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolving currency: %w", err)
+	}
+	if orderCurrency != nil && *orderCurrency != "" {
+		cur.Code = *orderCurrency
+	}
+
 	lineUnitCents := make([]int64, len(lines))
 	lineModifiers := make([][]resolvedModifier, len(lines))
 
 	for i, line := range lines {
 		baseItem := itemCache[line.ItemID]
-		baseCents := int64(math.Round(baseItem.price * 100))
+		// The currency's exponent, not 100 — see CreateOrder for why ×100
+		// would charge a yen customer a hundred times over.
+		baseCents := int64(math.Round(baseItem.price * float64(money.Scale(cur.Decimals))))
 		extra := int64(0)
 
 		if len(line.Modifiers) > 0 {
@@ -282,17 +327,18 @@ func (s *Store) ModifyOrderItems(
 		subtotalCents += lineUnitCents[i] * int64(line.Quantity)
 	}
 
-	taxRate, err := TaxRateFor(ctx, s.pool, locationID)
-	if err != nil {
-		return nil, fmt.Errorf("resolving tax rate: %w", err)
+	// Apply the order's own snapshotted tax posture. This handler previously
+	// applied the exclusive formula unconditionally, so editing a
+	// tax-inclusive order recomputed its total as if the price had never
+	// included tax — adding the full tax a second time.
+	orderTax := tax.Config{
+		Rate:      tax.RateFromPercent(orderTaxRate),
+		Inclusive: orderTaxInclusive,
 	}
-	taxCents := int64(math.Round(float64(subtotalCents) * taxRate / 100.0))
-	totalCents := subtotalCents + taxCents
-
-	cur, err := locations.CurrencyFor(ctx, s.pool, locationID)
-	if err != nil {
-		return nil, fmt.Errorf("resolving currency: %w", err)
-	}
+	taxResult := orderTax.Compute(subtotalCents)
+	taxRate := orderTaxRate
+	taxCents := taxResult.Tax
+	totalCents := taxResult.Gross
 
 	// --- 7. Delete existing order_items (cascades to order_item_modifiers) ---
 	if _, err := tx.Exec(ctx,
@@ -398,12 +444,25 @@ func (s *Store) ModifyOrderItems(
 		return nil, err
 	}
 
+	minorScale := float64(money.Scale(cur.Decimals))
+
 	return &ModifiedOrder{
-		OrderID:      orderID,
-		Subtotal:     float64(subtotalCents) / 100,
-		Tax:          float64(taxCents) / 100,
-		Total:        float64(totalCents) / 100,
-		CurrencyCode: cur.Code,
+		OrderID: orderID,
+
+		SubtotalMinor: subtotalCents,
+		TaxMinor:      taxCents,
+		TotalMinor:    totalCents,
+
+		Subtotal: float64(subtotalCents) / minorScale,
+		Tax:      float64(taxCents) / minorScale,
+		Total:    float64(totalCents) / minorScale,
+
+		CurrencyCode:     cur.Code,
+		CurrencyDecimals: cur.Decimals,
+
+		TaxRate:      taxRate,
+		TaxInclusive: orderTaxInclusive,
+
 		KDSTicketIDs: kdsTicketIDs,
 	}, nil
 }

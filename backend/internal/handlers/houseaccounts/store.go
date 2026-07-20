@@ -124,8 +124,16 @@ func (s *Store) CreateAccount(
 INSERT INTO house_accounts (
     organization_id, account_name,
     contact_name, contact_email, contact_phone, billing_address,
-    credit_limit_cents, net_terms_days, notes
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    credit_limit_cents, net_terms_days, notes,
+    currency
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,
+    -- The organization's own currency. This column used to inherit a
+    -- DEFAULT 'ZAR' from the schema (dropped in migration 056), so a house
+    -- account opened by a Tokyo operator was denominated in rand while its
+    -- balance accumulated yen. Resolving it from the org is the only reading
+    -- that is right for every operator.
+    (SELECT default_currency_code FROM organizations WHERE id = $1)
+)
 RETURNING
     id, organization_id, account_name,
     contact_name, contact_email, contact_phone, billing_address,

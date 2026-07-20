@@ -1,14 +1,14 @@
 /**
  * Business Info settings page — Wave 34 / Now-26.
  *
- * Allows the org to fill in its legal / VAT registration details
+ * Allows the org to fill in its legal / tax registration details
  * (tax_profile). These details appear on invoices the org raises
  * against its B2B customers.
  *
  * Route: /settings/business-info (wire externally in routes.jsx)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -20,9 +20,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Reveal } from '@/components/ui/motion';
 import { Loader2, Save, Building2, AlertCircle, CheckCircle, Phone, Mail, FileText } from 'lucide-react';
 import { getTaxProfile, saveTaxProfile } from '@/services/invoicing';
+import { useLocale } from '@/context/locale-context';
+import { countryOptions } from '@/lib/locale-data';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +48,14 @@ const EMPTY_FORM = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function BusinessInfoPage() {
+  // The tax is called VAT here, GST there, IVA elsewhere and Sales Tax in the
+  // US. The API field is still `vat_number` — renaming it would be a breaking
+  // change for no gain — but nothing the operator READS should assert a tax
+  // regime their country does not have.
+  const { taxLabel, locale } = useLocale();
+  const tax = taxLabel || 'Tax';
+  const countries = useMemo(() => countryOptions(locale), [locale]);
+
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -171,7 +188,7 @@ export default function BusinessInfoPage() {
                   name="registered_address"
                   value={form.registered_address}
                   onChange={handleChange}
-                  placeholder="123 Main Street, Cape Town, 8001"
+                  placeholder="Street, city, postal code"
                   className="rounded-xl h-10"
                 />
               </div>
@@ -179,17 +196,26 @@ export default function BusinessInfoPage() {
               {/* Country */}
               <div className="space-y-1.5">
                 <Label htmlFor="country" className="text-sm font-medium">Country</Label>
-                <Input
-                  id="country"
-                  name="country"
-                  value={form.country}
-                  onChange={handleChange}
-                  placeholder="ZA"
-                  maxLength={2}
-                  className="rounded-xl h-10 max-w-[100px] uppercase"
-                />
+                <Select
+                  value={form.country || undefined}
+                  onValueChange={(v) => {
+                    setForm((prev) => ({ ...prev, country: v }));
+                    setSuccess(false);
+                  }}
+                >
+                  <SelectTrigger id="country" className="rounded-xl h-10 max-w-xs">
+                    <SelectValue placeholder="Select a country…" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {countries.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name} ({c.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
-                  2-letter ISO code, e.g. ZA
+                  Stored as the 2-letter ISO 3166-1 code.
                 </p>
               </div>
 
@@ -204,7 +230,7 @@ export default function BusinessInfoPage() {
                   name="company_number"
                   value={form.company_number}
                   onChange={handleChange}
-                  placeholder="2024/123456/07"
+                  placeholder="As issued by your company registry"
                   className="rounded-xl h-10"
                 />
               </div>
@@ -212,20 +238,22 @@ export default function BusinessInfoPage() {
               {/* VAT number */}
               <div className="space-y-1.5">
                 <Label htmlFor="vat_number" className="text-sm font-medium">
-                  VAT number{' '}
-                  <span className="text-muted-foreground font-normal text-xs">(optional — enables VAT line on invoices)</span>
+                  {tax} registration number{' '}
+                  <span className="text-muted-foreground font-normal text-xs">
+                    (optional — enables the {tax} line on invoices)
+                  </span>
                 </Label>
                 <Input
                   id="vat_number"
                   name="vat_number"
                   value={form.vat_number}
                   onChange={handleChange}
-                  placeholder="4123456789"
+                  placeholder="As issued by your tax authority"
                   className="rounded-xl h-10"
                 />
                 <p className="text-xs text-muted-foreground">
-                  When set, a VAT line is automatically added to every invoice
-                  you issue and the VAT number is printed on the PDF.
+                  When set, a {tax} line is automatically added to every invoice
+                  you issue and the number is printed on the PDF.
                 </p>
               </div>
             </CardContent>
@@ -256,7 +284,7 @@ export default function BusinessInfoPage() {
                   type="email"
                   value={form.contact_email}
                   onChange={handleChange}
-                  placeholder="accounts@acme.co.za"
+                  placeholder="accounts@yourcompany.example"
                   className="rounded-xl h-10"
                 />
               </div>
@@ -269,7 +297,7 @@ export default function BusinessInfoPage() {
                   type="tel"
                   value={form.contact_phone}
                   onChange={handleChange}
-                  placeholder="+27 21 000 0000"
+                  placeholder="International format, starting with +"
                   className="rounded-xl h-10"
                 />
               </div>

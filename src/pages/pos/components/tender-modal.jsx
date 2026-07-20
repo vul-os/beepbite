@@ -41,6 +41,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useMoney } from '@/context/locale-context';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -61,18 +62,6 @@ const COLOR_MAP = {
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const fmt = (cents) => `R ${(Math.abs(cents) / 100).toFixed(2)}`;
-
-const parseRand = (str) => {
-  const n = parseFloat(String(str).replace(/[^0-9.]/g, ''));
-  if (isNaN(n) || n < 0) return 0;
-  return Math.round(n * 100);
-};
-
-// ---------------------------------------------------------------------------
 // Sub-component: a single payment leg row
 // ---------------------------------------------------------------------------
 
@@ -80,29 +69,37 @@ function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }) {
   const method = METHODS.find((m) => m.code === leg.method) || METHODS[0];
   const colors = COLOR_MAP[method.color];
   const Icon = method.icon;
+  const { symbol, scale, decimals } = useMoney();
+
+  // The <input type="number"> value is machine-readable, not display text: it
+  // must stay a plain '.'-separated decimal whatever the reader's locale is, so
+  // it is built from scale/decimals rather than from format(). A zero-decimal
+  // currency (JPY) gets '1000', not '1000.00', and a whole-unit step.
+  const toInput = (minor) => (minor / scale).toFixed(decimals);
+  const step = String(1 / scale);
 
   return (
     <div className={cn('flex items-center gap-2 p-2 rounded-lg border', colors.border, colors.bg)}>
       <Icon className={cn('w-5 h-5 shrink-0', colors.text)} />
       <span className={cn('text-xs font-semibold w-20 shrink-0', colors.text)}>{method.label}</span>
       <div className="relative flex-1">
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R</span>
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{symbol}</span>
         <Input
           type="number"
           min="0"
-          step="0.01"
+          step={step}
           value={leg.rawInput}
           onChange={(e) => onChange(leg.id, 'rawInput', e.target.value)}
           onBlur={() => {
             // Snap to remaining if no amount entered and there's still a balance
-            if (leg.rawInput === '' || leg.rawInput === '0' || leg.rawInput === '0.00') {
+            if (leg.rawInput === '' || leg.rawInput === '0' || leg.rawInput === toInput(0)) {
               if (remainingCents > 0) {
-                onChange(leg.id, 'rawInput', (remainingCents / 100).toFixed(2));
+                onChange(leg.id, 'rawInput', toInput(remainingCents));
               }
             }
           }}
           className="pl-6 h-9 text-sm tabular-nums"
-          placeholder={(remainingCents / 100).toFixed(2)}
+          placeholder={toInput(remainingCents)}
         />
       </div>
       {leg.method === 'card_in_person' && (
@@ -177,23 +174,40 @@ export default function TenderModal({
   onConfirm,
 }) {
   const [legs, setLegs] = useState([]);
+  const { format, parse, scale, decimals } = useMoney();
+
+  const toInput = useCallback(
+    (minor) => (minor / scale).toFixed(decimals),
+    [scale, decimals],
+  );
+
+  // Typed amounts are parsed against the currency, not against a hardcoded 100:
+  // '1000' in a JPY store is ¥1000, and '12.345' in a 2-decimal one is a typo
+  // that must not become a charge.
+  const parseAmount = useCallback(
+    (str) => {
+      const n = parse(str);
+      return n && n > 0 ? n : 0;
+    },
+    [parse],
+  );
 
   // Reset when modal opens
   useEffect(() => {
     if (open) {
       setLegs([
-        { id: nextLegId(), method: 'cash', rawInput: (totalCents / 100).toFixed(2), reference: '' },
+        { id: nextLegId(), method: 'cash', rawInput: toInput(totalCents), reference: '' },
       ]);
     }
-  }, [open, totalCents]);
+  }, [open, totalCents, toInput]);
 
   // ---------------------------------------------------------------------------
   // Derived
   // ---------------------------------------------------------------------------
 
   const allocatedCents = useMemo(
-    () => legs.reduce((sum, l) => sum + parseRand(l.rawInput), 0),
-    [legs],
+    () => legs.reduce((sum, l) => sum + parseAmount(l.rawInput), 0),
+    [legs, parseAmount],
   );
   const remainingCents = totalCents - allocatedCents;
   const isFullyTendered = remainingCents <= 0;
@@ -201,10 +215,10 @@ export default function TenderModal({
 
   // Cash change (only for legs with method=cash)
   const cashLeg = legs.find((l) => l.method === 'cash');
-  const cashCents = cashLeg ? parseRand(cashLeg.rawInput) : 0;
+  const cashCents = cashLeg ? parseAmount(cashLeg.rawInput) : 0;
   const nonCashCents = legs
     .filter((l) => l.method !== 'cash')
-    .reduce((s, l) => s + parseRand(l.rawInput), 0);
+    .reduce((s, l) => s + parseAmount(l.rawInput), 0);
   const changeCents = Math.max(0, cashCents - Math.max(0, totalCents - nonCashCents));
 
   // ---------------------------------------------------------------------------
@@ -222,30 +236,30 @@ export default function TenderModal({
   }, []);
 
   const handleAddMethod = useCallback((code) => {
-    const remaining = totalCents - legs.reduce((s, l) => s + parseRand(l.rawInput), 0);
+    const remaining = totalCents - legs.reduce((s, l) => s + parseAmount(l.rawInput), 0);
     setLegs((prev) => [
       ...prev,
       {
         id: nextLegId(),
         method: code,
-        rawInput: remaining > 0 ? (remaining / 100).toFixed(2) : '0.00',
+        rawInput: toInput(remaining > 0 ? remaining : 0),
         reference: '',
       },
     ]);
-  }, [legs, totalCents]);
+  }, [legs, totalCents, parseAmount, toInput]);
 
   const handleConfirm = useCallback(() => {
     if (!canConfirm) return;
     const result = legs
-      .filter((l) => parseRand(l.rawInput) > 0)
+      .filter((l) => parseAmount(l.rawInput) > 0)
       .map((l) => ({
         method: l.method,
-        amountCents: parseRand(l.rawInput),
+        amountCents: parseAmount(l.rawInput),
         reference: l.reference || undefined,
         changeCents: l.method === 'cash' ? changeCents : undefined,
       }));
     onConfirm(result);
-  }, [canConfirm, legs, changeCents, onConfirm]);
+  }, [canConfirm, legs, changeCents, onConfirm, parseAmount]);
 
   // ---------------------------------------------------------------------------
   const usedCodes = legs.map((l) => l.method);
@@ -267,7 +281,7 @@ export default function TenderModal({
           {/* Total due */}
           <div className="text-center">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-0.5">Total due</p>
-            <p className="text-4xl font-bold tabular-nums">{fmt(totalCents)}</p>
+            <p className="text-4xl font-bold tabular-nums">{format(Math.abs(totalCents))}</p>
           </div>
 
           {/* Payment legs */}
@@ -275,7 +289,7 @@ export default function TenderModal({
             {legs.map((leg) => {
               const otherAllocated = legs
                 .filter((l) => l.id !== leg.id)
-                .reduce((s, l) => s + parseRand(l.rawInput), 0);
+                .reduce((s, l) => s + parseAmount(l.rawInput), 0);
               const localRemaining = Math.max(0, totalCents - otherAllocated);
               return (
                 <LegRow
@@ -311,11 +325,11 @@ export default function TenderModal({
                 isFullyTendered ? 'text-green-600' : 'text-red-500',
               )}
             >
-              {fmt(Math.abs(remainingCents))}
+              {format(Math.abs(remainingCents))}
             </p>
             {isFullyTendered && changeCents > 0 && (
               <p className="text-xs text-green-600 mt-1">
-                Cash change: <span className="font-semibold">{fmt(changeCents)}</span>
+                Cash change: <span className="font-semibold">{format(Math.abs(changeCents))}</span>
               </p>
             )}
           </div>

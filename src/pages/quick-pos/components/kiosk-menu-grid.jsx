@@ -2,14 +2,20 @@ import React, { useState } from 'react';
 import { Search, X, Utensils, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
+import { useDateTime } from '@/context/locale-context';
 
 /**
  * Compute remaining_today from raw daily countdown columns.
  * Returns null when daily_quantity is null/undefined (unlimited).
+ *
+ * `todayStr` is threaded in rather than computed here with
+ * `new Date().toISOString().slice(0, 10)` — that returns the UTC date, which
+ * disagrees with the store's local trading date for most of the day in most
+ * timezones. This is a plain helper (not a component), so it can't call
+ * useDateTime() itself; the caller supplies the location's local today.
  */
-function computeRemainingToday(item) {
+function computeRemainingToday(item, todayStr) {
   if (item.daily_quantity == null) return null;
-  const todayStr = new Date().toISOString().slice(0, 10);
   const soldToday =
     item.daily_counter_date === todayStr
       ? (item.daily_sold_count ?? 0)
@@ -83,6 +89,7 @@ function emojiForItem(item) {
 const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState('all');
+  const { today } = useDateTime();
 
   const filtered = items.filter(item => {
     const matchSearch = !search ||
@@ -93,7 +100,8 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
   });
 
   // Pre-compute remaining counts once per render so we don't redo it per item.
-  const remainingMap = new Map(filtered.map(item => [item.id, computeRemainingToday(item)]));
+  const todayStr = today();
+  const remainingMap = new Map(filtered.map(item => [item.id, computeRemainingToday(item, todayStr)]));
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

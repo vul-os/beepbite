@@ -15,6 +15,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -22,6 +23,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/phone"
 )
 
 // ---------------------------------------------------------------------------
@@ -40,6 +43,12 @@ var (
 	// ErrDuplicatePhone is returned when the phone is already bound to
 	// another profile (unique index violation on phone_e164).
 	ErrDuplicatePhone = errors.New("phone number already linked to another account")
+	// ErrInvalidPhone is returned when the supplied number cannot be resolved
+	// to E.164 — malformed, or national-format with no country code available.
+	// It wraps the underlying internal/phone error, so callers can use
+	// errors.Is against phone.ErrNoCountry to tell "the operator must configure
+	// a dial code" apart from "the customer mistyped".
+	ErrInvalidPhone = errors.New("invalid phone number")
 )
 
 // ---------------------------------------------------------------------------
@@ -81,8 +90,25 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // inserts it into whatsapp_link_tokens with intent='bind', and returns the
 // token along with the phone and expiry.
 //
+// rawPhone is normalised to E.164 before storage. defaultCountryCode is the
+// dial code (no "+") to read a national-format number against; pass "" when
+// there is no location context, which restricts input to numbers that already
+// carry their own country code.
+//
+// Normalising here rather than at the read side is load-bearing: phone_e164 is
+// the identity key for the binding, enforced by a unique index. If "0821234567"
+// and "+27821234567" reach the column as written, they are two different
+// identities, the unique index does not catch the collision, and one person
+// ends up with two accounts bound to the same physical handset. The column name
+// has always promised E.164; this makes the promise true.
+//
 // Runs under ServiceRoleScope because the token table is service-role only.
-func (s *Store) IssueLinkToken(ctx context.Context, phoneE164 string) (*LinkToken, error) {
+func (s *Store) IssueLinkToken(ctx context.Context, rawPhone, defaultCountryCode string) (*LinkToken, error) {
+	phoneE164, err := phone.Normalize(rawPhone, defaultCountryCode)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidPhone, err)
+	}
+
 	token, err := generateToken()
 	if err != nil {
 		return nil, err
@@ -106,6 +132,22 @@ func (s *Store) IssueLinkToken(ctx context.Context, phoneE164 string) (*LinkToke
 		PhoneE164: phoneE164,
 		ExpiresAt: expiresAt,
 	}, nil
+}
+
+// IssueLinkTokenForLocation is IssueLinkToken with the default country code
+// taken from the location's configured settings.
+//
+// This is the call the WhatsApp webhook should make once it knows which
+// location the conversation belongs to: an operator who has set their location's
+// phone_country_code can then accept numbers as their customers actually type
+// them, while an operator who has not set one still gets strict E.164 input
+// rather than numbers attributed to a country nobody chose.
+func (s *Store) IssueLinkTokenForLocation(ctx context.Context, rawPhone, locationID string) (*LinkToken, error) {
+	settings, err := locations.SettingsFor(ctx, s.pool, locationID)
+	if err != nil {
+		return nil, err
+	}
+	return s.IssueLinkToken(ctx, rawPhone, settings.PhoneCountryCode)
 }
 
 // ---------------------------------------------------------------------------
