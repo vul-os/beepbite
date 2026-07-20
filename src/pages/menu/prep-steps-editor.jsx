@@ -146,8 +146,8 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
   // ── Early exits ──────────────────────────────────────────────────────────────
   if (!itemId) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">
-        <ListOrdered className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+      <div className="rounded-lg border border-dashed border-border bg-muted p-6 text-center text-sm text-muted-foreground">
+        <ListOrdered className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
         Save the item first to add prep steps.
       </div>
     );
@@ -155,13 +155,13 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="rounded-xl border border-border bg-card shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 text-sm font-semibold text-gray-800 hover:text-orange-600 transition-colors"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-orange-600 transition-colors"
         >
           <ListOrdered className="h-4 w-4 text-orange-500" />
           Prep Steps
@@ -211,7 +211,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
 
           {/* Loading skeleton */}
           {loading && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
               <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
               Loading steps…
             </div>
@@ -219,8 +219,8 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
 
           {/* Empty state */}
           {!loading && steps.length === 0 && (
-            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 py-8 text-center text-sm text-gray-500">
-              <ListOrdered className="mx-auto mb-2 h-6 w-6 text-gray-300" />
+            <div className="rounded-lg border border-dashed border-border bg-muted py-8 text-center text-sm text-muted-foreground">
+              <ListOrdered className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
               No steps yet — add the first one to guide your kitchen.
             </div>
           )}
@@ -235,12 +235,12 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
               <div
                 key={step._localId}
                 className={cn(
-                  'group flex gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors',
+                  'group flex gap-2 rounded-lg border border-border bg-muted p-3 transition-colors',
                   'hover:border-orange-200 hover:bg-orange-50/30'
                 )}
               >
                 {/* Drag handle — decorative; v2 will wire up dnd-kit */}
-                <div className="mt-2.5 cursor-grab text-gray-300 group-hover:text-orange-300">
+                <div className="mt-2.5 cursor-grab text-muted-foreground group-hover:text-orange-300">
                   <GripVertical className="h-4 w-4" />
                 </div>
 
@@ -261,7 +261,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                   <p
                     className={cn(
                       'text-right text-[11px]',
-                      charCount > 450 ? 'text-orange-500' : 'text-gray-400'
+                      charCount > 450 ? 'text-orange-500' : 'text-muted-foreground'
                     )}
                   >
                     {charCount}/500
@@ -274,7 +274,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-gray-400 hover:text-orange-600"
+                    className="h-7 w-7 text-muted-foreground hover:text-orange-600"
                     disabled={isFirst}
                     onClick={() => moveStep(step._localId, 'up')}
                     title="Move up"
@@ -285,7 +285,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-gray-400 hover:text-orange-600"
+                    className="h-7 w-7 text-muted-foreground hover:text-orange-600"
                     disabled={isLast}
                     onClick={() => moveStep(step._localId, 'down')}
                     title="Move down"
@@ -296,7 +296,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-gray-400 hover:text-red-500"
+                    className="h-7 w-7 text-muted-foreground hover:text-red-500"
                     onClick={() => removeStep(step._localId)}
                     title="Remove step"
                   >

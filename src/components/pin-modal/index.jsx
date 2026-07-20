@@ -282,18 +282,18 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
             ) : (
               <User className="w-5 h-5 text-primary shrink-0" />
             )}
-            <DialogTitle className="text-lg font-bold text-gray-900 leading-tight">
+            <DialogTitle className="text-lg font-bold text-foreground leading-tight">
               {title}
             </DialogTitle>
           </div>
-          <DialogDescription className="text-sm text-gray-500 leading-snug">
+          <DialogDescription className="text-sm text-muted-foreground leading-snug">
             {description}
           </DialogDescription>
         </DialogHeader>
 
         <div className="px-6 pb-6 space-y-4">
           {submitError && (
-            <Alert variant="destructive" className="border-l-4 border-red-500 bg-red-50/80">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-sm">{submitError}</AlertDescription>
             </Alert>
@@ -302,11 +302,11 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
           {/* Username — pre-filled and read-only for normal re-auth */}
           {needsUsernameField ? (
             <div className="space-y-1.5">
-              <Label htmlFor="pm-username" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="pm-username" className="text-sm font-medium text-foreground">
                 {isManagerOverride ? "Manager's username" : 'Username'}
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                <User className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="pm-username"
                   type="text"
@@ -319,18 +319,18 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
                     if (submitError) setSubmitError('');
                   }}
                   disabled={loading}
-                  className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${usernameError ? 'border-red-400' : ''}`}
+                  className={`pl-10 h-11 focus:border-primary transition-all text-base ${usernameError ? 'border-destructive' : ''}`}
                 />
               </div>
               {usernameError && (
-                <p className="text-xs text-red-500">{usernameError}</p>
+                <p className="text-xs text-destructive">{usernameError}</p>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-              <User className="w-4 h-4 text-gray-400 shrink-0" />
-              <span className="text-sm font-medium text-gray-700">{prefilledUsername}</span>
-              <span className="ml-auto text-[11px] text-gray-400 uppercase tracking-wide">current session</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border">
+              <User className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-medium text-foreground">{prefilledUsername}</span>
+              <span className="ml-auto text-[11px] text-muted-foreground uppercase tracking-wide">current session</span>
             </div>
           )}
 
@@ -350,7 +350,7 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
           <Button
             type="button"
             variant="ghost"
-            className="w-full h-10 text-sm text-gray-500 hover:text-gray-700"
+            className="w-full h-10 text-sm text-muted-foreground hover:text-foreground"
             onClick={handleCancel}
             disabled={loading}
           >

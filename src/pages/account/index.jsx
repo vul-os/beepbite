@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PageHeader, PageContainer } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import SecuritySettings from "@/pages/settings/security";
 import DataPrivacySettings from "@/pages/settings/account";
 import {
@@ -151,45 +153,36 @@ const Account = () => {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
-        <div className="h-64 bg-gray-200 rounded animate-pulse"></div>
+        <Skeleton className="h-12 w-full rounded" />
+        <Skeleton className="h-64 w-full rounded" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <User className="w-8 h-8 text-orange-500" />
-              Account Settings
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Manage your profile information and preferences
-            </p>
-          </div>
-        </div>
+    <PageContainer>
+      <PageHeader
+        title="Account Settings"
+        description="Manage your profile information and preferences"
+        icon={User}
+      />
 
-        {/* Save Message */}
-        {saveMessage && (
-          <div className={cn(
-            "flex items-center gap-2 px-4 py-3 rounded-lg",
-            saveMessage.includes('successfully') 
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
-          )}>
-            {saveMessage.includes('successfully') ? (
-              <CheckCircle className="w-4 h-4" />
-            ) : (
-              <AlertCircle className="w-4 h-4" />
-            )}
-            <span className="text-sm font-medium">{saveMessage}</span>
-          </div>
-        )}
-      </div>
+      {/* Save Message */}
+      {saveMessage && (
+        <div className={cn(
+          "flex items-center gap-2 px-4 py-3 rounded-lg",
+          saveMessage.includes('successfully')
+            ? "bg-beepbite-success/10 text-beepbite-success border border-beepbite-success/30"
+            : "bg-destructive/10 text-destructive border border-destructive/30"
+        )}>
+          {saveMessage.includes('successfully') ? (
+            <CheckCircle className="w-4 h-4" />
+          ) : (
+            <AlertCircle className="w-4 h-4" />
+          )}
+          <span className="text-sm font-medium">{saveMessage}</span>
+        </div>
+      )}
 
       <Tabs defaultValue="profile" className="w-full">
         <TabsList>
@@ -238,18 +231,18 @@ const Account = () => {
 
       {/* Account Settings */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Profile Information */}
-        <Card className="border-gray-200">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5 text-orange-500" />
+              <User className="w-5 h-5 text-primary" />
               Profile Information
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Full Name
               </label>
               <Input
@@ -258,13 +251,13 @@ const Account = () => {
                 onChange={(e) => handleInputChange('full_name', e.target.value)}
                 className="w-full"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
 This is your display name shown to other users
               </p>
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Username
               </label>
               <Input
@@ -273,21 +266,21 @@ This is your display name shown to other users
                 onChange={(e) => handleInputChange('username', e.target.value)}
                 className="w-full"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
 Must be at least 3 characters long and unique
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Email Address
               </label>
               <Input
                 value={user?.email || ''}
                 disabled={true}
-                className="w-full bg-gray-50"
+                className="w-full bg-muted"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Your email address cannot be changed
               </p>
             </div>
@@ -295,38 +288,38 @@ Must be at least 3 characters long and unique
         </Card>
 
         {/* Avatar Settings */}
-        <Card className="border-gray-200">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5 text-orange-500" />
+              <User className="w-5 h-5 text-primary" />
               Avatar Settings
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Current Avatar Preview */}
             <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border-2 border-gray-200">
-                <AvatarFallback className="bg-gray-100 text-gray-700 font-semibold text-lg">
+              <Avatar className="h-16 w-16 border-2 border-border">
+                <AvatarFallback className="bg-muted text-foreground font-semibold text-lg">
                   {getInitials(formData.full_name, formData.username, user?.email)}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium text-gray-900">Current Avatar</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-foreground">Current Avatar</p>
+                <p className="text-xs text-muted-foreground">
                   Using initials from your name or email
                 </p>
               </div>
             </div>
 
             {/* Avatar Help */}
-            <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-orange-800 mb-1">
+                  <p className="text-sm font-medium text-primary mb-1">
                     Avatar Information
                   </p>
-                  <ul className="text-xs text-orange-700 space-y-1">
+                  <ul className="text-xs text-primary/80 space-y-1">
                     <li>• Avatars are automatically generated from your name or email</li>
                     <li>• Your initials will be displayed in a colored circle</li>
                     <li>• No need to upload or link to external images</li>
@@ -339,27 +332,27 @@ Must be at least 3 characters long and unique
       </div>
 
       {/* Account Info */}
-      <Card className="border-gray-200">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5 text-orange-500" />
+            <User className="w-5 h-5 text-primary" />
             Account Information
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <label className="text-sm font-medium text-gray-700">Account Type</label>
+              <label className="text-sm font-medium text-foreground">Account Type</label>
               <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-xs font-medium bg-gray-100 text-gray-700 border-gray-300">
+                <Badge variant="outline" className="text-xs font-medium bg-muted text-foreground border-border">
                   Email Account
                 </Badge>
               </div>
             </div>
-            
+
             <div>
-              <label className="text-sm font-medium text-gray-700">Member Since</label>
-              <p className="text-sm text-gray-600 mt-1">
+              <label className="text-sm font-medium text-foreground">Member Since</label>
+              <p className="text-sm text-muted-foreground mt-1">
                 {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
               </p>
             </div>
@@ -376,7 +369,7 @@ Must be at least 3 characters long and unique
           <DataPrivacySettings />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 };
 

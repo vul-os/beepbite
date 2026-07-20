@@ -46,7 +46,7 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-sm bg-white">
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="w-4 h-4 text-orange-500" />
@@ -158,7 +158,7 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-sm bg-white">
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Hash className="w-4 h-4 text-orange-500" />
@@ -244,9 +244,9 @@ export function SecurityTab({ staff, resetPassword, resetPin }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Use these actions to set credentials for{' '}
-        <span className="font-medium text-gray-800">{staff.first_name} {staff.last_name}</span>.
+        <span className="font-medium text-foreground">{staff.first_name} {staff.last_name}</span>.
         The change takes effect immediately on the next sign-in.
       </p>
 
@@ -259,8 +259,8 @@ export function SecurityTab({ staff, resetPassword, resetPin }) {
                 <KeyRound className="w-4 h-4 text-orange-500" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Password</p>
-                <p className="text-xs text-gray-500">Used for staff app login</p>
+                <p className="text-sm font-semibold text-foreground">Password</p>
+                <p className="text-xs text-muted-foreground">Used for staff app login</p>
               </div>
             </div>
             <Button
@@ -282,8 +282,8 @@ export function SecurityTab({ staff, resetPassword, resetPin }) {
                 <Hash className="w-4 h-4 text-orange-500" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">PIN</p>
-                <p className="text-xs text-gray-500">Fast register sign-in (4–6 digits)</p>
+                <p className="text-sm font-semibold text-foreground">PIN</p>
+                <p className="text-xs text-muted-foreground">Fast register sign-in (4–6 digits)</p>
               </div>
             </div>
             <Button

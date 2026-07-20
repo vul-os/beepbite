@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 
 import {
   listWANumbers,
@@ -53,9 +54,9 @@ function formatDate(iso) {
 
 function ActiveBadge({ active }) {
   return active ? (
-    <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-beepbite-success/15 text-beepbite-success border-beepbite-success/30 hover:bg-beepbite-success/15">Active</Badge>
   ) : (
-    <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100">Inactive</Badge>
+    <Badge variant="secondary" className="bg-muted text-muted-foreground border-border hover:bg-muted">Inactive</Badge>
   );
 }
 
@@ -136,7 +137,7 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-orange-500" />
+            <Phone className="h-4 w-4 text-primary" />
             {isEdit ? 'Edit WhatsApp Number' : 'Register WhatsApp Number'}
           </DialogTitle>
           <DialogDescription>
@@ -220,7 +221,6 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
             <Button
               type="submit"
               disabled={loading}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isEdit ? 'Save Changes' : 'Register Number'}
@@ -304,50 +304,41 @@ export default function WANumbersPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-border pb-5 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-orange-500 flex items-center justify-center shadow-sm">
-            <Phone className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              WhatsApp Numbers
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Manage Meta Business API phone numbers and routing.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowInactive((v) => !v)}
-            className="gap-1 text-xs"
-          >
-            {showInactive ? 'Hide inactive' : 'Show inactive'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={load}
-            className="gap-1"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-            className="gap-1 bg-orange-500 hover:bg-orange-600 text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Register Number
-          </Button>
-        </div>
-      </div>
+    <PageContainer className="max-w-5xl mx-auto px-4 py-6">
+      <PageHeader
+        title="WhatsApp Numbers"
+        description="Manage Meta Business API phone numbers and routing."
+        icon={Phone}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowInactive((v) => !v)}
+              className="gap-1 text-xs"
+            >
+              {showInactive ? 'Hide inactive' : 'Show inactive'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={load}
+              className="gap-1"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+              className="gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Register Number
+            </Button>
+          </>
+        }
+      />
 
       {/* Table Card */}
       <Card>
@@ -365,7 +356,7 @@ export default function WANumbersPage() {
           {/* Loading */}
           {loading && (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <span className="text-sm">Loading numbers…</span>
             </div>
           )}
@@ -494,6 +485,6 @@ export default function WANumbersPage() {
           onSuccess={load}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

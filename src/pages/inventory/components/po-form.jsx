@@ -193,7 +193,7 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
           </div>
         ))}
 
-        <div className="flex justify-end text-sm font-semibold text-gray-700 pr-2">
+        <div className="flex justify-end text-sm font-semibold text-foreground pr-2">
           Grand Total: {grandTotal()}
         </div>
       </div>

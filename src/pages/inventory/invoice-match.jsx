@@ -8,22 +8,8 @@ import { useDateTime, useLocale } from '@/context/locale-context';
 import { formatMoney } from '@/lib/currency';
 import { api } from '@/lib/api-client';
 import { MatchModal } from './components/match-modal';
-
-const STATUS_COLORS = {
-  pending: 'bg-gray-100 text-gray-700',
-  matched: 'bg-green-100 text-green-700',
-  disputed: 'bg-red-100 text-red-700',
-  approved: 'bg-blue-100 text-blue-700',
-  paid: 'bg-purple-100 text-purple-700',
-  cancelled: 'bg-gray-200 text-gray-500',
-};
-
-const MATCH_COLORS = {
-  unmatched: 'bg-gray-100 text-gray-600',
-  matched: 'bg-green-100 text-green-700',
-  price_variance: 'bg-yellow-100 text-yellow-800',
-  qty_variance: 'bg-orange-100 text-orange-700',
-};
+import { INVOICE_STATUS_COLORS as STATUS_COLORS, MATCH_STATUS_COLORS as MATCH_COLORS } from '@/lib/status-colors';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 export default function InvoiceMatchPage() {
   const { activeLocation } = useAuth();
@@ -75,31 +61,29 @@ export default function InvoiceMatchPage() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-600">Select a location to view supplier invoices.</p>
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Select a location to view supplier invoices.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-orange-500" />
-            Invoice Match (3-Way)
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">{activeLocation.name}</p>
-        </div>
-        <Button variant="outline" onClick={fetchInvoices} className="border-orange-200 text-orange-700 hover:bg-orange-50">
-          Refresh
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={FileText}
+        title="Invoice Match (3-Way)"
+        description={activeLocation.name}
+        actions={
+          <Button variant="outline" onClick={fetchInvoices}>
+            Refresh
+          </Button>
+        }
+      />
 
       {loading && (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       )}
@@ -114,8 +98,8 @@ export default function InvoiceMatchPage() {
       {!loading && !error && invoices.length === 0 && (
         <Card className="border-orange-100">
           <CardContent className="p-10 text-center">
-            <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No supplier invoices found for this location.</p>
+            <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">No supplier invoices found for this location.</p>
           </CardContent>
         </Card>
       )}
@@ -131,22 +115,22 @@ export default function InvoiceMatchPage() {
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900">{inv.invoice_number}</span>
-                    <Badge className={STATUS_COLORS[inv.status] || 'bg-gray-100 text-gray-700'}>
+                    <span className="font-semibold text-foreground">{inv.invoice_number}</span>
+                    <Badge className={STATUS_COLORS[inv.status] || 'bg-muted text-foreground'}>
                       {inv.status}
                     </Badge>
-                    <Badge className={MATCH_COLORS[inv.match_status] || 'bg-gray-100 text-gray-600'}>
+                    <Badge className={MATCH_COLORS[inv.match_status] || 'bg-muted text-muted-foreground'}>
                       {inv.match_status?.replace('_', ' ') || 'unmatched'}
                     </Badge>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Date: {fmtDate(inv.invoice_date)}
                     {inv.due_date && ` · Due: ${fmtDate(inv.due_date)}`}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-gray-900">{fmtCents(inv.total_cents, inv.currency)}</p>
-                  <p className="text-xs text-gray-500">{inv.currency}</p>
+                  <p className="font-semibold text-foreground">{fmtCents(inv.total_cents, inv.currency)}</p>
+                  <p className="text-xs text-muted-foreground">{inv.currency}</p>
                 </div>
                 <Button
                   size="sm"
@@ -168,6 +152,6 @@ export default function InvoiceMatchPage() {
         onClose={() => setSelectedInvoice(null)}
         onMatched={handleMatched}
       />
-    </div>
+    </PageContainer>
   );
 }

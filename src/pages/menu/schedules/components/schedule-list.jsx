@@ -69,7 +69,7 @@ export default function ScheduleList({ schedules, selectedId, onSelect, onDelete
     <div className="flex flex-col h-full">
       {/* header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Schedules</h2>
+        <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Schedules</h2>
         <Button size="sm" variant="ghost" onClick={handleOpen} className="h-7 w-7 p-0">
           <Plus className="h-4 w-4" />
         </Button>
@@ -80,12 +80,12 @@ export default function ScheduleList({ schedules, selectedId, onSelect, onDelete
         {loading ? (
           <div className="space-y-2 p-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+              <div key={i} className="h-10 bg-muted rounded animate-pulse" />
             ))}
           </div>
         ) : schedules.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-500">
-            <Clock className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             No schedules yet.
           </div>
         ) : (
@@ -95,14 +95,14 @@ export default function ScheduleList({ schedules, selectedId, onSelect, onDelete
                 key={s.id}
                 onClick={() => onSelect(s)}
                 className={cn(
-                  'group flex items-center justify-between px-4 py-2 cursor-pointer text-sm hover:bg-gray-50',
+                  'group flex items-center justify-between px-4 py-2 cursor-pointer text-sm hover:bg-muted',
                   selectedId === s.id && 'bg-orange-50 border-r-2 border-orange-500 font-medium text-orange-700',
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="truncate">{s.name}</span>
                   {!s.is_active && (
-                    <Badge variant="outline" className="text-xs text-gray-400 border-gray-200 shrink-0">
+                    <Badge variant="outline" className="text-xs text-muted-foreground border-border shrink-0">
                       inactive
                     </Badge>
                   )}
@@ -153,7 +153,7 @@ export default function ScheduleList({ schedules, selectedId, onSelect, onDelete
                 onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
                 placeholder="e.g. breakfast"
               />
-              <p className="text-xs text-gray-400 mt-1">Lowercase letters, digits and underscores only. Must be unique per location.</p>
+              <p className="text-xs text-muted-foreground mt-1">Lowercase letters, digits and underscores only. Must be unique per location.</p>
             </div>
 
             <div>

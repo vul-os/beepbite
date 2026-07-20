@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,8 +117,8 @@ function fmtDateTime(iso) {
 }
 
 function scopeColor(scope) {
-  if (scope.startsWith('write:')) return 'bg-orange-100 text-orange-700 border-orange-200';
-  return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (scope.startsWith('write:')) return 'bg-primary/10 text-primary border-primary/20';
+  return 'bg-muted text-muted-foreground border-border';
 }
 
 function eventColor() {
@@ -162,7 +162,7 @@ function CopyButton({ text, className }) {
         'inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors',
         copied
           ? 'bg-green-100 text-green-700'
-          : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+          : 'bg-muted text-muted-foreground hover:bg-muted',
         className,
       )}
       title="Copy to clipboard"
@@ -177,20 +177,20 @@ function CopyButton({ text, className }) {
 
 function SecretRevealBox({ label, value }) {
   return (
-    <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 space-y-2">
+    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
       <div className="flex items-start gap-2">
-        <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
-        <p className="text-sm font-medium text-orange-800">
+        <AlertTriangle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+        <p className="text-sm font-medium text-primary">
           Save this {label} — you won&apos;t see it again
         </p>
       </div>
-      <div className="flex items-center gap-2 rounded-md bg-white border border-orange-200 px-3 py-2">
-        <code className="flex-1 text-sm font-mono text-slate-800 break-all select-all">
+      <div className="flex items-center gap-2 rounded-md bg-card border border-primary/20 px-3 py-2">
+        <code className="flex-1 text-sm font-mono text-foreground break-all select-all">
           {value}
         </code>
         <CopyButton text={value} />
       </div>
-      <p className="text-xs text-orange-700">
+      <p className="text-xs text-primary">
         Copy it now and store it securely. It cannot be retrieved after you close this dialog.
       </p>
     </div>
@@ -212,12 +212,12 @@ function CheckboxGrid({ items, selected, onChange, colorFn }) {
       {items.map((item) => (
         <label
           key={item}
-          className="flex items-center gap-2 cursor-pointer rounded-md border border-transparent px-2 py-1.5 hover:bg-slate-50 transition-colors"
+          className="flex items-center gap-2 cursor-pointer rounded-md border border-transparent px-2 py-1.5 hover:bg-muted/50 transition-colors"
         >
           <Checkbox
             checked={selected.includes(item)}
             onCheckedChange={() => toggle(item)}
-            className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
           />
           <span
             className={cn(
@@ -289,7 +289,7 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5 text-orange-500" />
+            <Key className="h-5 w-5 text-primary" />
             {createdKey ? 'API Key Created' : 'Create API Key'}
           </DialogTitle>
           <DialogDescription>
@@ -302,7 +302,7 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
         {createdKey ? (
           <div className="space-y-4">
             <SecretRevealBox label="API key" value={createdKey.key} />
-            <div className="text-sm text-slate-600 space-y-1">
+            <div className="text-sm text-muted-foreground space-y-1">
               <p>
                 <span className="font-medium">Name:</span> {createdKey.name}
               </p>
@@ -313,7 +313,7 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
                     'text-xs',
                     createdKey.environment === 'live'
                       ? 'bg-green-100 text-green-700 border-green-200'
-                      : 'bg-slate-100 text-slate-600',
+                      : 'bg-muted text-muted-foreground',
                   )}
                   variant="outline"
                 >
@@ -344,13 +344,13 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
                 <Switch
                   checked={environment === 'live'}
                   onCheckedChange={(v) => setEnvironment(v ? 'live' : 'test')}
-                  className="data-[state=checked]:bg-orange-500"
+                  className="data-[state=checked]:bg-primary"
                 />
                 <span className="text-sm">
                   {environment === 'live' ? (
-                    <span className="font-medium text-green-700">Live</span>
+                    <span className="font-medium text-beepbite-success">Live</span>
                   ) : (
-                    <span className="font-medium text-slate-500">Test</span>
+                    <span className="font-medium text-muted-foreground">Test</span>
                   )}
                 </span>
               </div>
@@ -367,7 +367,7 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
+              <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertTriangle className="h-3.5 w-3.5" /> {error}
               </p>
             )}
@@ -376,7 +376,7 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
 
         <DialogFooter>
           {createdKey ? (
-            <Button onClick={handleClose} className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Button onClick={handleClose}>
               Done
             </Button>
           ) : (
@@ -387,7 +387,6 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
               <Button
                 onClick={handleCreate}
                 disabled={loading}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Create key
@@ -421,7 +420,7 @@ function RevokeKeyDialog({ apiKey, open, onClose, onRevoked }) {
     <AlertDialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
             <ShieldOff className="h-5 w-5" /> Revoke API key?
           </AlertDialogTitle>
           <AlertDialogDescription>
@@ -431,14 +430,14 @@ function RevokeKeyDialog({ apiKey, open, onClose, onRevoked }) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
-          <p className="text-sm text-red-600 px-1">{error}</p>
+          <p className="text-sm text-destructive px-1">{error}</p>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleRevoke}
             disabled={loading}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Revoke key
@@ -458,13 +457,13 @@ function ApiKeyRow({ apiKey, onRevoked }) {
       className={cn(
         'flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-lg border transition-colors',
         isRevoked
-          ? 'bg-slate-50 border-slate-200 opacity-60'
-          : 'bg-white border-slate-200 hover:border-orange-200',
+          ? 'bg-muted/50 border-border opacity-60'
+          : 'bg-card border-border hover:border-primary/20',
       )}
     >
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm text-slate-800">{apiKey.name}</span>
+          <span className="font-medium text-sm text-foreground">{apiKey.name}</span>
           {apiKey.environment && (
             <Badge
               variant="outline"
@@ -472,19 +471,19 @@ function ApiKeyRow({ apiKey, onRevoked }) {
                 'text-xs',
                 apiKey.environment === 'live'
                   ? 'bg-green-50 text-green-700 border-green-200'
-                  : 'bg-slate-100 text-slate-600 border-slate-300',
+                  : 'bg-muted text-muted-foreground border-border',
               )}
             >
               {apiKey.environment}
             </Badge>
           )}
           {isRevoked && (
-            <Badge variant="outline" className="text-xs bg-red-50 text-red-600 border-red-200">
+            <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20">
               Revoked
             </Badge>
           )}
         </div>
-        <p className="font-mono text-xs text-slate-500">{apiKey.prefix_visible}••••••••</p>
+        <p className="font-mono text-xs text-muted-foreground">{apiKey.prefix_visible}••••••••</p>
         <div className="flex flex-wrap gap-1">
           {(apiKey.scopes || []).map((s) => (
             <span
@@ -497,7 +496,7 @@ function ApiKeyRow({ apiKey, onRevoked }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-slate-400 shrink-0">
+      <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
           {apiKey.last_used_at ? `Used ${fmtDate(apiKey.last_used_at)}` : 'Never used'}
@@ -507,7 +506,7 @@ function ApiKeyRow({ apiKey, onRevoked }) {
             variant="ghost"
             size="sm"
             onClick={() => setRevokeOpen(true)}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 px-2"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 px-2"
           >
             <ShieldOff className="h-3.5 w-3.5 mr-1" />
             Revoke
@@ -577,7 +576,7 @@ function ApiKeysSection() {
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Key className="h-5 w-5 text-orange-500" />
+            <Key className="h-5 w-5 text-primary" />
             API Keys
           </CardTitle>
           <CardDescription className="mt-1">
@@ -588,7 +587,7 @@ function ApiKeysSection() {
         <Button
           size="sm"
           onClick={() => setCreateOpen(true)}
-          className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+          className="shrink-0"
         >
           <Plus className="h-4 w-4 mr-1" />
           Create key
@@ -597,19 +596,19 @@ function ApiKeysSection() {
 
       <CardContent>
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-slate-400">
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             Loading keys…
           </div>
         ) : error ? (
-          <div className="flex items-center gap-2 py-6 text-red-600 text-sm">
+          <div className="flex items-center gap-2 py-6 text-destructive text-sm">
             <AlertTriangle className="h-4 w-4" /> {error}
             <Button variant="ghost" size="sm" onClick={load} className="ml-auto">
               Retry
             </Button>
           </div>
         ) : keys.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-sm gap-2">
+          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground text-sm gap-2">
             <Key className="h-8 w-8 opacity-30" />
             <p>No API keys yet.</p>
             <Button
@@ -729,7 +728,7 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Webhook className="h-5 w-5 text-orange-500" />
+            <Webhook className="h-5 w-5 text-primary" />
             {createdSecret ? 'Webhook endpoint created' : title}
           </DialogTitle>
           <DialogDescription>
@@ -744,13 +743,13 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
         {createdSecret ? (
           <div className="space-y-4">
             <SecretRevealBox label="signing secret" value={createdSecret.secret} />
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               Verify incoming payloads by computing{' '}
-              <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">
+              <code className="text-xs bg-muted px-1 py-0.5 rounded">
                 HMAC-SHA256(raw_body, secret)
               </code>{' '}
               and comparing it to the{' '}
-              <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">X-Beepbite-Signature</code>{' '}
+              <code className="text-xs bg-muted px-1 py-0.5 rounded">X-Beepbite-Signature</code>{' '}
               header.
             </p>
           </div>
@@ -765,7 +764,7 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
               />
-              <p className="text-xs text-slate-400">Must use HTTPS.</p>
+              <p className="text-xs text-muted-foreground">Must use HTTPS.</p>
             </div>
 
             <div className="space-y-1.5">
@@ -789,7 +788,7 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
+              <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertTriangle className="h-3.5 w-3.5" /> {error}
               </p>
             )}
@@ -798,7 +797,7 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
 
         <DialogFooter>
           {createdSecret ? (
-            <Button onClick={handleClose} className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Button onClick={handleClose}>
               Done
             </Button>
           ) : (
@@ -809,7 +808,6 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
               <Button
                 onClick={handleSave}
                 disabled={loading}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 {isEdit ? 'Save changes' : 'Add endpoint'}
@@ -842,26 +840,26 @@ function DeliveriesPanel({ endpointId }) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-4 pl-4 text-slate-400 text-sm">
+      <div className="flex items-center gap-2 py-4 pl-4 text-muted-foreground text-sm">
         <Loader2 className="h-4 w-4 animate-spin" /> Loading deliveries…
       </div>
     );
   }
   if (error) {
     return (
-      <p className="pl-4 py-3 text-sm text-red-600 flex items-center gap-1">
+      <p className="pl-4 py-3 text-sm text-destructive flex items-center gap-1">
         <AlertTriangle className="h-3.5 w-3.5" /> {error}
       </p>
     );
   }
   if (deliveries.length === 0) {
     return (
-      <p className="pl-4 py-3 text-sm text-slate-400">No deliveries recorded yet.</p>
+      <p className="pl-4 py-3 text-sm text-muted-foreground">No deliveries recorded yet.</p>
     );
   }
 
   return (
-    <div className="divide-y divide-slate-100">
+    <div className="divide-y divide-border">
       {deliveries.map((d) => (
         <div
           key={d.id}
@@ -884,12 +882,12 @@ function DeliveriesPanel({ endpointId }) {
             {d.status}
           </span>
           {d.response_code && (
-            <span className="text-slate-500">HTTP {d.response_code}</span>
+            <span className="text-muted-foreground">HTTP {d.response_code}</span>
           )}
           {d.duration_ms != null && (
-            <span className="text-slate-400">{d.duration_ms}ms</span>
+            <span className="text-muted-foreground">{d.duration_ms}ms</span>
           )}
-          <span className="ml-auto text-slate-400">{fmtDateTime(d.delivered_at)}</span>
+          <span className="ml-auto text-muted-foreground">{fmtDateTime(d.delivered_at)}</span>
         </div>
       ))}
     </div>
@@ -915,16 +913,16 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3">
         {/* URL + meta */}
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <Globe className="h-4 w-4 text-slate-400 shrink-0" />
-            <span className="font-mono text-sm text-slate-800 break-all">{endpoint.url}</span>
+            <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="font-mono text-sm text-foreground break-all">{endpoint.url}</span>
           </div>
           {endpoint.description && (
-            <p className="text-xs text-slate-500 pl-6">{endpoint.description}</p>
+            <p className="text-xs text-muted-foreground pl-6">{endpoint.description}</p>
           )}
           <div className="flex flex-wrap gap-1 pl-6">
             {(endpoint.events || []).map((e) => (
@@ -942,14 +940,14 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
         <div className="flex items-center gap-3 shrink-0">
           {/* Active toggle */}
           <div className="flex items-center gap-1.5">
-            {activeToggling && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+            {activeToggling && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             <Switch
               checked={endpoint.is_active}
               onCheckedChange={handleToggleActive}
               disabled={activeToggling}
-              className="data-[state=checked]:bg-orange-500"
+              className="data-[state=checked]:bg-primary"
             />
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-muted-foreground">
               {endpoint.is_active ? 'Active' : 'Paused'}
             </span>
           </div>
@@ -958,7 +956,7 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
             variant="ghost"
             size="sm"
             onClick={() => setEditOpen(true)}
-            className="h-7 w-7 p-0 text-slate-500 hover:text-orange-600"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
             title="Edit"
           >
             <Pencil className="h-3.5 w-3.5" />
@@ -968,7 +966,7 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
             variant="ghost"
             size="sm"
             onClick={() => setDeleteOpen(true)}
-            className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             title="Delete"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -978,7 +976,7 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
             variant="ghost"
             size="sm"
             onClick={() => setDeliveriesOpen((v) => !v)}
-            className="h-7 px-2 text-slate-500 hover:text-slate-800"
+            className="h-7 px-2 text-muted-foreground hover:text-foreground"
             title="Recent deliveries"
           >
             <Activity className="h-3.5 w-3.5 mr-1" />
@@ -994,7 +992,7 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
 
       {/* Collapsible deliveries */}
       {deliveriesOpen && (
-        <div className="border-t border-slate-100 bg-slate-50">
+        <div className="border-t border-border bg-muted/50">
           <DeliveriesPanel endpointId={endpoint.id} />
         </div>
       )}
@@ -1011,7 +1009,7 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="h-4 w-4" /> Delete endpoint?
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -1023,7 +1021,7 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
               Delete
             </AlertDialogAction>
@@ -1070,7 +1068,7 @@ function WebhooksSection() {
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Webhook className="h-5 w-5 text-orange-500" />
+            <Webhook className="h-5 w-5 text-primary" />
             Webhooks
           </CardTitle>
           <CardDescription className="mt-1">
@@ -1081,7 +1079,7 @@ function WebhooksSection() {
         <Button
           size="sm"
           onClick={() => setAddOpen(true)}
-          className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+          className="shrink-0"
         >
           <Plus className="h-4 w-4 mr-1" />
           Add endpoint
@@ -1090,19 +1088,19 @@ function WebhooksSection() {
 
       <CardContent>
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-slate-400">
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             Loading endpoints…
           </div>
         ) : error ? (
-          <div className="flex items-center gap-2 py-6 text-red-600 text-sm">
+          <div className="flex items-center gap-2 py-6 text-destructive text-sm">
             <AlertTriangle className="h-4 w-4" /> {error}
             <Button variant="ghost" size="sm" onClick={load} className="ml-auto">
               Retry
             </Button>
           </div>
         ) : endpoints.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-sm gap-2">
+          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground text-sm gap-2">
             <Webhook className="h-8 w-8 opacity-30" />
             <p>No webhook endpoints configured.</p>
             <Button
@@ -1143,19 +1141,18 @@ function WebhooksSection() {
 
 export default function ApiKeysPage() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    <PageContainer className="max-w-3xl">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">API Keys &amp; Webhooks</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage programmatic access and real-time integrations for your organisation.
-        </p>
-        <Separator className="mt-4" />
-      </div>
+      <PageHeader
+        eyebrow="Settings"
+        title="API Keys & Webhooks"
+        description="Manage programmatic access and real-time integrations for your organisation."
+        icon={Key}
+      />
 
       {/* Sections */}
       <ApiKeysSection />
       <WebhooksSection />
-    </div>
+    </PageContainer>
   );
 }

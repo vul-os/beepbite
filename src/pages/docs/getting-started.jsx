@@ -116,7 +116,7 @@ const GettingStarted = () => {
       </Section>
 
       <Section id="next-steps" title="Next steps">
-        <ul className="list-disc list-inside space-y-1.5 text-gray-700">
+        <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
           <li>
             <a className="underline text-orange-600" href="/docs/menu-management">
               Refine your menu

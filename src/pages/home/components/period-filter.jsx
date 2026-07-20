@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 const PERIODS = [
   { value: 'day',   label: 'Today' },
@@ -17,26 +18,26 @@ export default function PeriodFilter({ value, onChange }) {
     <div
       role="group"
       aria-label="Time period"
-      className="inline-flex rounded-lg border border-orange-200 bg-white p-0.5 gap-0.5 shadow-sm"
+      className="inline-flex rounded-lg border border-primary/20 bg-card p-0.5 gap-0.5 shadow-sm"
     >
       {PERIODS.map((p) => (
-        <button
+        <Button
           key={p.value}
           type="button"
+          size="sm"
+          variant={value === p.value ? 'default' : 'ghost'}
           onClick={() => onChange(p.value)}
           aria-pressed={value === p.value}
           aria-label={`Show ${p.label} stats`}
           className={cn(
             // Ensure ≥44px touch target on small screens
-            'px-3 py-2.5 sm:py-1.5 text-sm font-medium rounded-md transition-all duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
-            value === p.value
-              ? 'bg-orange-500 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-orange-50 hover:text-orange-700'
+            'h-auto px-3 py-2.5 sm:py-1.5 text-sm font-medium rounded-md shadow-none',
+            'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+            value !== p.value && 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
           )}
         >
           {p.label}
-        </button>
+        </Button>
       ))}
     </div>
   );

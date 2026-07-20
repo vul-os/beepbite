@@ -11,20 +11,16 @@ import {
 } from '@/components/ui/table';
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { FileText, Loader2 } from 'lucide-react';
+import { HOUSE_ACCOUNT_INVOICE_STATUS_COLORS } from '@/lib/status-colors';
 
 function centsToDisplay(cents) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
 function statusBadge(status) {
-  switch (status) {
-    case 'paid':
-      return <Badge className="bg-green-100 text-green-800 border-green-300">paid</Badge>;
-    case 'partial':
-      return <Badge className="bg-amber-100 text-amber-800 border-amber-300">partial</Badge>;
-    default:
-      return <Badge variant="outline" className="border-blue-400 text-blue-700">open</Badge>;
-  }
+  const cls = HOUSE_ACCOUNT_INVOICE_STATUS_COLORS[status] || HOUSE_ACCOUNT_INVOICE_STATUS_COLORS.open;
+  const label = status === 'paid' ? 'paid' : status === 'partial' ? 'partial' : 'open';
+  return <Badge className={cls}>{label}</Badge>;
 }
 
 export function InvoicesTab({ accountId, fetchInvoices, payInvoice }) {

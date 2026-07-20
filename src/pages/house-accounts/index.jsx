@@ -15,6 +15,7 @@ import { useAuth } from '@/context/auth-context';
 import { useHouseAccounts } from './hooks/use-house-account';
 import { AccountFormDialog } from './components/account-form';
 import { Plus, Loader2, Building2, AlertCircle } from 'lucide-react';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 function centsToDisplay(cents) {
   if (cents == null) return '—';
@@ -46,23 +47,18 @@ export default function HouseAccountsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6" />
-            House Accounts
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Corporate billing accounts for {activeOrganization.name}
-          </p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New account
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={Building2}
+        title="House Accounts"
+        description={`Corporate billing accounts for ${activeOrganization.name}`}
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New account
+          </Button>
+        }
+      />
 
       {/* Error */}
       {error && (
@@ -130,6 +126,6 @@ export default function HouseAccountsPage() {
         orgId={orgId}
         onCreate={createAccount}
       />
-    </div>
+    </PageContainer>
   );
 }

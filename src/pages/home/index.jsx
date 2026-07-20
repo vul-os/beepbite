@@ -24,16 +24,16 @@ import OnboardingChecklist from './components/onboarding-checklist';
 function GuardScreen({ icon: Icon, iconClass, title, subtitle }) {
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 px-4"
+      className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 px-4"
       role="status"
       aria-live="polite"
     >
-      <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center max-w-sm w-full text-center">
-        <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mb-4">
+      <div className="bg-card rounded-2xl shadow-lg p-8 flex flex-col items-center max-w-sm w-full text-center">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
           <Icon className={`w-8 h-8 ${iconClass}`} />
         </div>
-        {title && <h2 className="text-lg font-semibold text-gray-900 mb-1">{title}</h2>}
-        {subtitle && <p className="text-sm text-gray-500 leading-relaxed">{subtitle}</p>}
+        {title && <h2 className="text-lg font-semibold text-foreground mb-1">{title}</h2>}
+        {subtitle && <p className="text-sm text-muted-foreground leading-relaxed">{subtitle}</p>}
       </div>
     </div>
   );
@@ -193,7 +193,7 @@ const Home = () => {
     return (
       <GuardScreen
         icon={AlertCircle}
-        iconClass="text-orange-400"
+        iconClass="text-primary"
         title="No Organization Selected"
         subtitle="Please select an organization to view your dashboard."
       />
@@ -205,7 +205,7 @@ const Home = () => {
     return (
       <GuardScreen
         icon={RefreshCw}
-        iconClass="text-orange-400 animate-spin"
+        iconClass="text-primary animate-spin"
         subtitle="Loading your dashboard…"
       />
     );

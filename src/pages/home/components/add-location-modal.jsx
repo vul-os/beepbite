@@ -179,7 +179,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
               Region <span className="text-red-500">*</span>
             </Label>
             {loadingRegions ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500 h-10 px-3 border rounded-md">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground h-10 px-3 border rounded-md">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading regions…
               </div>
@@ -219,7 +219,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
               }}
               disabled={submitting}
             />
-            <p className="text-xs text-gray-500">Pick a suggestion to set the location on the map automatically.</p>
+            <p className="text-xs text-muted-foreground">Pick a suggestion to set the location on the map automatically.</p>
           </div>
 
           {/* City + Country row */}

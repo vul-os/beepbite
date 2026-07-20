@@ -234,9 +234,9 @@ const TopBar = () => {
   return (
     <>
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isLandingPage 
-          ? 'bg-white/80 backdrop-blur-sm border-b border-gray-100' 
-          : 'bg-white border-b border-gray-200'
+        isLandingPage
+          ? 'bg-background/80 backdrop-blur-sm border-b border-border/60'
+          : 'bg-background border-b border-border'
       }`}>
         <nav className="h-16 px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="h-full flex items-center justify-between max-w-content mx-auto">
@@ -260,9 +260,9 @@ const TopBar = () => {
                         to={item.path}
                         className={cn(
                           "flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200",
-                          isActive 
-                            ? "bg-orange-500 text-white shadow-lg" 
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-lg"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                       >
                         <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -286,9 +286,9 @@ const TopBar = () => {
                         to={item.path}
                         className={cn(
                           "flex items-center justify-center w-8 h-8 rounded-lg text-xs font-semibold transition-all duration-200",
-                          isActive 
-                            ? "bg-orange-500 text-white shadow-lg" 
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-lg"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                       >
                         <Icon className="w-4 h-4" />
@@ -311,7 +311,7 @@ const TopBar = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            className="text-sm font-medium flex items-center gap-2 border-gray-300 text-gray-700 hover:border-orange-500 hover:text-orange-500"
+                            className="text-sm font-medium flex items-center gap-2 border-border text-foreground hover:border-primary hover:text-primary"
                           >
                             <MapPin className="h-4 w-4" />
                             <span className="max-w-[120px] truncate">
@@ -330,18 +330,18 @@ const TopBar = () => {
                                 onClick={() => handleSwitchLocation(loc.id)}
                                 className={cn(
                                   "flex items-center gap-2 cursor-pointer",
-                                  activeLocation?.id === loc.id && "bg-orange-50"
+                                  activeLocation?.id === loc.id && "bg-primary/10"
                                 )}
                               >
                                 {activeLocation?.id === loc.id && (
-                                  <Check className="h-4 w-4 text-orange-500" />
+                                  <Check className="h-4 w-4 text-primary" />
                                 )}
                                 <Store className="h-4 w-4" />
                                 <span>{loc.name}</span>
                               </DropdownMenuItem>
                             ))
                           ) : (
-                            <DropdownMenuItem disabled className="text-gray-500">
+                            <DropdownMenuItem disabled className="text-muted-foreground">
                               No locations available
                             </DropdownMenuItem>
                           )}
@@ -351,15 +351,15 @@ const TopBar = () => {
                   )}
 
                   {/* User Menu Button - Enhanced with depth and visual appeal */}
-                  <Button 
-                    variant="ghost" 
-                    className="h-12 w-12 rounded-full p-0 bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 shadow-lg hover:shadow-xl hover:border-orange-300 hover:from-orange-50 hover:to-white transition-all duration-300 hover:scale-105 active:scale-95"
+                  <Button
+                    variant="ghost"
+                    className="h-12 w-12 rounded-full p-0 bg-gradient-to-br from-card to-muted border-2 border-border shadow-lg hover:shadow-xl hover:border-primary/40 hover:from-primary/10 hover:to-card transition-all duration-300 hover:scale-105 active:scale-95"
                     aria-label="Open navigation menu"
                     onClick={toggleSideNav}
                   >
-                    <Avatar className="h-9 w-9 ring-2 ring-white shadow-sm">
+                    <Avatar className="h-9 w-9 ring-2 ring-background shadow-sm">
                       <AvatarImage src={userProfile?.avatar_url} alt="User" className="object-cover" />
-                      <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white font-bold text-sm shadow-inner">
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold text-sm shadow-inner">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
@@ -371,13 +371,13 @@ const TopBar = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/signin')}
-                    className="text-sm font-medium text-gray-700 hover:text-gray-900"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground"
                   >
                     Sign In
                   </Button>
                   <Button
                     size="sm"
-                    className="font-medium bg-orange-500 text-white hover:bg-orange-600"
+                    className="font-medium"
                     onClick={() => navigate('/signup')}
                   >
                     Get Started
@@ -400,26 +400,26 @@ const TopBar = () => {
           
           {/* Side Navigation Panel - Clean styling */}
           <div className={cn(
-            "fixed top-0 right-0 h-full w-80 sm:w-96 bg-white shadow-2xl z-[9999] transform transition-transform duration-300 ease-out",
+            "fixed top-0 right-0 h-full w-80 sm:w-96 bg-background shadow-2xl z-[9999] transform transition-transform duration-300 ease-out",
             "animate-in slide-in-from-right"
           )}>
             <div className="h-full flex flex-col">
-              
-              {/* Header - Clean orange styling */}
-              <div className="bg-orange-500 px-6 py-4 flex-shrink-0">
+
+              {/* Header - Clean brand styling */}
+              <div className="bg-primary px-6 py-4 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border-2 border-white/30">
+                    <Avatar className="h-10 w-10 border-2 border-primary-foreground/30">
                       <AvatarImage src={userProfile?.avatar_url} alt="User" />
-                      <AvatarFallback className="bg-orange-600 text-white font-bold">
+                      <AvatarFallback className="bg-primary/80 text-primary-foreground font-bold">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white/90 text-sm truncate font-medium">
+                      <p className="text-primary-foreground/90 text-sm truncate font-medium">
                         {user.email}
                       </p>
-                      <p className="text-white/70 text-xs truncate">
+                      <p className="text-primary-foreground/70 text-xs truncate">
                         {activeLocation?.name || "No location selected"}
                       </p>
                     </div>
@@ -428,7 +428,7 @@ const TopBar = () => {
                     variant="ghost"
                     size="sm"
                     onClick={closeSideNav}
-                    className="text-white/90 hover:text-white hover:bg-white/20 p-2 rounded-xl transition-all duration-200"
+                    className="text-primary-foreground/90 hover:text-primary-foreground hover:bg-primary-foreground/20 p-2 rounded-xl transition-all duration-200"
                   >
                     <X className="w-5 h-5" />
                   </Button>
@@ -440,7 +440,7 @@ const TopBar = () => {
                 <div className="p-6 space-y-6">
                   {sideNavigationSections.map((section) => (
                     <div key={section.title} className="space-y-3">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                         {section.title}
                       </h3>
                       <div className="space-y-1">
@@ -455,27 +455,27 @@ const TopBar = () => {
                               onClick={closeSideNav}
                               className={cn(
                                 "flex items-center gap-4 px-4 py-3 rounded-xl font-medium transition-all duration-200 w-full",
-                                isActive 
-                                  ? "bg-orange-500 text-white shadow-lg shadow-orange-500/25" 
-                                  : "text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+                                isActive
+                                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                                  : "text-foreground hover:bg-primary/10 hover:text-primary"
                               )}
                             >
                               <div className={cn(
                                 "w-10 h-10 rounded-lg flex items-center justify-center",
-                                isActive 
-                                  ? "bg-white/20" 
-                                  : "bg-gray-100"
+                                isActive
+                                  ? "bg-primary-foreground/20"
+                                  : "bg-muted"
                               )}>
                                 <Icon className={cn(
                                   "w-5 h-5",
-                                  isActive ? "text-white" : "text-gray-600"
+                                  isActive ? "text-primary-foreground" : "text-muted-foreground"
                                 )} />
                               </div>
                               <div className="flex flex-col min-w-0 flex-1">
                                 <span className="text-base font-semibold truncate">{item.name}</span>
                                 <span className={cn(
                                   "text-sm truncate",
-                                  isActive ? "text-white/80" : "text-gray-500"
+                                  isActive ? "text-primary-foreground/80" : "text-muted-foreground"
                                 )}>{item.description}</span>
                               </div>
                             </Link>
@@ -487,32 +487,32 @@ const TopBar = () => {
 
                   {/* Organization Selector - Clean styling */}
                   <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                       Organization
                     </h3>
                     <div className="space-y-1">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            className="w-full h-12 px-4 text-sm font-medium flex items-center gap-3 border border-gray-200 text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 hover:border-gray-300 transition-all duration-150 group rounded-xl"
+                          <Button
+                            variant="ghost"
+                            className="w-full h-12 px-4 text-sm font-medium flex items-center gap-3 border border-border text-foreground bg-background hover:bg-muted hover:text-foreground hover:border-border transition-all duration-150 group rounded-xl"
                           >
-                            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                              <Building2 className="w-5 h-5 text-orange-600" />
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <Building2 className="w-5 h-5 text-primary" />
                             </div>
                             <div className="flex flex-col items-start flex-1 min-w-0">
                               <span className="text-base font-semibold truncate w-full text-left">
                                 {activeOrganization?.name || "Select Organization"}
                               </span>
-                              <span className="text-xs text-gray-500 truncate w-full text-left">
+                              <span className="text-xs text-muted-foreground truncate w-full text-left">
                                 Current organization
                               </span>
                             </div>
-                            <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors duration-150 flex-shrink-0" />
+                            <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors duration-150 flex-shrink-0" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-80 max-h-[60vh] overflow-y-auto" sideOffset={8}>
-                          <DropdownMenuLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <DropdownMenuLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                             Your Organizations
                           </DropdownMenuLabel>
                           <DropdownMenuSeparator />
@@ -524,35 +524,35 @@ const TopBar = () => {
                                   onClick={() => switchOrganization(organization.id)}
                                   className={cn(
                                     "flex items-center gap-3 py-3",
-                                    activeOrganization?.id === organization.id ? "bg-orange-50 text-orange-900" : ""
+                                    activeOrganization?.id === organization.id ? "bg-primary/10 text-primary" : ""
                                   )}
                                 >
                                   <div className={cn(
                                     "w-10 h-10 rounded-lg flex items-center justify-center",
-                                    activeOrganization?.id === organization.id ? "bg-orange-500" : "bg-gray-100"
+                                    activeOrganization?.id === organization.id ? "bg-primary" : "bg-muted"
                                   )}>
                                     <Building2 className={cn(
                                       "w-5 h-5",
-                                      activeOrganization?.id === organization.id ? "text-white" : "text-gray-500"
+                                      activeOrganization?.id === organization.id ? "text-primary-foreground" : "text-muted-foreground"
                                     )} />
                                   </div>
                                   <div className="flex flex-col flex-1">
                                     <span className="font-medium truncate">{organization.name}</span>
-                                    <span className="text-xs text-gray-500 truncate">Organization</span>
+                                    <span className="text-xs text-muted-foreground truncate">Organization</span>
                                   </div>
                                   {activeOrganization?.id === organization.id && (
-                                    <Check className="w-4 h-4 text-orange-500" />
+                                    <Check className="w-4 h-4 text-primary" />
                                   )}
                                 </DropdownMenuItem>
                               ))
                             ) : (
-                              <DropdownMenuItem disabled className="flex items-center gap-3 py-3 text-gray-500">
-                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                                  <Building2 className="w-5 h-5 text-gray-400" />
+                              <DropdownMenuItem disabled className="flex items-center gap-3 py-3 text-muted-foreground">
+                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                                  <Building2 className="w-5 h-5 text-muted-foreground" />
                                 </div>
                                 <div className="flex flex-col flex-1">
                                   <span className="font-medium">No organizations</span>
-                                  <span className="text-xs text-gray-400">Create an organization to get started</span>
+                                  <span className="text-xs text-muted-foreground">Create an organization to get started</span>
                                 </div>
                               </DropdownMenuItem>
                             )}
@@ -565,7 +565,7 @@ const TopBar = () => {
               </div>
 
               {/* Fixed Bottom — Staff login + Sign Out */}
-              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gray-50/50 space-y-2">
+              <div className="flex-shrink-0 p-6 border-t border-border bg-muted/50 space-y-2">
                 {/* Staff / employee PIN login — shared-terminal "switch user" */}
                 <Button
                   onClick={() => {
@@ -573,14 +573,14 @@ const TopBar = () => {
                     navigate(staffLoginPath);
                   }}
                   variant="ghost"
-                  className="w-full justify-start gap-4 py-4 px-4 text-orange-700 hover:bg-orange-50 hover:text-orange-800 rounded-xl font-medium"
+                  className="w-full justify-start gap-4 py-4 px-4 text-primary hover:bg-primary/10 hover:text-primary rounded-xl font-medium"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                    <LockKeyhole className="w-5 h-5 text-orange-600" />
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <LockKeyhole className="w-5 h-5 text-primary" />
                   </div>
                   <div className="text-left min-w-0 flex-1">
                     <div className="text-base font-medium truncate">Staff Login</div>
-                    <div className="text-sm text-orange-500 truncate">Switch employee / enter PIN</div>
+                    <div className="text-sm text-primary/80 truncate">Switch employee / enter PIN</div>
                   </div>
                 </Button>
 
@@ -590,14 +590,14 @@ const TopBar = () => {
                     closeSideNav();
                   }}
                   variant="ghost"
-                  className="w-full justify-start gap-4 py-4 px-4 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl font-medium"
+                  className="w-full justify-start gap-4 py-4 px-4 text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl font-medium"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                    <LogOut className="w-5 h-5 text-red-600" />
+                  <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                    <LogOut className="w-5 h-5 text-destructive" />
                   </div>
                   <div className="text-left min-w-0 flex-1">
                     <div className="text-base font-medium truncate">Sign Out</div>
-                    <div className="text-sm text-red-500 truncate">End your session</div>
+                    <div className="text-sm text-destructive/80 truncate">End your session</div>
                   </div>
                 </Button>
               </div>

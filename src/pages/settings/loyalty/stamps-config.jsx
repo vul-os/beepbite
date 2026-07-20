@@ -15,6 +15,7 @@ import { Input }    from '@/components/ui/input';
 import { Label }    from '@/components/ui/label';
 import { Switch }   from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 
 import { getStampConfig, setStampConfig } from '@/services/loyalty-stamps';
 
@@ -81,18 +82,33 @@ export default function StampsConfig() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-8 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>Loading stamp config…</span>
-      </div>
+      <PageContainer>
+        <PageHeader
+          eyebrow="Settings"
+          title="Loyalty"
+          description="Reward loyal customers with a digital punch card."
+          icon={Stamp}
+        />
+        <div className="flex items-center gap-2 py-8 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading stamp config…</span>
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <Card className="max-w-lg">
+    <PageContainer>
+      <PageHeader
+        eyebrow="Settings"
+        title="Loyalty"
+        description="Reward loyal customers with a digital punch card."
+        icon={Stamp}
+      />
+      <Card className="max-w-lg">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Stamp className="h-5 w-5 text-orange-500" />
+          <Stamp className="h-5 w-5 text-primary" />
           <CardTitle>Stamp Programme</CardTitle>
         </div>
         <CardDescription>
@@ -162,7 +178,7 @@ export default function StampsConfig() {
             </p>
           )}
           {success && (
-            <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+            <p className="rounded-md bg-beepbite-success/10 px-3 py-2 text-sm text-beepbite-success">
               Stamp config saved.
             </p>
           )}
@@ -174,6 +190,7 @@ export default function StampsConfig() {
           </Button>
         </form>
       </CardContent>
-    </Card>
+      </Card>
+    </PageContainer>
   );
 }

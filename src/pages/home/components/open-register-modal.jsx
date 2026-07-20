@@ -31,10 +31,10 @@ function DenomRow({ denom, count, onChange }) {
   const setSafe = (val) => onChange(Math.max(0, val | 0));
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-orange-200/80 bg-white p-3 shadow-sm">
+    <div className="flex flex-col gap-1 rounded-lg border border-orange-200/80 bg-card p-3 shadow-sm">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-900">{label}</span>
-        <span className="text-xs text-gray-500 tabular-nums">
+        <span className="text-sm font-semibold text-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
           {format(subtotal)}
         </span>
       </div>
@@ -204,7 +204,7 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
 
         {/* Denominations */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-700">Denominations</Label>
+          <Label className="text-sm font-medium text-foreground">Denominations</Label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {denoms.map((d) => (
               <DenomRow
@@ -235,7 +235,7 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
             'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
           )}
         >
-          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Wallet className="w-4 h-4 text-orange-500" />
             Opening Float Total
           </div>

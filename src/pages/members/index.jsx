@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Plus, 
   Search, 
@@ -44,6 +45,16 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -59,6 +70,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PageHeader, PageContainer } from "@/components/ui/page-header";
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
@@ -66,7 +78,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { toast } from "sonner";
+import { useToast } from '@/hooks/use-toast';
 
 // Form validation schema
 const staffFormSchema = z.object({
@@ -80,6 +92,7 @@ const staffFormSchema = z.object({
 
 const Members = () => {
   const { user, activeOrganization } = useAuth();
+  const { toast } = useToast();
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +106,7 @@ const Members = () => {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [removeConfirmMember, setRemoveConfirmMember] = useState(null);
 
   // Initialize form
   const form = useForm({
@@ -158,7 +172,7 @@ const Members = () => {
       setMembers(data || []);
     } catch (error) {
       console.error('Error fetching members:', error);
-      toast.error('Failed to fetch members');
+      toast({ variant: 'destructive', title: 'Failed to fetch members' });
     } finally {
       setLoading(false);
     }
@@ -223,10 +237,10 @@ const Members = () => {
       
       // Here you would typically send an email notification
       // For now, we'll just show success
-      alert('Invitation sent successfully!');
+      toast({ title: 'Invitation sent successfully!' });
     } catch (error) {
       console.error('Error sending invite:', error);
-      alert(error.message || 'Failed to send invitation');
+      toast({ variant: 'destructive', title: 'Failed to send invitation', description: error.message });
     } finally {
       setInviteLoading(false);
     }
@@ -260,12 +274,12 @@ const Members = () => {
         if (roleError) throw roleError;
       }
 
-      toast.success('Member updated successfully');
+      toast({ title: 'Member updated successfully' });
       setIsEditModalOpen(false);
       fetchMembers();
     } catch (error) {
       console.error('Error updating member:', error);
-      toast.error('Failed to update member');
+      toast({ variant: 'destructive', title: 'Failed to update member' });
     } finally {
       setActionLoading('');
     }
@@ -284,11 +298,11 @@ const Members = () => {
       
       if (error) throw error;
       
-      toast.success('Member archived successfully');
+      toast({ title: 'Member archived successfully' });
       fetchMembers();
     } catch (error) {
       console.error('Error archiving member:', error);
-      toast.error('Failed to archive member');
+      toast({ variant: 'destructive', title: 'Failed to archive member' });
     } finally {
       setActionLoading('');
       setIsArchiveModalOpen(false);
@@ -308,33 +322,39 @@ const Members = () => {
       
       if (error) throw error;
       
-      toast.success('Member restored successfully');
+      toast({ title: 'Member restored successfully' });
       fetchMembers();
     } catch (error) {
       console.error('Error restoring member:', error);
-      toast.error('Failed to restore member');
+      toast({ variant: 'destructive', title: 'Failed to restore member' });
     } finally {
       setActionLoading('');
     }
   };
 
-  const removeMember = async (memberId) => {
-    if (!confirm('Are you sure you want to remove this member?')) return;
-    
+  const removeMember = (member) => {
+    setRemoveConfirmMember(member);
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!removeConfirmMember) return;
+    const memberId = removeConfirmMember.id;
+
     setActionLoading(memberId);
     try {
       const { error } = await supabase
         .from('organization_members')
         .delete()
         .eq('id', memberId);
-      
+
       if (error) throw error;
       fetchMembers();
     } catch (error) {
       console.error('Error removing member:', error);
-      alert('Failed to remove member');
+      toast({ variant: 'destructive', title: 'Failed to remove member' });
     } finally {
       setActionLoading('');
+      setRemoveConfirmMember(null);
     }
   };
 
@@ -350,7 +370,7 @@ const Members = () => {
       fetchMembers();
     } catch (error) {
       console.error('Error updating member role:', error);
-      alert('Failed to update member role');
+      toast({ variant: 'destructive', title: 'Failed to update member role' });
     } finally {
       setActionLoading('');
     }
@@ -368,7 +388,7 @@ const Members = () => {
       fetchInvites();
     } catch (error) {
       console.error('Error canceling invite:', error);
-      alert('Failed to cancel invitation');
+      toast({ variant: 'destructive', title: 'Failed to cancel invitation' });
     } finally {
       setActionLoading('');
     }
@@ -392,28 +412,28 @@ const Members = () => {
   const getRoleColor = (role) => {
     switch (role) {
       case 'owner':
-        return 'bg-orange-100/80 text-orange-800 border-orange-200';
+        return 'bg-primary/15 text-primary border-primary/30';
       case 'admin':
-        return 'bg-black/5 text-gray-800 border-gray-200';
+        return 'bg-foreground/5 text-foreground border-border';
       case 'manager':
-        return 'bg-orange-50 text-orange-700 border-orange-100';
+        return 'bg-primary/5 text-primary border-primary/10';
       case 'staff':
-        return 'bg-gray-50 text-gray-600 border-gray-150';
+        return 'bg-muted text-muted-foreground border-border';
       default:
-        return 'bg-gray-50 text-gray-600 border-gray-150';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
       case 'pending':
-        return <Clock className="w-4 h-4 text-orange-500" />;
+        return <Clock className="w-4 h-4 text-primary" />;
       case 'accepted':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return <CheckCircle className="w-4 h-4 text-beepbite-success" />;
       case 'rejected':
-        return <XCircle className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-destructive" />;
       default:
-        return <Clock className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -450,9 +470,9 @@ const Members = () => {
   if (!activeOrganization) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <AlertCircle className="w-16 h-16 text-gray-400 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Organization Selected</h2>
-        <p className="text-gray-600">Please select an organization to manage members.</p>
+        <AlertCircle className="w-16 h-16 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold text-foreground mb-2">No Organization Selected</h2>
+        <p className="text-muted-foreground">Please select an organization to manage members.</p>
       </div>
     );
   }
@@ -460,10 +480,10 @@ const Members = () => {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+        <Skeleton className="h-12 w-full rounded" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
+            <Skeleton key={i} className="h-32 w-full rounded" />
           ))}
         </div>
       </div>
@@ -471,64 +491,52 @@ const Members = () => {
   }
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div className="flex flex-col gap-4 bg-gradient-to-b from-orange-50/50 to-white p-6 -mx-6 -mt-6 border-b border-orange-100/20">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <Users className="w-8 h-8 text-orange-500" />
-              Team Members
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Manage your organization team and invite new members
-            </p>
-          </div>
-          
-          {/* Archive Toggle */}
+    <PageContainer className="pb-20">
+      <PageHeader
+        title="Team Members"
+        description="Manage your organization team and invite new members"
+        icon={Users}
+        actions={
           <Button
             variant="outline"
             onClick={() => setShowArchived(!showArchived)}
-            className={cn(
-              "border-orange-200",
-              showArchived && "bg-orange-50 text-orange-700"
-            )}
+            className={cn(showArchived && "bg-primary/10 text-primary border-primary/30")}
           >
             <Archive className="w-4 h-4 mr-2" />
             {showArchived ? "Show Active" : "Show Archived"}
           </Button>
+        }
+      />
+
+      {/* Search and Filter Bar */}
+      <div className="flex gap-4 flex-col sm:flex-row">
+        <div className="relative flex-1 max-w-2xl">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+          <Input
+            placeholder="Search by name, email, department..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-12 h-12 text-base font-medium"
+          />
         </div>
 
-        {/* Search and Filter Bar */}
-        <div className="flex gap-4 flex-col sm:flex-row">
-          <div className="relative flex-1 max-w-2xl">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <Input
-              placeholder="Search by name, email, department..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 text-base font-medium bg-white border-gray-200 focus:border-orange-300 focus:ring-orange-200 shadow-sm"
-            />
-          </div>
-          
-          {/* Desktop Invite Button */}
-          {canManageMembers && !showArchived && (
-            <Button 
-              onClick={() => setIsInviteModalOpen(true)}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 h-12"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Invite Member
-            </Button>
-          )}
-        </div>
+        {/* Desktop Invite Button */}
+        {canManageMembers && !showArchived && (
+          <Button
+            onClick={() => setIsInviteModalOpen(true)}
+            className="h-12"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Invite Member
+          </Button>
+        )}
       </div>
 
       {/* FAB - Floating Action Button */}
       {canManageMembers && (
         <Button
           onClick={() => setIsInviteModalOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-xl hover:shadow-2xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
           size="lg"
         >
           <UserPlus className="w-6 h-6" />
@@ -538,9 +546,8 @@ const Members = () => {
       {/* Desktop Invite Button */}
       {canManageMembers && (
         <div className="hidden sm:flex justify-end">
-          <Button 
+          <Button
             onClick={() => setIsInviteModalOpen(true)}
-            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Invite Member
@@ -550,45 +557,45 @@ const Members = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="border-gray-100 hover:border-orange-200 transition-colors bg-white shadow-sm hover:shadow-md">
+        <Card className="hover:border-primary/30 transition-colors hover:shadow-md">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold text-gray-900">{members.length}</p>
-                <p className="text-sm text-gray-600 mt-1">Total Members</p>
+                <p className="text-3xl font-bold text-foreground">{members.length}</p>
+                <p className="text-sm text-muted-foreground mt-1">Total Members</p>
               </div>
-              <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
-                <Users className="w-6 h-6 text-orange-500" />
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Users className="w-6 h-6 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="border-gray-100 hover:border-orange-200 transition-colors bg-white shadow-sm hover:shadow-md">
+
+        <Card className="hover:border-primary/30 transition-colors hover:shadow-md">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold text-gray-900">
+                <p className="text-3xl font-bold text-foreground">
                   {invites.filter(i => i.status === 'pending').length}
                 </p>
-                <p className="text-sm text-gray-600 mt-1">Pending Invites</p>
+                <p className="text-sm text-muted-foreground mt-1">Pending Invites</p>
               </div>
-              <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
-                <Mail className="w-6 h-6 text-orange-500" />
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Mail className="w-6 h-6 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="border-gray-100 hover:border-orange-200 transition-colors bg-white shadow-sm hover:shadow-md sm:col-span-2 lg:col-span-1">
+
+        <Card className="hover:border-primary/30 transition-colors hover:shadow-md sm:col-span-2 lg:col-span-1">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-lg font-semibold text-gray-900 truncate">{activeOrganization?.name || 'Organization'}</p>
-                <p className="text-sm text-gray-600 mt-1">Current Organization</p>
+                <p className="text-lg font-semibold text-foreground truncate">{activeOrganization?.name || 'Organization'}</p>
+                <p className="text-sm text-muted-foreground mt-1">Current Organization</p>
               </div>
-              <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-orange-600" />
+              <div className="w-12 h-12 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -597,41 +604,38 @@ const Members = () => {
 
       {/* Members Grid */}
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-gray-900">
+        <h2 className="text-xl font-semibold text-foreground">
           {showArchived ? "Archived Members" : "Active Members"}
         </h2>
-        
+
         {filteredMembers.length === 0 ? (
-          <Card className="border-gray-100 bg-white shadow-sm">
+          <Card>
             <CardContent className="p-12 text-center">
-              <div className="w-16 h-16 rounded-lg bg-orange-50 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 {showArchived ? (
-                  <Archive className="w-8 h-8 text-orange-400" />
+                  <Archive className="w-8 h-8 text-primary/60" />
                 ) : (
-                  <Users className="w-8 h-8 text-orange-400" />
+                  <Users className="w-8 h-8 text-primary/60" />
                 )}
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {searchTerm 
-                  ? 'No members found' 
-                  : showArchived 
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {searchTerm
+                  ? 'No members found'
+                  : showArchived
                     ? 'No archived members'
                     : 'No members yet'
                 }
               </h3>
-              <p className="text-gray-600 mb-6">
-                {searchTerm 
-                  ? 'Try adjusting your search terms' 
+              <p className="text-muted-foreground mb-6">
+                {searchTerm
+                  ? 'Try adjusting your search terms'
                   : showArchived
                     ? 'Archived members will appear here'
                     : 'Invite team members to get started'
                 }
               </p>
               {!searchTerm && !showArchived && canManageMembers && (
-                <Button 
-                  onClick={() => setIsInviteModalOpen(true)}
-                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-                >
+                <Button onClick={() => setIsInviteModalOpen(true)}>
                   <UserPlus className="w-4 h-4 mr-2" />
                   Invite First Member
                 </Button>
@@ -643,13 +647,13 @@ const Members = () => {
             {filteredMembers.map((member) => {
               const isCurrentUser = member.profiles?.id === user?.id;
               const isLoading = actionLoading === member.id;
-              
+
               return (
-                <Card 
-                  key={member.id} 
+                <Card
+                  key={member.id}
                   className={cn(
-                    "border-gray-100 bg-white shadow-sm hover:shadow-md transition-all duration-200",
-                    isCurrentUser && "border-orange-200 bg-orange-50/30",
+                    "hover:shadow-md transition-all duration-200",
+                    isCurrentUser && "border-primary/30 bg-primary/5",
                     member.archived_at && "opacity-75"
                   )}
                 >
@@ -657,28 +661,28 @@ const Members = () => {
                     <div className="space-y-4">
                       {/* Member Info */}
                       <div className="flex items-start gap-4">
-                        <Avatar className="h-14 w-14 border-2 border-orange-100 ring-2 ring-white">
+                        <Avatar className="h-14 w-14 border-2 border-primary/20 ring-2 ring-background">
                           <AvatarImage src={member.profiles?.avatar_url} />
-                          <AvatarFallback className="bg-gradient-to-br from-orange-100 to-orange-50 text-orange-700 font-semibold text-lg">
+                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
                             {getInitials(member.profiles?.full_name, member.profiles?.username, member.profiles?.email)}
                           </AvatarFallback>
                         </Avatar>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-semibold text-gray-900 text-lg truncate">
+                            <h3 className="font-semibold text-foreground text-lg truncate">
                               {member.profiles?.full_name || member.profiles?.username || 'Unknown User'}
                               {isCurrentUser && (
-                                <span className="text-sm text-orange-600 font-normal ml-2">(You)</span>
+                                <span className="text-sm text-primary font-normal ml-2">(You)</span>
                               )}
                             </h3>
-                            
+
                             {/* Action Menu */}
                             {canManageMembers && !isCurrentUser && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
+                                  <Button
+                                    variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0"
                                   >
@@ -700,7 +704,7 @@ const Members = () => {
                                   {member.archived_at ? (
                                     <DropdownMenuItem
                                       onClick={() => handleRestoreMember(member.id)}
-                                      className="text-orange-600"
+                                      className="text-primary"
                                     >
                                       <CheckCircle className="w-4 h-4 mr-2" />
                                       Restore Member
@@ -711,7 +715,7 @@ const Members = () => {
                                         setSelectedMember(member);
                                         setIsArchiveModalOpen(true);
                                       }}
-                                      className="text-red-600"
+                                      className="text-destructive"
                                     >
                                       <Archive className="w-4 h-4 mr-2" />
                                       Archive Member
@@ -722,20 +726,20 @@ const Members = () => {
                             )}
                           </div>
 
-                          <p className="text-sm text-gray-600 truncate mb-1">
+                          <p className="text-sm text-muted-foreground truncate mb-1">
                             {member.profiles?.email}
                           </p>
-                          
+
                           {member.profiles?.title && (
-                            <p className="text-sm text-gray-600 mb-1">
+                            <p className="text-sm text-muted-foreground mb-1">
                               {member.profiles.title}
                               {member.profiles?.department && ` • ${member.profiles.department}`}
                             </p>
                           )}
-                          
+
                           <div className="flex items-center gap-2 flex-wrap mt-3">
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className={cn("text-xs font-medium", getRoleColor(member.role))}
                             >
                               <span className="flex items-center gap-1.5">
@@ -743,21 +747,21 @@ const Members = () => {
                                 {member.role}
                               </span>
                             </Badge>
-                            
+
                             {member.archived_at && (
-                              <Badge 
-                                variant="outline" 
-                                className="bg-gray-50 text-gray-600 border-gray-200"
+                              <Badge
+                                variant="outline"
+                                className="bg-muted text-muted-foreground border-border"
                               >
                                 <Archive className="w-3 h-3 mr-1" />
                                 Archived
                               </Badge>
                             )}
                           </div>
-                          
-                          <p className="text-xs text-gray-500 mt-2">
-                            {member.archived_at 
-                              ? `Archived ${formatDistanceToNow(new Date(member.archived_at), { addSuffix: true })}` 
+
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {member.archived_at
+                              ? `Archived ${formatDistanceToNow(new Date(member.archived_at), { addSuffix: true })}`
                               : `Joined ${formatDistanceToNow(new Date(member.created_at), { addSuffix: true })}`
                             }
                           </p>
@@ -766,7 +770,7 @@ const Members = () => {
 
                       {/* Contact Info */}
                       {member.profiles?.phone && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600 pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t border-border">
                           <Phone className="w-4 h-4" />
                           {member.profiles.phone}
                         </div>
@@ -783,23 +787,23 @@ const Members = () => {
       {/* Pending Invites */}
       {invites.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-gray-900">Invitations</h2>
-          
+          <h2 className="text-xl font-semibold text-foreground">Invitations</h2>
+
           <div className="space-y-3">
             {invites.map((invite) => (
-              <Card key={invite.id} className="border-gray-100 bg-white shadow-sm hover:shadow-md transition-colors">
+              <Card key={invite.id} className="hover:shadow-md transition-colors">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-orange-500" />
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Mail className="w-5 h-5 text-primary" />
                       </div>
                       
                       <div>
-                        <p className="font-medium text-gray-900 text-base">{invite.email}</p>
+                        <p className="font-medium text-foreground text-base">{invite.email}</p>
                         <div className="flex items-center gap-3 mt-2">
-                          <Badge 
-                            variant="outline" 
+                          <Badge
+                            variant="outline"
                             className={cn("text-xs font-medium", getRoleColor(invite.role))}
                           >
                             <span className="flex items-center gap-1.5">
@@ -807,24 +811,24 @@ const Members = () => {
                               {invite.role}
                             </span>
                           </Badge>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-muted-foreground">
                             Invited {formatDistanceToNow(new Date(invite.created_at), { addSuffix: true })}
                           </span>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                       {getStatusIcon(invite.status)}
                       <span className={cn(
                         "text-sm font-medium capitalize",
-                        invite.status === 'pending' && "text-orange-600",
-                        invite.status === 'accepted' && "text-green-600",
-                        invite.status === 'rejected' && "text-red-500"
+                        invite.status === 'pending' && "text-primary",
+                        invite.status === 'accepted' && "text-beepbite-success",
+                        invite.status === 'rejected' && "text-destructive"
                       )}>
                         {invite.status}
                       </span>
-                      
+
                       {/* Cancel Invite Button */}
                       {invite.status === 'pending' && canManageMembers && (
                         <Button
@@ -832,7 +836,7 @@ const Members = () => {
                           variant="ghost"
                           onClick={() => cancelInvite(invite.id)}
                           disabled={actionLoading === invite.id}
-                          className="text-gray-500 hover:text-red-600 hover:bg-red-50"
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         >
                           <XCircle className="w-4 h-4" />
                         </Button>
@@ -851,17 +855,17 @@ const Members = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5 text-orange-500" />
+              <Mail className="w-5 h-5 text-primary" />
               Invite New Member
             </DialogTitle>
             <DialogDescription>
               Send an invitation to join {activeOrganization?.name} as a team member.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 mt-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-2">
+              <label className="text-sm font-medium text-foreground block mb-2">
                 Email Address
               </label>
               <Input
@@ -872,9 +876,9 @@ const Members = () => {
                 className="w-full"
               />
             </div>
-            
+
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-2">
+              <label className="text-sm font-medium text-foreground block mb-2">
                 Role
               </label>
               <Select value={inviteRole} onValueChange={setInviteRole}>
@@ -913,18 +917,18 @@ const Members = () => {
             </div>
             
             <div className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setIsInviteModalOpen(false)}
                 className="flex-1"
                 disabled={inviteLoading}
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={sendInvite}
                 disabled={!inviteEmail || inviteLoading}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+                className="flex-1"
               >
                 {inviteLoading ? (
                   <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -943,7 +947,7 @@ const Members = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-5 h-5 text-orange-500" />
+              <Pencil className="w-5 h-5 text-primary" />
               Edit Member Details
             </DialogTitle>
             <DialogDescription>
@@ -1069,9 +1073,8 @@ const Members = () => {
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   type="submit"
-                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                   disabled={actionLoading === selectedMember?.id}
                 >
                   {actionLoading === selectedMember?.id ? (
@@ -1091,7 +1094,7 @@ const Members = () => {
       <Dialog open={isArchiveModalOpen} onOpenChange={setIsArchiveModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
+            <DialogTitle className="flex items-center gap-2 text-destructive">
               <Archive className="w-5 h-5" />
               Archive Member
             </DialogTitle>
@@ -1099,13 +1102,13 @@ const Members = () => {
               Are you sure you want to archive this member? They will lose access to the organization but their data will be preserved.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="bg-orange-50 border border-orange-100 rounded-lg p-4 mt-2">
-            <p className="text-sm text-orange-800">
+
+          <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 mt-2">
+            <p className="text-sm text-primary">
               <strong>Note:</strong> Archiving a member is reversible. You can restore their access later if needed.
             </p>
           </div>
-          
+
           <DialogFooter className="gap-3 sm:gap-0">
             <Button
               variant="outline"
@@ -1113,11 +1116,10 @@ const Members = () => {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               variant="destructive"
               onClick={() => handleArchiveMember(selectedMember?.id)}
               disabled={actionLoading === selectedMember?.id}
-              className="bg-red-600 hover:bg-red-700"
             >
               {actionLoading === selectedMember?.id ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -1129,7 +1131,31 @@ const Members = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Remove Member Confirmation (destructive, non-reversible) */}
+      <AlertDialog open={!!removeConfirmMember} onOpenChange={(open) => !open && setRemoveConfirmMember(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {removeConfirmMember?.profiles?.full_name || removeConfirmMember?.profiles?.email || 'this member'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove them from {activeOrganization?.name}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading === removeConfirmMember?.id}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmRemoveMember}
+              disabled={actionLoading === removeConfirmMember?.id}
+            >
+              Remove Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </PageContainer>
   );
 };
 

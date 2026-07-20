@@ -38,6 +38,7 @@ import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { fetchPrefs, savePOSView, saveKDSView } from '@/services/userprefs';
+import { Button } from '@/components/ui/button';
 
 // ---------------------------------------------------------------------------
 // Lazy view imports — read-only; do NOT modify these files.
@@ -206,18 +207,21 @@ function ViewLoader() {
 
 function TabButton({ active, onClick, children }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onClick}
+      aria-selected={active}
+      role="tab"
       className={cn(
-        'px-5 py-2.5 text-sm font-medium border-b-2 transition-colors focus:outline-none',
+        'h-auto rounded-none px-5 py-2.5 text-sm font-medium border-b-2 hover:bg-transparent',
         active
           ? 'border-primary text-primary'
           : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted',
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -227,18 +231,15 @@ function TabButton({ active, onClick, children }) {
 
 function ViewPill({ active, onClick, children }) {
   return (
-    <button
+    <Button
       type="button"
+      variant={active ? 'default' : 'outline'}
       onClick={onClick}
-      className={cn(
-        'px-3 py-1 text-xs rounded-full border transition-colors focus:outline-none',
-        active
-          ? 'bg-primary text-primary-foreground border-primary'
-          : 'border-input text-muted-foreground hover:bg-muted',
-      )}
+      aria-pressed={active}
+      className="h-auto rounded-full px-3 py-1 text-xs"
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

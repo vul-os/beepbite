@@ -119,28 +119,32 @@ const POSSection = ({
   return (
     <>
       {/* Top Search Bar */}
-      <div className="p-4 bg-white border-b border-orange-200 shadow-sm">
+      <div className="p-4 bg-card border-b border-primary/20 shadow-sm">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-6" />
           <Input
             placeholder="Search menu items..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-12 h-12 text-lg font-medium border-2 border-orange-200 focus:border-orange-400 focus:ring-orange-200 rounded-xl"
+            className="pl-12 h-12 text-lg font-medium border-2 border-primary/20 focus:border-primary focus:ring-primary/20 rounded-xl"
           />
           {searchTerm && (
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setSearchTerm('')}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <X className="w-5 h-5" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Categories Section - Multiline with Expand/Collapse */}
-      <div className="p-3 bg-white border-b border-orange-200">
+      <div className="p-3 bg-card border-b border-primary/20">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
           <Button
             variant={selectedCategory === 'all' ? 'default' : 'outline'}
@@ -148,8 +152,8 @@ const POSSection = ({
             className={cn(
               "flex items-center justify-center h-9 px-3 rounded-full font-medium transition-all text-sm w-full min-w-0",
               selectedCategory === 'all'
-                ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
-                : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
+                ? "shadow-md"
+                : "border-primary/20 text-muted-foreground hover:bg-primary/10 hover:border-primary/30"
             )}
           >
             <Filter className="w-3 h-3 flex-shrink-0 mr-1.5" />
@@ -163,8 +167,8 @@ const POSSection = ({
               className={cn(
                 "flex items-center justify-center h-9 px-3 rounded-full font-medium transition-all text-sm w-full min-w-0",
                 selectedCategory === category.id
-                  ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md"
-                  : "border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-300"
+                  ? "shadow-md"
+                  : "border-primary/20 text-muted-foreground hover:bg-primary/10 hover:border-primary/30"
               )}
             >
               <span className="truncate" title={category.name}>{category.name}</span>
@@ -184,16 +188,16 @@ const POSSection = ({
           )}>
             {[...Array(isOrdersExpanded ? 8 : 24)].map((_, i) => (
               <div key={i} className={cn(
-                "bg-gray-200 rounded-xl animate-pulse",
+                "bg-muted rounded-xl animate-pulse",
                 isOrdersExpanded ? "h-64" : "h-44"
               )}></div>
             ))}
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-12">
-            <Utensils className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-            <p className="text-gray-500">
+            <Utensils className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No items found</h3>
+            <p className="text-muted-foreground">
               {searchTerm ? 'Try a different search term' : 'No items in this category'}
             </p>
           </div>
@@ -207,7 +211,7 @@ const POSSection = ({
             {filteredItems.map((item) => (
               <Card
                 key={item.id}
-                className="group relative overflow-hidden border border-gray-200/80 bg-white rounded-2xl shadow-sm hover:shadow-xl hover:border-orange-300 cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1"
+                className="group relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-sm hover:shadow-xl hover:border-primary/30 cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1"
                 onClick={() => addToCart(item)}
               >
                 <CardContent className={cn(
@@ -217,7 +221,7 @@ const POSSection = ({
                   {/* Emoji "image" tile — soft warm gradient backdrop */}
                   <div
                     className={cn(
-                      "relative flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60",
+                      "relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-amber-50 to-primary/10",
                       isOrdersExpanded ? "h-32" : "h-20"
                     )}
                   >
@@ -239,7 +243,7 @@ const POSSection = ({
                   )}>
                     <div className="flex-1 min-h-0">
                       <h3 className={cn(
-                        "font-semibold text-gray-900 leading-snug tracking-tight",
+                        "font-semibold text-foreground leading-snug tracking-tight",
                         isOrdersExpanded ? "text-lg line-clamp-2" : "text-sm line-clamp-2"
                       )}>
                         {item.name}
@@ -247,7 +251,7 @@ const POSSection = ({
 
                       {item.description && (
                         <p className={cn(
-                          "text-gray-500 leading-relaxed mt-1",
+                          "text-muted-foreground leading-relaxed mt-1",
                           isOrdersExpanded ? "text-sm line-clamp-2" : "text-xs line-clamp-1"
                         )}>
                           {item.description}
@@ -256,7 +260,7 @@ const POSSection = ({
 
                       {item.item_variations && item.item_variations.length > 0 && (
                         <p className={cn(
-                          "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-orange-700/80 bg-orange-50 px-1.5 py-0.5 rounded-full",
+                          "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-full",
                           isOrdersExpanded && "text-xs px-2 py-0.5"
                         )}>
                           {item.item_variations.length} option{item.item_variations.length === 1 ? '' : 's'}
@@ -266,12 +270,12 @@ const POSSection = ({
 
                     {/* Price + add — locked to bottom */}
                     <div className={cn(
-                      "flex justify-between items-center mt-2 pt-2 border-t border-gray-100"
+                      "flex justify-between items-center mt-2 pt-2 border-t border-border"
                     )}>
                       <div className="flex flex-col leading-none">
-                        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Price</span>
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Price</span>
                         <span className={cn(
-                          "font-bold text-gray-900 tabular-nums",
+                          "font-bold text-foreground tabular-nums",
                           isOrdersExpanded ? "text-xl" : "text-base"
                         )}>
                           {formatPrice(parseFloat(item.price || 0) * 100, currency)}
@@ -282,7 +286,7 @@ const POSSection = ({
                         size="sm"
                         aria-label={`Add ${item.name} to cart`}
                         className={cn(
-                          "bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white p-0 rounded-full flex-shrink-0 shadow-sm hover:shadow-md transition-all duration-200 group-hover:scale-110",
+                          "active:bg-primary/80 text-primary-foreground p-0 rounded-full flex-shrink-0 shadow-sm hover:shadow-md transition-all duration-200 group-hover:scale-110",
                           isOrdersExpanded ? "h-11 w-11" : "h-8 w-8"
                         )}
                         onClick={(e) => {

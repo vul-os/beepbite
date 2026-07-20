@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 import PinKeypad from './components/pin-keypad';
 import { resolveStore, pinVerifyOverlay, pinLogin } from '@/services/staff-pin';
@@ -36,27 +37,28 @@ function resolvePostLoginPath(payload) {
 function StoreNotFound() {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 px-4 py-8">
       <div className="w-full max-w-sm mx-auto text-center space-y-5">
         <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center shadow-inner">
-            <Store className="w-8 h-8 text-gray-400" />
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center shadow-inner">
+            <Store className="w-8 h-8 text-muted-foreground" />
           </div>
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Store not found</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Store not found</h1>
+          <p className="text-sm text-muted-foreground">
             We couldn&apos;t find the store you&apos;re looking for. Double-check the link and try again.
           </p>
         </div>
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={() => navigate('/pos/login')}
-          className="text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+          className="text-sm font-semibold text-orange-600 hover:text-orange-700 h-auto p-0"
         >
           Go to staff login &rarr;
-        </button>
-        <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} BeepBite</p>
+        </Button>
+        <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} BeepBite</p>
       </div>
     </div>
   );
@@ -67,9 +69,9 @@ function StoreNotFound() {
 // ---------------------------------------------------------------------------
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 px-4">
       <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      <p className="mt-3 text-sm text-gray-500">Loading store…</p>
+      <p className="mt-3 text-sm text-muted-foreground">Loading store…</p>
     </div>
   );
 }
@@ -231,20 +233,21 @@ const StaffPinPage = () => {
   if (storeState === 'not_found') return <StoreNotFound />;
   if (storeState === 'error') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-8">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 px-4 py-8">
         <div className="w-full max-w-sm mx-auto text-center space-y-4">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
-          <h1 className="text-xl font-bold text-gray-900">Something went wrong</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-xl font-bold text-foreground">Something went wrong</h1>
+          <p className="text-sm text-muted-foreground">
             We couldn&apos;t reach the server. Check your connection and refresh the page.
           </p>
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={() => window.location.reload()}
-            className="text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+            className="text-sm font-semibold text-orange-600 hover:text-orange-700 h-auto p-0"
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -252,7 +255,7 @@ const StaffPinPage = () => {
 
   // ---- main PIN login UI ----
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-8 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 px-4 py-8 relative overflow-hidden">
       {/* Subtle background blobs */}
       <div className="absolute top-10 left-8 w-20 h-20 bg-primary/5 rounded-full opacity-50 pointer-events-none" />
       <div className="absolute bottom-10 right-8 w-16 h-16 bg-primary/5 rounded-full opacity-50 pointer-events-none" />
@@ -272,19 +275,19 @@ const StaffPinPage = () => {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">
             <span className="beepbite-gradient-text">Beep</span>
-            <span className="text-gray-900">Bite</span>
+            <span className="text-foreground">Bite</span>
           </h1>
           {/* Store display name — the key branding for this scoped route */}
-          <p className="text-sm font-semibold text-gray-700 truncate px-2">
+          <p className="text-sm font-semibold text-foreground/80 truncate px-2">
             {store.display_name}
           </p>
-          <p className="text-xs text-gray-500">Staff PIN Login</p>
+          <p className="text-xs text-muted-foreground">Staff PIN Login</p>
         </div>
 
-        <Card className="border border-gray-200 shadow-xl bg-white/95 backdrop-blur-sm">
+        <Card className="border border-border shadow-xl bg-card/95 backdrop-blur-sm">
           <CardHeader className="space-y-0.5 pb-2 text-center px-5 pt-5">
-            <CardTitle className="text-lg font-bold text-gray-900">Welcome</CardTitle>
-            <CardDescription className="text-sm text-gray-500">
+            <CardTitle className="text-lg font-bold text-foreground">Welcome</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
               Enter your username and PIN
             </CardDescription>
           </CardHeader>
@@ -300,11 +303,11 @@ const StaffPinPage = () => {
 
             {/* Username field */}
             <div className="space-y-1.5">
-              <Label htmlFor="sp-username" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="sp-username" className="text-sm font-medium text-foreground">
                 Username
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                <User className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="sp-username"
                   ref={usernameRef}
@@ -322,7 +325,7 @@ const StaffPinPage = () => {
                     if (e.key === 'Enter') e.preventDefault();
                   }}
                   disabled={loading}
-                  className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${usernameError ? 'border-red-400' : ''}`}
+                  className={`pl-10 h-11 bg-background border-border focus:border-primary transition-all text-base ${usernameError ? 'border-red-400' : ''}`}
                 />
               </div>
               {usernameError && (
@@ -347,19 +350,20 @@ const StaffPinPage = () => {
 
         {/* Escape hatch for owners / managers */}
         <div className="text-center">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Owner or admin?{' '}
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={() => navigate('/signin?next=/pos/workspace')}
-              className="font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+              className="font-semibold text-orange-600 hover:text-orange-700 h-auto p-0 text-xs"
             >
               Sign in with email &rarr;
-            </button>
+            </Button>
           </p>
         </div>
 
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-muted-foreground">
           &copy; {new Date().getFullYear()} BeepBite &mdash; Staff Terminal
         </p>
       </div>

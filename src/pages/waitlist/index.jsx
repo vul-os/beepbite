@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
 import WaitlistEntry from './components/waitlist-entry';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 const POLL_MS = 30_000;
 
@@ -93,40 +94,37 @@ export default function WaitlistPage() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <AlertCircle className="h-10 w-10 text-gray-400" />
-        <p className="text-gray-600">Select a location to view the waitlist.</p>
+        <AlertCircle className="h-10 w-10 text-muted-foreground" />
+        <p className="text-muted-foreground">Select a location to view the waitlist.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ListOrdered className="h-6 w-6 text-purple-500" />
-          <h1 className="text-2xl font-bold text-gray-900">Waitlist</h1>
-          {entries.length > 0 && (
-            <span className="ml-1 text-sm text-gray-500">({entries.length} waiting)</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button size="sm" onClick={() => setShowAdd((v) => !v)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Guest
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={ListOrdered}
+        title="Waitlist"
+        description={entries.length > 0 ? `${entries.length} waiting` : undefined}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => setShowAdd((v) => !v)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Guest
+            </Button>
+          </>
+        }
+      />
 
       {/* Add form */}
       {showAdd && (
         <Card>
           <CardContent className="p-4">
-            <h2 className="font-semibold text-gray-800 mb-3">Add to Waitlist</h2>
+            <h2 className="font-semibold text-foreground mb-3">Add to Waitlist</h2>
             <form onSubmit={handleAddSubmit} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -206,7 +204,7 @@ export default function WaitlistPage() {
       {/* Loading */}
       {loading && entries.length === 0 && (
         <Card>
-          <CardContent className="p-10 text-center text-gray-500">
+          <CardContent className="p-10 text-center text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
             Loading waitlist…
           </CardContent>
@@ -217,8 +215,8 @@ export default function WaitlistPage() {
       {!loading && !error && entries.length === 0 && (
         <Card>
           <CardContent className="p-10 text-center">
-            <ListOrdered className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600 text-sm">Waitlist is empty.</p>
+            <ListOrdered className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">Waitlist is empty.</p>
           </CardContent>
         </Card>
       )}
@@ -232,9 +230,9 @@ export default function WaitlistPage() {
         </div>
       )}
 
-      <p className="text-xs text-gray-400 text-right">
+      <p className="text-xs text-muted-foreground text-right">
         Auto-refreshes every {POLL_MS / 1000}s
       </p>
-    </div>
+    </PageContainer>
   );
 }

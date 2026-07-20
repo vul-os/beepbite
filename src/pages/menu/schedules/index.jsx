@@ -2,13 +2,15 @@
 // happy-hour pricing per menu item.
 
 import React, { useState } from 'react';
-import { Calendar, AlertCircle } from 'lucide-react';
+import { Calendar, AlertCircle, Loader2 } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/context/auth-context';
 import { useSchedules } from './hooks/use-schedules';
 import ScheduleList from './components/schedule-list';
@@ -41,9 +43,9 @@ export default function MenuSchedules() {
 
   if (!activeLocation) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-        <AlertCircle className="h-12 w-12 mb-3 text-gray-300" />
-        <p className="font-medium">No location selected</p>
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+        <AlertCircle className="h-12 w-12 mb-3 text-muted-foreground/40" />
+        <p className="font-medium text-foreground">No location selected</p>
         <p className="text-sm">Please select a location to manage menu schedules.</p>
       </div>
     );
@@ -67,29 +69,24 @@ export default function MenuSchedules() {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-0">
-      {/* page header */}
-      <div className="px-6 py-4 border-b bg-white">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Calendar className="h-6 w-6 text-orange-500" />
-          Menu Schedules
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Configure daypart windows and happy-hour pricing for {activeLocation.name}.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={Calendar}
+        title="Menu Schedules"
+        description={`Configure daypart windows and happy-hour pricing for ${activeLocation.name}.`}
+      />
 
       {error && (
-        <div className="mx-6 mt-4 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* body: rail + content */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 items-start">
         {/* left rail */}
-        <aside className="w-56 shrink-0 border-r bg-white flex flex-col min-h-0 overflow-hidden">
+        <aside className="rounded-2xl border border-border/60 bg-card shadow-card overflow-hidden md:sticky md:top-20">
           <ScheduleList
             schedules={schedules}
             selectedId={selected?.id}
@@ -101,19 +98,24 @@ export default function MenuSchedules() {
         </aside>
 
         {/* right pane */}
-        <main className="flex-1 overflow-y-auto bg-white p-6">
-          {!selected ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <Calendar className="h-14 w-14 mb-3 text-gray-200" />
-              <p className="font-medium text-gray-500">Select a schedule</p>
+        <main className="rounded-2xl border border-border/60 bg-card shadow-card p-6 min-w-0">
+          {loading && !selected ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Loader2 className="h-8 w-8 mb-3 animate-spin" />
+              <p className="text-sm">Loading schedules…</p>
+            </div>
+          ) : !selected ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Calendar className="h-14 w-14 mb-3 text-muted-foreground/30" />
+              <p className="font-medium text-foreground">Select a schedule</p>
               <p className="text-sm">Choose a schedule from the left or create a new one.</p>
             </div>
           ) : (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">{selected.name}</h2>
+                <h2 className="font-display text-lg font-semibold text-foreground">{selected.name}</h2>
                 {selected.description && (
-                  <p className="text-sm text-gray-500 mt-0.5">{selected.description}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{selected.description}</p>
                 )}
               </div>
 
@@ -160,6 +162,6 @@ export default function MenuSchedules() {
           )}
         </main>
       </div>
-    </div>
+    </PageContainer>
   );
 }

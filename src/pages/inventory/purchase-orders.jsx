@@ -23,6 +23,8 @@ import { formatMoney } from '@/lib/currency';
 import { usePOs } from './hooks/use-pos';
 import { useSuppliers } from './hooks/use-suppliers';
 import { POForm } from './components/po-form';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import { PO_STATUS_COLORS as STATUS_COLORS } from '@/lib/status-colors';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Statuses' },
@@ -33,15 +35,6 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
   { value: 'closed', label: 'Closed' },
 ];
-
-const STATUS_COLORS = {
-  draft: 'bg-gray-100 text-gray-700',
-  sent: 'bg-blue-100 text-blue-700',
-  partially_received: 'bg-yellow-100 text-yellow-800',
-  received: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-  closed: 'bg-gray-200 text-gray-600',
-};
 
 export default function PurchaseOrdersPage() {
   const { activeLocation, activeOrganization } = useAuth();
@@ -69,8 +62,8 @@ export default function PurchaseOrdersPage() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-600">Select a location to view purchase orders.</p>
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Select a location to view purchase orders.</p>
       </div>
     );
   }
@@ -105,20 +98,17 @@ export default function PurchaseOrdersPage() {
   const supplierMap = Object.fromEntries(suppliers.map((s) => [s.id, s.name]));
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingCart className="w-6 h-6 text-orange-500" />
-            Purchase Orders
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">{activeLocation.name}</p>
-        </div>
-        <Button onClick={() => { setSaveErr(''); setNewPOOpen(true); }} className="bg-orange-500 hover:bg-orange-600 text-white">
-          <Plus className="w-4 h-4 mr-2" /> New PO
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={ShoppingCart}
+        title="Purchase Orders"
+        description={activeLocation.name}
+        actions={
+          <Button onClick={() => { setSaveErr(''); setNewPOOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> New PO
+          </Button>
+        }
+      />
 
       {/* Status filter */}
       <div className="max-w-xs">
@@ -138,7 +128,7 @@ export default function PurchaseOrdersPage() {
       {loading && (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       )}
@@ -153,8 +143,8 @@ export default function PurchaseOrdersPage() {
       {!loading && !error && pos.length === 0 && (
         <Card className="border-orange-100">
           <CardContent className="p-10 text-center">
-            <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No purchase orders found. Create the first one.</p>
+            <ShoppingCart className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">No purchase orders found. Create the first one.</p>
           </CardContent>
         </Card>
       )}
@@ -170,21 +160,21 @@ export default function PurchaseOrdersPage() {
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900">{po.po_number}</span>
-                    <Badge className={STATUS_COLORS[po.status] || 'bg-gray-100 text-gray-700'}>
+                    <span className="font-semibold text-foreground">{po.po_number}</span>
+                    <Badge className={STATUS_COLORS[po.status] || 'bg-muted text-foreground'}>
                       {po.status}
                     </Badge>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {supplierMap[po.supplier_id] || 'No supplier'} &middot; {fmtDate(po.created_at)}
                     {po.expected_delivery_date && ` &middot; ETA ${fmtDate(po.expected_delivery_date)}`}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-gray-900">{fmtCents(po.total_cents, po.currency)}</p>
-                  <p className="text-xs text-gray-500">{po.currency}</p>
+                  <p className="font-semibold text-foreground">{fmtCents(po.total_cents, po.currency)}</p>
+                  <p className="text-xs text-muted-foreground">{po.currency}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
               </CardContent>
             </Card>
           ))}
@@ -193,7 +183,7 @@ export default function PurchaseOrdersPage() {
 
       {/* New PO Dialog */}
       <Dialog open={newPOOpen} onOpenChange={(v) => { if (!v) setNewPOOpen(false); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New Purchase Order</DialogTitle>
             <DialogDescription>Create a purchase order for {activeLocation.name}</DialogDescription>
@@ -211,22 +201,22 @@ export default function PurchaseOrdersPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!detailPO} onOpenChange={(v) => { if (!v) setDetailPO(null); }}>
-        <DialogContent className="max-w-lg bg-white">
+        <DialogContent className="max-w-lg">
           {detailPO && (
             <>
               <DialogHeader>
                 <DialogTitle>PO {detailPO.po_number}</DialogTitle>
                 <DialogDescription>
-                  <Badge className={STATUS_COLORS[detailPO.status] || 'bg-gray-100'}>{detailPO.status}</Badge>
+                  <Badge className={STATUS_COLORS[detailPO.status] || 'bg-muted'}>{detailPO.status}</Badge>
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-2 text-sm text-gray-700">
+              <div className="space-y-2 text-sm text-foreground">
                 <div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-gray-500">Supplier</span><br />{supplierMap[detailPO.supplier_id] || '—'}</div>
-                  <div><span className="text-gray-500">Created</span><br />{fmtDate(detailPO.created_at)}</div>
-                  <div><span className="text-gray-500">Expected delivery</span><br />{fmtDate(detailPO.expected_delivery_date)}</div>
-                  <div><span className="text-gray-500">Currency</span><br />{detailPO.currency}</div>
+                  <div><span className="text-muted-foreground">Supplier</span><br />{supplierMap[detailPO.supplier_id] || '—'}</div>
+                  <div><span className="text-muted-foreground">Created</span><br />{fmtDate(detailPO.created_at)}</div>
+                  <div><span className="text-muted-foreground">Expected delivery</span><br />{fmtDate(detailPO.expected_delivery_date)}</div>
+                  <div><span className="text-muted-foreground">Currency</span><br />{detailPO.currency}</div>
                 </div>
                 <div className="border border-orange-100 rounded p-3 space-y-1 mt-2">
                   <div className="flex justify-between"><span>Subtotal</span><span>{fmtCents(detailPO.subtotal_cents, detailPO.currency)}</span></div>
@@ -234,7 +224,7 @@ export default function PurchaseOrdersPage() {
                   <div className="flex justify-between"><span>Shipping</span><span>{fmtCents(detailPO.shipping_cents, detailPO.currency)}</span></div>
                   <div className="flex justify-between font-semibold border-t border-orange-100 pt-1"><span>Total</span><span>{fmtCents(detailPO.total_cents, detailPO.currency)}</span></div>
                 </div>
-                {detailPO.notes && <p className="text-gray-500 italic">{detailPO.notes}</p>}
+                {detailPO.notes && <p className="text-muted-foreground italic">{detailPO.notes}</p>}
               </div>
 
               {submitErr && <p className="text-sm text-red-600">{submitErr}</p>}
@@ -256,6 +246,6 @@ export default function PurchaseOrdersPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

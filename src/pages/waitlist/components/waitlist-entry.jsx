@@ -44,8 +44,8 @@ export default function WaitlistEntry({ entry, onRefresh }) {
         {/* Name + wait badge */}
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="font-semibold text-gray-900">{entry.customer_name}</p>
-            <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
+            <p className="font-semibold text-foreground">{entry.customer_name}</p>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
               <span className="flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" />
                 {entry.party_size} guests
@@ -58,7 +58,7 @@ export default function WaitlistEntry({ entry, onRefresh }) {
               )}
             </div>
           </div>
-          <Badge className={overdue ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'}>
+          <Badge className={overdue ? 'bg-rose-100 text-rose-800' : 'bg-muted text-foreground'}>
             <Clock className="h-3 w-3 mr-1 inline" />
             {waited}m
           </Badge>
@@ -66,7 +66,7 @@ export default function WaitlistEntry({ entry, onRefresh }) {
 
         {/* Quoted wait */}
         {entry.quoted_wait_minutes && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Quoted: {entry.quoted_wait_minutes} min
             {overdue && <span className="text-rose-600 font-medium ml-1">(overdue)</span>}
           </p>
@@ -74,7 +74,7 @@ export default function WaitlistEntry({ entry, onRefresh }) {
 
         {/* Notes */}
         {entry.notes && (
-          <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">{entry.notes}</p>
+          <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1">{entry.notes}</p>
         )}
 
         {/* Actions */}

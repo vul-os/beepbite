@@ -164,7 +164,7 @@ const DocsCookiesPolicy = () => {
                     </tr>
                   </thead>
                   <tbody className="text-sm">
-                    <tr className="bg-white">
+                    <tr className="bg-card">
                       <td className="border border-orange-200 px-4 py-3 font-mono">beepbite_session</td>
                       <td className="border border-orange-200 px-4 py-3">Maintains restaurant login session</td>
                       <td className="border border-orange-200 px-4 py-3"><Badge className="bg-orange-600 text-white text-xs">Essential</Badge></td>
@@ -176,7 +176,7 @@ const DocsCookiesPolicy = () => {
                       <td className="border border-orange-200 px-4 py-3"><Badge className="bg-orange-600 text-white text-xs">Essential</Badge></td>
                       <td className="border border-orange-200 px-4 py-3">24 hours</td>
                     </tr>
-                    <tr className="bg-white">
+                    <tr className="bg-card">
                       <td className="border border-orange-200 px-4 py-3 font-mono">restaurant_prefs</td>
                       <td className="border border-orange-200 px-4 py-3">Stores notification and display preferences</td>
                       <td className="border border-orange-200 px-4 py-3"><Badge className="bg-blue-600 text-white text-xs">Functional</Badge></td>

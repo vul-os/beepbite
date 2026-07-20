@@ -52,7 +52,7 @@ function getStatusLabelShort(status) {
 
 function OrderCardSkeleton() {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 space-y-3 animate-pulse">
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3 animate-pulse">
       <div className="flex items-center justify-between">
         <Skeleton className="h-5 w-24 rounded" />
         <Skeleton className="h-5 w-16 rounded-full" />
@@ -74,9 +74,9 @@ function OrderCardSkeleton() {
 
 function InfoRow({ label, children, className }) {
   return (
-    <div className={cn('flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0', className)}>
-      <span className="text-xs font-medium text-gray-500 flex-shrink-0 pt-0.5">{label}</span>
-      <div className="text-sm text-gray-900 text-right">{children}</div>
+    <div className={cn('flex items-start justify-between gap-3 py-2 border-b border-border last:border-0', className)}>
+      <span className="text-xs font-medium text-muted-foreground flex-shrink-0 pt-0.5">{label}</span>
+      <div className="text-sm text-foreground text-right">{children}</div>
     </div>
   );
 }
@@ -85,21 +85,23 @@ function InfoRow({ label, children, className }) {
 
 function PanelHeader({ onBack, title, orderNumber, statusBadge }) {
   return (
-    <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white">
-      <button
+    <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-border bg-card">
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={onBack}
         aria-label="Back to orders list"
-        className="h-8 w-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors flex-shrink-0"
+        className="h-8 w-8 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary flex-shrink-0"
       >
         <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-      </button>
+      </Button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <h2 className="text-sm font-bold text-gray-900">{title}</h2>
+          <h2 className="text-sm font-bold text-foreground">{title}</h2>
           {statusBadge}
         </div>
-        <p className="text-xs text-gray-500">#{orderNumber}</p>
+        <p className="text-xs text-muted-foreground">#{orderNumber}</p>
       </div>
     </div>
   );
@@ -148,20 +150,20 @@ function OrderDetailsView({
             {/* Order Items */}
             <section aria-label="Order items">
               <div className="flex items-center gap-1.5 mb-2">
-                <Utensils className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Items</h3>
+                <Utensils className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Items</h3>
               </div>
-              <div className="rounded-xl border border-gray-100 bg-white overflow-hidden divide-y divide-gray-50">
+              <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
                 {selectedOrderDetails.order_items && selectedOrderDetails.order_items.length > 0 ? (
                   <>
                     {selectedOrderDetails.order_items.map((item, index) => (
                       <div key={index} className="flex justify-between items-start p-3 gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-gray-900 truncate">
+                          <p className="font-medium text-sm text-foreground truncate">
                             {item.items?.name || item.name || 'Unknown Item'}
                           </p>
                           {item.items?.description && (
-                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.items.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.items.description}</p>
                           )}
                           {item.order_item_modifiers && item.order_item_modifiers.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1.5">
@@ -177,27 +179,27 @@ function OrderDetailsView({
                           )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-sm text-orange-600">
+                          <p className="font-bold text-sm text-primary">
                             {format(toMinor(item.total_price))}
                           </p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-muted-foreground">
                             {item.quantity % 1 === 0 ? item.quantity : parseFloat(item.quantity).toFixed(2)} × {format(toMinor(item.unit_price))}
                           </p>
                         </div>
                       </div>
                     ))}
                     {/* Total row */}
-                    <div className="flex justify-between items-center px-3 py-2.5 bg-orange-50">
-                      <span className="text-sm font-semibold text-gray-800">Total</span>
-                      <span className="font-bold text-orange-600">
+                    <div className="flex justify-between items-center px-3 py-2.5 bg-primary/10">
+                      <span className="text-sm font-semibold text-foreground">Total</span>
+                      <span className="font-bold text-primary">
                         {format(selectedOrderDetails.order_items.reduce((t, i) => t + toMinor(i.total_price), 0))}
                       </span>
                     </div>
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 gap-2">
-                    <Utensils className="w-8 h-8 text-gray-300" aria-hidden="true" />
-                    <p className="text-sm text-gray-500">No items found</p>
+                    <Utensils className="w-8 h-8 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">No items found</p>
                   </div>
                 )}
               </div>
@@ -206,10 +208,10 @@ function OrderDetailsView({
             {/* Customer */}
             <section aria-label="Customer information">
               <div className="flex items-center gap-1.5 mb-2">
-                <User className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Customer</h3>
+                <User className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Customer</h3>
               </div>
-              <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+              <div className="rounded-xl border border-border bg-card px-3 py-1">
                 <InfoRow label="Name">
                   {selectedOrderDetails.customers?.first_name} {selectedOrderDetails.customers?.last_name || 'N/A'}
                 </InfoRow>
@@ -228,24 +230,24 @@ function OrderDetailsView({
             {/* Order Info */}
             <section aria-label="Order information">
               <div className="flex items-center gap-1.5 mb-2">
-                <ShoppingBag className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Order Info</h3>
+                <ShoppingBag className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Order Info</h3>
               </div>
-              <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+              <div className="rounded-xl border border-border bg-card px-3 py-1">
                 <InfoRow label="Type">
-                  <span className="capitalize bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">
+                  <span className="capitalize bg-muted text-muted-foreground px-2 py-0.5 rounded text-xs">
                     {selectedOrderDetails.order_type || 'delivery'}
                   </span>
                 </InfoRow>
                 <InfoRow label="Created">
-                  <span className="inline-flex items-center gap-1 text-gray-600 text-xs">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
                     <Calendar className="w-3 h-3" aria-hidden="true" />
                     {formatDistanceToNow(new Date(selectedOrderDetails.created_at), { addSuffix: true })}
                   </span>
                 </InfoRow>
                 {selectedOrderDetails.estimated_prep_time && (
                   <InfoRow label="Prep Time">
-                    <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs">
+                    <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded text-xs">
                       <Timer className="w-3 h-3" aria-hidden="true" />
                       {selectedOrderDetails.estimated_prep_time} min
                     </span>
@@ -263,10 +265,10 @@ function OrderDetailsView({
             {selectedOrderDetails.delivery_address && (
               <section aria-label="Delivery information">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <MapPin className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-                  <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Delivery</h3>
+                  <MapPin className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Delivery</h3>
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+                <div className="rounded-xl border border-border bg-card px-3 py-1">
                   <InfoRow label="Address">{selectedOrderDetails.delivery_address}</InfoRow>
                   {selectedOrderDetails.delivery_instructions && (
                     <InfoRow label="Instructions">
@@ -283,20 +285,20 @@ function OrderDetailsView({
             {(selectedOrderDetails.notes || selectedOrderDetails.kitchen_notes) && (
               <section aria-label="Order notes">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <FileText className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-                  <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Notes</h3>
+                  <FileText className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notes</h3>
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-white px-3 py-1">
+                <div className="rounded-xl border border-border bg-card px-3 py-1">
                   {selectedOrderDetails.notes && (
                     <InfoRow label="General">
-                      <span className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded text-xs">
+                      <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-xs">
                         {selectedOrderDetails.notes}
                       </span>
                     </InfoRow>
                   )}
                   {selectedOrderDetails.kitchen_notes && (
                     <InfoRow label="Kitchen">
-                      <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs">
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs">
                         {selectedOrderDetails.kitchen_notes}
                       </span>
                     </InfoRow>
@@ -310,7 +312,7 @@ function OrderDetailsView({
               {getNextStatus(order.status) && (
                 <Button
                   onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-11 rounded-xl text-sm font-semibold"
+                  className="flex-1 h-11 rounded-xl text-sm font-semibold"
                 >
                   {getStatusLabelShort(getNextStatus(order.status))}
                   <ChevronRight className="w-4 h-4 ml-1" aria-hidden="true" />
@@ -319,7 +321,7 @@ function OrderDetailsView({
               <Button
                 variant="outline"
                 onClick={() => onEdit(order)}
-                className="h-11 px-4 rounded-xl border-gray-200 hover:bg-gray-50 text-sm"
+                className="h-11 px-4 rounded-xl border-border hover:bg-muted text-sm"
               >
                 Edit
               </Button>
@@ -327,8 +329,8 @@ function OrderDetailsView({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full gap-3 p-6">
-            <AlertCircle className="w-12 h-12 text-gray-300" aria-hidden="true" />
-            <p className="text-sm text-gray-500">Failed to load order details</p>
+            <AlertCircle className="w-12 h-12 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Failed to load order details</p>
             <Button variant="outline" size="sm" onClick={onBack} className="rounded-lg">
               Go back
             </Button>
@@ -368,12 +370,12 @@ function OrderEditView({
           {/* Delivery Information */}
           <section aria-label="Delivery information">
             <div className="flex items-center gap-1.5 mb-2">
-              <MapPin className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Delivery</h3>
+              <MapPin className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Delivery</h3>
             </div>
-            <div className="rounded-xl border border-gray-100 bg-white p-3 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-3 space-y-3">
               <div>
-                <label htmlFor="edit-delivery-address" className="block text-xs font-medium text-gray-600 mb-1.5">
+                <label htmlFor="edit-delivery-address" className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Delivery Address
                 </label>
                 <Textarea
@@ -382,11 +384,11 @@ function OrderEditView({
                   onChange={(e) => onInputChange('delivery_address', e.target.value)}
                   placeholder="Enter delivery address…"
                   rows={2}
-                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                  className="w-full text-sm rounded-lg border-border focus:border-primary focus:ring-primary/20"
                 />
               </div>
               <div>
-                <label htmlFor="edit-delivery-instructions" className="block text-xs font-medium text-gray-600 mb-1.5">
+                <label htmlFor="edit-delivery-instructions" className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Delivery Instructions
                 </label>
                 <Textarea
@@ -395,7 +397,7 @@ function OrderEditView({
                   onChange={(e) => onInputChange('delivery_instructions', e.target.value)}
                   placeholder="Special delivery instructions…"
                   rows={2}
-                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                  className="w-full text-sm rounded-lg border-border focus:border-primary focus:ring-primary/20"
                 />
               </div>
             </div>
@@ -404,11 +406,11 @@ function OrderEditView({
           {/* Order Settings */}
           <section aria-label="Order settings">
             <div className="flex items-center gap-1.5 mb-2">
-              <Timer className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Settings</h3>
+              <Timer className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Settings</h3>
             </div>
-            <div className="rounded-xl border border-gray-100 bg-white p-3">
-              <label htmlFor="edit-prep-time" className="block text-xs font-medium text-gray-600 mb-1.5">
+            <div className="rounded-xl border border-border bg-card p-3">
+              <label htmlFor="edit-prep-time" className="block text-xs font-medium text-muted-foreground mb-1.5">
                 Estimated Prep Time (minutes)
               </label>
               <Input
@@ -416,7 +418,7 @@ function OrderEditView({
                 type="number"
                 value={editFormData.estimated_prep_time || 30}
                 onChange={(e) => onInputChange('estimated_prep_time', parseInt(e.target.value))}
-                className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                className="w-full text-sm rounded-lg border-border focus:border-primary focus:ring-primary/20"
                 min="5"
                 max="120"
               />
@@ -426,12 +428,12 @@ function OrderEditView({
           {/* Notes */}
           <section aria-label="Order notes">
             <div className="flex items-center gap-1.5 mb-2">
-              <FileText className="w-3.5 h-3.5 text-orange-500" aria-hidden="true" />
-              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Notes</h3>
+              <FileText className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notes</h3>
             </div>
-            <div className="rounded-xl border border-gray-100 bg-white p-3 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-3 space-y-3">
               <div>
-                <label htmlFor="edit-notes" className="block text-xs font-medium text-gray-600 mb-1.5">
+                <label htmlFor="edit-notes" className="block text-xs font-medium text-muted-foreground mb-1.5">
                   General Notes
                 </label>
                 <Textarea
@@ -440,11 +442,11 @@ function OrderEditView({
                   onChange={(e) => onInputChange('notes', e.target.value)}
                   placeholder="General order notes…"
                   rows={2}
-                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                  className="w-full text-sm rounded-lg border-border focus:border-primary focus:ring-primary/20"
                 />
               </div>
               <div>
-                <label htmlFor="edit-kitchen-notes" className="block text-xs font-medium text-gray-600 mb-1.5">
+                <label htmlFor="edit-kitchen-notes" className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Kitchen Notes
                 </label>
                 <Textarea
@@ -453,7 +455,7 @@ function OrderEditView({
                   onChange={(e) => onInputChange('kitchen_notes', e.target.value)}
                   placeholder="Special instructions for kitchen…"
                   rows={2}
-                  className="w-full text-sm rounded-lg border-gray-200 focus:border-orange-400 focus:ring-orange-200"
+                  className="w-full text-sm rounded-lg border-border focus:border-primary focus:ring-primary/20"
                 />
               </div>
             </div>
@@ -463,14 +465,14 @@ function OrderEditView({
           <div className="flex gap-2 pt-2">
             <Button
               onClick={onSave}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-11 rounded-xl text-sm font-semibold"
+              className="flex-1 h-11 rounded-xl text-sm font-semibold"
             >
               Save Changes
             </Button>
             <Button
               variant="outline"
               onClick={onBack}
-              className="h-11 px-4 rounded-xl border-gray-200 hover:bg-gray-50 text-sm"
+              className="h-11 px-4 rounded-xl border-border hover:bg-muted text-sm"
             >
               Cancel
             </Button>
@@ -500,12 +502,12 @@ function OrderCard({
   return (
     <article
       aria-label={`Order #${order.order_number}`}
-      className="rounded-xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition-all duration-150 overflow-hidden"
+      className="rounded-xl border border-border bg-card hover:border-primary/20 hover:shadow-sm transition-all duration-150 overflow-hidden"
     >
       <div className="p-3.5">
         {/* Top row: order number + status badge */}
         <div className="flex items-center justify-between gap-2 mb-2">
-          <h4 className="font-bold text-gray-900 text-sm truncate">#{order.order_number}</h4>
+          <h4 className="font-bold text-foreground text-sm truncate">#{order.order_number}</h4>
           <Badge
             className={cn('text-xs font-medium px-2 py-0.5 flex-shrink-0', getStatusColor(order.status))}
           >
@@ -516,15 +518,15 @@ function OrderCard({
         {/* Customer info */}
         <div className="space-y-0.5 mb-3">
           {order.customers?.first_name && (
-            <p className="text-sm font-medium text-gray-800 truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {order.customers.first_name} {order.customers.last_name}
             </p>
           )}
-          <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
-            <PhoneCall className="w-3 h-3 flex-shrink-0 text-gray-400" aria-hidden="true" />
+          <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+            <PhoneCall className="w-3 h-3 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
             <span className="truncate">{order.customers?.whatsapp_number || 'No phone'}</span>
           </p>
-          <p className="text-xs text-gray-400 flex items-center gap-1">
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Timer className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
             <span>{formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}</span>
           </p>
@@ -537,7 +539,7 @@ function OrderCard({
               size="sm"
               onClick={() => updateOrderStatus(order.id, nextStatus)}
               aria-label={`Advance order #${order.order_number} to ${getStatusLabel(nextStatus)}`}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-9 rounded-lg text-xs font-semibold truncate"
+              className="flex-1 h-9 rounded-lg text-xs font-semibold truncate"
             >
               {getStatusLabelShort(nextStatus)}
             </Button>
@@ -547,7 +549,7 @@ function OrderCard({
             variant="outline"
             onClick={() => onEditOrder(order)}
             aria-label={`Edit order #${order.order_number}`}
-            className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border-gray-200 hover:bg-orange-50 hover:border-orange-200 focus-visible:ring-2 focus-visible:ring-orange-400"
+            className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border-border hover:bg-primary/10 hover:border-primary/20 focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Edit className="w-3.5 h-3.5" aria-hidden="true" />
           </Button>
@@ -556,7 +558,7 @@ function OrderCard({
             variant="outline"
             onClick={() => onViewDetails(order)}
             aria-label={`View details for order #${order.order_number}`}
-            className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border-gray-200 hover:bg-orange-50 hover:border-orange-200 focus-visible:ring-2 focus-visible:ring-orange-400"
+            className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border-border hover:bg-primary/10 hover:border-primary/20 focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Eye className="w-3.5 h-3.5" aria-hidden="true" />
           </Button>
@@ -800,19 +802,19 @@ const OrdersSection = ({
           aria-labelledby="perm-error-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 space-y-4">
+          <div className="bg-card rounded-2xl shadow-2xl max-w-sm w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div>
-                <p id="perm-error-title" className="font-semibold text-gray-900 text-sm">Permission required</p>
-                <p className="text-sm text-gray-600 mt-1">{markPaidError}</p>
+                <p id="perm-error-title" className="font-semibold text-foreground text-sm">Permission required</p>
+                <p className="text-sm text-muted-foreground mt-1">{markPaidError}</p>
               </div>
             </div>
             <div className="flex justify-end">
               <Button
                 size="sm"
                 onClick={() => setMarkPaidError(null)}
-                className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg h-9 px-4"
+                className="rounded-lg h-9 px-4"
               >
                 OK
               </Button>
@@ -822,12 +824,12 @@ const OrdersSection = ({
       )}
 
       {/* Search + filter header */}
-      <div className="flex-shrink-0 px-3 py-2.5 border-b border-gray-100 bg-gray-50/80">
+      <div className="flex-shrink-0 px-3 py-2.5 border-b border-border bg-muted/80">
         <div className="flex gap-2 items-center">
           {/* Search */}
           <div className="relative flex-1">
             <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground w-3.5 h-3.5 pointer-events-none"
               aria-hidden="true"
             />
             <Input
@@ -835,17 +837,19 @@ const OrdersSection = ({
               value={orderSearchTerm}
               onChange={(e) => setOrderSearchTerm(e.target.value)}
               aria-label="Search orders"
-              className="pl-8 h-9 text-sm border-gray-200 focus:border-orange-400 focus:ring-orange-200 rounded-lg pr-8"
+              className="pl-8 h-9 text-sm border-border focus:border-primary focus:ring-primary/20 rounded-lg pr-8"
             />
             {orderSearchTerm && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setOrderSearchTerm('')}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 rounded"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <X className="w-3.5 h-3.5" aria-hidden="true" />
-              </button>
+              </Button>
             )}
           </div>
 
@@ -856,20 +860,20 @@ const OrdersSection = ({
             className="flex gap-1 flex-shrink-0"
           >
             {['active', 'all'].map((f) => (
-              <button
+              <Button
                 key={f}
                 type="button"
+                size="sm"
+                variant={orderStatusFilter === f ? 'default' : 'outline'}
                 onClick={() => setOrderStatusFilter(f)}
                 aria-pressed={orderStatusFilter === f}
                 className={cn(
-                  'h-9 px-3 text-xs font-medium rounded-lg transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
-                  orderStatusFilter === f
-                    ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                    : 'border-gray-200 text-gray-600 hover:bg-orange-50 hover:border-orange-200 bg-white'
+                  'h-9 px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-primary',
+                  orderStatusFilter !== f && 'hover:bg-primary/10 hover:border-primary/20'
                 )}
               >
                 {f === 'active' ? 'Active' : 'All'}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -885,27 +889,29 @@ const OrdersSection = ({
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[200px] gap-3 py-8">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
-              <Package className="w-7 h-7 text-gray-300" aria-hidden="true" />
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+              <Package className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-muted-foreground">
                 {orderSearchTerm ? 'No orders found' : 'No orders'}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {orderSearchTerm
                   ? 'Try a different search term or filter'
                   : `No ${orderStatusFilter === 'all' ? '' : orderStatusFilter + ' '}orders right now`}
               </p>
             </div>
             {orderSearchTerm && (
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => setOrderSearchTerm('')}
-                className="text-xs text-orange-600 hover:text-orange-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 rounded"
+                className="h-auto p-0 text-xs text-primary hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Clear search
-              </button>
+              </Button>
             )}
           </div>
         ) : (

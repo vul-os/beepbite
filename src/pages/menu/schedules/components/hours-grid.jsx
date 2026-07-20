@@ -19,9 +19,9 @@ const DAYS = [
 function SlotRow({ slot, onDelete, deleting }) {
   return (
     <div className="flex items-center gap-2 py-1">
-      <span className="text-sm tabular-nums text-gray-700 w-20">{slot.start_time}</span>
-      <span className="text-gray-400 text-xs">–</span>
-      <span className="text-sm tabular-nums text-gray-700 w-20">{slot.end_time}</span>
+      <span className="text-sm tabular-nums text-foreground w-20">{slot.start_time}</span>
+      <span className="text-muted-foreground text-xs">–</span>
+      <span className="text-sm tabular-nums text-foreground w-20">{slot.end_time}</span>
       {slot.end_time < slot.start_time && (
         <span className="text-xs text-amber-600 italic">+1 day</span>
       )}
@@ -65,7 +65,7 @@ function AddSlotInline({ dayIso, onAdd }) {
         size="sm"
         variant="ghost"
         onClick={() => setOpen(true)}
-        className="h-6 text-xs text-gray-400 hover:text-orange-600 px-1 gap-1"
+        className="h-6 text-xs text-muted-foreground hover:text-orange-600 px-1 gap-1"
       >
         <Plus className="h-3 w-3" />
         Add slot
@@ -74,24 +74,24 @@ function AddSlotInline({ dayIso, onAdd }) {
   }
 
   return (
-    <div className="flex flex-col gap-1 mt-1 p-2 bg-gray-50 rounded border border-gray-200">
+    <div className="flex flex-col gap-1 mt-1 p-2 bg-muted rounded border border-border">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1">
-          <label className="text-xs text-gray-500 w-10">From</label>
+          <label className="text-xs text-muted-foreground w-10">From</label>
           <input
             type="time"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="text-sm border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
+            className="text-sm border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
           />
         </div>
         <div className="flex items-center gap-1">
-          <label className="text-xs text-gray-500 w-10">To</label>
+          <label className="text-xs text-muted-foreground w-10">To</label>
           <input
             type="time"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            className="text-sm border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
+            className="text-sm border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
           />
         </div>
         <div className="flex gap-1">
@@ -193,17 +193,17 @@ export default function HoursGrid({ schedule, fetchSlots, addSlot, deleteSlot })
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b">
-            <th className="text-left py-2 pr-6 font-medium text-gray-600 w-32">Day</th>
-            <th className="text-left py-2 font-medium text-gray-600">Time Windows</th>
+            <th className="text-left py-2 pr-6 font-medium text-muted-foreground w-32">Day</th>
+            <th className="text-left py-2 font-medium text-muted-foreground">Time Windows</th>
           </tr>
         </thead>
         <tbody>
           {DAYS.map((d) => (
             <tr key={d.iso} className="border-b last:border-0 align-top">
-              <td className="py-3 pr-6 font-medium text-gray-700">{d.label}</td>
+              <td className="py-3 pr-6 font-medium text-foreground">{d.label}</td>
               <td className="py-3">
                 {slotsByDay[d.iso].length === 0 && (
-                  <span className="text-xs text-gray-400 italic">No windows</span>
+                  <span className="text-xs text-muted-foreground italic">No windows</span>
                 )}
                 {slotsByDay[d.iso].map((slot) => (
                   <SlotRow key={slot.id} slot={slot} onDelete={handleDelete} deleting={deleting} />

@@ -321,7 +321,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
             variant="ghost"
             onClick={() => onRemove(item.id)}
             aria-label={`Remove ${item.name} from order`}
-            className="h-8 w-8 p-0 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full focus-visible:ring-2 focus-visible:ring-red-400 transition"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full focus-visible:ring-2 focus-visible:ring-destructive transition"
           >
             <Trash2 className="w-4 h-4" />
           </Button>

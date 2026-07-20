@@ -12,6 +12,8 @@ import {
 import { Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import { TONE } from '@/lib/status-colors';
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -92,31 +94,29 @@ export default function GRNsPage() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
-        <p className="text-gray-600">Select a location to view goods receipts.</p>
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Select a location to view goods receipts.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-6 h-6 text-orange-500" />
-            Goods Receipts (GRN)
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">{activeLocation.name}</p>
-        </div>
-        <Button variant="outline" onClick={fetchGRNs} className="border-orange-200 text-orange-700 hover:bg-orange-50">
-          Refresh
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={Package}
+        title="Goods Receipts (GRN)"
+        description={activeLocation.name}
+        actions={
+          <Button variant="outline" onClick={fetchGRNs}>
+            Refresh
+          </Button>
+        }
+      />
 
       {loading && (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       )}
@@ -131,8 +131,8 @@ export default function GRNsPage() {
       {!loading && !error && grns.length === 0 && (
         <Card className="border-orange-100">
           <CardContent className="p-10 text-center">
-            <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No goods receipts found.</p>
+            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">No goods receipts found.</p>
           </CardContent>
         </Card>
       )}
@@ -146,24 +146,22 @@ export default function GRNsPage() {
                 <CardContent className="p-4 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900">
+                      <span className="font-semibold text-foreground">
                         {grn.receipt_number || grn.id.slice(0, 8)}
                       </span>
                       <Badge
-                        className={received
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-yellow-100 text-yellow-800'}
+                        className={received ? TONE.success : TONE.warning}
                       >
                         {received ? 'Received' : 'Pending'}
                       </Badge>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       PO: {grn.purchase_order_id?.slice(0, 8)}…
                       &middot; Created {fmtDate(grn.created_at)}
                       {received && ` · Received ${fmtDate(grn.received_at)}`}
                     </p>
                     {grn.delivery_note_number && (
-                      <p className="text-xs text-gray-400">DN: {grn.delivery_note_number}</p>
+                      <p className="text-xs text-muted-foreground">DN: {grn.delivery_note_number}</p>
                     )}
                   </div>
                   {!received && (
@@ -187,7 +185,7 @@ export default function GRNsPage() {
 
       {/* Confirm receive dialog */}
       <Dialog open={!!confirmGRN} onOpenChange={(v) => { if (!v) closeConfirm(); }}>
-        <DialogContent className="max-w-sm bg-white">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Confirm Receive GRN</DialogTitle>
             <DialogDescription>
@@ -196,7 +194,7 @@ export default function GRNsPage() {
           </DialogHeader>
 
           {confirmGRN && !receiveResult && (
-            <div className="text-sm text-gray-700 space-y-1">
+            <div className="text-sm text-foreground space-y-1">
               <p>GRN: <strong>{confirmGRN.receipt_number || confirmGRN.id.slice(0, 8)}</strong></p>
               <p>PO: {confirmGRN.purchase_order_id?.slice(0, 8)}…</p>
             </div>
@@ -227,6 +225,6 @@ export default function GRNsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

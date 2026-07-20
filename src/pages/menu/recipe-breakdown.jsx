@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
+import { COMPLEXITY_COLORS } from '@/lib/status-colors';
 
 const RecipeBreakdown = ({ activeLocation }) => {
   const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
@@ -180,14 +181,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
     }
   };
 
-  const getComplexityColor = (complexity) => {
-    switch (complexity) {
-      case 'simple': return 'bg-green-100 text-green-800';
-      case 'moderate': return 'bg-yellow-100 text-yellow-800';
-      case 'complex': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const getComplexityColor = (complexity) => COMPLEXITY_COLORS[complexity] || 'bg-muted text-muted-foreground';
 
   const getLevelIndentation = (level) => {
     return `${level * 24}px`;
@@ -236,8 +230,8 @@ const RecipeBreakdown = ({ activeLocation }) => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <TreePine className="h-8 w-8 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Please select a location to view recipe breakdown</p>
+          <TreePine className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Please select a location to view recipe breakdown</p>
         </div>
       </div>
     );
@@ -250,7 +244,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Search recipes or components..."
                 value={searchTerm}
@@ -308,13 +302,13 @@ const RecipeBreakdown = ({ activeLocation }) => {
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-              <span className="text-gray-600">Loading breakdown data...</span>
+              <span className="text-muted-foreground">Loading breakdown data...</span>
             </div>
           ) : filteredBreakdown.length === 0 ? (
             <div className="text-center py-12">
-              <TreePine className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No breakdown data found</h3>
-              <p className="text-gray-600">
+              <TreePine className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No breakdown data found</h3>
+              <p className="text-muted-foreground">
                 {breakdownData.length === 0 
                   ? 'No recipes with components found. Create some recipes first.'
                   : 'No items match your current filters. Try adjusting your search criteria.'
@@ -328,10 +322,10 @@ const RecipeBreakdown = ({ activeLocation }) => {
                 const totalCost = group.components.reduce((sum, comp) => sum + (comp.cost_contribution || 0), 0);
                 
                 return (
-                  <div key={parentId} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div key={parentId} className="border border-border rounded-lg overflow-hidden">
                     {/* Parent Recipe Header */}
                     <div 
-                      className="flex items-center gap-3 p-4 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                      className="flex items-center gap-3 p-4 bg-muted hover:bg-muted cursor-pointer transition-colors"
                       onClick={() => toggleExpanded(parentId)}
                     >
                       <Button
@@ -348,7 +342,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
                       
                       <div className="flex items-center gap-2">
                         <ChefHat className="h-5 w-5 text-blue-600" />
-                        <span className="font-semibold text-gray-900">{group.parentInfo.name}</span>
+                        <span className="font-semibold text-foreground">{group.parentInfo.name}</span>
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -369,26 +363,26 @@ const RecipeBreakdown = ({ activeLocation }) => {
                       
                       {showCosts && (
                         <div className="ml-auto">
-                          <span className="text-lg font-semibold text-gray-900">
+                          <span className="text-lg font-semibold text-foreground">
                             {formatCurrency(totalCost)}
                           </span>
-                          <span className="text-sm text-gray-600 ml-2">total cost</span>
+                          <span className="text-sm text-muted-foreground ml-2">total cost</span>
                         </div>
                       )}
                     </div>
                     
                     {/* Components List */}
                     {isExpanded && (
-                      <div className="divide-y divide-gray-100">
+                      <div className="divide-y divide-border">
                         {group.components
                           .sort((a, b) => a.level_depth - b.level_depth || a.component_name.localeCompare(b.component_name))
                           .map((component, index) => (
                           <div 
                             key={`${component.component_item_id}-${index}`}
-                            className="flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors"
+                            className="flex items-center gap-3 p-3 hover:bg-muted transition-colors"
                             style={{ paddingLeft: `${20 + (component.level_depth * 24)}px` }}
                           >
-                            <div className="flex items-center gap-2 text-gray-400">
+                            <div className="flex items-center gap-2 text-muted-foreground">
                               <div className="w-4 h-4 flex items-center justify-center">
                                 {component.level_depth === 1 ? (
                                   <CircleDot className="h-2 w-2" />
@@ -401,10 +395,10 @@ const RecipeBreakdown = ({ activeLocation }) => {
                             
                             <div className="flex items-center gap-2 flex-1">
                               {getItemTypeIcon('component')}
-                              <span className="font-medium text-gray-800">{component.component_name}</span>
+                              <span className="font-medium text-foreground">{component.component_name}</span>
                             </div>
                             
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <span className="font-medium">{component.total_quantity}</span>
                                 <span>{component.unit}</span>
@@ -443,10 +437,10 @@ const RecipeBreakdown = ({ activeLocation }) => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-foreground">
                   {filteredBreakdown.length}
                 </p>
-                <p className="text-sm text-gray-600">Recipes Analyzed</p>
+                <p className="text-sm text-muted-foreground">Recipes Analyzed</p>
               </div>
             </CardContent>
           </Card>
@@ -454,10 +448,10 @@ const RecipeBreakdown = ({ activeLocation }) => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-foreground">
                   {filteredBreakdown.reduce((sum, [, group]) => sum + group.components.length, 0)}
                 </p>
-                <p className="text-sm text-gray-600">Total Components</p>
+                <p className="text-sm text-muted-foreground">Total Components</p>
               </div>
             </CardContent>
           </Card>
@@ -465,10 +459,10 @@ const RecipeBreakdown = ({ activeLocation }) => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-foreground">
                   {Math.max(...filteredBreakdown.map(([, group]) => group.parentInfo.maxLevel))}
                 </p>
-                <p className="text-sm text-gray-600">Max Recipe Depth</p>
+                <p className="text-sm text-muted-foreground">Max Recipe Depth</p>
               </div>
             </CardContent>
           </Card>

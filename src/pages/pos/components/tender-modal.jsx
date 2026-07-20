@@ -116,7 +116,7 @@ function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }) {
           type="button"
           onClick={() => onRemove(leg.id)}
           aria-label="Remove this payment method"
-          className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+          className="w-9 h-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -313,7 +313,7 @@ export default function TenderModal({
               'rounded-lg px-4 py-3 text-center border transition-colors',
               isFullyTendered
                 ? 'bg-green-50 border-green-200'
-                : 'bg-red-50 border-red-200',
+                : 'bg-destructive/10 border-destructive/30',
             )}
           >
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-0.5">
@@ -322,7 +322,7 @@ export default function TenderModal({
             <p
               className={cn(
                 'text-3xl font-bold tabular-nums',
-                isFullyTendered ? 'text-green-600' : 'text-red-500',
+                isFullyTendered ? 'text-green-600' : 'text-destructive',
               )}
             >
               {format(Math.abs(remainingCents))}

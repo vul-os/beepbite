@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader, PageContainer } from "@/components/ui/page-header";
 import {
   Select,
   SelectContent,
@@ -142,7 +144,7 @@ const Reviews = () => {
         className={`w-4 h-4 ${
           i < starRating 
             ? 'text-yellow-400 fill-current' 
-            : 'text-gray-300'
+            : 'text-muted-foreground/40'
         }`} 
       />
     ));
@@ -180,12 +182,12 @@ const Reviews = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
+          <Skeleton className="h-8 w-48" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="h-64 bg-gray-200 rounded animate-pulse"></div>
+            <Skeleton className="h-64" />
             <div className="lg:col-span-2 space-y-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
+                <Skeleton key={i} className="h-32" />
               ))}
             </div>
           </div>
@@ -197,77 +199,79 @@ const Reviews = () => {
   // Show message when no location is selected
   if (!activeLocation) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col space-y-3 sm:space-y-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customer Reviews</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage and respond to customer feedback</p>
-        </div>
-        
+      <PageContainer>
+        <PageHeader
+          icon={Star}
+          title="Customer Reviews"
+          description="Manage and respond to customer feedback"
+        />
+
         <Card className="p-8 sm:p-12 text-center">
           <div className="space-y-4">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
-              <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+              <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">No Restaurant Selected</h3>
-              <p className="text-sm sm:text-base text-gray-500">
+              <h3 className="text-base sm:text-lg font-medium text-foreground">No Restaurant Selected</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Please select a restaurant from the dropdown in the top navigation to view reviews.
               </p>
             </div>
           </div>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <PageContainer>
       {/* Header */}
-      <div className="flex flex-col space-y-3 sm:space-y-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1 sm:space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customer Reviews</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage and respond to customer feedback</p>
-          {error && (
-            <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md">
-              ⚠️ Using limited data: {error}
-            </div>
-          )}
+      <PageHeader
+        icon={Star}
+        title="Customer Reviews"
+        description="Manage and respond to customer feedback"
+        actions={
+          <div className="flex items-center gap-3">
+            <Select value={timeRange} onValueChange={setTimeRange}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1d">Last 24 hours</SelectItem>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 3 months</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={ratingFilter} onValueChange={setRatingFilter}>
+              <SelectTrigger className="w-full sm:w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Ratings</SelectItem>
+                <SelectItem value="10">10/10 Excellent</SelectItem>
+                <SelectItem value="9">9/10 Great</SelectItem>
+                <SelectItem value="8">8/10 Good</SelectItem>
+                <SelectItem value="7">7/10 Average</SelectItem>
+                <SelectItem value="6">6/10 Fair</SelectItem>
+                <SelectItem value="5">5/10 Poor</SelectItem>
+                <SelectItem value="4">4/10 Bad</SelectItem>
+                <SelectItem value="3">3/10 Terrible</SelectItem>
+                <SelectItem value="2">2/10 Awful</SelectItem>
+                <SelectItem value="1">1/10 Worst</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      />
+
+      {error && (
+        <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md">
+          ⚠️ Using limited data: {error}
         </div>
-        
-        <div className="flex items-center gap-3">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1d">Last 24 hours</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 3 months</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Select value={ratingFilter} onValueChange={setRatingFilter}>
-            <SelectTrigger className="w-full sm:w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Ratings</SelectItem>
-              <SelectItem value="10">10/10 Excellent</SelectItem>
-              <SelectItem value="9">9/10 Great</SelectItem>
-              <SelectItem value="8">8/10 Good</SelectItem>
-              <SelectItem value="7">7/10 Average</SelectItem>
-              <SelectItem value="6">6/10 Fair</SelectItem>
-              <SelectItem value="5">5/10 Poor</SelectItem>
-              <SelectItem value="4">4/10 Bad</SelectItem>
-              <SelectItem value="3">3/10 Terrible</SelectItem>
-              <SelectItem value="2">2/10 Awful</SelectItem>
-              <SelectItem value="1">1/10 Worst</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Rating Overview */}
@@ -281,13 +285,13 @@ const Reviews = () => {
             </CardHeader>
             <CardContent>
               <div className="text-center mb-4 sm:mb-6">
-                <div className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+                <div className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
                   {ratingStats.average}
                 </div>
                 <div className="flex justify-center mb-2">
                   {getStarDisplay(Math.round(parseFloat(ratingStats.average)))}
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Based on {reviews.length} reviews
                 </p>
               </div>
@@ -298,13 +302,13 @@ const Reviews = () => {
                     <div className="flex items-center gap-1 min-w-0">
                       <span className="text-xs sm:text-sm font-medium w-6 text-center">{stat.rating}</span>
                     </div>
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div className="flex-1 bg-muted rounded-full h-2">
                       <div 
                         className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
                         style={{ width: `${stat.percentage}%` }}
                       ></div>
                     </div>
-                    <span className="text-xs sm:text-sm text-gray-600 min-w-0">
+                    <span className="text-xs sm:text-sm text-muted-foreground min-w-0">
                       {stat.count}
                     </span>
                   </div>
@@ -323,23 +327,23 @@ const Reviews = () => {
             </CardHeader>
             <CardContent className="space-y-3 sm:space-y-4">
               <div className="flex justify-between">
-                <span className="text-xs sm:text-sm text-gray-600">Total Reviews</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">Total Reviews</span>
                 <span className="font-semibold text-sm sm:text-base">{reviews.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs sm:text-sm text-gray-600">Replied</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">Replied</span>
                 <span className="font-semibold text-sm sm:text-base">
                   {reviews.filter(r => r.owner_reply != null).length}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs sm:text-sm text-gray-600">Pending</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">Pending</span>
                 <span className="font-semibold text-sm sm:text-base">
                   {reviews.filter(r => r.owner_reply == null).length}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs sm:text-sm text-gray-600">10/10 Rate</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">10/10 Rate</span>
                 <span className="font-semibold text-sm sm:text-base text-green-600">
                   {ratingStats.distribution[0]?.percentage ?? '0'}%
                 </span>
@@ -352,7 +356,7 @@ const Reviews = () => {
         <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:order-2 order-1">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder="Search reviews by customer name, order number..."
               value={searchTerm}
@@ -366,12 +370,12 @@ const Reviews = () => {
             {filteredReviews.length === 0 ? (
               <Card className="p-8 sm:p-12 text-center">
                 <div className="space-y-4">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                    <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                    <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-base sm:text-lg font-medium text-gray-900">No reviews found</h3>
-                    <p className="text-sm sm:text-base text-gray-500">
+                    <h3 className="text-base sm:text-lg font-medium text-foreground">No reviews found</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground">
                       {searchTerm ? 'Try adjusting your search terms' : 'Customer reviews will appear here'}
                     </p>
                   </div>
@@ -385,20 +389,20 @@ const Reviews = () => {
                       {/* Header */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
-                            <span className="text-orange-600 font-semibold text-sm sm:text-base">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+                            <span className="text-primary font-semibold text-sm sm:text-base">
                               C
                             </span>
                           </div>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 sm:gap-3 mb-1">
-                              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                              <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">
                                 Customer
                               </h3>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="shrink-0">
                                 {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
                               </span>
@@ -437,7 +441,7 @@ const Reviews = () => {
 
                       {/* Comment */}
                       {review.text != null && (
-                        <div className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                        <div className="text-foreground leading-relaxed text-sm sm:text-base">
                           {review.text}
                         </div>
                       )}
@@ -494,7 +498,7 @@ const Reviews = () => {
           {selectedReview && (
             <div className="space-y-4">
               {/* Original Review */}
-              <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
+              <div className="p-3 sm:p-4 bg-muted rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-medium text-sm sm:text-base">Customer</span>
                   <div className="flex">
@@ -502,7 +506,7 @@ const Reviews = () => {
                   </div>
                 </div>
                 {selectedReview.text != null && (
-                  <p className="text-xs sm:text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     "{selectedReview.text}"
                   </p>
                 )}
@@ -547,7 +551,7 @@ const Reviews = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 };
 

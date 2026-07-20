@@ -56,6 +56,8 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import { TONE } from '@/lib/status-colors';
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -156,7 +158,7 @@ function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }) {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Name</label>
+            <label className="text-sm font-medium text-foreground">Name</label>
             <Input
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
@@ -167,7 +169,7 @@ function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Sort order</label>
+            <label className="text-sm font-medium text-foreground">Sort order</label>
             <Input
               type="number"
               value={form.sort_order}
@@ -175,15 +177,15 @@ function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }) {
               min={0}
               className="w-24"
             />
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Lower numbers fire first. Starter = 1, Main = 2, Dessert = 3.
             </p>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
-              <p className="text-sm font-medium text-gray-700">Auto-fire when previous course is bumped</p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-sm font-medium text-foreground">Auto-fire when previous course is bumped</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 When the preceding course is marked done on the KDS, this course fires automatically.
               </p>
             </div>
@@ -193,10 +195,10 @@ function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }) {
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
-              <p className="text-sm font-medium text-gray-700">Active</p>
-              <p className="text-xs text-gray-400 mt-0.5">Inactive courses are hidden in the POS.</p>
+              <p className="text-sm font-medium text-foreground">Active</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Inactive courses are hidden in the POS.</p>
             </div>
             <Switch
               checked={Boolean(form.is_active)}
@@ -285,29 +287,18 @@ export default function CoursesPage() {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow">
-            <ChefHat className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Courses</h1>
-            <p className="text-sm text-gray-500">
-              Manage kitchen fire courses for {activeLocation?.name || 'this location'}.
-            </p>
-          </div>
-        </div>
-        <Button
-          onClick={openCreate}
-          disabled={!locationId}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-        >
-          <Plus className="w-4 h-4 mr-1.5" />
-          Add course
-        </Button>
-      </div>
+    <PageContainer className="max-w-3xl mx-auto">
+      <PageHeader
+        icon={ChefHat}
+        title="Courses"
+        description={`Manage kitchen fire courses for ${activeLocation?.name || 'this location'}.`}
+        actions={
+          <Button onClick={openCreate} disabled={!locationId}>
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add course
+          </Button>
+        }
+      />
 
       {/* Error */}
       {error && (
@@ -325,12 +316,12 @@ export default function CoursesPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-gray-400">
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="w-6 h-6 animate-spin mr-2" />
           Loading courses…
         </div>
       ) : courses.length === 0 && locationId ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-muted-foreground">
           <ChefHat className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">No courses yet</p>
           <p className="text-xs mt-1">Add Starter, Main and Dessert to enable staged kitchen firing.</p>
@@ -339,9 +330,9 @@ export default function CoursesPage() {
           </Button>
         </div>
       ) : courses.length > 0 ? (
-        <div className="rounded-xl border border-gray-200 overflow-hidden">
+        <div className="rounded-xl border border-border overflow-hidden">
           <Table>
-            <TableHeader className="bg-gray-50">
+            <TableHeader className="bg-muted">
               <TableRow>
                 <TableHead className="w-10 text-center">#</TableHead>
                 <TableHead>Name</TableHead>
@@ -353,11 +344,11 @@ export default function CoursesPage() {
             <TableBody>
               {courses.map((c) => (
                 <TableRow key={c.id} className="hover:bg-orange-50/30">
-                  <TableCell className="text-center text-sm text-gray-500 tabular-nums font-medium">
+                  <TableCell className="text-center text-sm text-muted-foreground tabular-nums font-medium">
                     {c.sort_order}
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm font-semibold text-gray-900">{c.name}</span>
+                    <span className="text-sm font-semibold text-foreground">{c.name}</span>
                   </TableCell>
                   <TableCell className="text-center">
                     {c.fire_on_previous_course_bumped ? (
@@ -365,7 +356,7 @@ export default function CoursesPage() {
                         <ToggleRight className="w-3.5 h-3.5" /> Yes
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <ToggleLeft className="w-3.5 h-3.5" /> No
                       </span>
                     )}
@@ -378,11 +369,11 @@ export default function CoursesPage() {
                       title={c.is_active ? 'Click to deactivate' : 'Click to activate'}
                     >
                       {c.is_active ? (
-                        <Badge className="bg-green-100 text-green-800 border-green-200 cursor-pointer hover:bg-green-200" variant="outline">
+                        <Badge className={`${TONE.success} cursor-pointer hover:bg-green-200`} variant="outline">
                           Active
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="cursor-pointer hover:bg-gray-200">
+                        <Badge variant="secondary" className="cursor-pointer hover:bg-muted">
                           Inactive
                         </Badge>
                       )}
@@ -394,7 +385,7 @@ export default function CoursesPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => openEdit(c)}
-                        className="h-7 w-7 p-0 text-gray-500 hover:text-orange-600"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-orange-600"
                         title="Edit"
                       >
                         <Pencil className="w-3.5 h-3.5" />
@@ -403,7 +394,7 @@ export default function CoursesPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => setDeleteTarget(c)}
-                        className="h-7 w-7 p-0 text-gray-500 hover:text-red-600"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -433,7 +424,7 @@ export default function CoursesPage() {
             <AlertDialogTitle>Delete &quot;{deleteTarget?.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently remove the course. Order items already assigned to it will retain
-              their <code className="text-xs bg-gray-100 px-1 rounded">course_number</code> for back-compat.
+              their <code className="text-xs bg-muted px-1 rounded">course_number</code> for back-compat.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -447,6 +438,6 @@ export default function CoursesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

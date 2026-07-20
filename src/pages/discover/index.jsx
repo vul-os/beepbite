@@ -108,22 +108,24 @@ export default function DiscoverPage() {
 
           {/* Search input */}
           <div className="relative max-w-md mx-auto">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" aria-hidden="true" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search restaurants, cuisine, dish…"
               aria-label="Search restaurants"
-              className="pl-10 pr-10 h-12 bg-white border-0 text-sm shadow-xl rounded-xl focus-visible:ring-orange-400"
+              className="pl-10 pr-10 h-12 bg-card border-0 text-sm shadow-xl rounded-xl focus-visible:ring-orange-400"
             />
             {query && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
 
@@ -200,12 +202,14 @@ export default function DiscoverPage() {
               {stores.length !== 1 ? 'restaurants' : 'restaurant'} found
             </p>
             {hasFilters && (
-              <button
+              <Button
+                variant="link"
+                size="sm"
                 onClick={clearSearch}
-                className="text-xs text-orange-500 hover:text-orange-700 hover:underline transition-colors"
+                className="h-auto p-0 text-xs text-primary"
               >
                 Clear filters
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -230,7 +234,7 @@ export default function DiscoverPage() {
         {!loading && !error && stores.length === 0 && (
           <div className="flex flex-col items-center text-center py-20 gap-4">
             <div
-              className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-50 border-2 border-orange-100"
+              className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20"
               role="img"
               aria-label="No results"
             >

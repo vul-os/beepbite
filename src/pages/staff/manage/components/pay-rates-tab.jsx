@@ -57,26 +57,26 @@ function RateCard({ rate }) {
         'border transition-colors',
         rate.is_current
           ? 'border-orange-200 bg-orange-50/30'
-          : 'border-gray-100 bg-white opacity-70',
+          : 'border-border bg-card opacity-70',
       )}
     >
       <CardContent className="p-4 flex items-start justify-between gap-4">
         <div className="space-y-0.5 flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">{label}</span>
+            <span className="text-sm font-semibold text-foreground">{label}</span>
             {rate.is_current && (
               <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 px-1.5 py-0">
                 Current
               </Badge>
             )}
           </div>
-          <p className="text-lg font-bold text-gray-900">{amount}</p>
-          <p className="text-xs text-gray-500 flex items-center gap-1">
+          <p className="text-lg font-bold text-foreground">{amount}</p>
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {effectiveRange}
           </p>
           {rate.overtime_multiplier && rate.overtime_multiplier !== 1 && (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-muted-foreground">
               OT ×{rate.overtime_multiplier}
               {rate.overtime_threshold_hours_per_week
                 ? ` after ${rate.overtime_threshold_hours_per_week}h/wk`
@@ -84,7 +84,7 @@ function RateCard({ rate }) {
             </p>
           )}
           {rate.notes && (
-            <p className="text-xs text-gray-400 italic truncate">{rate.notes}</p>
+            <p className="text-xs text-muted-foreground italic truncate">{rate.notes}</p>
           )}
         </div>
       </CardContent>
@@ -139,7 +139,7 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-white">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-orange-500" />
@@ -247,8 +247,8 @@ export function PayRatesTab({ staff, rates, loading, error, createRate }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Pay rates</h3>
-          <p className="text-xs text-gray-500">
+          <h3 className="text-sm font-semibold text-foreground">Pay rates</h3>
+          <p className="text-xs text-muted-foreground">
             Amounts displayed in major units; stored as cents.
           </p>
         </div>
@@ -273,8 +273,8 @@ export function PayRatesTab({ staff, rates, loading, error, createRate }) {
       )}
 
       {!loading && !error && rates.length === 0 && (
-        <Card className="border-dashed border-gray-200">
-          <CardContent className="p-8 text-center text-gray-400">
+        <Card className="border-dashed border-border">
+          <CardContent className="p-8 text-center text-muted-foreground">
             <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm">No pay rates on record.</p>
           </CardContent>
@@ -283,14 +283,14 @@ export function PayRatesTab({ staff, rates, loading, error, createRate }) {
 
       {currentRates.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Current</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current</p>
           {currentRates.map((r) => <RateCard key={r.id} rate={r} />)}
         </div>
       )}
 
       {historicalRates.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Historical</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Historical</p>
           {historicalRates.map((r) => <RateCard key={r.id} rate={r} />)}
         </div>
       )}

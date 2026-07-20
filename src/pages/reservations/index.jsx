@@ -16,6 +16,7 @@ import { useDateTime } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
 import ReservationCard from './components/reservation-card';
 import ReservationForm from './components/reservation-form';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 export default function ReservationsPage() {
   const { activeLocation } = useAuth();
@@ -53,8 +54,8 @@ export default function ReservationsPage() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <AlertCircle className="h-10 w-10 text-gray-400" />
-        <p className="text-gray-600">Select a location to view reservations.</p>
+        <AlertCircle className="h-10 w-10 text-muted-foreground" />
+        <p className="text-muted-foreground">Select a location to view reservations.</p>
       </div>
     );
   }
@@ -67,24 +68,23 @@ export default function ReservationsPage() {
   };
 
   return (
-    <div className="space-y-5">
-      {/* Page header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-indigo-500" />
-          <h1 className="text-2xl font-bold text-gray-900">Reservations</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Reservation
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={CalendarDays}
+        title="Reservations"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Reservation
+            </Button>
+          </>
+        }
+      />
 
       {/* Date picker */}
       <div className="flex items-center gap-3 max-w-xs">
@@ -109,7 +109,7 @@ export default function ReservationsPage() {
       {/* Loading */}
       {loading && reservations.length === 0 && (
         <Card>
-          <CardContent className="p-10 text-center text-gray-500">Loading…</CardContent>
+          <CardContent className="p-10 text-center text-muted-foreground">Loading…</CardContent>
         </Card>
       )}
 
@@ -117,8 +117,8 @@ export default function ReservationsPage() {
       {!loading && !error && reservations.length === 0 && (
         <Card>
           <CardContent className="p-10 text-center">
-            <CalendarDays className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600 text-sm">No reservations for this date.</p>
+            <CalendarDays className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">No reservations for this date.</p>
           </CardContent>
         </Card>
       )}
@@ -130,7 +130,7 @@ export default function ReservationsPage() {
             { label: 'Pending', key: 'pending', color: 'text-amber-700' },
             { label: 'Confirmed', key: 'confirmed', color: 'text-blue-700' },
             { label: 'Seated', key: 'seated', color: 'text-emerald-700' },
-            { label: 'Past / Cancelled', key: 'other', color: 'text-gray-500' },
+            { label: 'Past / Cancelled', key: 'other', color: 'text-muted-foreground' },
           ].map(({ label, key, color }) =>
             grouped[key].length > 0 ? (
               <section key={key}>
@@ -156,6 +156,6 @@ export default function ReservationsPage() {
         organizationId={activeLocation?.organization_id}
         locationId={locationId}
       />
-    </div>
+    </PageContainer>
   );
 }

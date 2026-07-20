@@ -148,22 +148,22 @@ const TermsPage = () => {
       <style>{`
         .legal-page {
           min-height: 100vh;
-          background: #fff;
+          background: hsl(var(--background));
           padding: 2rem 1rem 4rem;
           font-family: system-ui, -apple-system, sans-serif;
-          color: #1a1a2e;
+          color: hsl(var(--foreground));
         }
         .legal-container {
           max-width: 760px;
           margin: 0 auto;
         }
-        .legal-loading, .legal-error { padding: 2rem 0; color: #555; }
-        .legal-error { color: #c0392b; }
+        .legal-loading, .legal-error { padding: 2rem 0; color: hsl(var(--muted-foreground)); }
+        .legal-error { color: hsl(var(--destructive)); }
         .legal-meta {
           font-size: 0.875rem;
-          color: #888;
+          color: hsl(var(--muted-foreground));
           margin-bottom: 2rem;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid hsl(var(--border));
           padding-bottom: 1rem;
         }
         .legal-body { line-height: 1.75; }
@@ -175,10 +175,10 @@ const TermsPage = () => {
         .legal-list { margin: 0.5rem 0 0.5rem 1.5rem; }
         .legal-list li { margin: 0.3rem 0; }
         .legal-blockquote {
-          border-left: 3px solid #e67e22;
+          border-left: 3px solid hsl(var(--primary));
           padding: 0.5rem 1rem;
           margin: 1rem 0;
-          background: #fdf3e7;
+          background: hsl(var(--primary) / 0.08);
           border-radius: 0 4px 4px 0;
           font-style: italic;
         }
@@ -189,13 +189,13 @@ const TermsPage = () => {
           font-size: 0.9rem;
         }
         .legal-table th, .legal-table td {
-          border: 1px solid #e2e8f0;
+          border: 1px solid hsl(var(--border));
           padding: 0.5rem 0.75rem;
           text-align: left;
         }
-        .legal-table th { background: #f7f7f7; font-weight: 600; }
-        hr { border: none; border-top: 1px solid #eee; margin: 2rem 0; }
-        code { background: #f0f0f0; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.9em; }
+        .legal-table th { background: hsl(var(--muted)); font-weight: 600; }
+        hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 2rem 0; }
+        code { background: hsl(var(--muted)); padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.9em; }
       `}</style>
     </div>
   );

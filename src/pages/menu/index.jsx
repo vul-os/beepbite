@@ -50,6 +50,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -79,6 +89,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/context/auth-context';
 import { useMoney } from '@/context/locale-context';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { emojiFor } from '@/lib/item-emoji';
@@ -93,6 +104,7 @@ import ModifierGroupsEditor from './modifier-groups-editor';
 const Menu = () => {
   const { activeLocation } = useAuth();
   const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -115,6 +127,7 @@ const Menu = () => {
   const [actionLoading, setActionLoading] = useState('');
   const [expandedRecipes, setExpandedRecipes] = useState(new Set());
   const [activeTab, setActiveTab] = useState('overview');
+  const [deleteTarget, setDeleteTarget] = useState(null); // item pending delete confirm
 
   // Enhanced form data for recipes
   const [formData, setFormData] = useState({
@@ -315,7 +328,7 @@ const Menu = () => {
       handleInputChange('category_id', data.id);
       setNewCategoryName('');
     } catch (e) {
-      alert(e.message || 'Failed to create category');
+      toast({ variant: 'destructive', title: 'Failed to create category', description: e.message });
     } finally {
       setCreatingCategory(false);
     }
@@ -323,7 +336,7 @@ const Menu = () => {
 
   const addItem = async () => {
     if (!activeLocation || !formData.name.trim() || !formData.price || !formData.category_id) {
-      alert('Please fill in all required fields');
+      toast({ variant: 'destructive', title: 'Please fill in all required fields' });
       return;
     }
 
@@ -358,10 +371,10 @@ const Menu = () => {
       setIsAddModalOpen(false);
       resetForm();
       await fetchData();
-      alert('Menu item added successfully!');
+      toast({ title: 'Menu item added successfully!' });
     } catch (error) {
       console.error('Error adding item:', error);
-      alert(error.message || 'Failed to add menu item');
+      toast({ variant: 'destructive', title: 'Failed to add menu item', description: error.message });
     } finally {
       setSaving(false);
     }
@@ -369,7 +382,7 @@ const Menu = () => {
 
   const editItem = async () => {
     if (!editingItem || !formData.name.trim() || !formData.price || !formData.category_id) {
-      alert('Please fill in all required fields');
+      toast({ variant: 'destructive', title: 'Please fill in all required fields' });
       return;
     }
 
@@ -404,18 +417,19 @@ const Menu = () => {
       setEditingItem(null);
       resetForm();
       await fetchData();
-      alert('Menu item updated successfully!');
+      toast({ title: 'Menu item updated successfully!' });
     } catch (error) {
       console.error('Error updating item:', error);
-      alert(error.message || 'Failed to update menu item');
+      toast({ variant: 'destructive', title: 'Failed to update menu item', description: error.message });
     } finally {
       setSaving(false);
     }
   };
 
+  // Delete requires confirmation via the AlertDialog gated on `deleteTarget`
+  // (see the dialog near the bottom of this component) — this just performs
+  // the actual delete once the user has confirmed.
   const deleteItem = async (item) => {
-    if (!confirm(`Are you sure you want to delete "${item.name}"? This action cannot be undone.`)) return;
-
     setActionLoading(item.id);
     try {
       const { error } = await supabase
@@ -425,12 +439,13 @@ const Menu = () => {
 
       if (error) throw error;
       await fetchData();
-      alert('Menu item deleted successfully');
+      toast({ title: 'Menu item deleted successfully' });
     } catch (error) {
       console.error('Error deleting item:', error);
-      alert('Failed to delete menu item');
+      toast({ variant: 'destructive', title: 'Failed to delete menu item', description: error.message });
     } finally {
       setActionLoading('');
+      setDeleteTarget(null);
     }
   };
 
@@ -449,7 +464,7 @@ const Menu = () => {
       await fetchData();
     } catch (error) {
       console.error('Error updating item status:', error);
-      alert('Failed to update item status');
+      toast({ variant: 'destructive', title: 'Failed to update item status', description: error.message });
     } finally {
       setActionLoading('');
     }
@@ -470,7 +485,7 @@ const Menu = () => {
       await fetchData();
     } catch (error) {
       console.error('Error updating sort order:', error);
-      alert('Failed to update sort order');
+      toast({ variant: 'destructive', title: 'Failed to update sort order', description: error.message });
     } finally {
       setActionLoading('');
     }

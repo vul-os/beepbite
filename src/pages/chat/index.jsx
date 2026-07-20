@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useMoney } from '@/context/locale-context';
 import { sendChatMessage } from '../../services/customerchat.js';
+import { Button } from '@/components/ui/button';
 
 // ── Simple ID generator ────────────────────────────────────────────────────────
 function newId() {
@@ -21,21 +22,21 @@ function moneyRenderer({ format, parse }) {
 
 function StoreCard({ store }) {
   return (
-    <div className="store-card border rounded p-3 mb-2 bg-white shadow-sm">
-      <div className="font-semibold text-gray-800">{store.name}</div>
-      {store.address && <div className="text-sm text-gray-500">{store.address}</div>}
+    <div className="store-card border rounded p-3 mb-2 bg-card shadow-sm">
+      <div className="font-semibold text-foreground">{store.name}</div>
+      {store.address && <div className="text-sm text-muted-foreground">{store.address}</div>}
       {(store.city || store.country) && (
-        <div className="text-xs text-gray-400">{[store.city, store.country].filter(Boolean).join(', ')}</div>
+        <div className="text-xs text-muted-foreground">{[store.city, store.country].filter(Boolean).join(', ')}</div>
       )}
       {store.slug && (
-        <div className="text-xs text-indigo-500 mt-1">slug: {store.slug}</div>
+        <div className="text-xs text-primary mt-1">slug: {store.slug}</div>
       )}
     </div>
   );
 }
 
 function StoresResult({ data }) {
-  if (!data?.stores?.length) return <p className="text-sm text-gray-400">No stores found.</p>;
+  if (!data?.stores?.length) return <p className="text-sm text-muted-foreground">No stores found.</p>;
   return (
     <div className="tool-stores mt-1">
       {data.stores.map((s) => <StoreCard key={s.id} store={s} />)}
@@ -45,16 +46,16 @@ function StoresResult({ data }) {
 
 function MenuResult({ data }) {
   const money = moneyRenderer(useMoney());
-  if (!data?.categories?.length) return <p className="text-sm text-gray-400">No menu items found.</p>;
+  if (!data?.categories?.length) return <p className="text-sm text-muted-foreground">No menu items found.</p>;
   return (
     <div className="tool-menu mt-1 space-y-2">
       {data.categories.map((cat) => (
-        <div key={cat.id} className="border rounded p-2 bg-white">
-          <div className="font-semibold text-gray-700 mb-1">{cat.name}</div>
+        <div key={cat.id} className="border rounded p-2 bg-card">
+          <div className="font-semibold text-foreground mb-1">{cat.name}</div>
           {cat.items.map((item) => (
             <div key={item.id} className="flex justify-between text-sm py-0.5">
               <span>{item.name}</span>
-              <span className="text-gray-500">{money(item.price)}</span>
+              <span className="text-muted-foreground">{money(item.price)}</span>
             </div>
           ))}
         </div>
@@ -65,13 +66,13 @@ function MenuResult({ data }) {
 
 function CartResult({ data }) {
   const money = moneyRenderer(useMoney());
-  if (!data?.lines?.length) return <p className="text-sm text-gray-400">Cart is empty.</p>;
+  if (!data?.lines?.length) return <p className="text-sm text-muted-foreground">Cart is empty.</p>;
   return (
-    <div className="tool-cart mt-1 border rounded p-2 bg-white">
+    <div className="tool-cart mt-1 border rounded p-2 bg-card">
       {data.lines.map((line) => (
         <div key={line.cart_item_id} className="flex justify-between text-sm py-0.5">
           <span>{line.quantity}× {line.item_name}{line.modifiers?.length ? ` (${line.modifiers.join(', ')})` : ''}</span>
-          <span className="text-gray-500">{money(line.total_price)}</span>
+          <span className="text-muted-foreground">{money(line.total_price)}</span>
         </div>
       ))}
       <div className="border-t mt-1 pt-1 flex justify-between font-semibold text-sm">
@@ -87,8 +88,8 @@ function OrderConfirmationResult({ data }) {
   return (
     <div className="tool-confirm mt-1 border rounded p-3 bg-green-50">
       <div className="font-semibold text-green-700">Order Confirmed!</div>
-      <div className="text-sm text-gray-600 mt-1">Order #{data.order_number}</div>
-      <div className="text-sm text-gray-600">Total: {money(data.total_amount)}</div>
+      <div className="text-sm text-muted-foreground mt-1">Order #{data.order_number}</div>
+      <div className="text-sm text-muted-foreground">Total: {money(data.total_amount)}</div>
     </div>
   );
 }
@@ -97,7 +98,7 @@ function TrackResult({ data }) {
   return (
     <div className="tool-track mt-1 border rounded p-2 bg-blue-50 text-sm">
       <span className="font-medium text-blue-700">Order #{data.order_number}</span>
-      <span className="ml-2 text-gray-600 capitalize">{data.status?.replace(/_/g, ' ')}</span>
+      <span className="ml-2 text-muted-foreground capitalize">{data.status?.replace(/_/g, ' ')}</span>
     </div>
   );
 }
@@ -105,9 +106,9 @@ function TrackResult({ data }) {
 function ItemDetailResult({ data }) {
   const money = moneyRenderer(useMoney());
   return (
-    <div className="tool-item mt-1 border rounded p-2 bg-white text-sm">
+    <div className="tool-item mt-1 border rounded p-2 bg-card text-sm">
       <div className="font-semibold">{data.name}</div>
-      {data.description && <div className="text-gray-500 text-xs mt-0.5">{data.description}</div>}
+      {data.description && <div className="text-muted-foreground text-xs mt-0.5">{data.description}</div>}
       <div className="mt-1">Price: {money(data.price)}</div>
       {data.variations?.length > 0 && (
         <div className="mt-1">
@@ -146,7 +147,7 @@ function ToolResultCard({ tool, data }) {
       return <TrackResult data={data} />;
     default:
       return (
-        <pre className="text-xs bg-gray-100 rounded p-2 overflow-auto">
+        <pre className="text-xs bg-muted rounded p-2 overflow-auto">
           {JSON.stringify(data, null, 2)}
         </pre>
       );
@@ -162,8 +163,8 @@ function MessageBubble({ message }) {
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
           isUser
-            ? 'bg-indigo-600 text-white rounded-br-sm'
-            : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+            ? 'bg-primary text-primary-foreground rounded-br-sm'
+            : 'bg-muted text-foreground rounded-bl-sm'
         }`}
       >
         {message.content}
@@ -242,15 +243,15 @@ export default function CustomerChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-2xl mx-auto bg-gray-50">
+    <div className="flex flex-col h-screen max-w-2xl mx-auto bg-background">
       {/* Header */}
-      <div className="bg-indigo-600 text-white px-4 py-3 flex items-center gap-3 shadow">
-        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-lg">
+      <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow">
+        <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center text-lg">
           B
         </div>
         <div>
           <div className="font-semibold">BeepBite Assistant</div>
-          <div className="text-xs text-indigo-200">Find stores, order food, track deliveries</div>
+          <div className="text-xs text-primary-foreground/80">Find stores, order food, track deliveries</div>
         </div>
       </div>
 
@@ -261,22 +262,22 @@ export default function CustomerChatPage() {
         ))}
         {loading && (
           <div className="flex justify-start mb-3">
-            <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-2 text-sm text-gray-400">
+            <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2 text-sm text-muted-foreground">
               <span className="animate-pulse">Thinking...</span>
             </div>
           </div>
         )}
         {error && (
-          <div className="text-center text-sm text-red-500 py-2">{error}</div>
+          <div className="text-center text-sm text-destructive py-2">{error}</div>
         )}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div className="border-t bg-white px-4 py-3">
+      <div className="border-t bg-card px-4 py-3">
         <div className="flex gap-2">
           <textarea
-            className="flex-1 resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 max-h-32"
+            className="flex-1 resize-none rounded-xl border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring max-h-32"
             rows={1}
             placeholder="Ask me anything — find a store, add to cart, confirm order..."
             value={input}
@@ -284,15 +285,11 @@ export default function CustomerChatPage() {
             onKeyDown={handleKeyDown}
             disabled={loading}
           />
-          <button
-            onClick={send}
-            disabled={loading || !input.trim()}
-            className="bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-40 hover:bg-indigo-700 transition-colors"
-          >
+          <Button onClick={send} disabled={loading || !input.trim()} className="rounded-xl">
             Send
-          </button>
+          </Button>
         </div>
-        <p className="text-xs text-gray-400 mt-1">Press Enter to send, Shift+Enter for newline</p>
+        <p className="text-xs text-muted-foreground mt-1">Press Enter to send, Shift+Enter for newline</p>
       </div>
     </div>
   );

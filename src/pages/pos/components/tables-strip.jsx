@@ -5,7 +5,7 @@ import { useMoney } from "@/context/locale-context"
 
 // Maps table status to visual tokens
 const STATUS = {
-  available:       { stripe: "bg-green-500",  bg: "bg-green-50",   text: "text-green-700",  dot: "text-green-500"  },
+  available:       { stripe: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", dot: "text-emerald-500" },
   occupied:        { stripe: "bg-red-400",    bg: "bg-red-50",     text: "text-red-700",    dot: "text-red-400"    },
   reserved:        { stripe: "bg-slate-400",  bg: "bg-slate-50",   text: "text-slate-600",  dot: "text-slate-400"  },
   out_of_service:  { stripe: "bg-gray-300",   bg: "bg-gray-100",   text: "text-gray-400",   dot: "text-gray-300"   },

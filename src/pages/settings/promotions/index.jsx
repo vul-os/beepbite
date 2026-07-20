@@ -38,6 +38,8 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { useAuth } from '@/context/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { usePromotions } from './hooks/use-promotions';
 import PromotionForm from './components/promotion-form';
 import CouponManager from './components/coupon-manager';
@@ -79,6 +81,7 @@ function statusBadge(promo) {
 
 export default function PromotionsPage() {
   const { activeLocation, activeOrganization } = useAuth();
+  const { toast } = useToast();
 
   const {
     promotions,
@@ -111,8 +114,9 @@ export default function PromotionsPage() {
         await createPromotion(payload);
       }
       closeSheet();
+      toast({ title: editing?.id ? 'Promotion updated.' : 'Promotion created.' });
     } catch (err) {
-      alert(err.message);
+      toast({ variant: 'destructive', title: 'Save failed', description: err.message });
     } finally {
       setSaving(false);
     }
@@ -122,9 +126,14 @@ export default function PromotionsPage() {
 
   const confirmDelete = async () => {
     if (!toDelete) return;
-    try { await deletePromotion(toDelete.id); }
-    catch (err) { alert(err.message); }
-    finally { setToDelete(null); }
+    try {
+      await deletePromotion(toDelete.id);
+      toast({ title: 'Promotion deleted.' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+    } finally {
+      setToDelete(null);
+    }
   };
 
   // ---- coupon accordion toggle ----
@@ -152,24 +161,21 @@ export default function PromotionsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Tag className="h-6 w-6 text-orange-500" />
-            Promotions
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Manage discounts and coupon campaigns for {activeLocation.name}.
-          </p>
-        </div>
-        <Button onClick={openNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New promotion
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Settings"
+        title="Promotions"
+        description={`Manage discounts and coupon campaigns for ${activeLocation.name}.`}
+        icon={Tag}
+        actions={
+          <Button onClick={openNew} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New promotion
+          </Button>
+        }
+      />
 
       {/* Error */}
       {error && (
@@ -222,13 +228,14 @@ export default function PromotionsPage() {
                 <React.Fragment key={promo.id}>
                   <TableRow>
                     <TableCell className="font-medium">
-                      <button
-                        className="text-left hover:underline focus:outline-none"
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 text-left font-medium text-foreground"
                         onClick={() => toggleCoupons(promo.id)}
                         title="Toggle coupon codes"
                       >
                         {promo.name}
-                      </button>
+                      </Button>
                       {promo.requires_coupon_code && (
                         <Badge variant="outline" className="ml-2 text-xs">
                           Coupon required
@@ -341,6 +348,6 @@ export default function PromotionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

@@ -44,6 +44,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { api } from '@/lib/api-client';
 import {
@@ -62,13 +72,16 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
+import { getRoleColor } from "@/lib/role-colors";
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import DriverInvitesPanel from '@/components/driver-invites-panel';
 import MemberInvitesPanel from '@/components/member-invites-panel';
 
 const Staff = () => {
   const { activeLocation, activeOrganization } = useAuth();
+  const { toast } = useToast();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -81,6 +94,10 @@ const Staff = () => {
   const [timeEntries, setTimeEntries] = useState([]);
   const [loadingTimeEntries, setLoadingTimeEntries] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState(null);
+
+  // Delete-staff confirmation state
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name } | null
+  const [deleting, setDeleting] = useState(false);
 
   // PIN management state
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
@@ -196,10 +213,10 @@ const Staff = () => {
 
   const addStaff = async () => {
     if (!activeLocation || !formData.first_name || !formData.last_name || !formData.email || !formData.password) {
-      alert('Please fill in all required fields');
+      toast({ variant: 'destructive', title: 'Missing information', description: 'Please fill in all required fields.' });
       return;
     }
-    
+
     setSaving(true);
     try {
       // In a real app, you'd hash the password on the backend
@@ -235,10 +252,10 @@ const Staff = () => {
       setIsAddModalOpen(false);
       resetForm();
       fetchStaff();
-      alert('Staff member added successfully!');
+      toast({ title: 'Staff member added successfully.' });
     } catch (error) {
       console.error('Error adding staff:', error);
-      alert(error.message || 'Failed to add staff member');
+      toast({ variant: 'destructive', title: 'Failed to add staff member', description: error.message });
     } finally {
       setSaving(false);
     }
@@ -246,10 +263,10 @@ const Staff = () => {
 
   const editStaff = async () => {
     if (!editingStaff || !formData.first_name || !formData.last_name || !formData.email) {
-      alert('Please fill in all required fields');
+      toast({ variant: 'destructive', title: 'Missing information', description: 'Please fill in all required fields.' });
       return;
     }
-    
+
     setSaving(true);
     try {
       const updateData = {
@@ -290,33 +307,41 @@ const Staff = () => {
       setEditingStaff(null);
       resetForm();
       fetchStaff();
-      alert('Staff member updated successfully!');
+      toast({ title: 'Staff member updated successfully.' });
     } catch (error) {
       console.error('Error updating staff:', error);
-      alert(error.message || 'Failed to update staff member');
+      toast({ variant: 'destructive', title: 'Failed to update staff member', description: error.message });
     } finally {
       setSaving(false);
     }
   };
 
-  const deleteStaff = async (staffId, staffName) => {
-    if (!confirm(`Are you sure you want to delete ${staffName}? This action cannot be undone.`)) return;
-    
+  const requestDeleteStaff = (staffId, staffName) => {
+    setDeleteTarget({ id: staffId, name: staffName });
+  };
+
+  const confirmDeleteStaff = async () => {
+    if (!deleteTarget) return;
+    const { id: staffId } = deleteTarget;
+
+    setDeleting(true);
     setActionLoading(staffId);
     try {
       const { error } = await supabase
         .from('staff')
         .delete()
         .eq('id', staffId);
-      
+
       if (error) throw error;
       fetchStaff();
-      alert('Staff member deleted successfully');
+      toast({ title: 'Staff member deleted successfully.' });
+      setDeleteTarget(null);
     } catch (error) {
       console.error('Error deleting staff:', error);
-      alert('Failed to delete staff member');
+      toast({ variant: 'destructive', title: 'Failed to delete staff member', description: error.message });
     } finally {
       setActionLoading('');
+      setDeleting(false);
     }
   };
 
@@ -325,7 +350,7 @@ const Staff = () => {
     try {
       const { error } = await supabase
         .from('staff')
-        .update({ 
+        .update({
           is_active: !currentStatus,
           updated_at: new Date().toISOString()
         })
@@ -335,7 +360,7 @@ const Staff = () => {
       fetchStaff();
     } catch (error) {
       console.error('Error updating staff status:', error);
-      alert('Failed to update staff status');
+      toast({ variant: 'destructive', title: 'Failed to update staff status', description: error.message });
     } finally {
       setActionLoading('');
     }
@@ -372,23 +397,6 @@ const Staff = () => {
         return <User className="w-4 h-4" />;
       default:
         return <User className="w-4 h-4" />;
-    }
-  };
-
-  const getRoleColor = (role) => {
-    switch (role) {
-      case 'owner':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'admin':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'manager':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'cashier':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'kitchen':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
     }
   };
 
@@ -467,7 +475,7 @@ const Staff = () => {
       fetchTimeEntries(selectedStaffId);
     } catch (error) {
       console.error('Error recording time entry:', error);
-      alert('Failed to record time entry');
+      toast({ variant: 'destructive', title: 'Failed to record time entry', description: error.message });
     } finally {
       setActionLoading('');
     }
@@ -499,21 +507,21 @@ const Staff = () => {
     switch (status) {
       case 'in':
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-200">
+          <Badge className="bg-beepbite-success/10 text-beepbite-success border-beepbite-success/20">
             <Clock className="w-3 h-3 mr-1" />
             Clocked In
           </Badge>
         );
       case 'break':
         return (
-          <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+          <Badge className="bg-primary/10 text-primary border-primary/25">
             <Coffee className="w-3 h-3 mr-1" />
             On Break
           </Badge>
         );
       case 'out':
         return (
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200">
+          <Badge className="bg-muted text-muted-foreground border-border">
             <StopCircle className="w-3 h-3 mr-1" />
             Clocked Out
           </Badge>
@@ -526,9 +534,9 @@ const Staff = () => {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <AlertCircle className="w-16 h-16 text-gray-400 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Location Selected</h2>
-        <p className="text-gray-600">Please select a location to manage staff members.</p>
+        <AlertCircle className="w-16 h-16 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold text-foreground mb-2">No Location Selected</h2>
+        <p className="text-muted-foreground">Please select a location to manage staff members.</p>
       </div>
     );
   }
@@ -536,10 +544,10 @@ const Staff = () => {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-12 bg-muted rounded animate-pulse"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
+            <div key={i} className="h-32 bg-muted rounded animate-pulse"></div>
           ))}
         </div>
       </div>
@@ -550,7 +558,7 @@ const Staff = () => {
     <div className="space-y-4 mt-4 max-h-96 overflow-y-auto">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             First Name <span className="text-red-500">*</span>
           </label>
           <Input
@@ -563,7 +571,7 @@ const Staff = () => {
         </div>
         
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             Last Name <span className="text-red-500">*</span>
           </label>
           <Input
@@ -578,7 +586,7 @@ const Staff = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             Email <span className="text-red-500">*</span>
           </label>
           <Input
@@ -592,7 +600,7 @@ const Staff = () => {
         </div>
         
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             Phone
           </label>
           <Input
@@ -607,7 +615,7 @@ const Staff = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             Employee ID
           </label>
           <Input
@@ -619,7 +627,7 @@ const Staff = () => {
         </div>
         
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             Role <span className="text-red-500">*</span>
           </label>
           <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
@@ -664,7 +672,7 @@ const Staff = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             Password {isEdit ? '' : <span className="text-red-500">*</span>}
           </label>
           <Input
@@ -678,7 +686,7 @@ const Staff = () => {
         </div>
         
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">
+          <label className="text-sm font-medium text-foreground block mb-2">
             Hire Date
           </label>
           <Input
@@ -691,7 +699,7 @@ const Staff = () => {
       </div>
       
       <div>
-        <label className="text-sm font-medium text-gray-700 block mb-2">
+        <label className="text-sm font-medium text-foreground block mb-2">
           Notes
         </label>
         <Textarea
@@ -709,9 +717,9 @@ const Staff = () => {
           id="is_active"
           checked={formData.is_active}
           onChange={(e) => handleInputChange('is_active', e.target.checked)}
-          className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+          className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
         />
-        <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
+        <label htmlFor="is_active" className="text-sm font-medium text-foreground">
           Active Employee
         </label>
       </div>
@@ -719,43 +727,39 @@ const Staff = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <Users className="w-8 h-8 text-orange-500" />
-              Staff Management
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Manage staff members for {activeLocation?.name}
-            </p>
-          </div>
-          <Link to="/staff/manage">
-            <Button
-              variant="outline"
-              className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
-            >
-              <KeyRound className="w-4 h-4 mr-2" />
-              Manage Staff (detailed)
-            </Button>
-          </Link>
-        </div>
+        <PageHeader
+          icon={Users}
+          title="Staff Management"
+          description={`Manage staff members for ${activeLocation?.name}`}
+          actions={
+            <Link to="/staff/manage">
+              <Button
+                variant="outline"
+                className="border-primary/25 text-primary hover:bg-primary/5 hover:border-primary/35"
+              >
+                <KeyRound className="w-4 h-4 mr-2" />
+                Manage Staff (detailed)
+              </Button>
+            </Link>
+          }
+        />
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="border-b border-orange-100 bg-transparent">
+          <TabsList className="border-b border-primary/15 bg-transparent">
             <TabsTrigger 
               value="staff" 
-              className="flex items-center gap-2 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 data-[state=active]:border-orange-500"
+              className="flex items-center gap-2 data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:border-primary"
             >
               <Users className="w-4 h-4" />
               Staff List
             </TabsTrigger>
             <TabsTrigger 
               value="attendance" 
-              className="flex items-center gap-2 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 data-[state=active]:border-orange-500"
+              className="flex items-center gap-2 data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:border-primary"
               onClick={() => fetchTimeEntries(selectedStaffId)}
             >
               <Timer className="w-4 h-4" />
@@ -766,12 +770,12 @@ const Staff = () => {
           <TabsContent value="staff" className="space-y-6">
             {/* Search Bar */}
             <div className="relative max-w-2xl">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-400 w-5 h-5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary/70 w-5 h-5" />
               <Input
                 placeholder="Search staff by name, email, or employee ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 text-base font-medium border-orange-200 focus:border-orange-300 focus:ring-orange-200 bg-white"
+                className="pl-12 h-12 text-base font-medium border-primary/25 focus:border-primary/35 focus:ring-primary/20 bg-background"
               />
             </div>
 
@@ -803,61 +807,61 @@ const Staff = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
+              <Card className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-gray-900">{staff.length}</p>
-                      <p className="text-sm text-gray-600 mt-1">Total Staff</p>
+                      <p className="text-3xl font-bold text-foreground">{staff.length}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Total Staff</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
-                      <Users className="w-6 h-6 text-orange-500" />
+                    <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center">
+                      <Users className="w-6 h-6 text-primary" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
+              <Card className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-orange-600">
+                      <p className="text-3xl font-bold text-primary">
                         {staff.filter(s => s.is_active).length}
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">Active</p>
+                      <p className="text-sm text-muted-foreground mt-1">Active</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-orange-500" />
+                    <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-primary" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
+              <Card className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-orange-600">
+                      <p className="text-3xl font-bold text-primary">
                         {staff.filter(s => !s.is_active).length}
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">Inactive</p>
+                      <p className="text-sm text-muted-foreground mt-1">Inactive</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
-                      <XCircle className="w-6 h-6 text-orange-500" />
+                    <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center">
+                      <XCircle className="w-6 h-6 text-primary" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
+              <Card className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-gray-900 truncate">{activeLocation?.name}</p>
-                      <p className="text-sm text-gray-600 mt-1">Current Location</p>
+                      <p className="text-lg font-semibold text-foreground truncate">{activeLocation?.name}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Current Location</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-orange-500" />
+                    <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center">
+                      <MapPin className="w-6 h-6 text-primary" />
                     </div>
                   </div>
                 </CardContent>
@@ -866,18 +870,18 @@ const Staff = () => {
 
             {/* Staff Grid */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900">Staff Members</h2>
+              <h2 className="text-xl font-semibold text-foreground">Staff Members</h2>
               
               {filteredStaff.length === 0 ? (
-                <Card className="border-orange-100 bg-white">
+                <Card className="border-primary/15 bg-card">
                   <CardContent className="p-12 text-center">
-                    <div className="w-16 h-16 rounded-lg bg-orange-50 flex items-center justify-center mx-auto mb-4">
-                      <Users className="w-8 h-8 text-orange-400" />
+                    <div className="w-16 h-16 rounded-lg bg-primary/5 flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-8 h-8 text-primary/70" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
                       {searchTerm ? 'No staff found' : 'No staff members yet'}
                     </h3>
-                    <p className="text-gray-600 mb-6">
+                    <p className="text-muted-foreground mb-6">
                       {searchTerm 
                         ? 'Try adjusting your search terms' 
                         : 'Add staff members to manage your team'
@@ -903,49 +907,49 @@ const Staff = () => {
                     const isLoading = actionLoading === staffMember.id;
                     
                     return (
-                      <Card key={staffMember.id} className="border-orange-100 hover:border-orange-200 hover:shadow-md transition-all duration-200 bg-white">
+                      <Card key={staffMember.id} className="border-primary/15 hover:border-primary/25 hover:shadow-md transition-all duration-200 bg-card">
                         <CardContent className="p-6">
                           <div className="space-y-4">
                             {/* Staff Info */}
                             <div className="flex items-start gap-4">
-                              <Avatar className="h-14 w-14 border-2 border-orange-100">
-                                <AvatarFallback className="bg-orange-50 text-orange-700 font-semibold text-lg">
+                              <Avatar className="h-14 w-14 border-2 border-primary/15">
+                                <AvatarFallback className="bg-primary/5 text-primary font-semibold text-lg">
                                   {getInitials(staffMember.first_name, staffMember.last_name)}
                                 </AvatarFallback>
                               </Avatar>
                               
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900 text-lg truncate mb-1">
+                                <h3 className="font-semibold text-foreground text-lg truncate mb-1">
                                   {staffMember.first_name} {staffMember.last_name}
                                 </h3>
-                                <p className="text-sm text-gray-600 truncate mb-2">
+                                <p className="text-sm text-muted-foreground truncate mb-2">
                                   {staffMember.email}
                                 </p>
                                 
                                 {staffMember.employee_id && (
-                                  <p className="text-xs text-gray-600 mb-2">
+                                  <p className="text-xs text-muted-foreground mb-2">
                                     ID: {staffMember.employee_id}
                                   </p>
                                 )}
                                 
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn("text-xs font-medium bg-orange-50 text-orange-700 border-orange-200")}
+                                  <Badge
+                                    variant="outline"
+                                    className={cn("text-xs font-medium capitalize", getRoleColor(staffMember.role))}
                                   >
                                     <span className="flex items-center gap-1.5">
                                       {getRoleIcon(staffMember.role)}
                                       {staffMember.role}
                                     </span>
                                   </Badge>
-                                  
-                                  <Badge 
+
+                                  <Badge
                                     variant="outline"
                                     className={cn(
                                       "text-xs font-medium",
-                                      staffMember.is_active 
-                                        ? "bg-orange-50 text-orange-700 border-orange-200"
-                                        : "bg-orange-50 text-orange-700 border-orange-200 opacity-75"
+                                      staffMember.is_active
+                                        ? "bg-beepbite-success/10 text-beepbite-success border-beepbite-success/20"
+                                        : "bg-muted text-muted-foreground border-border"
                                     )}
                                   >
                                     {staffMember.is_active ? 'Active' : 'Inactive'}
@@ -953,26 +957,26 @@ const Staff = () => {
                                 </div>
                                 
                                 {staffMember.hire_date && (
-                                  <p className="text-xs text-gray-600 mb-2">
+                                  <p className="text-xs text-muted-foreground mb-2">
                                     Hired: {format(new Date(staffMember.hire_date), 'MMM dd, yyyy')}
                                   </p>
                                 )}
                                 
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-muted-foreground">
                                   Added {formatDistanceToNow(new Date(staffMember.created_at), { addSuffix: true })}
                                 </p>
                               </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="space-y-2 pt-4 border-t border-orange-100">
+                            <div className="space-y-2 pt-4 border-t border-primary/15">
                               <div className="grid grid-cols-2 gap-2">
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => openEditModal(staffMember)}
                                   disabled={isLoading}
-                                  className="text-xs hover:bg-orange-50 border-orange-200 text-orange-700"
+                                  className="text-xs hover:bg-primary/5 border-primary/25 text-primary"
                                 >
                                   <Edit className="w-3 h-3 mr-1" />
                                   Edit
@@ -986,8 +990,8 @@ const Staff = () => {
                                   className={cn(
                                     "text-xs",
                                     staffMember.is_active
-                                      ? "hover:bg-orange-50 border-orange-200 text-orange-700"
-                                      : "hover:bg-orange-50 border-orange-200 text-orange-700"
+                                      ? "hover:bg-primary/5 border-primary/25 text-primary"
+                                      : "hover:bg-primary/5 border-primary/25 text-primary"
                                   )}
                                 >
                                   {staffMember.is_active ? (
@@ -1010,7 +1014,7 @@ const Staff = () => {
                                 variant="outline"
                                 onClick={() => openPinDialog(staffMember)}
                                 disabled={isLoading}
-                                className="w-full text-xs text-orange-700 hover:text-orange-800 hover:bg-orange-50 border-orange-200"
+                                className="w-full text-xs text-primary hover:text-primary hover:bg-primary/5 border-primary/25"
                               >
                                 <Hash className="w-3 h-3 mr-1" />
                                 {staffMember.pin_hash ? 'Reset PIN' : 'Set PIN'}
@@ -1019,9 +1023,9 @@ const Staff = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => deleteStaff(staffMember.id, `${staffMember.first_name} ${staffMember.last_name}`)}
+                                onClick={() => requestDeleteStaff(staffMember.id, `${staffMember.first_name} ${staffMember.last_name}`)}
                                 disabled={isLoading}
-                                className="w-full text-xs text-orange-700 hover:text-orange-800 hover:bg-orange-50 border-orange-200"
+                                className="w-full text-xs text-primary hover:text-primary hover:bg-primary/5 border-primary/25"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
                                 Delete
@@ -1050,7 +1054,7 @@ const Staff = () => {
                       fetchTimeEntries(value === 'all' ? null : value);
                     }}
                   >
-                    <SelectTrigger className="border-orange-200 focus:ring-orange-200 focus:border-orange-300">
+                    <SelectTrigger className="border-primary/25 focus:ring-primary/20 focus:border-primary/35">
                       <SelectValue placeholder="Filter by staff member" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1072,26 +1076,26 @@ const Staff = () => {
                   const isLoading = actionLoading === member.id;
                   
                   return (
-                    <Card key={member.id} className="border-orange-100 hover:border-orange-200 hover:shadow-md transition-all duration-200 bg-white">
+                    <Card key={member.id} className="border-primary/15 hover:border-primary/25 hover:shadow-md transition-all duration-200 bg-card">
                       <CardContent className="p-6">
                         <div className="space-y-4">
                           {/* Staff Info */}
                           <div className="flex items-start gap-4">
-                            <Avatar className="h-14 w-14 border-2 border-orange-100">
-                              <AvatarFallback className="bg-orange-50 text-orange-700 font-semibold text-lg">
+                            <Avatar className="h-14 w-14 border-2 border-primary/15">
+                              <AvatarFallback className="bg-primary/5 text-primary font-semibold text-lg">
                                 {getInitials(member.first_name, member.last_name)}
                               </AvatarFallback>
                             </Avatar>
                             
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-gray-900 text-lg truncate mb-2">
+                              <h3 className="font-semibold text-foreground text-lg truncate mb-2">
                                 {member.first_name} {member.last_name}
                               </h3>
                               
                               {getStatusBadge(status)}
                               
                               {member.employee_id && (
-                                <p className="text-xs text-gray-600 mt-2">
+                                <p className="text-xs text-muted-foreground mt-2">
                                   ID: {member.employee_id}
                                 </p>
                               )}
@@ -1099,13 +1103,13 @@ const Staff = () => {
                           </div>
 
                           {/* Time Entry Actions */}
-                          <div className="grid grid-cols-2 gap-2 pt-4 border-t border-orange-100">
+                          <div className="grid grid-cols-2 gap-2 pt-4 border-t border-primary/15">
                             {status === 'out' && (
                               <Button
                                 size="sm"
                                 onClick={() => handleTimeEntry(member.id, 'clock_in')}
                                 disabled={isLoading}
-                                className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
+                                className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
                               >
                                 <PlayCircle className="w-3 h-3 mr-1" />
                                 Clock In
@@ -1118,7 +1122,7 @@ const Staff = () => {
                                   size="sm"
                                   onClick={() => handleTimeEntry(member.id, 'break_start')}
                                   disabled={isLoading}
-                                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
+                                  className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
                                 >
                                   <Coffee className="w-3 h-3 mr-1" />
                                   Start Break
@@ -1128,7 +1132,7 @@ const Staff = () => {
                                   size="sm"
                                   onClick={() => handleTimeEntry(member.id, 'clock_out')}
                                   disabled={isLoading}
-                                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
+                                  className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
                                 >
                                   <StopCircle className="w-3 h-3 mr-1" />
                                   Clock Out
@@ -1141,7 +1145,7 @@ const Staff = () => {
                                 size="sm"
                                 onClick={() => handleTimeEntry(member.id, 'break_end')}
                                 disabled={isLoading}
-                                className="text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow"
+                                className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
                               >
                                 <ArrowLeftCircle className="w-3 h-3 mr-1" />
                                 End Break
@@ -1157,32 +1161,32 @@ const Staff = () => {
 
               {/* Time Entry History */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Recent Time Entries</h3>
+                <h3 className="text-lg font-semibold text-foreground">Recent Time Entries</h3>
                 
                 {loadingTimeEntries ? (
                   <div className="space-y-4">
                     {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 bg-orange-50 rounded-lg animate-pulse" />
+                      <div key={i} className="h-16 bg-primary/5 rounded-lg animate-pulse" />
                     ))}
                   </div>
                 ) : timeEntries.length === 0 ? (
-                  <Card className="border-orange-100 bg-white">
+                  <Card className="border-primary/15 bg-card">
                     <CardContent className="p-6 text-center">
-                      <Clock className="w-12 h-12 text-orange-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No time entries found</p>
+                      <Clock className="w-12 h-12 text-primary/70 mx-auto mb-4" />
+                      <p className="text-muted-foreground">No time entries found</p>
                     </CardContent>
                   </Card>
                 ) : (
                   <div className="space-y-4">
                     {timeEntries.map((entry) => (
-                      <Card key={entry.id} className="border-orange-100 hover:border-orange-200 transition-colors bg-white">
+                      <Card key={entry.id} className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">
+                              <p className="font-medium text-foreground">
                                 {entry.staff.first_name} {entry.staff.last_name}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-muted-foreground">
                                 {format(parseISO(entry.timestamp), 'MMM dd, yyyy HH:mm:ss')}
                               </p>
                             </div>
@@ -1190,9 +1194,9 @@ const Staff = () => {
                               variant="outline"
                               className={cn(
                                 "capitalize",
-                                entry.entry_type === 'clock_in' && "bg-orange-50 text-orange-700 border-orange-200",
-                                entry.entry_type === 'clock_out' && "bg-orange-50 text-orange-700 border-orange-200",
-                                entry.entry_type.includes('break') && "bg-orange-50 text-orange-700 border-orange-200"
+                                entry.entry_type === 'clock_in' && "bg-primary/5 text-primary border-primary/25",
+                                entry.entry_type === 'clock_out' && "bg-primary/5 text-primary border-primary/25",
+                                entry.entry_type.includes('break') && "bg-primary/5 text-primary border-primary/25"
                               )}
                             >
                               {entry.entry_type.replace('_', ' ')}
@@ -1211,10 +1215,10 @@ const Staff = () => {
 
       {/* Add Staff Dialog */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="max-w-2xl bg-white">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-orange-500" />
+              <UserPlus className="w-5 h-5 text-primary" />
               Add New Staff Member
             </DialogTitle>
             <DialogDescription>
@@ -1228,7 +1232,7 @@ const Staff = () => {
             <Button 
               variant="outline" 
               onClick={() => setIsAddModalOpen(false)}
-              className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+              className="flex-1 border-primary/25 text-primary hover:bg-primary/5"
               disabled={saving}
             >
               Cancel
@@ -1251,10 +1255,10 @@ const Staff = () => {
 
       {/* Edit Staff Dialog */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-2xl bg-white">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-orange-500" />
+              <Edit className="w-5 h-5 text-primary" />
               Edit Staff Member
             </DialogTitle>
             <DialogDescription>
@@ -1268,7 +1272,7 @@ const Staff = () => {
             <Button 
               variant="outline" 
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+              className="flex-1 border-primary/25 text-primary hover:bg-primary/5"
               disabled={saving}
             >
               Cancel
@@ -1291,15 +1295,15 @@ const Staff = () => {
 
       {/* Set / Reset PIN dialog */}
       <Dialog open={pinDialogOpen} onOpenChange={(v) => { if (!v) closePinDialog(); }}>
-        <DialogContent className="max-w-sm bg-white">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Hash className="w-5 h-5 text-orange-500" />
+              <Hash className="w-5 h-5 text-primary" />
               {pinTargetStaff?.pin_hash ? 'Reset PIN' : 'Set PIN'}
             </DialogTitle>
             <DialogDescription>
               Set a 4–6 digit PIN for{' '}
-              <span className="font-medium text-gray-800">
+              <span className="font-medium text-foreground">
                 {pinTargetStaff?.first_name} {pinTargetStaff?.last_name}
               </span>
               . They will use this to log in at the POS terminal.
@@ -1311,7 +1315,7 @@ const Staff = () => {
               <CheckCircle className="w-10 h-10 text-green-500 mx-auto" />
               <p className="text-sm text-green-700 font-medium">PIN updated successfully.</p>
               <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                className="bg-primary/50 hover:bg-primary/90 text-white"
                 onClick={closePinDialog}
               >
                 Done
@@ -1334,7 +1338,7 @@ const Staff = () => {
                     setPinError('');
                   }}
                   required
-                  className="border-orange-200 focus:border-orange-400"
+                  className="border-primary/25 focus:border-primary/60"
                 />
               </div>
 
@@ -1349,7 +1353,7 @@ const Staff = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+                  className="flex-1 border-primary/25 text-primary hover:bg-primary/5"
                   onClick={closePinDialog}
                   disabled={savingPin}
                 >
@@ -1358,7 +1362,7 @@ const Staff = () => {
                 <Button
                   type="submit"
                   disabled={savingPin}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                  className="flex-1 bg-primary/50 hover:bg-primary/90 text-white"
                 >
                   {savingPin ? (
                     <><Clock className="w-4 h-4 mr-1 animate-spin" /> Saving…</>
@@ -1377,7 +1381,29 @@ const Staff = () => {
 
       {/* Drivers — invite by email + manage pending driver invites */}
       <DriverInvitesPanel />
-    </div>
+
+      {/* Delete staff confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {deleteTarget?.name} from your staff list. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteStaff}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </PageContainer>
   );
 };
 
