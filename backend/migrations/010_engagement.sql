@@ -1271,56 +1271,13 @@ CREATE POLICY invoices_delete ON invoices FOR DELETE
 -- =============================================================================
 -- DEFERRED RLS POLICIES FROM 007 — require customers table (defined here)
 -- =============================================================================
--- customer_payment_authorizations policies reference customers.id.
--- Deferred from 007 because customers is defined in this migration (010).
--- Postgres 18 validates policy table references at DDL time.
--- =============================================================================
-
-CREATE POLICY cpa_select ON customer_payment_authorizations FOR SELECT
-    USING (
-        customer_id IN (
-            SELECT c.id FROM customers c
-            WHERE c.organization_id = current_org_id()
-        )
-        OR is_service_role()
-    );
-
-CREATE POLICY cpa_insert ON customer_payment_authorizations FOR INSERT
-    WITH CHECK (
-        customer_id IN (
-            SELECT c.id FROM customers c
-            WHERE c.organization_id = current_org_id()
-        )
-        OR is_service_role()
-    );
-
-CREATE POLICY cpa_update ON customer_payment_authorizations FOR UPDATE
-    USING (
-        customer_id IN (
-            SELECT c.id FROM customers c
-            WHERE c.organization_id = current_org_id()
-        )
-        OR is_service_role()
-    )
-    WITH CHECK (
-        customer_id IN (
-            SELECT c.id FROM customers c
-            WHERE c.organization_id = current_org_id()
-        )
-        OR is_service_role()
-    );
-
 -- =============================================================================
 -- DEFERRED FK CONSTRAINTS FROM 007 — require customers table (defined here)
 -- =============================================================================
--- customer_payment_authorizations.customer_id and cart_items.customer_id
--- reference customers(id) but customers is defined in this migration (010).
+-- cart_items.customer_id references customers(id) but customers is defined in
+-- this migration (010).
 -- The inline REFERENCES clauses were removed from 007 and the FKs are added here.
 -- =============================================================================
-
-ALTER TABLE customer_payment_authorizations
-    ADD CONSTRAINT fk_cpa_customer
-    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE;
 
 ALTER TABLE cart_items
     ADD CONSTRAINT fk_cart_items_customer

@@ -21,8 +21,6 @@
 -- Cross-migration FKs sealed here (007 tables need orders to exist):
 --   order_payments.order_id → orders(id)
 --   refunds.order_id → orders(id)
---   merchant_payout_items.order_id → orders(id)
---   payment_attempts.order_id → orders(id)
 --
 -- Intentionally absent (legacy tables replaced):
 --   order_details, order_financial_details — columns folded into orders/order_payments.
@@ -291,16 +289,6 @@ ALTER TABLE order_payments
 -- refunds.order_id → orders(id)
 ALTER TABLE refunds
     ADD CONSTRAINT fk_refunds_order
-    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
-
--- merchant_payout_items.order_id → orders(id)
-ALTER TABLE merchant_payout_items
-    ADD CONSTRAINT fk_merchant_payout_items_order
-    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
-
--- payment_attempts.order_id → orders(id)
-ALTER TABLE payment_attempts
-    ADD CONSTRAINT fk_payment_attempts_order
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
 
 -- check_split_items.order_item_id → order_items(id)
@@ -970,7 +958,6 @@ CREATE TRIGGER trg_item_default_station_routing
 --   kds_ticket_items, kds_ticket_events, kds_fanout_queue, kds_display_groups [NEW],
 --   fiscal_sequences, order_tracking_tokens [NEW].
 -- Deferred FKs sealed: order_payments→orders, refunds→orders,
---   merchant_payout_items→orders, payment_attempts→orders,
 --   check_split_items→order_items.
 -- Triggers: queue_kds_fanout (kds fanout enqueue),
 --   trg_fn_location_default_kitchen_station (auto kitchen station),
@@ -988,17 +975,6 @@ CREATE TRIGGER trg_item_default_station_routing
 -- Deferred from 007 because orders is defined in this migration (008).
 -- Postgres 18 validates policy table references at DDL time.
 -- =============================================================================
-
-CREATE POLICY payment_attempts_select ON payment_attempts FOR SELECT
-    USING (
-        order_id IN (
-            SELECT o.id FROM orders o
-            JOIN locations l ON l.id = o.location_id
-            WHERE l.organization_id = current_org_id()
-        )
-        OR order_id IS NULL  -- wallet top-ups; further guarded by app layer
-        OR is_service_role()
-    );
 
 CREATE POLICY order_payments_select ON order_payments FOR SELECT
     USING (
@@ -1032,17 +1008,6 @@ CREATE POLICY order_payments_update ON order_payments FOR UPDATE
     WITH CHECK (
         order_id IN (
             SELECT o.id FROM orders o
-            JOIN locations l ON l.id = o.location_id
-            WHERE l.organization_id = current_org_id()
-        )
-        OR is_service_role()
-    );
-
-CREATE POLICY payment_fees_select ON payment_fees FOR SELECT
-    USING (
-        payment_id IN (
-            SELECT op.id FROM order_payments op
-            JOIN orders o ON o.id = op.order_id
             JOIN locations l ON l.id = o.location_id
             WHERE l.organization_id = current_org_id()
         )

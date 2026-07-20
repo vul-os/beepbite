@@ -1,21 +1,16 @@
 -- =============================================================================
 -- MIGRATION 024 — BILLING / QUOTAS / LLM / EMAIL  (Wave 19)
 -- =============================================================================
--- Purpose: adds auto-refill columns to org_wallets, quota tracking, LLM cost
--- ledger, and email-provider credential tables.
+-- LLM usage/pricing ledger and email-provider credential tables.
 --
 -- EXISTENCE AUDIT (confirmed before writing):
---   org_wallets              — EXISTS (007_payments_generic.sql §19)
 --   organizations            — EXISTS (002_auth_and_tenancy.sql §5)
 --   locations                — EXISTS (007_payments_generic.sql §5)
---   location_payment_credentials — EXISTS (007_payments_generic.sql §7; modelled here)
 --   set_updated_at_now()     — EXISTS (001_extensions_and_helpers.sql §6)
 --   current_org_id()         — EXISTS (001_extensions_and_helpers.sql §3)
 --   is_service_role()        — EXISTS (001_extensions_and_helpers.sql §3)
 --
 -- OBJECTS CREATED:
---   1. ALTER org_wallets    — 4 new columns (auto-refill config + payment token)
---   2. quota_usage          — NEW TABLE, org-scoped RLS
 --   3. llm_model_pricing    — NEW TABLE, world-readable reference (no RLS)
 --   4. llm_messages         — NEW TABLE, org-scoped RLS
 --   5. llm_tool_executions  — NEW TABLE, service-role-scoped RLS
@@ -31,123 +26,10 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. ALTER org_wallets — auto-refill config + tokenized card reference
--- ---------------------------------------------------------------------------
--- org_wallets has one row per org (PK = org_id). The existing auto_refill_threshold_cents
--- and auto_refill_target_cents on organizations (added in 007 via ALTER) are organisation-level
--- denorms; these wallet-level columns are the canonical source of truth for the
--- refill job and carry NOT NULL defaults.
---
--- payment_method_token: opaque tokenized card ref returned by the payment gateway
--- after a successful card save.  NULL when no card is on file.
--- ADD COLUMN IF NOT EXISTS: idempotent re-run safety.
--- ---------------------------------------------------------------------------
-
-ALTER TABLE org_wallets
-    ADD COLUMN IF NOT EXISTS auto_refill_enabled          boolean  NOT NULL DEFAULT false,
-    ADD COLUMN IF NOT EXISTS auto_refill_threshold_cents  bigint   NOT NULL DEFAULT 500,
-    ADD COLUMN IF NOT EXISTS auto_refill_target_cents     bigint   NOT NULL DEFAULT 5000,
-    ADD COLUMN IF NOT EXISTS payment_method_token         text;    -- nullable: tokenized card ref
-
-COMMENT ON COLUMN org_wallets.auto_refill_enabled IS
-    'When true the billing job tops up the wallet whenever balance_cents drops '
-    'below auto_refill_threshold_cents, charging payment_method_token up to '
-    'auto_refill_target_cents.';
-COMMENT ON COLUMN org_wallets.auto_refill_threshold_cents IS
-    'Refill trigger: if balance_cents falls below this value and auto_refill_enabled '
-    'is true, an automatic top-up is initiated. Unit: smallest currency denomination '
-    '(e.g. cents). Default 500 (ZAR 5.00).';
-COMMENT ON COLUMN org_wallets.auto_refill_target_cents IS
-    'Target wallet balance after an automatic top-up. The job charges '
-    '(auto_refill_target_cents - balance_cents) to payment_method_token. '
-    'Default 5000 (ZAR 50.00).';
-COMMENT ON COLUMN org_wallets.payment_method_token IS
-    'Opaque tokenized card reference from the payment gateway (e.g. Paystack '
-    'authorization_code). NULL when no card is on file. Never a raw card number.';
-
--- ---------------------------------------------------------------------------
--- 2. quota_usage — per-org (optionally per-location) resource usage counters
--- ---------------------------------------------------------------------------
--- One row per (org, location?, resource, period_start). The billing job resets
--- or advances these rows at each billing period boundary.
---
--- resource values:
---   'orders'             — chargeable order completions
---   'whatsapp_outbound'  — outbound WhatsApp messages sent
---   'llm_messages'       — LLM inference calls (provider-agnostic)
---   'email_outbound'     — transactional / marketing emails sent
---   'bulk_imports'       — menu / inventory bulk import jobs
---
--- period_start / period_end: billing calendar dates (inclusive). Indexed for
--- fast "current period" lookup.
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS quota_usage (
-    id                uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id   uuid        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    location_id       uuid        REFERENCES locations(id) ON DELETE CASCADE,  -- NULL = org-wide
-    resource          text        NOT NULL
-                                  CHECK (resource IN (
-                                      'orders',
-                                      'whatsapp_outbound',
-                                      'llm_messages',
-                                      'email_outbound',
-                                      'bulk_imports'
-                                  )),
-    period_start      date        NOT NULL,
-    period_end        date        NOT NULL,
-    used_count        bigint      NOT NULL DEFAULT 0,
-    included_count    bigint      NOT NULL DEFAULT 0,  -- units covered by subscription plan
-    updated_at        timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (organization_id, location_id, resource, period_start)
-);
-
-COMMENT ON TABLE quota_usage IS
-    'Per-org (optionally per-location) usage counters for metered resources. '
-    'One row per (org, location, resource, billing period). The billing job '
-    'increments used_count and resets rows each period. '
-    'included_count mirrors the subscription plan allowance at period creation time.';
-COMMENT ON COLUMN quota_usage.location_id IS
-    'NULL = org-wide aggregate quota; non-NULL = per-location quota for resources '
-    'that are location-granular (e.g. email_outbound per location).';
-COMMENT ON COLUMN quota_usage.included_count IS
-    'Units included in the subscription plan for this period (captured at period '
-    'creation so plan changes mid-period do not retroactively alter the row).';
-
-CREATE INDEX IF NOT EXISTS idx_quota_usage_org_period
-    ON quota_usage(organization_id, period_start, period_end);
-CREATE INDEX IF NOT EXISTS idx_quota_usage_location
-    ON quota_usage(location_id)
-    WHERE location_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_quota_usage_resource
-    ON quota_usage(resource, period_start);
-
-CREATE TRIGGER trg_quota_usage_updated_at
-    BEFORE UPDATE ON quota_usage
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at_now();
-
-ALTER TABLE quota_usage ENABLE ROW LEVEL SECURITY;
-ALTER TABLE quota_usage FORCE ROW LEVEL SECURITY;
-
--- Org members see their own org's quota rows; service_role sees all.
-CREATE POLICY quota_usage_select ON quota_usage FOR SELECT
-    USING (organization_id = current_org_id() OR is_service_role());
-
--- Inserts and updates are owned by the billing job (service_role); org members
--- must not be able to inflate their own included_count.
-CREATE POLICY quota_usage_insert ON quota_usage FOR INSERT
-    WITH CHECK (is_service_role());
-CREATE POLICY quota_usage_update ON quota_usage FOR UPDATE
-    USING  (is_service_role())
-    WITH CHECK (is_service_role());
-CREATE POLICY quota_usage_delete ON quota_usage FOR DELETE
-    USING  (is_service_role());
-
--- ---------------------------------------------------------------------------
 -- 3. llm_model_pricing — platform-wide reference table
 -- ---------------------------------------------------------------------------
 -- Stores per-model cost rates from each LLM provider. Updated by the billing
--- job or manually via service_role. Public SELECT (like regions / payment_providers).
+-- job or manually via service_role. Public SELECT.
 -- Not RLS-protected — global reference data.
 -- ---------------------------------------------------------------------------
 
@@ -180,7 +62,7 @@ COMMENT ON COLUMN llm_model_pricing.context_length IS
 CREATE INDEX IF NOT EXISTS idx_llm_model_pricing_provider
     ON llm_model_pricing(provider, model);
 
--- Reference table: world-readable, service_role-only writes (mirrors pattern from regions).
+-- Reference table: world-readable, service_role-only writes.
 GRANT SELECT ON llm_model_pricing TO PUBLIC;
 REVOKE INSERT, UPDATE, DELETE ON llm_model_pricing FROM PUBLIC;
 
@@ -189,7 +71,6 @@ REVOKE INSERT, UPDATE, DELETE ON llm_model_pricing FROM PUBLIC;
 -- ---------------------------------------------------------------------------
 -- One row per LLM API call made on behalf of an organisation. cost_cents is
 -- computed by the Go layer using llm_model_pricing rates at call time and stored
--- in the org's wallet currency. The billing job debits wallet_transactions for
 -- accumulated cost.
 -- ---------------------------------------------------------------------------
 
@@ -201,7 +82,7 @@ CREATE TABLE IF NOT EXISTS llm_messages (
     model             text,       -- exact model identifier used for the call
     tokens_in         integer     NOT NULL DEFAULT 0,  -- prompt tokens consumed
     tokens_out        integer     NOT NULL DEFAULT 0,  -- completion tokens generated
-    cost_cents        bigint      NOT NULL DEFAULT 0,  -- cost in smallest wallet currency unit
+    cost_cents        bigint      NOT NULL DEFAULT 0,  -- cost in smallest currency unit
     created_at        timestamptz NOT NULL DEFAULT now()
     -- No updated_at: append-only cost ledger.
 );
@@ -209,13 +90,12 @@ CREATE TABLE IF NOT EXISTS llm_messages (
 COMMENT ON TABLE llm_messages IS
     'Append-only per-org LLM inference cost ledger. One row per API call. '
     'cost_cents is computed by the Go layer from llm_model_pricing at call time '
-    'and stored in the org wallet currency denomination. '
-    'The billing job periodically debits org_wallets via wallet_transactions.';
+    'and stored in the org currency denomination.';
 COMMENT ON COLUMN llm_messages.conversation_id IS
     'Opaque session/thread identifier to group turns of a multi-turn conversation. '
     'No FK — may span multiple systems or be provider-supplied.';
 COMMENT ON COLUMN llm_messages.cost_cents IS
-    'Cost of this call expressed in the smallest unit of the org wallet currency '
+    'Cost of this call expressed in the smallest unit of the org currency '
     '(e.g. ZAR cents). Computed by Go from llm_model_pricing.input/output_cost_per_1k.';
 
 CREATE INDEX IF NOT EXISTS idx_llm_messages_org_created
@@ -309,12 +189,12 @@ CREATE POLICY llm_tool_executions_delete ON llm_tool_executions FOR DELETE
 -- ---------------------------------------------------------------------------
 -- Defines the set of email delivery providers supported by BeepBite.
 -- code is the PK (text) to match the pattern of payment_methods.code.
--- Public SELECT (like payment_methods / regions); service_role-only writes.
+-- Public SELECT (like payment_methods); service_role-only writes.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS email_providers (
     code        text        PRIMARY KEY
-                            CHECK (code IN ('resend','sendgrid','mailgun','ses','smtp')),
+                            CHECK (code IN ('sendgrid','mailgun','ses','smtp')),
     name        text        NOT NULL,
     is_active   boolean     NOT NULL DEFAULT true
 );
@@ -331,7 +211,6 @@ REVOKE INSERT, UPDATE, DELETE ON email_providers FROM PUBLIC;
 
 -- Seed the 5 supported providers.
 INSERT INTO email_providers (code, name, is_active) VALUES
-    ('resend',    'Resend',                  true),
     ('sendgrid',  'SendGrid',                true),
     ('mailgun',   'Mailgun',                 true),
     ('ses',       'Amazon SES',              true),
@@ -342,11 +221,11 @@ ON CONFLICT (code) DO NOTHING;
 -- 7. location_email_credentials — per-location email provider config
 -- ---------------------------------------------------------------------------
 -- Stores encrypted email provider credentials for a location. Modelled on
--- location_payment_credentials (007 §7): encrypted_keys stores the provider
+-- encrypted_keys stores the provider
 -- API key / SMTP password as an AES-GCM ciphertext; the Go layer decrypts it.
 --
 -- RLS: scoped via location_id → locations → organization_id, matching the
--- pattern used by custom_domains, location_payment_credentials, etc. in 007.
+-- pattern used by custom_domains etc. in 007.
 -- Writes restricted to service_role (credentials set via admin endpoint).
 -- Deletes restricted to service_role (deactivate via is_active=false otherwise).
 -- ---------------------------------------------------------------------------
@@ -370,10 +249,10 @@ COMMENT ON TABLE location_email_credentials IS
     'Per-location email delivery provider credentials. '
     'encrypted_keys is AES-GCM ciphertext decrypted at call time by the Go layer; '
     'never returned raw to API consumers. '
-    'Modelled on location_payment_credentials (migration 007 §7).';
+    'Encrypted per-location email provider credentials.';
 COMMENT ON COLUMN location_email_credentials.encrypted_keys IS
     'AES-GCM encrypted provider credentials (API key, SMTP password, etc.). '
-    'Structure varies by provider_code: for resend/sendgrid/mailgun it is a JSON '
+    'Structure varies by provider_code: for sendgrid/mailgun it is a JSON '
     'object {"api_key":"..."}, for ses {"access_key_id":"...","secret_access_key":"..."}, '
     'for smtp {"host":"...","port":587,"username":"...","password":"..."}. '
     'The Go layer encrypts on write and decrypts on use; raw value is never returned.';
@@ -399,7 +278,7 @@ ALTER TABLE location_email_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE location_email_credentials FORCE ROW LEVEL SECURITY;
 
 -- Tenants can read credentials for locations that belong to their org.
--- The subquery join mirrors the pattern from location_payment_credentials (007 §7).
+-- The subquery join mirrors the tenant-scoping pattern used in 007.
 CREATE POLICY loc_email_cred_select ON location_email_credentials FOR SELECT
     USING (
         location_id IN (SELECT id FROM locations WHERE organization_id = current_org_id())
@@ -435,7 +314,6 @@ CREATE POLICY loc_email_cred_delete ON location_email_credentials FOR DELETE
 -- OBJECT SUMMARY
 -- ──────────────────────────────────────────────────────────────────────────────
 -- FOUND EXISTING (not recreated):
---   org_wallets                   — 007_payments_generic.sql §19
 --   organizations                 — 002_auth_and_tenancy.sql §5
 --   locations                     — 007_payments_generic.sql §5
 --   set_updated_at_now()          — 001_extensions_and_helpers.sql §6
@@ -443,14 +321,9 @@ CREATE POLICY loc_email_cred_delete ON location_email_credentials FOR DELETE
 --   is_service_role()             — 001_extensions_and_helpers.sql §3
 --
 -- MODIFIED:
---   org_wallets (ALTER TABLE)
---     + auto_refill_enabled          boolean NOT NULL DEFAULT false
---     + auto_refill_threshold_cents  bigint  NOT NULL DEFAULT 500
---     + auto_refill_target_cents     bigint  NOT NULL DEFAULT 5000
 --     + payment_method_token         text    (nullable)
 --
 -- CREATED (new tables):
---   quota_usage                   — org-scoped RLS
 --     PK: id uuid
 --     UNIQUE: (organization_id, location_id, resource, period_start)
 --     Columns: organization_id, location_id (nullable), resource (CHECK enum),
@@ -490,9 +363,9 @@ CREATE POLICY loc_email_cred_delete ON location_email_credentials FOR DELETE
 --           DELETE  → USING(false) [append-only]
 --
 --   email_providers               — world-readable reference, no RLS; seeded
---     PK: code text CHECK IN ('resend','sendgrid','mailgun','ses','smtp')
+--     PK: code text CHECK IN ('sendgrid','mailgun','ses','smtp')
 --     Columns: name text, is_active boolean
---     Seed rows: resend, sendgrid, mailgun, ses, smtp
+--     Seed rows: sendgrid, mailgun, ses, smtp
 --     Access: GRANT SELECT TO PUBLIC; INSERT/UPDATE/DELETE revoked from PUBLIC
 --
 --   location_email_credentials    — location→org-scoped RLS

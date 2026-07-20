@@ -4,16 +4,10 @@
 -- Closes three audit findings: missing functions / views that active code
 -- references but that no prior consolidated migration ever defined.
 --
--- Safe to re-run: all three objects use CREATE OR REPLACE.
+-- Safe to re-run: both objects use CREATE OR REPLACE.
 -- Does NOT modify any table, index, trigger, or RLS policy.
 --
 -- Audit findings closed:
---   [1] get_location_payment_provider(location_id uuid)
---       Referenced by backend/internal/payments/registry.go:216
---       (loadPlatformCredentials, SELECT ... FROM get_location_payment_provider($1)).
---       Noted in migration 007 comment line 51 as "lives in 014" — but 014 never
---       defined it.
---
 --   [2] lookup_location_by_slug(p_slug text)
 --       Promised in Wave-7 task T7.6 (tasks.md:339) for the subdomain middleware
 --       internal/subdomain/middleware.go. The Go middleware is not yet written, but
@@ -30,67 +24,6 @@
 --       Ported forward using consolidated schema column names (quantity_needed on
 --       item_recipes, get_item_components() from 004_menu.sql).
 -- =============================================================================
-
-
--- ---------------------------------------------------------------------------
--- [1]  get_location_payment_provider(location_id uuid)
--- ---------------------------------------------------------------------------
--- CONTRACT (from registry.go:214-223):
---   SELECT region_code, currency, payment_provider
---   FROM get_location_payment_provider($1)
---   LIMIT 1
---
--- The caller receives exactly three columns: region_code text, currency text,
--- payment_provider text (the region's default provider, or NULL when the region
--- has no gateway configured). pgx.ErrNoRows is returned by Go when the function
--- returns 0 rows, triggering ErrProviderNotConfigured. A NULL payment_provider
--- causes the Go layer to return ErrProviderNotConfigured directly (registry.go:225).
---
--- Resolution logic:
---   1. Given location_id, join locations → regions.
---   2. Return the region's code, currency, and payment_provider.
---   3. Return 0 rows when location_id does not exist (no region configured).
---
--- Security model: runs as SECURITY INVOKER (the caller's RLS context applies to
--- the locations join). The function itself holds no special privilege. Region data
--- is public (no RLS on regions). service_role and authenticated callers can both
--- reach locations rows appropriate to their org.
---
--- Note: this is a STABLE set-returning function (RETURNS TABLE), matching the
--- pattern used by get_item_components() in 004_menu.sql.
--- ---------------------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION get_location_payment_provider(p_location_id uuid)
-RETURNS TABLE (
-    region_code      text,
-    currency         text,
-    payment_provider text
-)
-LANGUAGE sql
-STABLE
-SECURITY INVOKER
-AS $$
-    SELECT
-        r.code                          AS region_code,
-        COALESCE(l.currency_code, r.currency) AS currency,
-        r.payment_provider              AS payment_provider
-    FROM locations l
-    JOIN regions r ON r.id = l.region_id
-    WHERE l.id = p_location_id
-      AND l.is_active = true
-    LIMIT 1;
-$$;
-
-COMMENT ON FUNCTION get_location_payment_provider(uuid) IS
-    'Resolves the platform payment provider for a location by following the '
-    'location → region chain. Returns region_code, the effective currency '
-    '(location override or region default), and the region''s payment_provider '
-    '(NULL when no gateway is configured for that region). '
-    'Returns 0 rows when the location does not exist or is not active — '
-    'the Go caller (payments/registry.go loadPlatformCredentials) maps 0 rows '
-    'to pgx.ErrNoRows → ErrProviderNotConfigured. '
-    'SECURITY INVOKER: RLS on locations applies; service_role bypasses it as usual. '
-    'Audit finding [1]: closes the missing-function 500 on the platform-region path.';
 
 
 -- ---------------------------------------------------------------------------
@@ -128,7 +61,6 @@ CREATE OR REPLACE FUNCTION lookup_location_by_slug(p_slug text)
 RETURNS TABLE (
     id                          uuid,
     organization_id             uuid,
-    region_id                   uuid,
     name                        text,
     slug                        text,
     description                 text,
@@ -150,7 +82,6 @@ AS $$
     SELECT
         l.id,
         l.organization_id,
-        l.region_id,
         l.name,
         l.slug,
         l.description,
@@ -262,8 +193,7 @@ COMMENT ON VIEW recipe_breakdown IS
 -- =============================================================================
 -- DONE — Migration 021
 -- No table, index, trigger, or RLS policy changes.
--- Three objects created (all CREATE OR REPLACE):
---   FUNCTION get_location_payment_provider(uuid)  → RETURNS TABLE (3 cols)
---   FUNCTION lookup_location_by_slug(text)         → RETURNS TABLE (16 cols)
+-- Two objects created (all CREATE OR REPLACE):
+--   FUNCTION lookup_location_by_slug(text)         → RETURNS TABLE (15 cols)
 --   VIEW     recipe_breakdown                       → security_invoker = on
 -- =============================================================================
