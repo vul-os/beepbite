@@ -19,6 +19,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useMoney } from '@/context/locale-context';
 import {
   sendMessage,
   commitDraft,
@@ -69,6 +70,9 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
   const [committing, setCommitting] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [result, setResult] = useState(null);
+  // Draft item prices arrive as major-unit decimals, so they are parsed against
+  // the active currency: a fixed two decimals misreads a JPY or KWD price.
+  const { format: formatMoney, parse: parseMoney } = useMoney();
 
   const setAction = (idx, action) => {
     setDecisions((prev) => {
@@ -168,7 +172,9 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
                         <p className="text-sm font-medium truncate">{item.name || '—'}</p>
                         <p className="text-xs text-muted-foreground">
                           {item.category_path?.join(' › ') || ''}{' '}
-                          {item.price != null ? `· R${Number(item.price).toFixed(2)}` : ''}
+                          {item.price != null && parseMoney(item.price) != null
+                            ? `· ${formatMoney(parseMoney(item.price))}`
+                            : ''}
                         </p>
                       </div>
                       <div className="flex gap-1 shrink-0">

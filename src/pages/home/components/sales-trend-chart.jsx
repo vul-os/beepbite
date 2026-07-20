@@ -11,9 +11,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice } from '@/lib/currency';
+import { useLocale } from '@/context/locale-context';
 import { TrendingUp } from 'lucide-react';
 
-function bucketLabel(bucket, period) {
+// `locale` is threaded in from useLocale() rather than read here — this is a
+// plain helper, not a component, so hooks aren't available. An empty/absent
+// locale falls through to `undefined`, which means "use the reader's own",
+// exactly as Intl intends; it must never be hardcoded to 'en-US'.
+function bucketLabel(bucket, period, locale) {
   if (!bucket) return '';
   // bucket is an ISO string like "2024-01-15T00:00:00Z" or just "2024-01-15"
   const d = new Date(bucket);
@@ -31,15 +36,15 @@ function bucketLabel(bucket, period) {
         : `${d.getHours() - 12}pm`;
     case 'week':
       // daily — "Mon 15"
-      return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+      return d.toLocaleDateString(locale || undefined, { weekday: 'short', day: 'numeric' });
     case 'month':
       // weekly buckets — "Jan 8"
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return d.toLocaleDateString(locale || undefined, { month: 'short', day: 'numeric' });
     case 'year':
       // monthly buckets — "Jan"
-      return d.toLocaleDateString('en-US', { month: 'short' });
+      return d.toLocaleDateString(locale || undefined, { month: 'short' });
     default:
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return d.toLocaleDateString(locale || undefined, { month: 'short', day: 'numeric' });
   }
 }
 
@@ -76,13 +81,14 @@ function ChartSkeleton() {
 }
 
 export default function SalesTrendChart({ series = [], period = 'week', currency = 'USD', loading }) {
+  const { locale } = useLocale();
   const data = useMemo(
     () =>
       series.map((s) => ({
         ...s,
-        label: bucketLabel(s.bucket, period),
+        label: bucketLabel(s.bucket, period, locale),
       })),
-    [series, period]
+    [series, period, locale]
   );
 
   const maxVal = useMemo(() => Math.max(...data.map((d) => d.sales_cents ?? 0), 1), [data]);

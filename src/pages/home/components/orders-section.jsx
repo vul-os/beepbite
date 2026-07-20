@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 import { markPaidOnDelivery } from '@/services/payments';
 import { hasCapability } from '@/services/pos';
+import { useMoney } from '@/context/locale-context';
 
 // ── Status colour helpers (kept in this file so they stay co-located) ───────
 
@@ -117,6 +118,11 @@ function OrderDetailsView({
   getNextStatus,
   getStatusLabel,
 }) {
+  // Line prices arrive as major-unit floats; `scale` is 1 in JPY and 1000 in
+  // KWD, so a literal 100 would misplace the decimal point.
+  const { format, scale } = useMoney();
+  const toMinor = (major) => Math.round(parseFloat(major || 0) * scale);
+
   return (
     <div className="absolute inset-0 flex flex-col">
       <PanelHeader
@@ -172,10 +178,10 @@ function OrderDetailsView({
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="font-bold text-sm text-orange-600">
-                            R{parseFloat(item.total_price || 0).toFixed(2)}
+                            {format(toMinor(item.total_price))}
                           </p>
                           <p className="text-xs text-gray-400">
-                            {item.quantity % 1 === 0 ? item.quantity : parseFloat(item.quantity).toFixed(2)} × R{parseFloat(item.unit_price || 0).toFixed(2)}
+                            {item.quantity % 1 === 0 ? item.quantity : parseFloat(item.quantity).toFixed(2)} × {format(toMinor(item.unit_price))}
                           </p>
                         </div>
                       </div>
@@ -184,7 +190,7 @@ function OrderDetailsView({
                     <div className="flex justify-between items-center px-3 py-2.5 bg-orange-50">
                       <span className="text-sm font-semibold text-gray-800">Total</span>
                       <span className="font-bold text-orange-600">
-                        R{selectedOrderDetails.order_items.reduce((t, i) => t + parseFloat(i.total_price || 0), 0).toFixed(2)}
+                        {format(selectedOrderDetails.order_items.reduce((t, i) => t + toMinor(i.total_price), 0))}
                       </span>
                     </div>
                   </>

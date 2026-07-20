@@ -4,17 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useDateTime, useLocale } from '@/context/locale-context';
+import { formatMoney } from '@/lib/currency';
 import { api } from '@/lib/api-client';
 import { MatchModal } from './components/match-modal';
-
-function fmtCents(cents) {
-  return `R ${((cents ?? 0) / 100).toFixed(2)}`;
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString();
-}
 
 const STATUS_COLORS = {
   pending: 'bg-gray-100 text-gray-700',
@@ -34,6 +27,8 @@ const MATCH_COLORS = {
 
 export default function InvoiceMatchPage() {
   const { activeLocation } = useAuth();
+  const { locale } = useLocale();
+  const { formatDate } = useDateTime();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +53,13 @@ export default function InvoiceMatchPage() {
   }, [activeLocation]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+
+  // Each invoice carries its own currency: a supplier may bill in a currency
+  // the store does not trade in, so the record wins over the location.
+  const fmtCents = (cents, currency) =>
+    formatMoney(cents ?? 0, { currency, locale });
+
+  const fmtDate = (iso) => (iso ? formatDate(iso) : '—');
 
   function handleMatched(result) {
     // Optimistically update the invoice in the list
@@ -143,7 +145,7 @@ export default function InvoiceMatchPage() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-gray-900">{fmtCents(inv.total_cents)}</p>
+                  <p className="font-semibold text-gray-900">{fmtCents(inv.total_cents, inv.currency)}</p>
                   <p className="text-xs text-gray-500">{inv.currency}</p>
                 </div>
                 <Button

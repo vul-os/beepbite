@@ -5,14 +5,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Zap, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useMoney } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
-
-function fmtCents(cents) {
-  return `R ${((cents ?? 0) / 100).toFixed(2)}`;
-}
 
 export default function AutoSuggestionsPage() {
   const { activeLocation } = useAuth();
+  // Suggestions are drafts for this location and carry no currency of their
+  // own, so the location's currency is the right one.
+  const { format: fmtCents } = useMoney();
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -191,14 +191,18 @@ export default function AutoSuggestionsPage() {
                   </thead>
                   <tbody>
                     {sug.lines.map((line, li) => {
-                      const lineTotal = line.ordered_quantity * (line.ordered_unit_price_cents / 100);
+                      // Stay in minor units: quantity may be fractional (2.5 kg),
+                      // so round to a whole minor unit rather than dividing first.
+                      const lineTotal = Math.round(
+                        line.ordered_quantity * (line.ordered_unit_price_cents ?? 0)
+                      );
                       return (
                         <tr key={li} className="border-b border-orange-50 last:border-0">
                           <td className="py-1 text-gray-700 font-mono text-xs truncate max-w-[120px]">{line.inventory_item_id}</td>
                           <td className="py-1 text-right text-gray-700">{line.ordered_quantity}</td>
                           <td className="py-1 pl-2 text-gray-500">{line.ordered_unit}</td>
                           <td className="py-1 text-right text-gray-700">{fmtCents(line.ordered_unit_price_cents)}</td>
-                          <td className="py-1 text-right font-medium">R {lineTotal.toFixed(2)}</td>
+                          <td className="py-1 text-right font-medium">{fmtCents(lineTotal)}</td>
                         </tr>
                       );
                     })}

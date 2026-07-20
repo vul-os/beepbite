@@ -112,7 +112,7 @@ Just show this message at the counter — see you soon!`}
             {
               label: 'Notifications not sending',
               value:
-                'Check the customer phone has a country code (+27...) and that your WhatsApp Business connection is still authorised.',
+                "Check the customer phone has a country code (a '+' followed by the dialling code) and that your WhatsApp Business connection is still authorised.",
             },
             {
               label: 'Customer cannot see the menu',

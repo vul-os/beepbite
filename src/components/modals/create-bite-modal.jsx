@@ -24,8 +24,19 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/services/supabase-client';
 import { useAuth } from '@/context/auth-context';
+import { useLocale } from '@/context/locale-context';
 
 // 50 most common email domains
+// Autocomplete suggestions for the email field. Ordered globally-first, because
+// only the first eight are shown before the customer types a domain.
+//
+// The regional tail is South African ISPs — real domains, kept because real
+// customers use them, and worth extending with other markets' providers as the
+// product enters them. Five entries were removed from it: gmail.co.za,
+// yahoo.co.za, hotmail.co.za, outlook.co.za and live.co.za do not exist. A
+// suggestion list is not a neutral place to be wrong — an operator who accepts
+// one of those completions gets an undeliverable address and no error until the
+// receipt bounces.
 const COMMON_EMAIL_DOMAINS = [
   'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com',
   'aol.com', 'protonmail.com', 'live.com', 'msn.com', 'yandex.com',
@@ -36,11 +47,54 @@ const COMMON_EMAIL_DOMAINS = [
   'simplelogin.io', 'duck.com', 'hey.com', 'superhuman.com', 'spark.com',
   'webmail.co.za', 'vodamail.co.za', 'telkomsa.net', 'mweb.co.za', 'iafrica.com',
   'lantic.net', 'absamail.co.za', 'fnb.co.za', 'nedbank.co.za', 'standardbank.co.za',
-  'gmail.co.za', 'yahoo.co.za', 'hotmail.co.za', 'outlook.co.za', 'live.co.za'
 ];
+
+// Minimum plausible digit count for a normalised (E.164) phone number. This
+// is deliberately low — several countries have national numbers well under
+// 10 digits — and is not a substitute for real phone validation; it only
+// screens out obviously-incomplete input. A library like libphonenumber
+// would validate per-country length/format properly; this is the cheap floor
+// until that's warranted.
+const MIN_PHONE_DIGITS = 7;
+
+// Normalise a customer-entered phone number to E.164 so the same person
+// isn't stored as two different customers depending on whether they typed
+// "0821234567" or "+27821234567".
+//
+//  - Already-international input (leading '+') is kept as-is, punctuation
+//    and spaces stripped.
+//  - A local "0xx" number is converted using the location's configured
+//    country code — the leading trunk '0' is dropped and the code prefixed.
+//  - Without a '+' AND without a configured country code, this refuses to
+//    guess a country; the caller must ask the operator to enter the number
+//    in international format or configure the location's country code.
+//
+// Returns { value, error }: `value` is the E.164 string, or null when it
+// could not be normalised; `error`, when set, is safe to show the operator.
+function normalizePhoneNumber(phone, phoneCountryCode) {
+  const trimmed = (phone || '').trim();
+  if (!trimmed) return { value: null, error: null };
+
+  if (trimmed.startsWith('+')) {
+    return { value: `+${trimmed.slice(1).replace(/\D/g, '')}`, error: null };
+  }
+
+  const digits = trimmed.replace(/\D/g, '');
+  if (!phoneCountryCode) {
+    return {
+      value: null,
+      error:
+        "Enter the number in international format (starting with '+'), or set this location's country code in Settings.",
+    };
+  }
+
+  const national = digits.startsWith('0') ? digits.slice(1) : digits;
+  return { value: `+${phoneCountryCode}${national}`, error: null };
+}
 
 const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
   const { user, activeLocation } = useAuth();
+  const { phoneCountryCode } = useLocale();
   const [orderNumber, setOrderNumber] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
@@ -59,7 +113,8 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
 
   // Lookup customer details when phone number changes
   const lookupCustomerDetails = async (phoneNum) => {
-    if (!phoneNum || phoneNum.length < 10) {
+    const { value: normalizedPhone } = normalizePhoneNumber(phoneNum, phoneCountryCode);
+    if (!normalizedPhone || normalizedPhone.replace(/\D/g, '').length < MIN_PHONE_DIGITS) {
       setCustomerDetails(null);
       return;
     }
@@ -68,7 +123,7 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
     try {
       const { data, error } = await supabase
         .rpc('lookup_customer_details', {
-          input_whatsapp_number: phoneNum
+          input_whatsapp_number: normalizedPhone
         });
 
       if (error) throw error;
@@ -211,7 +266,12 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
       setError('Please enter a phone number first');
       return;
     }
-    if (phoneNumber.length < 10) {
+    const { value: normalizedPhone, error: phoneError } = normalizePhoneNumber(phoneNumber, phoneCountryCode);
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
+    if (!normalizedPhone || normalizedPhone.replace(/\D/g, '').length < MIN_PHONE_DIGITS) {
       setError('Please enter a valid phone number');
       return;
     }
@@ -279,7 +339,12 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
       setError('Customer phone number is required');
       return false;
     }
-    if (phoneNumber.length < 10) {
+    const { value: normalizedPhone, error: phoneError } = normalizePhoneNumber(phoneNumber, phoneCountryCode);
+    if (phoneError) {
+      setError(phoneError);
+      return false;
+    }
+    if (!normalizedPhone || normalizedPhone.replace(/\D/g, '').length < MIN_PHONE_DIGITS) {
       setError('Please enter a valid phone number');
       return false;
     }
@@ -289,12 +354,6 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
       return false;
     }
     return true;
-  };
-
-  // Helper function to normalize phone numbers (remove + prefix)
-  const normalizePhoneNumber = (phone) => {
-    const trimmed = phone.trim();
-    return trimmed.startsWith('+') ? trimmed.substring(1) : trimmed;
   };
 
   const handleSubmit = async () => {
@@ -309,13 +368,17 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
     try {
       // First, create or get customer
       let customerId = customerDetails?.customer_id;
-      
+      // validateForm() already confirmed this normalises cleanly.
+      const { value: normalizedPhone } = normalizePhoneNumber(phoneNumber, phoneCountryCode);
+
       if (!customerId) {
-        // Create new customer
+        // Create new customer — stored normalised (E.164) so the same
+        // person isn't split into two customer records depending on
+        // whether they were typed as "0xx..." or "+..." this time.
         const { data: newCustomer, error: customerError } = await supabase
           .from('customers')
           .insert({
-            whatsapp_number: phoneNumber.trim(),
+            whatsapp_number: normalizedPhone,
             email: email.trim() || null
           })
           .select('id')
@@ -402,6 +465,12 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
         onClose();
     }
   };
+
+  // Digit count of the normalised number, for the "New customer" hint below
+  // — kept in step with the same MIN_PHONE_DIGITS floor used for validation
+  // rather than a separate hardcoded length.
+  const normalizedPhoneDigits = normalizePhoneNumber(phoneNumber, phoneCountryCode).value
+    ?.replace(/\D/g, '').length ?? 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -502,7 +571,7 @@ const CreateBiteModal = ({ isOpen, onClose, onOrderCreated }) => {
                       Looking up...
                     </div>
                   )}
-                  {!isLookingUpCustomer && phoneNumber.length >= 10 && !customerDetails?.customer_id && (
+                  {!isLookingUpCustomer && normalizedPhoneDigits >= MIN_PHONE_DIGITS && !customerDetails?.customer_id && (
                     <div className="text-xs text-orange-600">
                       New customer
                     </div>

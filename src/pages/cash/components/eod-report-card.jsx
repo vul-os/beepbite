@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
+import { useMoney } from '@/context/locale-context';
 import { BarChart2, Loader2 } from 'lucide-react';
 
 function fmtDate(iso) {
@@ -13,18 +14,20 @@ function fmtDate(iso) {
 }
 
 function OverShortBadge({ cents }) {
+  // "Over"/"Short" already carry the sign, so the amount is rendered absolute.
+  const { format } = useMoney();
   if (cents == null) return null;
   if (cents === 0)
     return <Badge className="bg-green-100 text-green-800 border-green-200">Balanced</Badge>;
   if (cents > 0)
     return (
       <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-        Over R{(cents / 100).toFixed(2)}
+        Over {format(cents)}
       </Badge>
     );
   return (
     <Badge className="bg-red-100 text-red-800 border-red-200">
-      Short R{(Math.abs(cents) / 100).toFixed(2)}
+      Short {format(Math.abs(cents))}
     </Badge>
   );
 }
@@ -37,8 +40,11 @@ function OverShortBadge({ cents }) {
  *
  * Props:
  *   session: closed session object (must have .id and .over_short_cents)
+ *
+ * Requires LocaleProvider above it.
  */
 export function EodReportCard({ session }) {
+  const { format } = useMoney();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -111,21 +117,21 @@ export function EodReportCard({ session }) {
                       {r.payment_method_name || r.payment_method_code || '—'}
                     </td>
                     <td className="py-2 text-right">
-                      R{((r.expected_cents || 0) / 100).toFixed(2)}
+                      {format(r.expected_cents || 0)}
                     </td>
                     <td className="py-2 text-right">
                       {r.declared_cents != null
-                        ? `R${(r.declared_cents / 100).toFixed(2)}`
+                        ? format(r.declared_cents)
                         : '—'}
                     </td>
                     <td className="py-2 text-right text-green-700">
                       {r.cash_movements_in_cents > 0
-                        ? `+R${(r.cash_movements_in_cents / 100).toFixed(2)}`
+                        ? `+${format(r.cash_movements_in_cents)}`
                         : '—'}
                     </td>
                     <td className="py-2 text-right text-red-700">
                       {r.cash_movements_out_cents > 0
-                        ? `-R${(r.cash_movements_out_cents / 100).toFixed(2)}`
+                        ? `-${format(r.cash_movements_out_cents)}`
                         : '—'}
                     </td>
                     <td className="py-2 text-right">

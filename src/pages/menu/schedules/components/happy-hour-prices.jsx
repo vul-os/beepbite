@@ -7,12 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { useMoney } from '@/context/locale-context';
 
 const DEBOUNCE_MS = 500;
 
-const ZAR = new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' });
-
 function PriceRow({ item, priceRow, onSave, onDelete }) {
+  // Prices here are major-unit floats (rands/dollars, not cents), so scale up
+  // to minor units before handing them to the minor-unit-based formatter. A
+  // module-level formatter can't see the active currency, so it lives here.
+  const { format: formatMoneyValue, scale: currencyScaleValue, symbol } = useMoney();
+  const fmt = useCallback(
+    (amount) => formatMoneyValue(Math.round((amount || 0) * currencyScaleValue)),
+    [formatMoneyValue, currencyScaleValue],
+  );
   // priceRow may be undefined (no override yet)
   const initial = priceRow ? String(priceRow.price) : '';
   const [value, setValue] = useState(initial);
@@ -83,11 +90,11 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
         <span className="text-sm font-medium text-gray-800">{item.name}</span>
       </td>
       <td className="py-3 pr-4 tabular-nums text-sm text-gray-600">
-        {item.price != null ? ZAR.format(item.price) : '—'}
+        {item.price != null ? fmt(item.price) : '—'}
       </td>
       <td className="py-3 pr-4">
         <div className="relative w-36">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{symbol}</span>
           <Input
             type="number"
             min="0"
@@ -122,7 +129,7 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
               variant="outline"
               className={`text-xs ${diff > 0 ? 'text-green-600 border-green-200' : 'text-red-500 border-red-200'}`}
             >
-              {diff > 0 ? `−${ZAR.format(diff)}` : `+${ZAR.format(Math.abs(diff))}`}
+              {diff > 0 ? `−${fmt(diff)}` : `+${fmt(Math.abs(diff))}`}
             </Badge>
           );
         })()}
