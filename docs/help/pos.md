@@ -21,8 +21,9 @@ The POS is the primary order-taking interface. It supports dine-in, takeaway and
 ## Payment screen
 
 - **Cash**: enter the amount tendered; the system calculates change.
-- **Card (Paystack/Stripe/Yoco/Zapper)**: tap the provider button; a payment link or QR is generated.
-- **Split payment**: tap **Split** to divide the bill across multiple methods.
+- **Card machine**: run the card on your own machine, then record the amount and slip number here.
+- **Transfer / voucher**: record the amount and the reference.
+- **Split payment**: tap **Split** to divide the bill across multiple tenders.
 - **On delivery**: marks the order as pending payment.
 
 ## Courses & KDS

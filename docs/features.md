@@ -20,9 +20,7 @@ BeepBite is a comprehensive Point of Sale (POS) system that provides all traditi
 - Till management
 - End-of-day cash reports
 
-**Alternative Payments**
-- Mobile wallet support (Apple Pay, Google Pay)
-- QR code payments
+**Alternative Tenders**
 - Gift card processing
 - Loyalty point redemption
 - Store credit management

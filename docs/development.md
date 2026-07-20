@@ -34,10 +34,10 @@ beepbite-mono/
 │   ├── cmd/migrate/       migration runner
 │   ├── migrations/        numbered .sql files
 │   └── internal/
-│       ├── auth/          email/password JWT + Google OAuth
+│       ├── auth/          email/password JWT + rotating refresh
 │       ├── staffauth/     POS username + PIN login
 │       ├── handlers/      REST endpoints (data, billing, staff, pos, …)
-│       ├── integrations/  Paystack, Stripe, WhatsApp, Mapbox, Resend, OpenAI
+│       ├── integrations/  WhatsApp, Mapbox
 │       └── db/            pgx pool
 ├── src/
 │   ├── lib/api-client.js  Fetch wrapper — edit this, not a Supabase SDK

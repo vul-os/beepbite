@@ -1,57 +1,84 @@
 # Payments
 
-BeepBite supports multiple payment providers and cash. Payment credentials are stored per-location and enforced by row-level security.
+**BeepBite records tenders; it does not process cards.**
+
+There is no payment gateway, no merchant account and no integration to connect.
+The shop already has a card machine on the counter, a bank account that receives
+EFTs, and a cash drawer. BeepBite's job is to record which of those the customer
+used, so the drawer reconciles and the reports are true.
+
+Consequences worth stating plainly: no card data ever reaches BeepBite, so there
+is no PCI scope, and nobody is holding your money in transit.
 
 ---
 
-## Supported providers
+## Tender types
 
-| Provider | Regions | Notes |
+| Code | Name | What it means |
 |---|---|---|
-| **Paystack** | Africa (ZA, NG, GH, KE…) | Card, EFT, mobile money |
-| **Stripe** | Global | Card, Apple Pay, Google Pay |
-| **Yoco** | South Africa | Card present + online |
-| **Zapper** | South Africa | QR code scan-to-pay |
-| **Cash** | Any | No setup required |
-| **On delivery** | Any | Mark as paid at delivery |
+| `cash` | Cash | Notes and coins into the drawer. |
+| `card` | Card Machine | Swiped on **your own** card machine. BeepBite records the amount and your slip number; it does not talk to your acquirer. |
+| `transfer` | Bank Transfer | EFT or instant transfer. Capture the reference so you can match it on your bank statement. |
+| `voucher` | Voucher | Gift card, meal voucher or comp instrument. |
+| `cash_on_delivery` | Cash on Delivery | Collected at the door by the driver. |
+| `card_on_delivery` | Card on Delivery | Collected at the door on a portable machine. |
 
-## Connecting a provider
+The on-delivery variants are deliberately distinct codes: that money is not in
+the till, so drawer reconciliation must not expect it there.
 
-1. Go to **Settings → Location → Payments**.
-2. Select a provider and enter your API keys (public key + secret key).
-3. Toggle **Active** to enable.
-4. A location can have multiple active providers simultaneously.
+## Taking a payment
 
-## Cash payments
-
-No setup required. Select **Cash** on the POS payment screen. The system records the amount tendered and change due.
+1. On the POS payment screen, choose the tender.
+2. Enter the amount. For cash, enter the amount tendered — change due is
+   calculated for you.
+3. For card, transfer and voucher, capture the reference (slip number, EFT
+   reference, voucher serial) so you can reconcile later.
+4. Split tender is supported: record several legs against one order, and they
+   sum to the total.
 
 ## On-delivery / COD
 
-Select **On delivery** on the POS. The order is created in a *pending payment* state. Mark it paid once the driver collects.
+Create the order as a delivery. It sits unpaid until the driver collects, then
+**Mark paid on delivery** records `cash_on_delivery` or `card_on_delivery`.
 
-## Payment fees
+## Cash and the drawer
 
-Configure convenience or processing fees per provider under **Settings → Location → Payments → Fees**.
+A cash tender is automatically linked to the drawer session that is open at that
+location. At close, expected cash is:
 
-Fees can be:
-- Fixed amount (e.g. R2.50 per transaction)
-- Percentage (e.g. 2.9% of total)
-- Combined fixed + percentage
+```
+opening float
+  + cash sales linked to the session
+  + net drawer movements (paid in / paid out / drops / pickups)
+```
+
+Declared minus expected is the over/short figure. If no drawer session is open
+the sale is still recorded — it just is not attributed to a session.
 
 ## Reconciliation
 
-Go to **Reports → Cash reconciliation** to see a per-session breakdown of cash vs card vs other methods.
+**Reports → Cash reconciliation** gives a per-session breakdown of cash versus
+every other tender.
 
-The **Revenue by payment method** report (Reports → Revenue) shows totals by provider over any date range.
-
-## Payouts
-
-If payouts are configured, the system triggers the payout job nightly and logs the transfer. Go to **Reports → Payouts** for a history.
+**Reports → Revenue by payment method** gives totals by tender over any date
+range, so you can match the card rows against your card machine's own settlement
+report.
 
 ## Refunds
 
 1. Go to **Orders → [order] → Refund**.
-2. Select items to refund or enter a custom amount.
-3. For card payments the refund is sent back to the original payment method via the provider's API.
-4. For cash, the refund amount is shown for manual return.
+2. Select items to refund, or enter a custom amount.
+3. BeepBite records the refund against the original tender. Actually returning
+   the money is a physical act: open the drawer, or reverse on your card
+   machine. BeepBite does not move money.
+
+## Adding a real gateway later
+
+The backend defines a `PaymentProvider` seam in `backend/internal/payments`
+(`Charge` / `Refund` / `GetStatus`) with exactly one implementation, manual
+tender. A self-hoster who wants online payments can add a bring-your-own-key
+adapter behind that interface without touching the POS.
+
+Note the deliberate absence of any webhook entry point. A counter charge is
+synchronous, and `GetStatus` polling is outbound-only, so it works behind CGNAT
+with no port forwarding, static IP, DNS or any server operated by anyone else.
