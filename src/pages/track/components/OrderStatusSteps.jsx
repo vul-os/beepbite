@@ -145,7 +145,7 @@ export default function OrderStatusSteps({ status }) {
                 >
                   {step.label}
                 </p>
-                {active && (
+                {active && !last && (
                   <p className="text-xs text-muted-foreground mt-0.5">In progress…</p>
                 )}
               </div>
