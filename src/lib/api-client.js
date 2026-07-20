@@ -209,14 +209,6 @@ const auth = {
     return { data: { user: data.user, session: data }, error: null };
   },
 
-  async signInWithOAuth({ provider }) {
-    if (provider !== 'google') {
-      return { data: null, error: { message: `provider ${provider} not supported` } };
-    }
-    window.location.href = `${API_URL}/auth/google`;
-    return { data: { provider }, error: null };
-  },
-
   async signOut() {
     const a = readAuth();
     await request('POST', '/auth/signout', { body: { refresh_token: a?.refresh_token }, auth: false });
@@ -282,34 +274,6 @@ const auth = {
         },
       },
     };
-  },
-
-  // Called by the Google OAuth callback page to ingest tokens from the URL
-  // fragment and finalize the session.
-  _ingestOAuthFragment(fragment) {
-    const params = new URLSearchParams(fragment.startsWith('#') ? fragment.slice(1) : fragment);
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-    const expires_at = params.get('expires_at');
-    if (!access_token || !refresh_token) return null;
-    // The OAuth fragment carries only tokens (no user object, unlike the
-    // email-signin response). Derive the user from the access-token JWT
-    // (claims: sub=user id, email) — otherwise the auth context's SIGNED_IN
-    // handler (which requires session.user) skips and ProtectedRoute bounces
-    // to /signin instead of the dashboard.
-    let user = null;
-    try {
-      const payload = JSON.parse(
-        atob(access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
-      );
-      if (payload && payload.sub) {
-        user = { id: payload.sub, email: payload.email || '' };
-      }
-    } catch { /* malformed token — leave user null */ }
-    const session = { access_token, refresh_token, expires_at, token_type: 'Bearer', user };
-    writeAuth(session);
-    emitAuth('SIGNED_IN', session);
-    return session;
   },
 };
 

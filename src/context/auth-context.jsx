@@ -329,17 +329,6 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     return data.user;
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      }
-    });
-    if (error) throw error;
-    return data;
-  }, []);
-
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -591,7 +580,6 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     getOrganizationBySlug,
     signUp,
     signIn,
-    signInWithGoogle,
     signOut,
     forgotPassword,
     updateUserPassword,
@@ -621,7 +609,6 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     getOrganizationBySlug,
     signUp,
     signIn,
-    signInWithGoogle,
     signOut,
     forgotPassword,
     updateUserPassword,

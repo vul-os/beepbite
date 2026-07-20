@@ -18,7 +18,7 @@
 //
 // We do NOT do a full React render here because the PosWorkspacePage
 // dependency graph (~50 deps incl. recharts, react-pdf, framer-motion, leaflet,
-// firebase, DnD) exhausts the default Node heap in a Vitest jsdom worker.
+// DnD) exhausts the default Node heap in a Vitest jsdom worker.
 // The Playwright render-smoke.spec.js handles end-to-end visual rendering.
 
 import { describe, it, expect, vi } from 'vitest';

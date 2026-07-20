@@ -6,16 +6,12 @@ import { PinModalProvider } from '@/components/pin-modal';
 import AppRoutes from './routes';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
-import usePageTracking from './hooks/usePageTracking';
 import OnboardingPopup from '@/components/setup/onboarding-popup';
 
 // Wrapper component that provides navigation functionality
 const AuthWrapper = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Track page views automatically
-  usePageTracking();
 
   return (
     <AuthProvider
