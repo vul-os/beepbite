@@ -54,7 +54,7 @@ type Registry interface {
 // DBRegistry is the production Registry implementation backed by Postgres.
 type DBRegistry struct {
 	pool       *pgxpool.Pool
-	box        *secretbox.Box // AES-GCM box from EMAIL_KEY_ENCRYPTION_SECRET or PAYMENT_KEY_ENCRYPTION_SECRET
+	box        *secretbox.Box // AES-GCM box from EMAIL_KEY_ENCRYPTION_SECRET or APP_KEY_ENCRYPTION_SECRET
 	httpClient *http.Client   // shared across constructed adapters
 }
 
@@ -71,15 +71,15 @@ func NewDBRegistry(pool *pgxpool.Pool, box *secretbox.Box) *DBRegistry {
 
 // NewDBRegistryFromEnv is a convenience constructor that reads the encryption
 // secret from the environment.  It prefers EMAIL_KEY_ENCRYPTION_SECRET, then
-// falls back to PAYMENT_KEY_ENCRYPTION_SECRET (shared key, codebase
-// convention).  Returns an error if neither is set or the key is malformed.
+// falls back to APP_KEY_ENCRYPTION_SECRET (shared key, codebase convention).
+// Returns an error if neither is set or the key is malformed.
 func NewDBRegistryFromEnv(pool *pgxpool.Pool) (*DBRegistry, error) {
 	secret := os.Getenv("EMAIL_KEY_ENCRYPTION_SECRET")
 	if secret == "" {
-		secret = os.Getenv("PAYMENT_KEY_ENCRYPTION_SECRET")
+		secret = os.Getenv("APP_KEY_ENCRYPTION_SECRET")
 	}
 	// The encryption box is ONLY needed to decrypt BYO per-store email
-	// credentials. The platform/central provider (built from RESEND_API_KEY etc.)
+	// credentials. The platform/central provider (built from SMTP_* etc.)
 	// needs no decryption, so a missing secret must NOT disable transactional
 	// email — it only disables the BYO path (buildBYOProvider nil-checks the box).
 	if secret == "" {
