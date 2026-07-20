@@ -8,8 +8,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,20 +15,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// PostSignupHook is called after a new user is created (email/password signup
-// and Google OAuth new-user path). profileID and email identify the new user.
+// PostSignupHook is called after a new user is created by email/password
+// signup. profileID and email identify the new user.
 // Returning an error is treated as a warning only — the signup response is
 // already committed and must not be rolled back.
 type PostSignupHook func(ctx context.Context, pool *pgxpool.Pool, profileID, email string) error
 
 type Handler struct {
-	svc    *Service
-	google *Google
-
-	// postAuthRedirect is where /auth/google/callback sends the browser after
-	// a successful OAuth exchange. Tokens are appended as URL fragment so the
-	// SPA can pick them up without exposing them in the Referer header.
-	postAuthRedirect string
+	svc *Service
 
 	// pool + postSignup are set via WithPool to call post-signup hooks
 	// (e.g. driverinvite.AcceptMatchingInvites) without creating an import
@@ -48,8 +40,8 @@ type Handler struct {
 	EmailNotifier func(to, template string, data map[string]any)
 }
 
-func NewHandler(svc *Service, google *Google, postAuthRedirect string) *Handler {
-	return &Handler{svc: svc, google: google, postAuthRedirect: postAuthRedirect}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 // WithPool wires a pool and a post-signup hook into the handler.
@@ -72,9 +64,6 @@ func (h *Handler) Mount(r chi.Router) {
 	r.Post("/signin", h.signIn)
 	r.Post("/refresh", h.refresh)
 	r.Post("/signout", h.signOut)
-
-	r.Get("/google", h.googleStart)
-	r.Get("/google/callback", h.googleCallback)
 
 	// Password reset (public — no auth required).
 	r.Post("/password/forgot", h.passwordForgot)
@@ -209,107 +198,6 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, toUserDTO(user))
-}
-
-// --- Google OAuth ---
-
-func (h *Handler) googleStart(w http.ResponseWriter, r *http.Request) {
-	if !h.google.Configured() {
-		writeErr(w, http.StatusServiceUnavailable, "google oauth not configured")
-		return
-	}
-	state := randomState()
-	http.SetCookie(w, &http.Cookie{
-		Name:     "oauth_state",
-		Value:    state,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(10 * time.Minute),
-	})
-	http.Redirect(w, r, h.google.AuthURL(state), http.StatusFound)
-}
-
-// redirectOAuthError bounces the user back to the SPA sign-in page with a
-// short reason code in the query string. Falls back to a JSON 400 only when
-// no SPA redirect base is configured (CLI/dev contexts).
-func (h *Handler) redirectOAuthError(w http.ResponseWriter, r *http.Request, reason string) {
-	if h.postAuthRedirect == "" {
-		writeErr(w, http.StatusBadRequest, "oauth error: "+reason)
-		return
-	}
-	base := h.postAuthRedirect
-	if i := strings.Index(base, "/auth/callback"); i >= 0 {
-		base = base[:i]
-	}
-	http.Redirect(w, r, base+"/signin?oauth_error="+url.QueryEscape(reason), http.StatusFound)
-}
-
-func (h *Handler) googleCallback(w http.ResponseWriter, r *http.Request) {
-	if !h.google.Configured() {
-		writeErr(w, http.StatusServiceUnavailable, "google oauth not configured")
-		return
-	}
-
-	// Google sends ?error=access_denied when the user clicks Cancel on the
-	// consent screen. Clear the one-shot state cookie and bounce them back
-	// to the SPA sign-in page instead of leaving them on a JSON error.
-	if oauthErr := r.URL.Query().Get("error"); oauthErr != "" {
-		http.SetCookie(w, &http.Cookie{Name: "oauth_state", Value: "", Path: "/", MaxAge: -1})
-		h.redirectOAuthError(w, r, oauthErr)
-		return
-	}
-
-	state := r.URL.Query().Get("state")
-	cookie, err := r.Cookie("oauth_state")
-	if err != nil || cookie.Value == "" || cookie.Value != state {
-		h.redirectOAuthError(w, r, "invalid_state")
-		return
-	}
-	http.SetCookie(w, &http.Cookie{Name: "oauth_state", Value: "", Path: "/", MaxAge: -1})
-
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		h.redirectOAuthError(w, r, "missing_code")
-		return
-	}
-	profile, err := h.google.Exchange(r.Context(), code)
-	if err != nil {
-		log.Printf("google exchange: %v", err)
-		h.redirectOAuthError(w, r, "exchange_failed")
-		return
-	}
-	meta := map[string]any{
-		"full_name":  profile.Name,
-		"avatar_url": profile.Picture,
-	}
-	user, tp, err := h.svc.SignInGoogle(r.Context(), profile.Email, profile.Sub, meta, r.UserAgent())
-	if err != nil {
-		log.Printf("google signin: %v", err)
-		h.redirectOAuthError(w, r, "signin_failed")
-		return
-	}
-	// Accept any pending driver invites for this email (non-fatal).
-	// SignInGoogle upserts, so this is safe to call on every OAuth login —
-	// AcceptMatchingInvites is a no-op when there are no pending invites,
-	// and its INSERT uses ON CONFLICT DO NOTHING for already-accepted rows.
-	if h.pool != nil && h.postSignup != nil {
-		if err := h.postSignup(r.Context(), h.pool, user.ID, profile.Email); err != nil {
-			log.Printf("warn: accept driver invites (google): %v", err)
-		}
-	}
-
-	if h.postAuthRedirect == "" {
-		// No SPA redirect configured — respond with JSON (useful for CLI/dev).
-		writeJSON(w, http.StatusOK, toSession(user, tp))
-		return
-	}
-
-	// Append tokens in fragment so they aren't sent in Referer or logged server-side.
-	redirect := h.postAuthRedirect + "#access_token=" + tp.AccessToken +
-		"&refresh_token=" + tp.RefreshToken +
-		"&expires_at=" + tp.ExpiresAt.UTC().Format(time.RFC3339)
-	http.Redirect(w, r, redirect, http.StatusFound)
 }
 
 // --- Password reset ---
@@ -562,10 +450,4 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 func writeErr(w http.ResponseWriter, code int, msg string) {
 	writeJSON(w, code, map[string]string{"error": msg})
-}
-
-func randomState() string {
-	b := make([]byte, 24)
-	_, _ = rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
 }

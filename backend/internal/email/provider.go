@@ -1,7 +1,7 @@
 // Package email defines the provider-agnostic email abstraction used across
 // BeepBite (Wave 19).
 //
-// Each concrete email provider (Resend, SendGrid, Mailgun, SES, SMTP) ships a
+// Each concrete email provider (SMTP, SendGrid, Mailgun, SES) ships a
 // thin adapter that implements the Provider interface.  The Registry in
 // registry.go resolves the right provider + credentials per location,
 // preferring per-store BYO keys (location_email_credentials) over the
@@ -26,6 +26,10 @@ import (
 // ErrProviderNotConfigured is returned by Registry.For when neither a
 // per-location BYO credential nor a platform default is available.
 var ErrProviderNotConfigured = errors.New("email: no provider configured for location")
+
+// defaultFromAddress is used when EMAIL_FROM_DEFAULT is unset. Self-hosters are
+// expected to override it; there is no vendor default to fall back on.
+const defaultFromAddress = "no-reply@localhost"
 
 // ErrSendFailed wraps a provider-level send error to distinguish transient
 // delivery failures from configuration failures.
@@ -66,7 +70,7 @@ type Message struct {
 type Provider interface {
 	// Code returns the stable, lowercase provider identifier that matches the
 	// email_providers.code column in the database.
-	// Examples: "resend", "sendgrid", "mailgun", "ses", "smtp".
+	// Examples: "smtp", "sendgrid", "mailgun", "ses".
 	Code() string
 
 	// Send delivers msg via the provider.  It returns a non-nil error (wrapping

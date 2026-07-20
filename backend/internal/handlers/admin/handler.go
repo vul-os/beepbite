@@ -38,7 +38,6 @@ func (h *Handler) Mount(r chi.Router) {
 		r.Get("/tenants/{org_id}", h.getTenant)
 		r.Post("/tenants/{org_id}/pause", h.pauseTenant)
 		r.Post("/tenants/{org_id}/unpause", h.unpauseTenant)
-		r.Post("/tenants/{org_id}/quota-override", h.quotaOverride)
 	})
 }
 
@@ -125,56 +124,6 @@ func (h *Handler) unpauseTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "unpaused"})
-}
-
-// ---------------------------------------------------------------------------
-// POST /admin/tenants/{org_id}/quota-override
-// ---------------------------------------------------------------------------
-
-type quotaOverrideBody struct {
-	Resource      string `json:"resource"`
-	IncludedCount int64  `json:"included_count"`
-}
-
-func (h *Handler) quotaOverride(w http.ResponseWriter, r *http.Request) {
-	orgID := chi.URLParam(r, "org_id")
-	if orgID == "" {
-		writeErr(w, http.StatusBadRequest, "org_id required")
-		return
-	}
-
-	var body quotaOverrideBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid request body: "+err.Error())
-		return
-	}
-	if body.Resource == "" {
-		writeErr(w, http.StatusBadRequest, "resource is required")
-		return
-	}
-	if body.IncludedCount < 0 {
-		writeErr(w, http.StatusBadRequest, "included_count must be >= 0")
-		return
-	}
-
-	claims, _ := auth.ClaimsFrom(r.Context())
-	err := h.store.QuotaOverride(r.Context(), claims.UserID, orgID, QuotaOverrideReq{
-		Resource:      body.Resource,
-		IncludedCount: body.IncludedCount,
-	})
-	switch {
-	case errors.Is(err, ErrOrgNotFound):
-		writeErr(w, http.StatusNotFound, "organisation not found")
-		return
-	case err != nil:
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status":         "ok",
-		"resource":       body.Resource,
-		"included_count": body.IncludedCount,
-	})
 }
 
 // ---------------------------------------------------------------------------

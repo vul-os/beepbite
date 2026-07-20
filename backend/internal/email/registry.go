@@ -161,9 +161,6 @@ func (r *DBRegistry) buildBYOProvider(row locationEmailCred) (Provider, error) {
 	}
 
 	switch strings.ToLower(row.providerCode) {
-	case "resend":
-		return NewResendAdapter(keys["api_key"], senderEmail, r.httpClient), nil
-
 	case "sendgrid":
 		fromName := keys["from_name"]
 		if fromName == "" {
@@ -194,28 +191,22 @@ func (r *DBRegistry) buildBYOProvider(row locationEmailCred) (Provider, error) {
 //
 // Env vars:
 //
-//	EMAIL_PROVIDER_DEFAULT — provider code to use (default: "resend")
-//	RESEND_API_KEY         — Resend API key (used when provider is "resend")
+//	EMAIL_PROVIDER_DEFAULT — provider code to use (default: "smtp")
 //	EMAIL_FROM_DEFAULT     — default From address for platform sends
 func (r *DBRegistry) buildPlatformProvider() (Provider, error) {
 	fromAddr := os.Getenv("EMAIL_FROM_DEFAULT")
 	if fromAddr == "" {
-		fromAddr = resendDefaultFrom
+		fromAddr = defaultFromAddress
 	}
 
+	// SMTP is the default: it is the only transport a self-hoster can point at
+	// their own server without signing up to anyone.
 	providerCode := strings.ToLower(os.Getenv("EMAIL_PROVIDER_DEFAULT"))
 	if providerCode == "" {
-		providerCode = "resend"
+		providerCode = "smtp"
 	}
 
 	switch providerCode {
-	case "resend":
-		apiKey := os.Getenv("RESEND_API_KEY")
-		if apiKey == "" {
-			return nil, fmt.Errorf("%w: RESEND_API_KEY env var not set", ErrProviderNotConfigured)
-		}
-		return NewResendAdapter(apiKey, fromAddr, r.httpClient), nil
-
 	case "sendgrid":
 		apiKey := os.Getenv("SENDGRID_API_KEY")
 		if apiKey == "" {

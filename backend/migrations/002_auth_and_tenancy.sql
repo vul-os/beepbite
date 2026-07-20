@@ -49,7 +49,6 @@ CREATE TABLE auth_users (
     id                  uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
     email               text        NOT NULL UNIQUE,
     password_hash       text,                              -- null for OAuth-only accounts
-    google_sub          text        UNIQUE,                -- Google subject ID
     email_verified      boolean     NOT NULL DEFAULT false,
     raw_user_meta_data  jsonb       NOT NULL DEFAULT '{}',
     last_sign_in_at     timestamptz,
