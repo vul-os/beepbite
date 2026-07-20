@@ -242,10 +242,11 @@ func (s *seeder) ensurePaymentMethods() error {
 			code, name, kind string
 		}{
 			{"cash", "Cash", "offline"},
-			{"card_in_person", "Card in person", "offline"},
+			{"card", "Card Machine", "offline"},
 			{"card_on_delivery", "Card on delivery", "offline"},
 			{"cash_on_delivery", "Cash on delivery", "offline"},
-			{"eft", "EFT", "offline"},
+			{"transfer", "Bank Transfer", "offline"},
+			{"voucher", "Voucher", "offline"},
 		}
 		for _, m := range methods {
 			_, err := tx.Exec(s.ctx, `
@@ -277,34 +278,26 @@ func (s *seeder) seedLocation(orgID, orgName string) (id, name, slug string, cre
 	}
 
 	// Create one.
-	regionID := ""
-	err2 := db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		return tx.QueryRow(s.ctx, `SELECT id FROM regions WHERE code='ZA' LIMIT 1`).Scan(&regionID)
-	})
-	if err2 != nil {
-		return "", "", "", false, fmt.Errorf("region ZA not found: %w", err2)
-	}
-
 	name = orgName + " — Main"
 	slug = slugify(name)
 	err = db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		return tx.QueryRow(s.ctx, `
 			INSERT INTO locations (
-				organization_id, region_id, name, slug,
+				organization_id, name, slug,
 				city, country, address,
 				currency_code,
 				is_marketplace_visible,
 				offers_collection, offers_delivery,
 				on_delivery_payment_methods
 			) VALUES (
-				$1, $2, $3, $4,
+				$1, $2, $3,
 				'Johannesburg', 'ZA', '1 Demo Street, Sandton, 2196',
 				'ZAR',
 				true,
 				true, true,
 				ARRAY['cash','card_on_delivery']
 			) RETURNING id
-		`, orgID, regionID, name, slug).Scan(&id)
+		`, orgID, name, slug).Scan(&id)
 	})
 	if err != nil {
 		return "", "", "", false, err

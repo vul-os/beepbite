@@ -95,14 +95,10 @@ func main() {
 		slug := "beepbite-demo-diner--main"
 		err = tx.QueryRow(ctx, `SELECT id FROM locations WHERE slug=$1`, slug).Scan(&locID)
 		if err == pgx.ErrNoRows {
-			var regionID string
-			if err := tx.QueryRow(ctx, `SELECT id FROM regions WHERE code='ZA' LIMIT 1`).Scan(&regionID); err != nil {
-				return fmt.Errorf("resolve ZA region: %w", err)
-			}
 			if err := tx.QueryRow(ctx,
-				`INSERT INTO locations (organization_id, region_id, name, slug, city, country, currency_code)
-				 VALUES ($1,$2,'Main',$3,'Johannesburg','ZA','ZAR') RETURNING id`,
-				orgID, regionID, slug).Scan(&locID); err != nil {
+				`INSERT INTO locations (organization_id, name, slug, city, country, currency_code)
+				 VALUES ($1,'Main',$2,'Johannesburg','ZA','ZAR') RETURNING id`,
+				orgID, slug).Scan(&locID); err != nil {
 				return fmt.Errorf("insert location: %w", err)
 			}
 		} else if err != nil {

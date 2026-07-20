@@ -10,6 +10,8 @@ import (
 
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/idempotency"
+	"github.com/beepbite/backend/internal/payments"
 )
 
 // ---------------------------------------------------------------------------
@@ -190,28 +192,86 @@ func (s *Store) ChargeOrder(ctx context.Context, orderID string, processedBy str
 		}
 	}
 
-	// --- 3. Insert one order_payment row per leg ---
+	// --- 3. Record one tender per leg through the PaymentProvider seam ---
+	//
+	// ManualTender is the only implementation: the money already moved at the
+	// counter, so each leg comes back settled. The provider is constructed
+	// against this transaction so the tenders, the order status and the drawer
+	// link either all commit or none do.
+	//
+	// tip_amount_cents / change_given_cents / processed_by are POS-specific and
+	// are not part of the provider seam, so they are patched onto the row the
+	// provider wrote rather than being smuggled through ChargeRequest.
+	provider := payments.NewManualTender(tx)
 	paymentIDs := make([]string, 0, len(legs))
+	cashPaymentIDs := make([]string, 0, len(legs))
 	for _, leg := range legs {
-		var paymentID string
-		if err := tx.QueryRow(ctx, `
-			INSERT INTO order_payments
-			    (order_id, payment_method_code, amount_paid_cents, tip_amount_cents,
-			     change_given_cents, payment_reference, payment_status, processed_by)
-			VALUES ($1, $2, $3, $4, $5, $6, 'completed', $7)
-			RETURNING id
-		`,
-			orderID,
-			leg.PaymentMethodCode,
-			leg.AmountPaidCents,
-			leg.TipAmountCents,
-			leg.ChangeGivenCents,
-			nullStr(leg.PaymentReference),
-			nullStr(processedBy),
-		).Scan(&paymentID); err != nil {
+		receipt, err := provider.Charge(ctx, payments.ChargeRequest{
+			OrderID:        orderID,
+			Tender:         leg.PaymentMethodCode,
+			Amount:         payments.Amount{Cents: leg.AmountPaidCents},
+			Reference:      leg.PaymentReference,
+			IdempotencyKey: idempotency.KeyFromContext(ctx),
+		})
+		if errors.Is(err, payments.ErrUnknownTender) {
+			return nil, ErrPaymentMethodNotFound
+		}
+		if err != nil {
 			return nil, err
 		}
-		paymentIDs = append(paymentIDs, paymentID)
+		if _, err := tx.Exec(ctx, `
+			UPDATE order_payments
+			SET tip_amount_cents   = $2,
+			    change_given_cents = $3,
+			    processed_by       = $4
+			WHERE id = $1
+		`, receipt.ID, leg.TipAmountCents, leg.ChangeGivenCents, nullStr(processedBy)); err != nil {
+			return nil, err
+		}
+		paymentIDs = append(paymentIDs, receipt.ID)
+		if receipt.Tender == payments.TenderCash {
+			cashPaymentIDs = append(cashPaymentIDs, receipt.ID)
+		}
+	}
+
+	// --- 3b. Link cash tenders to the open drawer session ---
+	//
+	// Reconciliation at close computes:
+	//     expected = opening_float
+	//              + SUM(cash order_payments linked via cash_drawer_session_payments)
+	//              + SUM(cash_drawer_movements.amount_cents)
+	//
+	// A cash sale therefore belongs in the session-payments bridge, NOT in
+	// cash_drawer_movements — writing both would double-count the same note.
+	// Movements stay reserved for paid-in / paid-out / drop / pickup.
+	//
+	// Best-effort by design: if the till has no open session (a card-only
+	// counter, or a shift nobody opened), the sale is still recorded. Failing
+	// the charge because a drawer is closed would cost the shop the order.
+	if len(cashPaymentIDs) > 0 {
+		var drawerSessionID *string
+		if err := tx.QueryRow(ctx, `
+			SELECT cds.id
+			FROM cash_drawer_sessions cds
+			JOIN cash_drawers cd ON cd.id = cds.cash_drawer_id
+			JOIN orders o        ON o.location_id = cd.location_id
+			WHERE o.id = $1 AND cds.status = 'open'
+			ORDER BY cds.opened_at DESC
+			LIMIT 1
+		`, orderID).Scan(&drawerSessionID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+		if drawerSessionID != nil {
+			for _, pid := range cashPaymentIDs {
+				if _, err := tx.Exec(ctx, `
+					INSERT INTO cash_drawer_session_payments (cash_drawer_session_id, payment_id)
+					VALUES ($1, $2)
+					ON CONFLICT (payment_id) DO NOTHING
+				`, *drawerSessionID, pid); err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	// --- 4. Update order status to completed ---

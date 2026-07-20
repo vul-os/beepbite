@@ -44,7 +44,6 @@ type Status struct {
 	HasLocation      bool `json:"has_location"`
 	HasFiveItems     bool `json:"has_five_items"`
 	HasStaffOrDriver bool `json:"has_staff_or_driver"`
-	HasPayment       bool `json:"has_payment"`
 	HasOrder         bool `json:"has_order"`
 }
 
@@ -161,22 +160,9 @@ SELECT EXISTS (
 			return err
 		}
 
-		// 4. Has active payment provider OR at least one cash/delivery order paid?
-		//    We consider: any active location_payment_credentials row, OR
-		//    any completed order with payment_method_code = 'cash' or 'delivery'.
-		if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-    FROM   location_payment_credentials lpc
-    JOIN   locations l ON l.id = lpc.location_id
-    WHERE  l.organization_id = $1
-      AND  lpc.is_active = true
-    LIMIT  1
-)`, orgID).Scan(&st.HasPayment); err != nil {
-			return err
-		}
-
-		// 5. Has at least one completed/delivered order?
+		// 4. Has at least one completed/delivered order?
+		//    There is no "configure a payment gateway" step: BeepBite records
+		//    tenders and every shop can take cash on day one.
 		if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
     SELECT 1

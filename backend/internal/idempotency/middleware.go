@@ -8,6 +8,7 @@ package idempotency
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -34,6 +35,18 @@ import (
 //     e. Hash mismatch             → 422 Unprocessable Entity.
 //
 // When the header is absent the middleware is a no-op pass-through.
+// ctxKey is the private context key under which the caller's Idempotency-Key
+// header is carried, so downstream handlers and stores can pass it on to
+// anything that de-duplicates on its own (e.g. a payment provider).
+type ctxKey struct{}
+
+// KeyFromContext returns the Idempotency-Key the middleware saw for this
+// request, or "" when the caller sent none (or the route is unwrapped).
+func KeyFromContext(ctx context.Context) string {
+	k, _ := ctx.Value(ctxKey{}).(string)
+	return k
+}
+
 func Middleware(pool *pgxpool.Pool, scope string) func(http.Handler) http.Handler {
 	st := &store{pool: pool}
 
@@ -55,7 +68,8 @@ func Middleware(pool *pgxpool.Pool, scope string) func(http.Handler) http.Handle
 
 			requestHash := hashRequest(r.Method, r.URL.Path, bodyBytes)
 
-			ctx := r.Context()
+			ctx := context.WithValue(r.Context(), ctxKey{}, key)
+			r = r.WithContext(ctx)
 
 			inserted, row, err := st.acquireOrFetch(ctx, scope, key, requestHash)
 			if err != nil {

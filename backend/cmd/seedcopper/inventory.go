@@ -413,20 +413,9 @@ func seedInventory(s *seeder, c *Ctx) error {
 			}
 		}
 
-		verifiedAt := c.Now.AddDate(0, 0, -30)
-		if _, err := tx.Exec(s.ctx, `
-			INSERT INTO bank_accounts (
-				organization_id, region_id, account_holder_name, bank_name, bank_code,
-				account_number_ciphertext, account_number_last4, account_type, currency,
-				provider, is_default, is_active, verified_at, created_by
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,'cheque','ZAR','paystack',true,true,$8,$9)
-		`, c.OrgID, c.RegionZA, "The Copper Table (Pty) Ltd", "First National Bank", "250655",
-			"enc:demo", "4821", verifiedAt, buyer1); err != nil {
-			return fmt.Errorf("insert bank account: %w", err)
-		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("seedInventory: delivery/tips/bank: %w", err)
+		return fmt.Errorf("seedInventory: delivery/tips: %w", err)
 	}
 
 	var lowStock int
@@ -436,7 +425,7 @@ func seedInventory(s *seeder, c *Ctx) error {
 		}
 	}
 
-	log.Printf("  inventory: %d suppliers, %d items (%d below minimum), %d POs, %d stock movements, %d delivery zones, %d tip pools, 1 bank account",
+	log.Printf("  inventory: %d suppliers, %d items (%d below minimum), %d POs, %d stock movements, %d delivery zones, %d tip pools",
 		len(suppliers), len(items), lowStock, len(pos), len(movements), len(zones), len(pools))
 	return nil
 }

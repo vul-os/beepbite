@@ -218,25 +218,6 @@ func seedDriverMember(t *testing.T, ctx context.Context, orgID string) string {
 	return memberID
 }
 
-// seedPaymentCredential inserts an active location_payment_credentials row.
-func seedPaymentCredential(t *testing.T, ctx context.Context, locID string) {
-	t.Helper()
-	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		_, e := tx.Exec(ctx, `
-			INSERT INTO location_payment_credentials
-			  (location_id, provider_code, is_active)
-			VALUES ($1, 'paystack', true)
-			ON CONFLICT (location_id, provider_code) DO UPDATE
-			  SET is_active = true`,
-			locID,
-		)
-		return e
-	})
-	if err != nil {
-		t.Fatalf("seedPaymentCredential(loc=%s): %v", locID, err)
-	}
-}
-
 // seedCompletedOrder inserts an order with status 'completed'.
 func seedCompletedOrder(t *testing.T, ctx context.Context, orgID, locID string) {
 	t.Helper()
@@ -391,9 +372,6 @@ func TestIntegrationGetStatus(t *testing.T) {
 	if st.HasStaffOrDriver {
 		t.Error("GetStatus empty: HasStaffOrDriver should be false")
 	}
-	if st.HasPayment {
-		t.Error("GetStatus empty: HasPayment should be false")
-	}
 	if st.HasOrder {
 		t.Error("GetStatus empty: HasOrder should be false")
 	}
@@ -457,23 +435,11 @@ func TestIntegrationGetStatus(t *testing.T) {
 		t.Error("GetStatus: HasStaffOrDriver should be true after seeding a role='driver' organization_member (driver branch)")
 	}
 
-	// --- 3f: Add payment credentials → HasPayment = true ---
-	if st.HasPayment {
-		t.Error("GetStatus before payment: HasPayment should still be false")
-	}
-	seedPaymentCredential(t, context.Background(), locID)
-	st, err = store.GetStatus(ctx)
-	if err != nil {
-		t.Fatalf("GetStatus (after payment cred): %v", err)
-	}
-	if !st.HasPayment {
-		t.Error("GetStatus after payment credential: HasPayment should be true")
-	}
 	if st.HasOrder {
-		t.Error("GetStatus after payment: HasOrder should still be false")
+		t.Error("GetStatus before order: HasOrder should still be false")
 	}
 
-	// --- 3g: Add a completed order → HasOrder = true ---
+	// --- 3f: Add a completed order → HasOrder = true ---
 	seedCompletedOrder(t, context.Background(), orgID, locID)
 	st, err = store.GetStatus(ctx)
 	if err != nil {
@@ -483,8 +449,8 @@ func TestIntegrationGetStatus(t *testing.T) {
 		t.Error("GetStatus after completed order: HasOrder should be true")
 	}
 
-	// All five flags must now be true for the main org.
-	if !st.HasLocation || !st.HasFiveItems || !st.HasStaffOrDriver || !st.HasPayment || !st.HasOrder {
+	// All four flags must now be true for the main org.
+	if !st.HasLocation || !st.HasFiveItems || !st.HasStaffOrDriver || !st.HasOrder {
 		t.Errorf("GetStatus: not all flags true: %+v", st)
 	}
 }

@@ -56,7 +56,6 @@ type Ctx struct {
 	OrgName        string
 	LocID          string
 	LocSlug        string
-	RegionZA       string    // ZA region UUID
 	OwnerProfileID string    // demo@beepbite.app profile id (the primary owner)
 	YourProfileID  string    // coowner@example.com profile id (co-owner)
 	Now            time.Time // wall clock reference (UTC)
