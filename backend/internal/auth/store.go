@@ -31,7 +31,6 @@ type User struct {
 	ID            string
 	Email         string
 	PasswordHash  *string
-	GoogleSub     *string
 	EmailVerified bool
 }
 
@@ -52,8 +51,8 @@ func (s *Store) CreateEmailUser(ctx context.Context, email, passwordHash string,
 		return tx.QueryRow(ctx, `
 INSERT INTO auth_users (email, password_hash, raw_user_meta_data)
 VALUES ($1, $2, $3::jsonb)
-RETURNING id, email, password_hash, google_sub, email_verified
-`, email, passwordHash, string(metaJSON)).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GoogleSub, &u.EmailVerified)
+RETURNING id, email, password_hash, email_verified
+`, email, passwordHash, string(metaJSON)).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.EmailVerified)
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -64,62 +63,15 @@ RETURNING id, email, password_hash, google_sub, email_verified
 	return &u, nil
 }
 
-// UpsertGoogleUser looks up by google_sub first, falling back to email.
-// Returns the resulting user record.
-func (s *Store) UpsertGoogleUser(ctx context.Context, email, googleSub string, meta map[string]any) (*User, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	metaJSON, err := jsonBytes(meta)
-	if err != nil {
-		return nil, err
-	}
-
-	var u User
-	if err := s.withServiceTx(ctx, func(tx pgx.Tx) error {
-		qerr := tx.QueryRow(ctx, `
-SELECT id, email, password_hash, google_sub, email_verified
-FROM auth_users
-WHERE google_sub = $1 OR lower(email) = $2
-LIMIT 1
-`, googleSub, email).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GoogleSub, &u.EmailVerified)
-
-		switch {
-		case errors.Is(qerr, pgx.ErrNoRows):
-			return tx.QueryRow(ctx, `
-INSERT INTO auth_users (email, google_sub, email_verified, raw_user_meta_data)
-VALUES ($1, $2, true, $3::jsonb)
-RETURNING id, email, password_hash, google_sub, email_verified
-`, email, googleSub, string(metaJSON)).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GoogleSub, &u.EmailVerified)
-		case qerr != nil:
-			return qerr
-		default:
-			if u.GoogleSub == nil || *u.GoogleSub != googleSub {
-				if _, qerr := tx.Exec(ctx, `
-UPDATE auth_users
-SET google_sub = $1, email_verified = true, updated_at = now()
-WHERE id = $2
-`, googleSub, u.ID); qerr != nil {
-					return qerr
-				}
-				u.GoogleSub = &googleSub
-				u.EmailVerified = true
-			}
-			return nil
-		}
-	}); err != nil {
-		return nil, err
-	}
-	return &u, nil
-}
-
 func (s *Store) FindByEmail(ctx context.Context, email string) (*User, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	var u User
 	err := s.withServiceTx(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
-SELECT id, email, password_hash, google_sub, email_verified
+SELECT id, email, password_hash, email_verified
 FROM auth_users
 WHERE lower(email) = $1
-`, email).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GoogleSub, &u.EmailVerified)
+`, email).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.EmailVerified)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
@@ -131,10 +83,10 @@ func (s *Store) FindByID(ctx context.Context, id string) (*User, error) {
 	var u User
 	err := s.withServiceTx(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
-SELECT id, email, password_hash, google_sub, email_verified
+SELECT id, email, password_hash, email_verified
 FROM auth_users
 WHERE id = $1
-`, id).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GoogleSub, &u.EmailVerified)
+`, id).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.EmailVerified)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound

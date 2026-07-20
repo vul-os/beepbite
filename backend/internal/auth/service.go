@@ -65,21 +65,6 @@ func (s *Service) SignIn(ctx context.Context, email, password, userAgent string)
 	return user, tp, nil
 }
 
-// SignInGoogle is called after an OAuth code exchange has yielded the Google
-// identity. Upserts the user and issues a session.
-func (s *Service) SignInGoogle(ctx context.Context, email, googleSub string, meta map[string]any, userAgent string) (*User, *TokenPair, error) {
-	user, err := s.store.UpsertGoogleUser(ctx, email, googleSub, meta)
-	if err != nil {
-		return nil, nil, err
-	}
-	s.store.RecordSignIn(ctx, user.ID)
-	tp, err := s.issuePair(ctx, user, userAgent)
-	if err != nil {
-		return nil, nil, err
-	}
-	return user, tp, nil
-}
-
 // Refresh rotates a refresh token. If the token has already been used (revoked
 // with a replaced_by set) we treat it as a compromise and revoke every token
 // for that user.

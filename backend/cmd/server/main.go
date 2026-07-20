@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -30,11 +29,8 @@ import (
 	"github.com/beepbite/backend/internal/handlers/adjustments"
 	"github.com/beepbite/backend/internal/handlers/admin"
 	"github.com/beepbite/backend/internal/handlers/aifloor"
-	"github.com/beepbite/backend/internal/handlers/aimenu"
 	"github.com/beepbite/backend/internal/handlers/apikeys"
 	"github.com/beepbite/backend/internal/handlers/auditviewer"
-	"github.com/beepbite/backend/internal/handlers/bankaccounts"
-	"github.com/beepbite/backend/internal/handlers/billinginvoices"
 	"github.com/beepbite/backend/internal/handlers/cashdrawer"
 	"github.com/beepbite/backend/internal/handlers/cashout"
 	"github.com/beepbite/backend/internal/handlers/category86"
@@ -63,9 +59,6 @@ import (
 	"github.com/beepbite/backend/internal/handlers/memberinvite"
 	"github.com/beepbite/backend/internal/handlers/onboarding"
 	"github.com/beepbite/backend/internal/handlers/ownerassistant"
-	"github.com/beepbite/backend/internal/handlers/paymentcredentials"
-	"github.com/beepbite/backend/internal/handlers/paymentwebhook"
-	"github.com/beepbite/backend/internal/handlers/paymentwebhooks"
 	"github.com/beepbite/backend/internal/handlers/payroll"
 	"github.com/beepbite/backend/internal/handlers/pickupslots"
 	"github.com/beepbite/backend/internal/handlers/pos"
@@ -84,11 +77,9 @@ import (
 	"github.com/beepbite/backend/internal/handlers/timeclock"
 	"github.com/beepbite/backend/internal/handlers/tippools"
 	"github.com/beepbite/backend/internal/handlers/tracking"
-	"github.com/beepbite/backend/internal/handlers/transferwebhook"
 	"github.com/beepbite/backend/internal/handlers/twofa"
 	"github.com/beepbite/backend/internal/handlers/userprefs"
 	"github.com/beepbite/backend/internal/handlers/waittime"
-	"github.com/beepbite/backend/internal/handlers/wallet"
 	"github.com/beepbite/backend/internal/handlers/wanumbers"
 	"github.com/beepbite/backend/internal/handlers/waste"
 	"github.com/beepbite/backend/internal/handlers/webhooksub"
@@ -96,27 +87,18 @@ import (
 	"github.com/beepbite/backend/internal/handlers/whatsappsend"
 	"github.com/beepbite/backend/internal/handlers/whatsappwebhook"
 	"github.com/beepbite/backend/internal/integrations/mapbox"
-	"github.com/beepbite/backend/internal/integrations/paystack"
-	"github.com/beepbite/backend/internal/integrations/stripe"
 	"github.com/beepbite/backend/internal/integrations/whatsapp"
 	"github.com/beepbite/backend/internal/jobs/activityalerts"
 	"github.com/beepbite/backend/internal/jobs/auditretention"
-	"github.com/beepbite/backend/internal/jobs/dunning"
 	"github.com/beepbite/backend/internal/jobs/eodemail"
-	"github.com/beepbite/backend/internal/jobs/fxrates"
 	"github.com/beepbite/backend/internal/jobs/kdsfanout"
 	"github.com/beepbite/backend/internal/jobs/llmsync"
-	"github.com/beepbite/backend/internal/jobs/payouts"
 	"github.com/beepbite/backend/internal/jobs/recipecost"
 	"github.com/beepbite/backend/internal/jobs/softdelete"
-	"github.com/beepbite/backend/internal/jobs/subscriptionbilling"
-	"github.com/beepbite/backend/internal/jobs/walletrefill"
 	"github.com/beepbite/backend/internal/llm"
 	"github.com/beepbite/backend/internal/middleware/hostresolve"
 	"github.com/beepbite/backend/internal/obs"
-	"github.com/beepbite/backend/internal/payments"
 	"github.com/beepbite/backend/internal/ratelimit"
-	"github.com/beepbite/backend/internal/secretbox"
 	"github.com/beepbite/backend/internal/staffauth"
 	"github.com/beepbite/backend/internal/webhookdelivery"
 )
@@ -142,8 +124,7 @@ func main() {
 	// Services
 	store := auth.NewStore(database.Pool)
 	svc := auth.NewService(store, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
-	google := auth.NewGoogle(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
-	authH := auth.NewHandler(svc, google, postAuthRedirect(cfg))
+	authH := auth.NewHandler(svc)
 	// Wire driver-invite auto-accept on signup (Wave 16): when a new user signs
 	// up with an email that has a pending driver invite, grant the membership.
 	// The post-signup hook is composed below (after emailRegistry is built) so
@@ -165,7 +146,6 @@ func main() {
 	kdsH := kds.NewHandler(database.Pool)
 	posH := pos.NewHandler(database.Pool)
 	statsH := stats.NewHandler(database.Pool)
-	walletH := wallet.NewHandler(database.Pool)
 	// Wave 24 — easy wins
 	receiptsH := receipts.NewHandler(database.Pool)
 	reorderH := reorder.NewHandler(database.Pool)
@@ -186,7 +166,6 @@ func main() {
 	quickCouponH := quickcoupon.NewHandler(database.Pool)
 	favoritesH := favorites.NewHandler(database.Pool)
 	// Waves 10/26/28
-	billingInvoicesH := billinginvoices.NewHandler(database.Pool)
 	adminH := admin.NewHandler(database.Pool)
 	reviewsH := reviews.NewHandler(database.Pool)
 	driverH := driver.NewHandler(database.Pool)
@@ -210,7 +189,6 @@ func main() {
 	auditRetentionRunner := auditretention.NewRunner(database.Pool, 90)
 
 	aiSvc := ai.New(database.Pool, cfg.GeminiAPIKey)
-	aiH := aimenu.NewHandler(aiSvc)
 	aiFloorH := aifloor.NewHandler(aiSvc) // AI floor-plan generator
 
 	wa := whatsapp.NewClient(cfg.WhatsAppAccessToken, cfg.WhatsAppPhoneNumberID)
@@ -305,52 +283,10 @@ func main() {
 	chatSvc := chatbot.NewWithMapbox(database.Pool, wa, mbClient)
 	waWebhookH := whatsappwebhook.NewHandler(chatSvc, cfg.WhatsAppVerifyToken, cfg.WhatsAppAppSecret)
 
-	// Payments: credentials live in env vars per region
-	// (PAYSTACK_<REGION>_SECRET_KEY, STRIPE_<REGION>_SECRET_KEY, …). The
-	// managers scan the environment at startup and build an in-memory
-	// region → creds map. Missing regions are logged, not fatal, so a
-	// partial setup (e.g. only ZA configured) still boots.
-	frontendURL := ""
-	if len(cfg.CORSOrigins) > 0 {
-		frontendURL = strings.TrimRight(cfg.CORSOrigins[0], "/")
-	}
-	paystackMgr := paystack.NewManager(paystack.ManagerConfig{
-		FrontendURL: frontendURL,
-	})
-	stripeMgr := stripe.NewManager(stripe.ManagerConfig{})
-	pwH := paymentwebhooks.NewHandler(database.Pool, paystackMgr, stripeMgr)
-
-	// PaymentKeyEncryptionSecret encrypts bank account numbers (migration 27).
-	// Build the secretbox eagerly so a bad key fails startup; pass it to the
-	// bank-account handler. If unset, the bank-account routes are skipped.
-	var paymentBox *secretbox.Box
-	if cfg.PaymentKeyEncryptionSecret != "" {
-		box, err := secretbox.New(cfg.PaymentKeyEncryptionSecret)
-		if err != nil {
-			log.Fatalf("payment encryption key: %v", err)
-		}
-		paymentBox = box
-	} else {
-		log.Println("PAYMENT_KEY_ENCRYPTION_SECRET not set — bank-account + payout endpoints disabled")
-	}
-
-	var bankaccountsH *bankaccounts.Handler
-	if paymentBox != nil {
-		bankaccountsH = bankaccounts.NewHandler(database.Pool, paystackMgr, paymentBox)
-	}
-
-	var paymentCredsH *paymentcredentials.Handler
-	if paymentBox != nil {
-		paymentCredsH = paymentcredentials.NewHandler(database.Pool, paymentBox, "")
-	}
-
-	// Unified webhook handler (T8.3): POST /webhooks/{provider}/{location_id}.
-	// Also registers backward-compat shims for old Paystack URLs.
-	unifiedWebhookH := paymentwebhook.NewHandler(database.Pool, paystackMgr, stripeMgr, paymentBox)
-
-	transferWebhookH := transferwebhook.NewHandler(database.Pool, paystackMgr)
-	transferReconciler := transferwebhook.NewReconciler(database.Pool, paystackMgr)
-	payoutRunner := payouts.NewRunner(database.Pool, paystackMgr)
+	// Payments: BeepBite records tenders, it does not process cards. The
+	// PaymentProvider seam (internal/payments) has exactly one implementation,
+	// manual tender, and the POS store drives it inside the charge transaction.
+	// There is no gateway to configure, no webhook to receive and no key to hold.
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -384,14 +320,6 @@ func main() {
 
 	// Webhooks are unauthenticated — verified by HMAC or token per provider.
 	r.Mount("/webhooks/whatsapp", waWebhookH)
-	// Unified webhook handler: POST /webhooks/{provider}/{location_id} plus
-	// backward-compat shims for old Paystack and transfer URLs.
-	unifiedWebhookH.Mount(r)
-	// Legacy handlers kept alive in parallel while clients migrate.
-	// TODO(T8): remove once all webhooks route through the unified handler.
-	pwH.Mount(r)
-	transferWebhookH.Mount(r)
-
 	// Public marketplace store directory (no auth required).
 	// RLS is enforced at the DB layer via MarketplaceScope (is_marketplace_visible=true only).
 	r.Route("/stores", func(r chi.Router) {
@@ -482,9 +410,6 @@ func main() {
 			driverInviteH.Mount(r)
 			memberInviteH.Mount(r) // /member-invites/* + /members/* (Team management)
 
-			// Wallet + billing (balance, top-up, ledger, auto-refill).
-			walletH.Mount(r)
-
 			// Wave 24 — easy wins.
 			posH.MountModify(r)      // PATCH /pos/orders/{id}/items (modify before fire)
 			receiptsH.Mount(r)       // GET /orders/{id}/receipt (reprint)
@@ -503,15 +428,13 @@ func main() {
 			waitTimeH.Mount(r)                         // /locations/{id}/wait-time
 			category86H.Mount(r)                       // /categories/{id}/eighty-six
 			r.Route("/dual-drawer", dualDrawerH.Mount) // /dual-drawer/sessions, /open
-			// Waves 10/28 (org-scoped).
-			r.Route("/billing", billingInvoicesH.Mount) // GET /billing/invoices
-			r.Route("/reviews", reviewsH.MountAuthed)   // POST /reviews, POST /reviews/{id}/reply
-			quickCouponH.Mount(r)                       // /quick-coupons
-			favoritesH.Mount(r)                         // /customers/{id}/favorites
+			// Wave 28 (org-scoped).
+			r.Route("/reviews", reviewsH.MountAuthed) // POST /reviews, POST /reviews/{id}/reply
+			quickCouponH.Mount(r)                     // /quick-coupons
+			favoritesH.Mount(r)                       // /customers/{id}/favorites
 			r.Route("/stats", statsH.Mount)
 
 			// Remaining-roadmap org-scoped surfaces.
-			r.Post("/ai/menu", aiH)                       // AI menu creator (org-scoped: reads location + writes items under RLS)
 			r.Post("/ai/floor", aiFloorH)                 // AI floor-plan generator (org-scoped: writes sections/tables under RLS)
 			ownerAssistantH.Mount(r)                      // /assistant (+/draft/{id}) — Wave 21
 			r.Route("/domains", customDomainsH.Mount)     // Wave 23 custom domains
@@ -557,35 +480,17 @@ func main() {
 			deliveryZonesH.Mount(r)
 			fiscalH.Mount(r)
 
-			// Bank accounts + payouts (optional — disabled when encryption key
-			// is absent; see startup log).
-			if bankaccountsH != nil {
-				bankaccountsH.Mount(r)
-			}
-
-			// BYO payment-provider credentials per location (/payment-credentials/*).
-			// Disabled when PAYMENT_KEY_ENCRYPTION_SECRET is unset.
-			if paymentCredsH != nil {
-				paymentCredsH.Mount(r)
-			}
 		})
 	})
 
-	// Background jobs: weekly payout runner + transfer reconciliation cron +
-	// recipe-cost recompute on ingredient price changes.
-	go payoutRunner.Start(ctx)
-	go transferReconciler.Start(ctx)
+	// Background jobs: recipe-cost recompute on ingredient price changes, KDS
+	// fanout, audit retention.
 	go recipeCostRunner.Start(ctx)
 	go kdsFanoutRunner.Start(ctx)
 	go auditRetentionRunner.Start(ctx)
-	// Wave 19 — billing/LLM background jobs (constructed here so paymentBox exists).
-	go walletrefill.NewRunner(database.Pool, payments.NewDBRegistry(database.Pool, paymentBox)).Start(ctx)
-	go dunning.NewRunner(database.Pool, nil).Start(ctx) // nil → no-op notifier for now
 	go llmsync.NewRunner(database.Pool).Start(ctx)
-	go webhookdelivery.NewRunner(database.Pool).Start(ctx)     // Wave 22 — outbound webhook delivery
-	go fxrates.NewRunner(database.Pool).Start(ctx)             // Wave 10 — FX rate fetch
-	go subscriptionbilling.NewRunner(database.Pool).Start(ctx) // Wave 10 — subscription invoice generation
-	go softdelete.NewRunner(database.Pool).Start(ctx)          // Wave 31 — GDPR purge of soft-deleted orgs
+	go webhookdelivery.NewRunner(database.Pool).Start(ctx) // Wave 22 — outbound webhook delivery
+	go softdelete.NewRunner(database.Pool).Start(ctx)      // Wave 31 — GDPR purge of soft-deleted orgs
 	if emailRegistry != nil {
 		go eodemail.NewRunner(database.Pool, emailRegistry).Start(ctx)       // Wave 40 — end-of-day owner email
 		go activityalerts.NewRunner(database.Pool, emailRegistry).Start(ctx) // Wave 30 — suspicious-activity alerts
@@ -616,18 +521,6 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	_ = srv.Shutdown(shutdownCtx)
-}
-
-// postAuthRedirect picks the first CORS origin as the SPA base URL for the
-// Google OAuth callback. Override via POST_AUTH_REDIRECT env if needed.
-func postAuthRedirect(cfg *config.Config) string {
-	if v := os.Getenv("POST_AUTH_REDIRECT"); v != "" {
-		return v
-	}
-	if len(cfg.CORSOrigins) == 0 {
-		return ""
-	}
-	return strings.TrimRight(cfg.CORSOrigins[0], "/") + "/auth/callback"
 }
 
 func notImplemented(msg string) http.HandlerFunc {

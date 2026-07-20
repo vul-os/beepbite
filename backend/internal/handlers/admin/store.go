@@ -30,41 +30,17 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
 // TenantSummary is the row returned by GET /admin/tenants.
 type TenantSummary struct {
-	ID               string     `json:"id"`
-	Name             string     `json:"name"`
-	SubscriptionTier string     `json:"subscription_tier"`
-	IsActive         bool       `json:"is_active"`
-	PausedAt         *time.Time `json:"paused_at"`
-	BalanceCents     *int64     `json:"balance_cents"`
-	CurrencyCode     *string    `json:"currency_code"`
-	CreatedAt        time.Time  `json:"created_at"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	IsActive  bool       `json:"is_active"`
+	PausedAt  *time.Time `json:"paused_at"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // TenantDetail is returned by GET /admin/tenants/{org_id}.
 type TenantDetail struct {
 	TenantSummary
-	Wallet             *WalletInfo         `json:"wallet"`
-	RecentTransactions []WalletTransaction `json:"recent_transactions"`
-	Alarms             []string            `json:"alarms"`
-}
-
-// WalletInfo is the org_wallets row for a tenant.
-type WalletInfo struct {
-	BalanceCents      int64  `json:"balance_cents"`
-	HoldCents         int64  `json:"hold_cents"`
-	CurrencyCode      string `json:"currency_code"`
-	AutoRefillEnabled bool   `json:"auto_refill_enabled"`
-}
-
-// WalletTransaction is a recent wallet_transactions ledger entry.
-type WalletTransaction struct {
-	ID                string    `json:"id"`
-	Kind              string    `json:"kind"`
-	AmountCents       int64     `json:"amount_cents"`
-	BalanceAfterCents *int64    `json:"balance_after_cents"`
-	Description       *string   `json:"description"`
-	ReferenceType     *string   `json:"reference_type"`
-	CreatedAt         time.Time `json:"created_at"`
+	Alarms []string `json:"alarms"`
 }
 
 // ---------------------------------------------------------------------------
@@ -90,20 +66,16 @@ func (s *Store) SearchTenants(ctx context.Context, q string) ([]TenantSummary, e
 		)
 		if q == "" {
 			rows, err = tx.Query(ctx, `
-SELECT o.id, o.name, o.subscription_tier, o.is_active, o.paused_at, o.created_at,
-       ow.balance_cents, ow.currency_code
+SELECT o.id, o.name, o.is_active, o.paused_at, o.created_at
 FROM organizations o
-LEFT JOIN org_wallets ow ON ow.org_id = o.id
 ORDER BY o.created_at DESC
 LIMIT 50
 `)
 		} else {
 			pattern := "%" + q + "%"
 			rows, err = tx.Query(ctx, `
-SELECT DISTINCT o.id, o.name, o.subscription_tier, o.is_active, o.paused_at, o.created_at,
-       ow.balance_cents, ow.currency_code
+SELECT DISTINCT o.id, o.name, o.is_active, o.paused_at, o.created_at
 FROM organizations o
-LEFT JOIN org_wallets ow ON ow.org_id = o.id
 LEFT JOIN organization_members om ON om.organization_id = o.id
 LEFT JOIN auth_users au ON au.id = om.profile_id
 WHERE o.id::text ILIKE $1
@@ -121,8 +93,7 @@ LIMIT 50
 		for rows.Next() {
 			var t TenantSummary
 			if err := rows.Scan(
-				&t.ID, &t.Name, &t.SubscriptionTier, &t.IsActive, &t.PausedAt, &t.CreatedAt,
-				&t.BalanceCents, &t.CurrencyCode,
+				&t.ID, &t.Name, &t.IsActive, &t.PausedAt, &t.CreatedAt,
 			); err != nil {
 				return err
 			}
@@ -143,17 +114,17 @@ LIMIT 50
 // GetTenantDetail
 // ---------------------------------------------------------------------------
 
-// GetTenantDetail returns the full admin detail view for one org: org row,
-// wallet, 20 most recent wallet transactions, and computed alarms.
+// GetTenantDetail returns the full admin detail view for one org: the org row
+// plus computed alarms.
 func (s *Store) GetTenantDetail(ctx context.Context, orgID string) (*TenantDetail, error) {
 	var detail TenantDetail
 	err := db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		// Org row
 		err := tx.QueryRow(ctx, `
-SELECT id, name, subscription_tier, is_active, paused_at, created_at
+SELECT id, name, is_active, paused_at, created_at
 FROM organizations WHERE id = $1
 `, orgID).Scan(
-			&detail.ID, &detail.Name, &detail.SubscriptionTier,
+			&detail.ID, &detail.Name,
 			&detail.IsActive, &detail.PausedAt, &detail.CreatedAt,
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -163,49 +134,8 @@ FROM organizations WHERE id = $1
 			return err
 		}
 
-		// Wallet (optional — not every org has a wallet row yet)
-		var w WalletInfo
-		werr := tx.QueryRow(ctx, `
-SELECT balance_cents, hold_cents, currency_code, auto_refill_enabled
-FROM org_wallets WHERE org_id = $1
-`, orgID).Scan(&w.BalanceCents, &w.HoldCents, &w.CurrencyCode, &w.AutoRefillEnabled)
-		if werr == nil {
-			detail.Wallet = &w
-		} else if !errors.Is(werr, pgx.ErrNoRows) {
-			return werr
-		}
-
-		// Recent wallet transactions (newest first, cap at 20)
-		txRows, err := tx.Query(ctx, `
-SELECT id, kind, amount_cents, balance_after_cents, description, reference_type, created_at
-FROM wallet_transactions
-WHERE org_id = $1
-ORDER BY created_at DESC
-LIMIT 20
-`, orgID)
-		if err != nil {
-			return err
-		}
-		defer txRows.Close()
-		for txRows.Next() {
-			var wt WalletTransaction
-			if err := txRows.Scan(
-				&wt.ID, &wt.Kind, &wt.AmountCents, &wt.BalanceAfterCents,
-				&wt.Description, &wt.ReferenceType, &wt.CreatedAt,
-			); err != nil {
-				return err
-			}
-			detail.RecentTransactions = append(detail.RecentTransactions, wt)
-		}
-		if err := txRows.Err(); err != nil {
-			return err
-		}
-
 		// Compute alarms
 		var alarms []string
-		if detail.Wallet != nil && detail.Wallet.BalanceCents <= 0 {
-			alarms = append(alarms, "low_wallet")
-		}
 		if detail.PausedAt != nil {
 			alarms = append(alarms, "paused")
 		}
@@ -216,9 +146,6 @@ LIMIT 20
 			alarms = []string{}
 		}
 		detail.Alarms = alarms
-		if detail.RecentTransactions == nil {
-			detail.RecentTransactions = []WalletTransaction{}
-		}
 		return nil
 	})
 	if err != nil {
@@ -272,70 +199,6 @@ WHERE id = $1
 		}
 		return logAdminAction(ctx, tx, adminUserID, "unpause_tenant", "organization", orgID, map[string]any{
 			"action": "unpaused",
-		})
-	})
-}
-
-// ---------------------------------------------------------------------------
-// QuotaOverride
-// ---------------------------------------------------------------------------
-
-// QuotaOverrideReq is the body accepted by POST /admin/tenants/{org_id}/quota-override.
-type QuotaOverrideReq struct {
-	Resource      string `json:"resource"`
-	IncludedCount int64  `json:"included_count"`
-}
-
-// QuotaOverride upserts quota_usage.included_count for the current billing
-// period (org-wide, location_id NULL) and audits the action.
-func (s *Store) QuotaOverride(ctx context.Context, adminUserID, orgID string, req QuotaOverrideReq) error {
-	return db.Scoped(ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		// Verify the org exists before touching quota_usage.
-		var exists bool
-		if err := tx.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1)`, orgID,
-		).Scan(&exists); err != nil {
-			return err
-		}
-		if !exists {
-			return ErrOrgNotFound
-		}
-
-		start, end := currentPeriod()
-		// location_id = NULL → org-wide quota row.
-		// PostgreSQL UNIQUE constraints treat two NULLs as distinct, so
-		// ON CONFLICT (organization_id, location_id, resource, period_start)
-		// would never match a NULL location_id row. We use an explicit UPDATE
-		// then conditional INSERT (a manual upsert) instead.
-		res, err := tx.Exec(ctx, `
-UPDATE quota_usage
-SET included_count = $1,
-    updated_at     = now()
-WHERE organization_id = $2
-  AND location_id IS NULL
-  AND resource     = $3
-  AND period_start = $4
-`, req.IncludedCount, orgID, req.Resource, start)
-		if err != nil {
-			return err
-		}
-		if res.RowsAffected() == 0 {
-			// No existing row for this period — insert a fresh one.
-			if _, err = tx.Exec(ctx, `
-INSERT INTO quota_usage (
-    organization_id, location_id, resource,
-    period_start, period_end,
-    used_count, included_count
-) VALUES ($1, NULL, $2, $3, $4, 0, $5)
-`, orgID, req.Resource, start, end, req.IncludedCount); err != nil {
-				return err
-			}
-		}
-
-		return logAdminAction(ctx, tx, adminUserID, "quota_override", "organization", orgID, map[string]any{
-			"resource":       req.Resource,
-			"included_count": req.IncludedCount,
-			"period_start":   start,
 		})
 	})
 }
