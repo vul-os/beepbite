@@ -151,6 +151,7 @@ const Members = () => {
         .select(`
           id,
           role,
+          profile_id,
           created_at,
           archived_at,
           profiles (
