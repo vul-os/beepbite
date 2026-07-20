@@ -26,6 +26,10 @@
 // browser's own, not to 'en-ZA' or 'en-US'. `timezone` defaults to UTC, which
 // is neutral and is what the backend uses for an unconfigured location.
 
+// prop-types are not used anywhere in this codebase (25 other files carry the
+// same disable); `location` here is whatever shape the locations API returned,
+// which is precisely the thing this module exists to normalise.
+/* eslint-disable react/prop-types */
 import {
   createContext,
   useCallback,
