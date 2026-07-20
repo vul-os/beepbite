@@ -946,33 +946,23 @@ func (s *Service) handleEmailCollection(ctx context.Context, chatID, customerID,
 		newState.CustomerEmail = input
 		newState.PreviousStep = "email_collection"
 		s.updateConversationState(ctx, chatID, newState)
-		paymentMethods := s.getCustomerPaymentMethods(ctx, customerID)
-		return formatPaymentMethods(paymentMethods)
+		return formatPaymentMethods()
 	}
 	return formatError("Please enter a valid email address or select 1 to go back")
 }
 
 func (s *Service) handlePaymentMethod(ctx context.Context, chatID, customerID, messageBody string, state ConversationState) string {
 	selectedNumber, hasNum := parseIntTrim(messageBody)
-	paymentMethods := s.getCustomerPaymentMethods(ctx, customerID)
-
 	if hasNum {
-		if selectedNumber >= 1 && selectedNumber <= len(paymentMethods) {
-			selectedMethod := paymentMethods[selectedNumber-1]
-			newState := state
-			newState.Step = "payment"
-			newState.PaymentAuthorizationID = selectedMethod.ID
-			newState.PreviousStep = "payment_method"
-			s.updateConversationState(ctx, chatID, newState)
-			return s.processPayment(ctx, chatID, customerID, newState)
-		} else if selectedNumber == len(paymentMethods)+1 {
+		switch selectedNumber {
+		case 1:
 			newState := state
 			newState.Step = "payment"
 			newState.PaymentAuthorizationID = ""
 			newState.PreviousStep = "payment_method"
 			s.updateConversationState(ctx, chatID, newState)
 			return s.processPayment(ctx, chatID, customerID, newState)
-		} else if selectedNumber == len(paymentMethods)+2 {
+		case 2:
 			cartSummary := s.getCartSummary(ctx, customerID, state.SelectedLocationID)
 			newState := state
 			newState.Step = "checkout"
@@ -989,12 +979,11 @@ func (s *Service) handlePayment(ctx context.Context, chatID, customerID, message
 	if hasNum {
 		switch selectedNumber {
 		case 1:
-			paymentMethods := s.getCustomerPaymentMethods(ctx, customerID)
 			newState := state
 			newState.Step = "payment_method"
 			newState.PreviousStep = "payment"
 			s.updateConversationState(ctx, chatID, newState)
-			return formatPaymentMethods(paymentMethods)
+			return formatPaymentMethods()
 		case 2:
 			s.clearCart(ctx, customerID, state.SelectedLocationID)
 			newState := state

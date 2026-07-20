@@ -9,7 +9,6 @@ import {
   MapPin,
   UtensilsCrossed,
   Users,
-  CreditCard,
   ShoppingBag,
   CheckCircle2,
   Circle,
@@ -46,7 +45,6 @@ const STEP_KEYS = {
   SERVICE_STYLE: 'service_style',
   MENU: 'menu',
   TEAM: 'team',
-  PAYMENTS: 'payments',
   ORDER: 'order',
 };
 
@@ -54,7 +52,6 @@ function useOnboardingData(activeOrganization) {
   const { locations } = useAuth();
   const [itemCount, setItemCount] = useState(null);
   const [staffCount, setStaffCount] = useState(null);
-  const [hasPayments, setHasPayments] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const locationId = locations?.[0]?.id;
@@ -106,7 +103,7 @@ function useOnboardingData(activeOrganization) {
     fetchData();
   }, [fetchData]);
 
-  return { itemCount, staffCount, hasPayments, loading, refetch: fetchData };
+  return { itemCount, staffCount, loading, refetch: fetchData };
 }
 
 const OnboardingChecklist = ({ onComplete }) => {
@@ -197,19 +194,6 @@ const OnboardingChecklist = ({ onComplete }) => {
       done: staffCount != null && staffCount > 0,
       actionLabel: 'Invite staff',
       onAction: () => navigate('/staff'),
-      disabled: locationsCount === 0,
-      disabledHint: 'Add a location first',
-    },
-    {
-      key: STEP_KEYS.PAYMENTS,
-      icon: CreditCard,
-      label: 'Set up payments',
-      description: 'Connect a payment provider so customers can pay online.',
-      done: false,
-      actionLabel: 'Connect payments',
-      onAction: firstLocation
-        ? () => navigate(`/settings/location/${firstLocation.id}/payments`)
-        : null,
       disabled: locationsCount === 0,
       disabledHint: 'Add a location first',
     },

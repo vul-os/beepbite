@@ -10,8 +10,7 @@ import (
 // seedInventory builds the supply-chain and back-of-house operations data for
 // The Copper Table: suppliers, raw-ingredient inventory (with a handful of
 // items dipped below their reorder point), a purchase-order lifecycle with
-// goods receipts, stock movement history, delivery zones, tip pools, and the
-// org's payout bank account.
+// goods receipts, stock movement history, delivery zones and tip pools.
 func seedInventory(s *seeder, c *Ctx) error {
 	// Idempotency: if suppliers already exist for this org, this section has
 	// already run — skip entirely.

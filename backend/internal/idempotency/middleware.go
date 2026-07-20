@@ -2,7 +2,7 @@
 //
 //	r.With(idempotency.Middleware(pool, "orders")).Post("/orders", ordersHandler)
 //	r.With(idempotency.Middleware(pool, "payments")).Post("/payments", paymentsHandler)
-//	r.With(idempotency.Middleware(pool, "webhook_paystack_charge")).Post("/webhooks/paystack", paystackHandler)
+//	r.With(idempotency.Middleware(pool, "pos_charge")).Post("/pos/orders/{id}/charge", chargeHandler)
 
 package idempotency
 

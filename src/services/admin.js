@@ -8,7 +8,7 @@ import { api } from '../lib/api-client.js';
  * Search tenants by name/slug/email.
  * @param {string} q  - search query (may be empty for all)
  * @returns {Promise<{ data: Array, error: object }>}
- *   Each item: { org_id, name, slug, owner_email, tier, wallet_balance_cents, status, created_at }
+ *   Each item: { org_id, name, slug, owner_email, status, created_at }
  */
 export async function searchTenants(q = '') {
   const qs = q ? `?q=${encodeURIComponent(q)}` : '';
@@ -18,7 +18,7 @@ export async function searchTenants(q = '') {
 /**
  * Fetch full detail for a single tenant.
  * @param {string} orgId
- * @returns {Promise<{ data: { org, wallet, recent_transactions, alarms }, error: object }>}
+ * @returns {Promise<{ data: { org, alarms }, error: object }>}
  */
 export async function getTenant(orgId) {
   return api.request('GET', `/admin/tenants/${encodeURIComponent(orgId)}`);
@@ -40,16 +40,4 @@ export async function pauseTenant(orgId) {
  */
 export async function unpauseTenant(orgId) {
   return api.request('POST', `/admin/tenants/${encodeURIComponent(orgId)}/unpause`);
-}
-
-/**
- * Override a quota limit for a tenant.
- * @param {string} orgId
- * @param {{ resource: string, includedCount: number }} opts
- * @returns {Promise<{ data: object, error: object }>}
- */
-export async function overrideQuota(orgId, { resource, includedCount }) {
-  return api.request('POST', `/admin/tenants/${encodeURIComponent(orgId)}/quota-override`, {
-    body: { resource, included_count: includedCount },
-  });
 }

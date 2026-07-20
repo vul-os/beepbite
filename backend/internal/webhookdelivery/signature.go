@@ -14,7 +14,7 @@ import (
 // Sign produces the value for the X-BeepBite-Signature header.
 // Format: t=<unix>,v1=<hex-hmac-sha256>
 //
-// The signed payload is "<timestamp>.<body>" (Stripe-compatible scheme).
+// The signed payload is "<timestamp>.<body>".
 // secret is the endpoint's signing_secret. t is the timestamp to embed
 // (use time.Now() in production; pass a fixed value in tests).
 func Sign(secret string, body []byte, t time.Time) string {

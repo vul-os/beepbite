@@ -104,12 +104,11 @@ var allTables = map[string]ops{
 	"theoretical_vs_actual_cogs": {Select: true}, // view
 	"revenue_by_payment_method":  {Select: true}, // view
 
-	// Migration 23 — audit log + idempotency + webhook events
-	// audit_log / idempotency_keys / webhook_event_log are written by the Go
-	// backend itself; the generic REST layer only exposes read access.
-	"audit_log":         {Select: true},
-	"idempotency_keys":  {Select: true},
-	"webhook_event_log": {Select: true},
+	// Migration 23 — audit log + idempotency
+	// audit_log / idempotency_keys are written by the Go backend itself; the
+	// generic REST layer only exposes read access.
+	"audit_log":        {Select: true},
+	"idempotency_keys": {Select: true},
 
 	// Migration 24 — menu extensions (allergens, dietary tags, schedules, happy hour)
 	"allergens":            {Select: true, Insert: true, Update: true, Delete: true},
@@ -134,34 +133,6 @@ var allTables = map[string]ops{
 	"house_account_invoices":    {Select: true, Insert: true, Update: true},
 	"loyalty_config":            {Select: true, Insert: true, Update: true},
 	"loyalty_transactions":      {Select: true}, // append-only ledger
-
-	// Migration 26 — regions + central gateways (BYO removed)
-	// regions is config — insert/update guarded by admin-only UI; exposing both
-	// for now. payment_provider text column on regions is set per deployment;
-	// actual gateway credentials live in env vars, not the DB.
-	"regions": {Select: true}, // global reference data — writes are service-role only (seeded via migration 014)
-
-	// Migration 27 — subscription plans + payouts
-	// subscription_plans: read-only via generic API (mutations via admin flow)
-	"subscription_plans": {Select: true},
-	// bank_accounts: read-only via generic API. All writes (create/soft-delete)
-	// go through internal/handlers/bankaccounts which encrypts the account number
-	// and registers a Paystack transfer recipient. Direct data-layer mutations
-	// would bypass encryption and the Paystack recipient lifecycle.
-	"bank_accounts": {Select: true},
-	// payout_schedules: read-only via generic API. Controls payout cadence and
-	// the destination bank account for the payout runner cron job. Writes are
-	// a funds-sensitive operation and must not be exposed to tenants via the
-	// generic REST layer.
-	"payout_schedules": {Select: true},
-	// merchant_payouts: read-only ledger of weekly payouts to the org's bank account.
-	// Surfaced on the Billing page (RecentPayouts). Writes are service-role only
-	// (the payouts runner cron job in jobs/payouts).
-	"merchant_payouts": {Select: true},
-	// beepbite_payment_fees: per-transaction fee snapshot used by the billing
-	// month-summary card to show fees accrued in the current period. Writes are
-	// captured by the payment-capture path server-side.
-	"beepbite_payment_fees": {Select: true},
 
 	// Migration 29 — staff pay rates (effective-dated)
 	"staff_pay_rates": {Select: true, Insert: true, Update: true, Delete: true},

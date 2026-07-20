@@ -120,9 +120,6 @@ func (s *Service) routeMessage(ctx context.Context, chatID, customerID, messageB
 	case "profile_view", "profile_edit", "profile_field_edit":
 		return s.handleProfileManagement(ctx, chatID, customerID, messageBody, state)
 
-	case "billing_list", "billing_actions", "billing_add_email_check", "billing_add", "billing_added":
-		return s.handleBillingManagement(ctx, chatID, customerID, messageBody, state)
-
 	default:
 		s.updateConversationState(ctx, chatID, ConversationState{Step: "main_menu"})
 		return formatMainMenu("", 0, 0, "")

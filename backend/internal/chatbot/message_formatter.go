@@ -62,7 +62,6 @@ func formatMainMenu(customerName string, cartItemCount, activeOrderCount int, ca
 	}
 	b.WriteString("*[B]* 📜 View Previous Orders\n")
 	b.WriteString("*[C]* 👤 My Profile\n")
-	b.WriteString("*[D]* 💳 Billing\n")
 	b.WriteString("*[E]* 📍 Addresses\n\n")
 	return b.String()
 }
@@ -546,28 +545,14 @@ func formatEmailCollection() string {
 		"📱 *Powered by BeepBite.io*"
 }
 
-func formatPaymentMethods(paymentMethods []PaymentMethod) string {
+// formatPaymentMethods lists how the customer can pay on collection or
+// delivery. There are no saved cards: BeepBite holds no card data and there is
+// no gateway to tokenise against.
+func formatPaymentMethods() string {
 	var b strings.Builder
 	b.WriteString("💳 *Select Payment Method*\n\n")
-
-	if len(paymentMethods) > 0 {
-		b.WriteString("*Saved Cards:*\n")
-		for i, m := range paymentMethods {
-			cardType := ""
-			if m.CardType != nil {
-				cardType = *m.CardType
-			}
-			last4 := ""
-			if m.CardLastFour != nil {
-				last4 = *m.CardLastFour
-			}
-			fmt.Fprintf(&b, "*[%d]* %s ****%s\n", i+1, cardType, last4)
-		}
-		b.WriteString("\n")
-	}
-
-	fmt.Fprintf(&b, "*[%d]* ➕ New Card\n", len(paymentMethods)+1)
-	fmt.Fprintf(&b, "*[%d]* 🔙 Back to Payment Options\n\n", len(paymentMethods)+2)
+	b.WriteString("*[1]* 💵 Cash on delivery / collection\n")
+	b.WriteString("*[2]* 🔙 Back to Payment Options\n\n")
 	b.WriteString("📱 *Powered by BeepBite.io*")
 	return b.String()
 }
@@ -804,122 +789,6 @@ func formatProfileUpdated(fieldName, newValue string) string {
 	b.WriteString("Returning to profile...\n\n")
 	b.WriteString("📱 *Powered by BeepBite.io*")
 	return b.String()
-}
-
-func formatBillingManagement(paymentMethods []PaymentMethod) string {
-	var b strings.Builder
-	b.WriteString("💳 *Payment Methods*\n\n")
-	if len(paymentMethods) == 0 {
-		b.WriteString("No payment methods found.\n\n")
-		b.WriteString("*Options:*\n")
-		b.WriteString("*[1]* ➕ Add Payment Method\n")
-		b.WriteString("*[2]* 🏠 Back to Main Menu\n\n")
-	} else {
-		b.WriteString("*Your Cards:*\n\n")
-		for i, m := range paymentMethods {
-			isDefault := ""
-			if m.IsDefault {
-				isDefault = " (Default)"
-			}
-			cardType := "CARD"
-			if m.CardType != nil && *m.CardType != "" {
-				cardType = strings.ToUpper(*m.CardType)
-			}
-			lastFour := "****"
-			if m.CardLastFour != nil && *m.CardLastFour != "" {
-				lastFour = *m.CardLastFour
-			}
-			expiry := ""
-			if m.CardExpMonth != nil && *m.CardExpMonth != "" && m.CardExpYear != nil && *m.CardExpYear != "" {
-				expiry = fmt.Sprintf(" • Exp: %s/%s", *m.CardExpMonth, *m.CardExpYear)
-			}
-			fmt.Fprintf(&b, "*[%d]* %s ••••%s%s%s\n", i+1, cardType, lastFour, expiry, isDefault)
-			if m.Nickname != nil && *m.Nickname != "" {
-				fmt.Fprintf(&b, "     %s\n", *m.Nickname)
-			}
-			b.WriteString("\n")
-		}
-		next := len(paymentMethods) + 1
-		b.WriteString("*Options:*\n")
-		fmt.Fprintf(&b, "*[%d]* ➕ Add Payment Method\n", next)
-		fmt.Fprintf(&b, "*[%d]* 🏠 Back to Main Menu\n\n", next+1)
-	}
-	b.WriteString("📱 *Powered by BeepBite.io*")
-	return b.String()
-}
-
-func formatPaymentMethodActions(m *PaymentMethod) string {
-	cardType := "CARD"
-	if m.CardType != nil && *m.CardType != "" {
-		cardType = strings.ToUpper(*m.CardType)
-	}
-	lastFour := "****"
-	if m.CardLastFour != nil && *m.CardLastFour != "" {
-		lastFour = *m.CardLastFour
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "💳 *%s ••••%s*\n\n", cardType, lastFour)
-	if m.Nickname != nil && *m.Nickname != "" {
-		fmt.Fprintf(&b, "Name: %s\n", *m.Nickname)
-	}
-	if m.CardExpMonth != nil && *m.CardExpMonth != "" && m.CardExpYear != nil && *m.CardExpYear != "" {
-		fmt.Fprintf(&b, "Expires: %s/%s\n", *m.CardExpMonth, *m.CardExpYear)
-	}
-	status := "Active"
-	if m.IsDefault {
-		status = "Default Card"
-	}
-	fmt.Fprintf(&b, "Status: %s\n\n", status)
-	b.WriteString("*Actions:*\n")
-	if !m.IsDefault {
-		b.WriteString("*[1]* ⭐ Set as Default\n")
-		b.WriteString("*[2]* 🗑️ Remove Card\n")
-		b.WriteString("*[3]* 🔙 Back to Payment Methods\n")
-		b.WriteString("*[4]* 🏠 Main Menu\n\n")
-	} else {
-		b.WriteString("*[1]* 🗑️ Remove Card\n")
-		b.WriteString("*[2]* 🔙 Back to Payment Methods\n")
-		b.WriteString("*[3]* 🏠 Main Menu\n\n")
-	}
-	b.WriteString("📱 *Powered by BeepBite.io*")
-	return b.String()
-}
-
-func formatPaymentMethodDeleted() string {
-	return "✅ *Payment Method Removed*\n\nYour payment method has been successfully removed.\n\n📱 *Powered by BeepBite.io*"
-}
-
-func formatPaymentMethodSetDefault() string {
-	return "✅ *Default Payment Method Updated*\n\nYour default payment method has been updated.\n\n📱 *Powered by BeepBite.io*"
-}
-
-func formatAddPaymentMethodEmailRequired() string {
-	return "⚠️ *Email Required*\n\n" +
-		"To add a payment method, you need to have an email address on your account.\n\n" +
-		"Please add your email address first by going to Profile.\n\n" +
-		"*Options:*\n" +
-		"*[1]* 👤 Go to Profile\n" +
-		"*[2]* 🔙 Back to Payment Methods\n" +
-		"*[3]* 🏠 Back to Main Menu\n\n" +
-		"📱 *Powered by BeepBite.io*"
-}
-
-func formatAddPaymentMethod() string {
-	return "💳 *Add Payment Method*\n\n" +
-		"To add a new payment method, you'll be redirected to our secure payment partner.\n\n" +
-		"*How it works:*\n" +
-		"1. You'll receive a secure payment link\n" +
-		"2. Enter your card details safely\n" +
-		"3. Your card will be saved for future orders\n\n" +
-		"*Options:*\n" +
-		"*[1]* 💳 Get Payment Link\n" +
-		"*[2]* 🔙 Back to Payment Methods\n" +
-		"*[3]* 🏠 Back to Main Menu\n\n" +
-		"📱 *Powered by BeepBite.io*"
-}
-
-func formatPaymentMethodAdded() string {
-	return "✅ *Payment Method Added*\n\nYour new payment method has been successfully added and is ready to use.\n\n📱 *Powered by BeepBite.io*"
 }
 
 // getTimeRemaining matches the TS helper.

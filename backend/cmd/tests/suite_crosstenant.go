@@ -91,8 +91,8 @@ func suiteCrossTenant(r *Runner) {
 	}
 
 	// ---------------------------------------------------------------------
-	// 6. GET org-B payout-adjacent rows. Payouts ride on order_payments /
-	//    cash_drawer_sessions; probe both for an org-B leak.
+	// 6. GET org-B money-adjacent rows: order_payments / cash_drawer_sessions.
+	//    Probe both for an org-B leak.
 	// ---------------------------------------------------------------------
 	if b.sessionID != "" {
 		assertProbe(r, "crosstenant: GET org-B cash drawer session does not leak",

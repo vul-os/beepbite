@@ -183,8 +183,8 @@ CREATE TABLE idempotency_keys (
     id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Namespace + client-supplied key form the unique lookup.
-    --   scope examples: 'order_payment', 'paystack_webhook', 'whatsapp_inbound'
-    --   key  examples:  'paystack:event:<event_id>', 'order:<uuid>'
+    --   scope examples: 'pos_charge', 'whatsapp_inbound'
+    --   key  examples:  'order:<uuid>', 'wa:msg:<message_id>'
     scope           text        NOT NULL,
     key             text        NOT NULL,
     -- sha256 of the request body; if the same key is reused with a different

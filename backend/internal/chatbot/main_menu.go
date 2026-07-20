@@ -61,9 +61,6 @@ func (s *Service) handleMainMenu(ctx context.Context, chatID, customerID, messag
 	case "c", "profile", "my profile":
 		return s.handleProfileMenu(ctx, chatID, customerID, state)
 
-	case "d", "billing":
-		return s.handleBillingMenu(ctx, chatID, customerID, state)
-
 	case "e", "addresses":
 		return s.handleAddressesMenu(ctx, chatID, customerID, state)
 
@@ -178,15 +175,6 @@ func (s *Service) handleProfileMenu(ctx context.Context, chatID, customerID stri
 	newState.PreviousStep = "main_menu"
 	s.updateConversationState(ctx, chatID, newState)
 	return formatProfileView(profile)
-}
-
-func (s *Service) handleBillingMenu(ctx context.Context, chatID, customerID string, state ConversationState) string {
-	paymentMethods := s.getCustomerPaymentMethods(ctx, customerID)
-	newState := state
-	newState.Step = "billing_list"
-	newState.PreviousStep = "main_menu"
-	s.updateConversationState(ctx, chatID, newState)
-	return formatBillingManagement(paymentMethods)
 }
 
 func (s *Service) handleAddressesMenu(ctx context.Context, chatID, customerID string, state ConversationState) string {

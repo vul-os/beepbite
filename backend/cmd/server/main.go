@@ -204,7 +204,7 @@ func main() {
 
 	// Best-effort transactional email: render a branded template + send via the
 	// configured provider. No-ops cleanly when no provider is configured (e.g.
-	// before RESEND_API_KEY is set), and never blocks the triggering action.
+	// before SMTP_HOST is set), and never blocks the triggering action.
 	emailNotify := func(to, tmpl string, data map[string]any) {
 		if emailRegistry == nil || to == "" {
 			return
@@ -216,7 +216,7 @@ func main() {
 		}
 		msg.To = to
 		// Let the configured provider decide the From (its verified sender, e.g.
-		// the EMAIL_FROM_DEFAULT / RESEND verified domain) instead of forcing the
+		// the EMAIL_FROM_DEFAULT / provider verified domain) instead of forcing the
 		// template's default, which may be on an unverified domain.
 		msg.From = ""
 		prov, _, perr := emailRegistry.For(context.Background(), "")
