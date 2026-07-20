@@ -24,7 +24,7 @@ export function PageContainer({ className, children, ...props }) {
  *     actions={<Button>New item</Button>}
  *   />
  *
- * The title renders in Fraunces (font-display) for the brand's editorial feel.
+ * The title renders in Inter at display weight (font-display), matching the rest of the app.
  * `icon` (a lucide component) renders in a soft branded chip to the left.
  */
 export function PageHeader({

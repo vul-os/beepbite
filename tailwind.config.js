@@ -6,7 +6,7 @@ module.exports = {
   	extend: {
   		fontFamily: {
   			sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
-  			display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+  			display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
   		},
   		maxWidth: {
   			content: '1600px',
