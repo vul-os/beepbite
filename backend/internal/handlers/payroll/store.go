@@ -8,6 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/bizday"
+	"github.com/beepbite/backend/internal/locations"
 )
 
 // Sentinel errors for HTTP status mapping.
@@ -57,6 +60,34 @@ type Store struct {
 }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+// zoneForLocation resolves a location's configured timezone, falling back to
+// UTC when the location is unknown or unreadable. Payroll must never fail to
+// produce a figure because a timezone could not be read.
+func (s *Store) zoneForLocation(ctx context.Context, locationID string) *time.Location {
+	if locationID == "" {
+		return time.UTC
+	}
+	settings, err := locations.SettingsFor(ctx, s.pool, locationID)
+	if err != nil {
+		return time.UTC
+	}
+	return settings.Zone()
+}
+
+// zoneForStaff resolves the timezone of the location a staff member works at.
+//
+// Pay dates are calendar dates in the store the shift was worked in, so the
+// staff row is what ties a rate to a zone.
+func (s *Store) zoneForStaff(ctx context.Context, staffID string) *time.Location {
+	var locationID string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT COALESCE(location_id::text, '') FROM staff WHERE id = $1`, staffID,
+	).Scan(&locationID); err != nil {
+		return time.UTC
+	}
+	return s.zoneForLocation(ctx, locationID)
+}
 
 // allowedRateTypes mirrors the DB CHECK constraint.
 var allowedRateTypes = map[string]struct{}{
@@ -134,7 +165,11 @@ type CreateRateInput struct {
 func (s *Store) CreateRate(ctx context.Context, staffID string, in CreateRateInput) (*PayRate, error) {
 	effFrom := in.EffectiveFrom
 	if effFrom == "" {
-		effFrom = time.Now().UTC().Format("2006-01-02")
+		// "Today" is the date at the store, not at the server. A manager in Los
+		// Angeles setting a rate at 17:00 would otherwise have it recorded as
+		// effective tomorrow, and the shift being worked right now would be
+		// paid at the old rate.
+		effFrom = bizday.Date(time.Now(), s.zoneForStaff(ctx, staffID))
 	}
 
 	// Default overtime values to DB defaults if not supplied.
@@ -169,11 +204,21 @@ WHERE staff_id      = $1
 INSERT INTO staff_pay_rates (
     staff_id, rate_type, amount_cents,
     overtime_multiplier, overtime_threshold_hours_per_week,
-    effective_from, notes, created_by
+    effective_from, notes, created_by,
+    currency
 ) VALUES (
     $1, $2, $3,
     $4, $5,
-    $6::date, $7, $8
+    $6::date, $7, $8,
+    -- The currency of the organization that employs this staff member. The
+    -- column used to inherit a DEFAULT 'ZAR' (dropped in migration 056), which
+    -- meant amount_cents — an integer with no currency of its own — was read as
+    -- rand no matter where the person actually worked.
+    (SELECT o.default_currency_code
+       FROM staff st
+       JOIN locations l ON l.id = st.location_id
+       JOIN organizations o ON o.id = l.organization_id
+      WHERE st.id = $1)
 )
 RETURNING `+rateCols,
 		staffID, in.RateType, in.AmountCents,
@@ -239,6 +284,11 @@ func (s *Store) ExportPayroll(
 	ctx context.Context,
 	locationID, periodStart, periodEnd string,
 ) ([]PayrollRow, error) {
+	// periodStart/periodEnd are bare calendar dates; they are interpreted as
+	// dates in this location's zone, which is the zone the timestamptz columns
+	// below are converted into before being compared against them.
+	tz := s.zoneForLocation(ctx, locationID).String()
+
 	// TODO: if tip_distributions does not exist in the target DB, the query
 	// will fail. Guard with an existence check or catch the "relation does not
 	// exist" Postgres error (42P01) and re-run without the tip CTE.
@@ -260,8 +310,12 @@ tips AS (
     FROM tip_distributions td
     JOIN tip_pools tp ON tp.id = td.tip_pool_id
     WHERE tp.location_id = $1
-      AND td.distributed_at::date >= $2::date
-      AND td.distributed_at::date <= $3::date
+      -- distributed_at is a timestamptz; ::date alone would resolve it in the
+      -- Postgres session timezone, which is a third definition of "day" and
+      -- belongs to nobody. Convert to the store's wall clock first so a tip
+      -- distributed during Friday's evening service lands on Friday's payroll.
+      AND (td.distributed_at AT TIME ZONE $4)::date >= $2::date
+      AND (td.distributed_at AT TIME ZONE $4)::date <= $3::date
     GROUP BY td.staff_id
 ),
 current_rates AS (
@@ -313,7 +367,7 @@ LEFT JOIN current_rates cr ON cr.staff_id = s.id
 WHERE s.location_id = $1
   AND s.is_active    = true
 ORDER BY s.last_name, s.first_name
-`, locationID, periodStart, periodEnd)
+`, locationID, periodStart, periodEnd, tz)
 	if err != nil {
 		return nil, err
 	}

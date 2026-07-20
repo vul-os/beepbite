@@ -230,6 +230,14 @@ VALUES ($1, $2, $3, $4, $5)
 // currentPeriod returns the first and last calendar day of the current UTC
 // month. Mirrors the logic in internal/quota/quota.go to stay consistent
 // without introducing a cross-package dependency.
+//
+// This one stays in UTC on purpose. It is a platform-admin billing period
+// spanning every tenant at once, and those tenants sit in different timezones —
+// there is no single local midnight that could be correct for all of them, and
+// a billing month must be the same interval for everyone or two tenants'
+// invoices cover overlapping time. Per-location day boundaries (the ones that
+// have to match a cash drawer) are computed with internal/bizday against
+// locations.timezone instead.
 func currentPeriod() (start, end time.Time) {
 	now := time.Now().UTC()
 	start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)

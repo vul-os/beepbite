@@ -118,7 +118,7 @@ func TestIntegration_IssueLinkToken_RoundTrip(t *testing.T) {
 
 	phone := fmt.Sprintf("+2761%010d", time.Now().UnixNano()%10_000_000_000)
 
-	lt, err := store.IssueLinkToken(ctx, phone)
+	lt, err := store.IssueLinkToken(ctx, phone, "")
 	if err != nil {
 		t.Fatalf("IssueLinkToken: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestIntegration_BindPhone_TokenConsumed(t *testing.T) {
 
 	phone := fmt.Sprintf("+2762%010d", time.Now().UnixNano()%10_000_000_000)
 
-	lt, err := store.IssueLinkToken(ctx, phone)
+	lt, err := store.IssueLinkToken(ctx, phone, "")
 	if err != nil {
 		t.Fatalf("IssueLinkToken: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestIntegration_GetPendingPhone_Expired(t *testing.T) {
 
 	phone := fmt.Sprintf("+2763%010d", time.Now().UnixNano()%10_000_000_000)
 
-	lt, err := store.IssueLinkToken(ctx, phone)
+	lt, err := store.IssueLinkToken(ctx, phone, "")
 	if err != nil {
 		t.Fatalf("IssueLinkToken: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestIntegration_BindPhone_AtCap(t *testing.T) {
 
 	// Bind first 3 — all must succeed.
 	for i, ph := range phones[:3] {
-		lt, err := store.IssueLinkToken(ctx, ph)
+		lt, err := store.IssueLinkToken(ctx, ph, "")
 		if err != nil {
 			t.Fatalf("IssueLinkToken[%d]: %v", i, err)
 		}
@@ -236,7 +236,7 @@ func TestIntegration_BindPhone_AtCap(t *testing.T) {
 	}
 
 	// 4th bind must fail with ErrAtCap.
-	lt, err := store.IssueLinkToken(ctx, phones[3])
+	lt, err := store.IssueLinkToken(ctx, phones[3], "")
 	if err != nil {
 		t.Fatalf("IssueLinkToken[3]: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestIntegration_BindPhone_DuplicatePhone(t *testing.T) {
 	phone := fmt.Sprintf("+2768%010d", time.Now().UnixNano()%10_000_000_000)
 
 	// Bind to profile A — must succeed.
-	ltA, err := store.IssueLinkToken(ctx, phone)
+	ltA, err := store.IssueLinkToken(ctx, phone, "")
 	if err != nil {
 		t.Fatalf("IssueLinkToken A: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestIntegration_BindPhone_DuplicatePhone(t *testing.T) {
 	}
 
 	// Issue a second token for the same phone (same E.164 number).
-	ltB, err := store.IssueLinkToken(ctx, phone)
+	ltB, err := store.IssueLinkToken(ctx, phone, "")
 	if err != nil {
 		t.Fatalf("IssueLinkToken B: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestIntegration_ListLinks(t *testing.T) {
 
 	// Bind two phones to the profile.
 	for i, ph := range wantPhones {
-		lt, err := store.IssueLinkToken(ctx, ph)
+		lt, err := store.IssueLinkToken(ctx, ph, "")
 		if err != nil {
 			t.Fatalf("IssueLinkToken[%d]: %v", i, err)
 		}

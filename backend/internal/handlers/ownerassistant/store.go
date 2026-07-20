@@ -12,7 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/locations"
 )
 
 // ErrItemNotFound is returned when the requested item does not exist or is
@@ -341,10 +343,27 @@ type TodaySalesRow struct {
 // the query falls back to all visible locations.
 func (s *Store) TodaySales(ctx context.Context, locationID string) (TodaySalesRow, error) {
 	var row TodaySalesRow
+	// "Today" has to mean the store's today. Cut in UTC, an owner in Los
+	// Angeles asking the assistant about today's sales at 17:00 gets a figure
+	// that already rolled over an hour earlier and shows almost nothing, while
+	// the afternoon's takings sit under "yesterday".
+	//
+	// With no location_id the query spans every location the caller can see, so
+	// there is no single correct zone; that path stays on UTC boundaries (see
+	// the else branch below).
+	zone := time.UTC
+	if locationID != "" {
+		if settings, err := locations.SettingsFor(ctx, s.pool, locationID); err == nil {
+			zone = settings.Zone()
+		}
+	}
+
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
-		now := time.Now().UTC()
-		dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-		dayEnd := dayStart.AddDate(0, 0, 1)
+		// Half-open [dayStart, dayEnd): an order struck at exactly midnight
+		// belongs to the day that is starting and to no other. bizday.Bounds
+		// steps by calendar date, so DST days keep their true 23- or 25-hour
+		// length instead of being assumed to be 24.
+		dayStart, dayEnd := bizday.Bounds(time.Now(), zone)
 
 		var q string
 		var args []any
@@ -360,6 +379,9 @@ WHERE location_id = $1
   AND created_at >= $2 AND created_at < $3`
 			args = []any{locationID, dayStart, dayEnd}
 		} else {
+			// Cross-location aggregate: the visible locations may sit in
+			// different zones, so no single local midnight applies. UTC is kept
+			// here deliberately rather than picking one store's day arbitrarily.
 			q = `
 SELECT COUNT(*)::bigint,
        COALESCE(SUM(total_cents),0)::bigint,

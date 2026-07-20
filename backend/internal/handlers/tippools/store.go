@@ -4,12 +4,15 @@ package tippools
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/locations"
 )
 
 // Sentinel errors for HTTP-layer status-code mapping.
@@ -85,6 +88,46 @@ func nullF64(f float64) any {
 	return f
 }
 
+// resolveShiftDate turns a caller-supplied shift_date into a calendar date in
+// the location's own timezone.
+//
+// shift_date is a bare `date`: it names the trading day a pool belongs to, and
+// a trading day is local by definition. The relative forms are the ones that
+// actually broke — resolved against the server clock, a "today" pool opened at
+// 18:00 in Los Angeles on a UTC server was stamped with tomorrow's date, so the
+// evening's tips were pooled under a day nobody worked and the shift's real
+// pool looked empty.
+//
+// Rules:
+//   - ""                    → "" (unchanged: NULL shift_date means a rolling
+//     pool that is not tied to a single day at all)
+//   - "today" / "yesterday" → that date in the location's zone
+//   - anything else         → returned as given, and interpreted downstream as
+//     a calendar date in the location's zone
+func (s *Store) resolveShiftDate(ctx context.Context, locationID, shiftDate string) string {
+	switch strings.ToLower(strings.TrimSpace(shiftDate)) {
+	case "today", "yesterday":
+	default:
+		return shiftDate
+	}
+
+	zone := time.UTC
+	if locationID != "" {
+		if settings, err := locations.SettingsFor(ctx, s.pool, locationID); err == nil {
+			zone = settings.Zone()
+		}
+	}
+
+	now := time.Now()
+	if strings.EqualFold(strings.TrimSpace(shiftDate), "yesterday") {
+		// Stepped by calendar date rather than by subtracting 24h, so the two
+		// DST nights a year do not land on the wrong date.
+		start, _ := bizday.Bounds(now, zone)
+		return bizday.Date(start.AddDate(0, 0, -1), zone)
+	}
+	return bizday.Date(now, zone)
+}
+
 // ---- TipPool CRUD -----------------------------------------------------------
 
 const poolCols = `id, organization_id, location_id, name, rule_type, config,
@@ -104,6 +147,8 @@ func (s *Store) CreatePool(
 	config map[string]any,
 	shiftDate string,
 ) (*TipPool, error) {
+	shiftDate = s.resolveShiftDate(ctx, locationID, shiftDate)
+
 	var out TipPool
 	err := db.Scoped(ctx, s.pool, db.ScopeFromContext(ctx), func(tx pgx.Tx) error {
 		return scanPool(tx.QueryRow(ctx, `
@@ -122,6 +167,10 @@ RETURNING `+poolCols,
 // ListPools returns active pools, optionally filtered by location and/or shift
 // date (both filters are optional — pass empty strings to omit).
 func (s *Store) ListPools(ctx context.Context, locationID, shiftDate string) ([]TipPool, error) {
+	// Resolved the same way as on write, so that a UI asking for "today"
+	// receives the pool that today's service is actually contributing to.
+	shiftDate = s.resolveShiftDate(ctx, locationID, shiftDate)
+
 	q := `SELECT ` + poolCols + ` FROM tip_pools WHERE is_active = true`
 	args := []any{}
 	if locationID != "" {

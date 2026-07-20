@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/money"
 )
 
 // LoyaltyConfig mirrors the loyalty_config row for one organization.
@@ -143,9 +145,16 @@ func (ls *LoyaltyStore) EarnPoints(
 		return nil, err
 	}
 
-	// points_per_currency_unit is "X points per 1 ZAR (100 cents)".
-	// Convert cents → whole currency units, then multiply.
-	currencyUnits := float64(orderAmountCents) / 100.0
+	// points_per_currency_unit is "X points per 1 MAJOR unit of the org's
+	// currency". How many minor units make a major one is a property of that
+	// currency, never the literal 100 this used to divide by: at 100, a ¥1,000
+	// order (1,000 minor units, JPY having no subunit) earned points for 10 yen
+	// instead of 1,000, and a KWD order earned ten times what it should.
+	_, decimals, err := orgCurrency(ctx, tx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	currencyUnits := float64(orderAmountCents) / float64(money.Scale(decimals))
 	earnedPoints := int64(math.Floor(currencyUnits * cfg.PointsPerCurrencyUnit))
 
 	currentPts, err := ls.customerPointsFU(ctx, tx, customerID)
@@ -206,11 +215,18 @@ func (ls *LoyaltyStore) RedeemPoints(
 		return nil, ErrBelowMinRedemption
 	}
 
-	// Convert points → currency value for cap check.
-	// pointsToRedeem / points_per_currency_unit = ZAR → * 100 = cents.
+	// Convert points → currency value for the cap check: points ÷
+	// points_per_currency_unit gives MAJOR units, scaled up to minor units by
+	// the currency's own exponent rather than a hardcoded 100. With the literal,
+	// a 0-decimal currency overstated the redemption value 100× and every
+	// redemption tripped the max-percentage cap.
+	_, decimals, err := orgCurrency(ctx, tx, organizationID)
+	if err != nil {
+		return nil, err
+	}
 	var redemptionCents int64
 	if cfg.PointsPerCurrencyUnit > 0 {
-		redemptionCents = int64(math.Floor(float64(pointsToRedeem) / cfg.PointsPerCurrencyUnit * 100))
+		redemptionCents = int64(math.Floor(float64(pointsToRedeem) / cfg.PointsPerCurrencyUnit * float64(money.Scale(decimals))))
 	}
 
 	// Enforce max redemption as a percentage of the order.

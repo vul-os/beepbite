@@ -9,8 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/money"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -679,16 +681,28 @@ func (s *Service) createOrder(
 
 	subtotal := cartSummary.Subtotal
 	deliveryFee := cartSummary.DeliveryFee
-	taxRate := 15.00
-	taxAmount := subtotal * (taxRate / 100.0)
 	totalAmount := subtotal + deliveryFee + tipAmount
 
-	// Resolve per-store currency (5-min in-process cache).
-	cur, curErr := locations.CurrencyFor(ctx, s.pool, locationID)
-	if curErr != nil {
-		log.Printf("chatbot: createOrder: CurrencyFor(%s): %v — defaulting to ZAR", locationID, curErr)
-		cur = locations.Currency{Code: "ZAR", Symbol: "R", Decimals: 2}
+	// Resolve the store's currency, timezone and tax posture in one cached
+	// query.
+	//
+	// A failure here used to fall back to ZAR/R/2 and a hardcoded 15% tax rate.
+	// Both were South African constants applied to every WhatsApp order
+	// anywhere in the world, and the tax was computed EXCLUSIVELY (added on
+	// top) while the rest of the system recorded these orders as
+	// tax-inclusive — so a WhatsApp order in a VAT country charged the VAT
+	// twice. A currency we cannot resolve is now a hard failure: writing an
+	// order row whose currency is a guess is worse than not taking the order.
+	settings, setErr := locations.SettingsFor(ctx, s.pool, locationID)
+	if setErr != nil {
+		log.Printf("chatbot: createOrder: SettingsFor(%s): %v", locationID, setErr)
+		return createOrderResult{Success: false, Error: "Failed to resolve store settings"}
 	}
+	cur := settings.Currency
+
+	// Tax rate and convention both come from the store's configuration. A store
+	// that has configured no tax is charged none.
+	taxRate := settings.Tax.Rate.Percent()
 
 	// Resolve delivery fields.
 	var notes interface{}
@@ -712,11 +726,23 @@ func (s *Service) createOrder(
 		}
 	}
 
-	// Convert financials to integer cents.
-	subtotalCents := int64(math.Round(subtotal * 100))
-	deliveryFeeCents := int64(math.Round(deliveryFee * 100))
-	taxCents := int64(math.Round(taxAmount * 100))
-	totalCents := int64(math.Round(totalAmount * 100))
+	// Convert financials to integer minor units using the CURRENCY'S exponent,
+	// not a literal 100. For a JPY store, ×100 inflated every WhatsApp order a
+	// hundredfold.
+	minorScale := float64(money.Scale(cur.Decimals))
+	subtotalCents := int64(math.Round(subtotal * minorScale))
+	deliveryFeeCents := int64(math.Round(deliveryFee * minorScale))
+	totalCents := int64(math.Round(totalAmount * minorScale))
+
+	// Apply the store's actual inclusive/exclusive convention. The taxable base
+	// is the subtotal plus delivery; the tip is not taxed.
+	taxed := settings.Tax.Compute(subtotalCents + deliveryFeeCents)
+	taxCents := taxed.Tax
+	if !settings.Tax.Inclusive {
+		// Exclusive: the tax is genuinely additional, so it joins the total.
+		// Inclusive: it was already inside the prices and totalAmount is right.
+		totalCents += taxCents
+	}
 
 	// Resolve organization_id from the location (required for the orders NOT NULL FK).
 	var orgID string
@@ -740,19 +766,22 @@ func (s *Service) createOrder(
 			    organization_id, location_id, customer_id, order_number,
 			    order_type, fulfillment_type, status,
 			    subtotal_cents, delivery_fee_cents, tax_cents, total_cents, tax_rate,
-			    currency_code, estimated_prep_time,
+			    tax_inclusive, currency_code, estimated_prep_time,
 			    delivery_address, delivery_latitude, delivery_longitude, delivery_instructions,
-			    notes
+			    notes, business_date
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, 30, $13, $14, $15, $16, $17)
+			VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, $13, 30, $14, $15, $16, $17, $18, $19::date)
 			RETURNING id
 		`,
 			orgID, locationID, customerID, orderNumber,
 			orderType, fulfillmentTypeForChatbot(orderType),
+			// tax_inclusive was never written at all here, so every WhatsApp
+			// order silently took the schema default while the code computed
+			// the opposite convention. Both now come from the store's config.
 			subtotalCents, deliveryFeeCents, taxCents, totalCents, taxRate,
-			cur.Code,
+			settings.Tax.Inclusive, nullIfEmpty(cur.Code),
 			dAddr, dLat, dLng, dInstr,
-			notes,
+			notes, bizday.Date(time.Now(), settings.Zone()),
 		).Scan(&orderID); err != nil {
 			return fmt.Errorf("insert order: %w", err)
 		}
@@ -760,8 +789,9 @@ func (s *Service) createOrder(
 		// Step 2: Insert order_items with integer-cent columns (unit_price/total_price
 		// were renamed to unit_price_cents/total_price_cents in the Wave 0 schema).
 		for _, ci := range cartItems {
-			unitCents := int64(math.Round(ci.UnitPrice * 100))
-			totalItemCents := int64(math.Round(ci.TotalPrice * 100))
+			// The currency's exponent, not 100 — see the totals above.
+			unitCents := int64(math.Round(ci.UnitPrice * minorScale))
+			totalItemCents := int64(math.Round(ci.TotalPrice * minorScale))
 			var specialInstr interface{}
 			if ci.SpecialInstructions != nil {
 				specialInstr = *ci.SpecialInstructions
@@ -957,4 +987,17 @@ func (s *Service) updateCustomerProfile(ctx context.Context, customerID string, 
 		return updateProfileResult{Success: false, Error: err.Error()}
 	}
 	return updateProfileResult{Success: true, Customer: c}
+}
+
+// nullIfEmpty converts an empty currency code to a SQL NULL.
+//
+// orders.currency_code carries a foreign key to currencies(code); an empty
+// string is not a valid code and would fail the constraint, taking the whole
+// order down. NULL is the correct representation of "this location has not
+// configured a currency" and is what the formatters already handle.
+func nullIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
 }

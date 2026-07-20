@@ -12,7 +12,9 @@
 //
 // Token issuance (called by the WhatsApp webhook, not mounted here):
 //
-//	tok, err := whatsappLinkH.Store().IssueLinkToken(ctx, phoneE164)
+//	// The location supplies the dial code for national-format numbers; without
+//	// one, only numbers that already carry a country code are accepted.
+//	tok, err := whatsappLinkH.Store().IssueLinkTokenForLocation(ctx, rawPhone, locationID)
 package whatsapplink
 
 import (

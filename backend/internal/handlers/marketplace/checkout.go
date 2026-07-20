@@ -19,8 +19,12 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"time"
 
+	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/tax"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -191,9 +195,20 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 	// --- 4. Compute totals in integer cents (mirrors pos.CreateOrder) ---
 	// Unit prices are stored as float64 dollars in items.price; convert to cents
 	// via round to avoid floating-point drift.
+	// The location's currency, timezone and tax posture, in one cached query.
+	// Resolved BEFORE the price arithmetic because Currency.Decimals is the
+	// exponent that arithmetic depends on.
+	settings, err := locations.SettingsFor(ctx, cs.pool, locationID)
+	if err != nil {
+		return nil, fmt.Errorf("resolving location settings: %w", err)
+	}
+	cur := settings.Currency
+
 	unitPriceCentsByItem := make(map[string]int64, len(itemCache))
 	for id, ir := range itemCache {
-		unitPriceCentsByItem[id] = int64(math.Round(ir.price * 100))
+		// The currency's minor-unit exponent, not a literal 100. items.price is
+		// a decimal in MAJOR units; ×100 turns a ¥1000 item into ¥100,000.
+		unitPriceCentsByItem[id] = int64(math.Round(ir.price * float64(money.Scale(cur.Decimals))))
 	}
 
 	var subtotalCents int64
@@ -201,23 +216,28 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		subtotalCents += unitPriceCentsByItem[line.ItemID] * int64(line.Quantity)
 	}
 
-	// Resolve per-store tax rate (5-min cached; fallback chain: tax_rates row →
-	// region default → 0). Uses the real pool (not the tx) to match pos.TaxRateFor.
-	taxRate, err := taxRateFor(ctx, cs.pool, locationID)
+	// Resolve the store's tax posture — rate AND inclusive/exclusive.
+	//
+	// This path previously applied the exclusive formula unconditionally while
+	// the orders row recorded tax_inclusive from the schema default (true), so
+	// a marketplace order in a VAT country was recorded as tax-inclusive and
+	// charged as tax-exclusive: the customer paid the VAT twice.
+	taxCfg, err := taxConfigFor(ctx, cs.pool, locationID, settings)
 	if err != nil {
-		return nil, fmt.Errorf("resolving tax rate: %w", err)
+		return nil, fmt.Errorf("resolving tax configuration: %w", err)
 	}
-	// Tax-exclusive: tax added on top of subtotal (consistent with POS path).
-	taxCents := int64(math.Round(float64(subtotalCents) * taxRate / 100.0))
-	totalCents := subtotalCents + taxCents
-
-	// --- T8.5: Resolve per-store currency (5-min cached; fallback → ZAR) ---
-	cur, err := locations.CurrencyFor(ctx, cs.pool, locationID)
-	if err != nil {
-		return nil, fmt.Errorf("resolving currency: %w", err)
-	}
+	taxed := taxCfg.Compute(subtotalCents)
+	taxRate := taxCfg.Rate.Percent()
+	taxInclusive := taxCfg.Inclusive
+	taxCents := taxed.Tax
+	totalCents := taxed.Gross
 
 	// --- 5. Generate order number ---
+	// Scoped by the store's TRADING day (migration 057's orders.business_date),
+	// not the UTC day — see internal/bizday for why a UTC boundary resets the
+	// sequence mid-service outside a narrow band of longitudes.
+	businessDate := bizday.Date(time.Now(), settings.Zone())
+
 	var maxSeq int
 	_ = tx.QueryRow(ctx, `
 		SELECT COALESCE(MAX(
@@ -228,8 +248,8 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		), 0)
 		FROM orders
 		WHERE location_id = $1
-		  AND date_trunc('day', created_at AT TIME ZONE 'UTC') = date_trunc('day', now() AT TIME ZONE 'UTC')
-	`, locationID).Scan(&maxSeq)
+		  AND business_date = $2::date
+	`, locationID, businessDate).Scan(&maxSeq)
 	orderNumber := fmt.Sprintf("MKT%04d", maxSeq+1)
 
 	// --- 6. Insert order into the consolidated orders table ---
@@ -247,15 +267,20 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		    organization_id, location_id, customer_id, order_number,
 		    order_type, fulfillment_type, status,
 		    subtotal_cents, tax_cents, total_cents, tax_rate, tax_inclusive,
-		    currency_code, delivery_address, estimated_prep_time
+		    currency_code, delivery_address, estimated_prep_time,
+		    business_date
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12, $13, 30)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 30, $15::date)
 		RETURNING id
 	`,
 		orgID, locationID, nullableStr(req.CustomerID), orderNumber,
 		mapFulfillment(ft), ft, initialStatus,
-		subtotalCents, taxCents, totalCents, taxRate,
-		cur.Code, dAddr,
+		// tax_inclusive was a literal `false` here while the tax was computed
+		// exclusively — internally consistent, but it ignored the store's
+		// actual convention. It is now snapshotted from the configuration.
+		subtotalCents, taxCents, totalCents, taxRate, taxInclusive,
+		nullableStr(cur.Code), dAddr,
+		businessDate,
 	).Scan(&orderID); err != nil {
 		return nil, err
 	}
@@ -306,31 +331,46 @@ func nullableStr(s string) interface{} {
 	return s
 }
 
-// taxRateFor resolves the effective tax rate (percentage, e.g. 15.0) for the
-// given location using the same fallback chain as pos.TaxRateFor:
-//  1. First active row in tax_rates for the location.
-//  2. Zero.
+// taxConfigFor resolves the effective tax posture — rate, inclusive/exclusive
+// convention, and receipt label — for a location:
+//
+//  1. The first active row in tax_rates for the location, which carries its own
+//     rate and is_inclusive.
+//  2. The location's own tax settings, already resolved into `settings`.
+//
+// It returns BOTH the rate and the convention because a rate alone is not
+// enough to compute a total, and treating it as if it were is how the
+// exclusive-only formula ended up here in the first place.
 //
 // This is a local copy to avoid a cross-package dependency on the pos package.
-func taxRateFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (float64, error) {
-	// Step 1: location-specific tax_rates row.
-	var rate float64
+func taxConfigFor(ctx context.Context, pool *pgxpool.Pool, locationID string, settings locations.Settings) (tax.Config, error) {
+	var (
+		rate      float64
+		inclusive bool
+		label     *string
+	)
 	err := pool.QueryRow(ctx, `
-		SELECT CAST(rate AS float8)
+		SELECT CAST(rate AS float8), is_inclusive, name
 		FROM tax_rates
 		WHERE location_id = $1
 		  AND is_active = true
 		ORDER BY created_at
 		LIMIT 1
-	`, locationID).Scan(&rate)
+	`, locationID).Scan(&rate, &inclusive, &label)
 	if err == nil {
-		return rate, nil
+		cfg := tax.Config{Rate: tax.RateFromPercent(rate), Inclusive: inclusive}
+		if label != nil {
+			cfg.Label = *label
+		}
+		return cfg, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return 0, err
+		return tax.Config{}, err
 	}
 
-	// Step 2: zero fallback. There is no region table to inherit a default
-	// tax rate from — a self-hosted shop configures its own tax_rates rows.
-	return 0, nil
+	// Fall back to the location's own tax_rate / tax_inclusive / tax_label
+	// (migration 056). A zero rate here is a legitimate configuration —
+	// tax-exempt, or a jurisdiction with no sales tax — and charges nothing
+	// rather than inheriting some other country's rate.
+	return settings.Tax, nil
 }

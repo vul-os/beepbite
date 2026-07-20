@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/locations"
 )
 
 var (
@@ -125,14 +127,28 @@ RETURNING `+resCols,
 	return &out, nil
 }
 
+// ListReservations returns the bookings for one local calendar day at a
+// location.
+//
+// `date` is a bare YYYY-MM-DD, and reservation_at is a timestamptz, so the two
+// only line up once the timestamp is converted to the restaurant's own wall
+// clock. `reservation_at::date` on its own resolves in the Postgres session
+// timezone: on a UTC server a Los Angeles host opening the book for tonight
+// would find the 17:00-and-later tables filed under tomorrow — the bulk of the
+// evening's covers missing from the day they are actually seated.
 func (s *Store) ListReservations(ctx context.Context, locationID, date string) ([]Reservation, error) {
+	tz := "UTC"
+	if settings, err := locations.SettingsFor(ctx, s.pool, locationID); err == nil && settings.Timezone != "" {
+		tz = settings.Timezone
+	}
+
 	rows, err := s.pool.Query(ctx, `
 SELECT `+resCols+`
 FROM reservations
 WHERE location_id = $1
-  AND reservation_at::date = $2::date
+  AND (reservation_at AT TIME ZONE $3)::date = $2::date
 ORDER BY reservation_at ASC
-`, locationID, date)
+`, locationID, date, tz)
 	if err != nil {
 		return nil, err
 	}
