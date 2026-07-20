@@ -4,14 +4,20 @@ BeepBite is a comprehensive Point of Sale (POS) system that provides all traditi
 
 ## 🏪 Traditional POS Features
 
-### 💳 Payment Processing
+### 💳 Tenders
 
-**Card Payments**
-- Credit and debit card processing
-- Contactless payments (tap-to-pay)
-- Chip and PIN support
-- EMV compliance and security
+> [!IMPORTANT]
+> BeepBite **records tenders; it does not process cards.** There is no payment
+> gateway, no card data ever reaches it, and it holds no PCI scope. Card
+> processing was deliberately removed — you keep your own card machine, your
+> own acquirer and your own money.
+
+**Tender types**
+- Cash, card, bank transfer and voucher recorded against the order
+- "Card" means your own card machine on your own counter — BeepBite records
+  the amount and the tender type, nothing more
 - Split payments and tips
+- Reconciled into the cash drawer at close
 
 **Cash Management**
 - Cash drawer integration
@@ -142,21 +148,22 @@ BeepBite is a comprehensive Point of Sale (POS) system that provides all traditi
 - Loyalty program integration
 - Customer communication logs
 
-### 💸 WhatsApp Payments
+### 💸 Paying for a WhatsApp order
 
-**Payment Methods**
-- WhatsApp Pay integration
-- Bank transfer requests
-- Payment link generation
-- QR code payments
-- Payment confirmation tracking
+> [!NOTE]
+> **Not built.** BeepBite has no payment integration of any kind, on WhatsApp
+> or anywhere else. A WhatsApp order is settled the way any other order is —
+> cash or your own card machine on collection or delivery, recorded as a tender
+> at the till.
 
-**Payment Processing**
-- Secure payment handling
-- Payment status tracking
+Planned, not implemented: bank-transfer requests and payment-confirmation
+tracking, both of which would record a tender rather than move money.
+
+**Tender recording**
+- Tender status tracking
 - Automatic receipt generation
-- Refund processing
-- Payment method analytics
+- Refunds recorded against the original tender
+- Tender-mix analytics
 
 ### 🔔 Digital Restaurant Pagers
 
@@ -330,12 +337,13 @@ BeepBite is a comprehensive Point of Sale (POS) system that provides all traditi
 
 ### 🛡️ POS Security
 
-**Payment Security**
-- PCI DSS compliance
-- End-to-end encryption
-- Secure payment processing
-- Fraud detection and prevention
+**Tender security**
+- **No PCI scope.** BeepBite never sees card data, so there is nothing to
+  breach — the strongest security property it has, and it comes from what it
+  refuses to do rather than from a control it implements
+- Manager approval required for voids, comps and adjustments
 - Audit trail maintenance
+- Idempotency keys, so a retried request cannot double-record a tender
 
 **Data Protection**
 - Customer data encryption
@@ -409,26 +417,15 @@ BeepBite is a comprehensive Point of Sale (POS) system that provides all traditi
 
 ---
 
-## Feature Comparison by Plan
+## There are no plans
 
-| Feature | Starter POS | Professional POS | Enterprise POS |
-|---------|-------------|------------------|----------------|
-| **Traditional POS Features** |
-| Payment Processing | ✅ | ✅ | ✅ |
-| Basic Inventory | ✅ | ✅ | ✅ |
-| Staff Management (10 users) | ✅ | ✅ | ✅ |
-| Menu Management | ✅ | ✅ | ✅ |
-| Basic Reports | ✅ | ✅ | ✅ |
-| **WhatsApp Features** |
-| WhatsApp Ordering | ✅ | ✅ | ✅ |
-| Digital Pagers | ✅ | ✅ | ✅ |
-| WhatsApp Payments | ❌ | ✅ | ✅ |
-| **Advanced Features** |
-| Advanced Inventory | ❌ | ✅ | ✅ |
-| Advanced Analytics | ❌ | ✅ | ✅ |
-| API Access | ❌ | ✅ | ✅ |
-| Multi-Location | ❌ | ❌ | ✅ |
-| Custom Branding | ❌ | ❌ | ✅ |
-| Priority Support | ❌ | ❌ | ✅ |
+There is no Starter, Professional or Enterprise tier, because there is no
+hosted BeepBite to buy. It is MIT-licensed software you run yourself, and every
+feature in this document is in every copy.
 
-BeepBite provides everything your current POS system does, plus modern WhatsApp capabilities that enhance customer experience and open new revenue channels. 
+Nothing is gated, metered, or unlocked by a licence key. Multi-location,
+API access, advanced reporting and custom branding are not upsells — they are
+either built or they are not, and this document says which.
+
+That also means there is no vendor to raise your price, sunset your tier, or
+take a percentage of what you sell. 
