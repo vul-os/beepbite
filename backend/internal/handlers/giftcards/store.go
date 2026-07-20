@@ -23,7 +23,36 @@ var (
 	ErrInsufficientFunds = errors.New("insufficient gift card balance")
 	ErrInvalidPIN        = errors.New("invalid PIN")
 	ErrCodeCollision     = errors.New("gift card code collision after retries")
+
+	// ErrCurrencyNotConfigured is returned when a card must be issued for an
+	// organization with no default_currency_code. gift_cards.currency is NOT
+	// NULL with a char_length = 3 CHECK and, since migration 056, has no
+	// default — so there is no honest value to write. Refusing is the point: a
+	// gift card is prepaid money, and issuing one in the wrong currency either
+	// robs the bearer or the operator, permanently and silently.
+	ErrCurrencyNotConfigured = errors.New("organization has no default_currency_code — set it before issuing gift cards")
 )
+
+// orgCurrencyCode resolves an organization's configured currency code, or ""
+// when it has none. Gift cards are organization-scoped (gift_cards has no
+// location_id and a card issued at one branch is redeemable at another), so the
+// organization's default_currency_code is the right authority here.
+func (s *Store) orgCurrencyCode(ctx context.Context, organizationID string) (string, error) {
+	var code *string
+	err := s.pool.QueryRow(ctx, `
+SELECT default_currency_code FROM organizations WHERE id = $1
+`, organizationID).Scan(&code)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if code == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(*code), nil
+}
 
 // GiftCard mirrors the columns of gift_cards that the API surfaces.
 type GiftCard struct {
@@ -93,7 +122,7 @@ type IssueParams struct {
 	CardType            string // "physical" | "digital"
 	PIN                 string // plain-text; empty → no PIN
 	InitialBalanceCents int64
-	Currency            string // empty → "ZAR"
+	Currency            string // empty → the organization's default_currency_code
 	IssuedToCustomerID  string
 	IssuedToName        string
 	IssuedToEmail       string
@@ -120,7 +149,14 @@ func (s *Store) Issue(ctx context.Context, p IssueParams) (*IssueResult, error) 
 
 	currency := p.Currency
 	if currency == "" {
-		currency = "ZAR"
+		resolved, err := s.orgCurrencyCode(ctx, p.OrganizationID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve currency for organization %s: %w", p.OrganizationID, err)
+		}
+		currency = resolved
+	}
+	if currency == "" {
+		return nil, ErrCurrencyNotConfigured
 	}
 	cardType := p.CardType
 	if cardType == "" {

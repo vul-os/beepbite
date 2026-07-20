@@ -121,7 +121,11 @@ func (s *Store) GetReceipt(ctx context.Context, orderID string) (*Receipt, error
 				o.subtotal_cents,
 				o.tax_cents,
 				o.total_cents,
-				COALESCE(o.currency_code, 'ZAR'),
+				-- A receipt is the customer's legal record of what they paid. If
+				-- the order has no currency_code, stamping 'ZAR' on it is a false
+				-- statement about the transaction for every non-ZA operator. ''
+				-- renders as a bare number, which is visibly incomplete instead.
+				COALESCE(o.currency_code, ''),
 				o.fiscal_receipt_number,
 				l.name,
 				l.address

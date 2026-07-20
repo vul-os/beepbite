@@ -16,33 +16,71 @@ import (
 // client was constructed without a Mapbox API key.
 var ErrNoToken = errors.New("mapbox: no API token configured")
 
-// defaultCountry is the ISO-3166-1 alpha-2 country code used when
-// MAPBOX_COUNTRY is not set.
-const defaultCountry = "za"
+// Bias narrows a geocoding request to a part of the world.
+//
+// Both fields are optional and independent. An empty Bias means *no* bias: the
+// request goes to Mapbox without `country` or `proximity` and results come back
+// from the whole world, ranked only by Mapbox's own relevance.
+//
+// That empty default is deliberate. The obvious alternative — pick some country
+// to fall back to — is not a neutral choice, it is a wrong answer for every
+// operator outside that country, and a silent one: their customers simply never
+// see their own street in the autocomplete list and have no way to tell why.
+// Worldwide results are at worst noisy, and noise is visible.
+type Bias struct {
+	// Country is a comma-separated list of ISO-3166-1 alpha-2 codes ("gb",
+	// "za,na,bw"). Sent as &country=.
+	Country string
+	// Proximity is a "lng,lat" point that pulls nearby results up the ranking.
+	// Sent as &proximity=.
+	Proximity string
+}
 
-// defaultProximity is the "lng,lat" bias point used when MAPBOX_PROXIMITY is
-// not set.  Johannesburg city centre.
-const defaultProximity = "28.0473,-26.2041"
+// orDefault returns b, or d for whichever fields b leaves blank. A per-request
+// bias therefore overrides the deployment default field-by-field rather than
+// all-or-nothing: a caller can narrow the country for one location while still
+// inheriting the configured proximity.
+func (b Bias) orDefault(d Bias) Bias {
+	if b.Country == "" {
+		b.Country = d.Country
+	}
+	if b.Proximity == "" {
+		b.Proximity = d.Proximity
+	}
+	return b
+}
 
-// Config holds all constructor options.  APIKey is required for live calls;
-// Country and Proximity are optional and fall back to the SA defaults.
+// apply writes the non-empty bias parameters into v. Blank fields are omitted
+// entirely — Mapbox treats an absent `country` as "anywhere", but an empty
+// `country=` as a malformed filter.
+func (b Bias) apply(v url.Values) {
+	if c := strings.TrimSpace(b.Country); c != "" {
+		v.Set("country", c)
+	}
+	if p := strings.TrimSpace(b.Proximity); p != "" {
+		v.Set("proximity", p)
+	}
+}
+
+// Config holds all constructor options. APIKey is required for live calls;
+// Country and Proximity are optional and default to unset, i.e. worldwide
+// results.
 type Config struct {
 	APIKey     string
 	HTTPClient *http.Client
-	// Country is the ISO-3166-1 alpha-2 code appended as &country=<code> to
-	// every geocoding request.  Defaults to MAPBOX_COUNTRY env → "za".
+	// Country is the ISO-3166-1 alpha-2 code (or comma-separated list) applied
+	// as the deployment-wide default bias. Falls back to the MAPBOX_COUNTRY
+	// env var, then to no country filter at all.
 	Country string
-	// Proximity is a "lng,lat" string appended as &proximity=<lng,lat> to
-	// every geocoding request.  Defaults to MAPBOX_PROXIMITY env →
-	// "28.0473,-26.2041" (Johannesburg).
+	// Proximity is a "lng,lat" bias point applied as the deployment-wide
+	// default. Falls back to MAPBOX_PROXIMITY, then to no proximity bias.
 	Proximity string
 }
 
 type Client struct {
-	apiKey     string
-	httpClient *http.Client
-	country    string
-	proximity  string
+	apiKey      string
+	httpClient  *http.Client
+	defaultBias Bias
 }
 
 func NewClient(cfg Config) *Client {
@@ -51,30 +89,40 @@ func NewClient(cfg Config) *Client {
 		hc = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	country := cfg.Country
-	if country == "" {
-		if v := os.Getenv("MAPBOX_COUNTRY"); v != "" {
-			country = v
-		} else {
-			country = defaultCountry
-		}
-	}
-
-	proximity := cfg.Proximity
-	if proximity == "" {
-		if v := os.Getenv("MAPBOX_PROXIMITY"); v != "" {
-			proximity = v
-		} else {
-			proximity = defaultProximity
-		}
-	}
+	// Config wins over env so a caller that has already read configuration
+	// (internal/config exposes MapboxCountry / MapboxProximity) is authoritative;
+	// the env lookup is only here for the direct-construction path. Neither
+	// having a value is a valid, fully-supported state.
+	bias := Bias{Country: cfg.Country, Proximity: cfg.Proximity}.
+		orDefault(Bias{
+			Country:   os.Getenv("MAPBOX_COUNTRY"),
+			Proximity: os.Getenv("MAPBOX_PROXIMITY"),
+		})
 
 	return &Client{
-		apiKey:     cfg.APIKey,
-		httpClient: hc,
-		country:    country,
-		proximity:  proximity,
+		apiKey:      cfg.APIKey,
+		httpClient:  hc,
+		defaultBias: bias,
 	}
+}
+
+// DefaultBias reports the deployment-wide bias this client applies when a
+// request supplies none. A zero value means worldwide.
+func (c *Client) DefaultBias() Bias { return c.defaultBias }
+
+// geocodeURL builds a Geocoding v5 request URL for an already-escaped path
+// segment (a query string for forward geocoding, "lng,lat" for reverse),
+// merging the request bias over the client default.
+func (c *Client) geocodeURL(pathSegment string, bias Bias, extra url.Values) string {
+	v := url.Values{}
+	for key, vals := range extra {
+		v[key] = vals
+	}
+	v.Set("access_token", c.apiKey)
+	bias.orDefault(c.defaultBias).apply(v)
+
+	return "https://api.mapbox.com/geocoding/v5/mapbox.places/" +
+		pathSegment + ".json?" + v.Encode()
 }
 
 type Coordinates struct {
@@ -150,7 +198,15 @@ type directionsResponse struct {
 	Message string            `json:"message"`
 }
 
+// GeocodeAddress forward-geocodes an address using the client's default bias.
 func (c *Client) GeocodeAddress(address string) GeocodeResult {
+	return c.GeocodeAddressBiased(address, Bias{})
+}
+
+// GeocodeAddressBiased is GeocodeAddress with a per-request bias, for a
+// multi-region operator resolving an address that belongs to a known location.
+// A zero Bias falls back to the client default, which may itself be worldwide.
+func (c *Client) GeocodeAddressBiased(address string, bias Bias) GeocodeResult {
 	if c.apiKey == "" {
 		return GeocodeResult{Success: false, Error: "Mapbox API key not found in environment variables"}
 	}
@@ -159,10 +215,7 @@ func (c *Client) GeocodeAddress(address string) GeocodeResult {
 	}
 
 	encoded := url.PathEscape(strings.TrimSpace(address))
-	geocodeURL := fmt.Sprintf(
-		"https://api.mapbox.com/geocoding/v5/mapbox.places/%s.json?access_token=%s&limit=1&country=%s&proximity=%s",
-		encoded, url.QueryEscape(c.apiKey), url.QueryEscape(c.country), url.QueryEscape(c.proximity),
-	)
+	geocodeURL := c.geocodeURL(encoded, bias, url.Values{"limit": {"1"}})
 
 	resp, err := c.httpClient.Get(geocodeURL)
 	if err != nil {
@@ -209,14 +262,26 @@ func (c *Client) GeocodeAddress(address string) GeocodeResult {
 	}
 }
 
+// ReverseGeocode resolves coordinates to an address using the client's default
+// bias.
 func (c *Client) ReverseGeocode(latitude, longitude float64) GeocodeResult {
+	return c.ReverseGeocodeBiased(latitude, longitude, Bias{})
+}
+
+// ReverseGeocodeBiased is ReverseGeocode with a per-request bias.
+//
+// Note that a country filter on a reverse geocode is a hard constraint, not a
+// ranking hint: coordinates outside the named country return no result at all.
+// Callers resolving a customer-shared pin should usually leave Bias.Country
+// empty even when they know the location's country, because the pin is the
+// authoritative fact and the country is the assumption.
+func (c *Client) ReverseGeocodeBiased(latitude, longitude float64, bias Bias) GeocodeResult {
 	if c.apiKey == "" {
 		return GeocodeResult{Success: false, Error: "Mapbox API key not found in environment variables"}
 	}
 
-	reverseURL := fmt.Sprintf(
-		"https://api.mapbox.com/geocoding/v5/mapbox.places/%v,%v.json?access_token=%s&limit=1&country=%s&proximity=%s",
-		longitude, latitude, url.QueryEscape(c.apiKey), url.QueryEscape(c.country), url.QueryEscape(c.proximity),
+	reverseURL := c.geocodeURL(
+		fmt.Sprintf("%v,%v", longitude, latitude), bias, url.Values{"limit": {"1"}},
 	)
 
 	resp, err := c.httpClient.Get(reverseURL)
@@ -261,12 +326,23 @@ func (c *Client) ReverseGeocode(latitude, longitude float64) GeocodeResult {
 	}
 }
 
-// Suggest performs an autocomplete forward-geocode biased to c.country /
-// c.proximity and returns up to 6 structured Suggestion values.
+// Suggest performs an autocomplete forward-geocode using the client's default
+// bias and returns up to 6 structured Suggestion values.
 //
 // It returns (nil, ErrNoToken) when no API key is configured — callers should
 // treat this as an empty result rather than a fatal error.
 func (c *Client) Suggest(query string) ([]Suggestion, error) {
+	return c.SuggestBiased(query, Bias{})
+}
+
+// SuggestBiased is Suggest with a per-request bias.
+//
+// This is the call an address-entry form should make once it knows which
+// location the customer is ordering from: biasing to that location's country
+// and coordinates puts the customer's own suburb at the top of the list, which
+// is the difference between autocomplete being useful and being ignored.
+// Passing a zero Bias is always valid and yields worldwide results.
+func (c *Client) SuggestBiased(query string, bias Bias) ([]Suggestion, error) {
 	if c.apiKey == "" {
 		return nil, ErrNoToken
 	}
@@ -276,19 +352,11 @@ func (c *Client) Suggest(query string) ([]Suggestion, error) {
 		return nil, nil
 	}
 
-	suggestURL := fmt.Sprintf(
-		"https://api.mapbox.com/geocoding/v5/mapbox.places/%s.json"+
-			"?access_token=%s"+
-			"&autocomplete=true"+
-			"&country=%s"+
-			"&proximity=%s"+
-			"&limit=6"+
-			"&types=address,place,locality,neighborhood,postcode",
-		url.PathEscape(q),
-		url.QueryEscape(c.apiKey),
-		url.QueryEscape(c.country),
-		url.QueryEscape(c.proximity),
-	)
+	suggestURL := c.geocodeURL(url.PathEscape(q), bias, url.Values{
+		"autocomplete": {"true"},
+		"limit":        {"6"},
+		"types":        {"address,place,locality,neighborhood,postcode"},
+	})
 
 	resp, err := c.httpClient.Get(suggestURL)
 	if err != nil {

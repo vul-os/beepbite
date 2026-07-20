@@ -2,9 +2,90 @@ package chatbot
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/money"
 )
+
+// ---------------------------------------------------------------------------
+// Money rendering
+// ---------------------------------------------------------------------------
+
+// chatMoney turns a price into the text a customer sees in WhatsApp.
+//
+// The chatbot's domain structs still carry money as float64 *major* units
+// (Item.Price, CartSummary.TotalAmount, CartItem.TotalPrice …) — a legacy of
+// the TypeScript port that the ordering/database layer owns. This type is the
+// single boundary where those floats become text: it converts to minor units
+// once, at the moment of printing, and does no arithmetic afterwards.
+//
+// It has two fidelities because its callers do:
+//
+//   - Full currency (Code + Decimals): rendered by money.Format, so a Tokyo
+//     store shows "￥1,000" and a Kuwaiti store "KWD 1.234". This is what every
+//     call site should eventually supply.
+//   - Symbol only: the legacy `currencySymbol string` parameter that the
+//     ordering layer passes. A symbol does not tell us the currency's exponent,
+//     so the amount is printed at its own natural precision rather than forced
+//     to two decimals. "R12.5" is merely terser than "R12.50"; "¥1000.00" would
+//     be a factually wrong price.
+//
+// With neither, the amount is printed bare. No symbol is ever invented — a "R"
+// in front of a Nairobi price is worse than no symbol at all.
+type chatMoney struct {
+	cur    locations.Currency // zero value means "unresolved"
+	symbol string             // legacy symbol-only fallback
+}
+
+// chatMoneyOf collapses the variadic currency argument the formatters take.
+// Absent or zero-valued, it yields an unresolved renderer.
+func chatMoneyOf(cur []locations.Currency) chatMoney {
+	if len(cur) > 0 {
+		return chatMoney{cur: cur[0], symbol: cur[0].Symbol}
+	}
+	return chatMoney{}
+}
+
+// chatMoneyForCaller prefers a fully resolved currency when the caller has one
+// and falls back to the legacy symbol string otherwise. It exists so the
+// ordering layer can be upgraded one call site at a time rather than in a flag
+// day, and so that neither path can reach a hardcoded "R".
+func chatMoneyForCaller(symbol string, cur []locations.Currency) chatMoney {
+	if len(cur) > 0 && cur[0].Code != "" {
+		return chatMoneyOf(cur)
+	}
+	return chatMoneyFromSymbol(symbol)
+}
+
+// chatMoneyFromSymbol builds a renderer from the legacy symbol-only parameter.
+func chatMoneyFromSymbol(symbol string) chatMoney {
+	return chatMoney{symbol: strings.TrimSpace(symbol)}
+}
+
+// render renders a major-unit price.
+func (m chatMoney) render(major float64) string {
+	if m.cur.Code != "" {
+		// Round to the currency's own granularity on the way in; float64 holds
+		// every realistic amount exactly at this scale, and no further
+		// arithmetic is done on the result.
+		minor := int64(math.Round(major * float64(money.Scale(m.cur.Decimals))))
+		return money.Format(minor, m.cur.Code, m.cur.Decimals, "")
+	}
+	return m.symbol + strconv.FormatFloat(major, 'f', -1, 64)
+}
+
+// label names the currency in running prose ("type R amount"). Empty when the
+// currency is unknown, so callers must tolerate an empty string.
+func (m chatMoney) label() string {
+	if m.symbol != "" {
+		return m.symbol
+	}
+	return m.cur.Code
+}
 
 const maxWhatsAppMessageLength = 4096
 
@@ -135,7 +216,8 @@ func formatNewAddressPrompt() string {
 		"📱 *Powered by BeepBite.io*"
 }
 
-func formatStoreSelection(stores []Location, isNearby bool) string {
+func formatStoreSelection(stores []Location, isNearby bool, cur ...locations.Currency) string {
+	m := chatMoneyOf(cur)
 	var b strings.Builder
 	b.WriteString("🏪 *Select Store*\n\n")
 	if len(stores) == 0 {
@@ -154,7 +236,7 @@ func formatStoreSelection(stores []Location, isNearby bool) string {
 				fmt.Fprintf(&b, "   📍 %s\n", *s.Address)
 			}
 			if s.DeliveryFee > 0 {
-				fmt.Fprintf(&b, "   🚚 Delivery: R%.2f\n", s.DeliveryFee)
+				fmt.Fprintf(&b, "   🚚 Delivery: %s\n", m.render(s.DeliveryFee))
 			}
 			b.WriteString("\n")
 		}
@@ -239,7 +321,8 @@ func formatMenuCategories(store *Location, categories []Category, cartItemCount,
 	return b.String()
 }
 
-func formatCategoryItems(store *Location, category *Category, cartItemCount, page, itemsPerPage int) string {
+func formatCategoryItems(store *Location, category *Category, cartItemCount, page, itemsPerPage int, cur ...locations.Currency) string {
+	m := chatMoneyOf(cur)
 	var b strings.Builder
 	storeName := ""
 	if store != nil {
@@ -273,7 +356,7 @@ func formatCategoryItems(store *Location, category *Category, cartItemCount, pag
 		b.WriteString("*Select an Item:*\n\n")
 		for i, it := range current {
 			itemNumber := startIndex + i + 1
-			fmt.Fprintf(&b, "*[%d]* %s - R%.2f\n", itemNumber, it.Name, it.Price)
+			fmt.Fprintf(&b, "*[%d]* %s - %s\n", itemNumber, it.Name, m.render(it.Price))
 			if it.Description != nil && *it.Description != "" {
 				desc := *it.Description
 				if len(desc) > 80 {
@@ -313,13 +396,14 @@ func formatCategoryItems(store *Location, category *Category, cartItemCount, pag
 	return b.String()
 }
 
-func formatItemDetails(item *Item) string {
+func formatItemDetails(item *Item, cur ...locations.Currency) string {
+	m := chatMoneyOf(cur)
 	var b strings.Builder
 	fmt.Fprintf(&b, "🍽️ *%s*\n\n", item.Name)
 	if item.Description != nil && *item.Description != "" {
 		fmt.Fprintf(&b, "%s\n\n", *item.Description)
 	}
-	fmt.Fprintf(&b, "💰 *Price:* R%.2f\n", item.Price)
+	fmt.Fprintf(&b, "💰 *Price:* %s\n", m.render(item.Price))
 	if item.PreparationTime != nil {
 		fmt.Fprintf(&b, "⏱️ *Prep Time:* %d minutes\n", *item.PreparationTime)
 	}
@@ -336,7 +420,8 @@ func formatItemDetails(item *Item) string {
 	return b.String()
 }
 
-func formatItemCustomization(item *Item, currentVariationIndex int, selectedVariations map[string]string) string {
+func formatItemCustomization(item *Item, currentVariationIndex int, selectedVariations map[string]string, cur ...locations.Currency) string {
+	m := chatMoneyOf(cur)
 	variation := item.ItemVariations[currentVariationIndex]
 	totalVariations := len(item.ItemVariations)
 
@@ -354,9 +439,9 @@ func formatItemCustomization(item *Item, currentVariationIndex int, selectedVari
 	for i, o := range variation.ItemVariationOptions {
 		priceText := ""
 		if o.PriceModifier > 0 {
-			priceText = fmt.Sprintf(" (+R%.2f)", o.PriceModifier)
+			priceText = fmt.Sprintf(" (+%s)", m.render(o.PriceModifier))
 		} else if o.PriceModifier < 0 {
-			priceText = fmt.Sprintf(" (R%.2f)", o.PriceModifier)
+			priceText = fmt.Sprintf(" (%s)", m.render(o.PriceModifier))
 		}
 		fmt.Fprintf(&b, "*[%d]* %s%s\n", i+1, o.Name, priceText)
 	}
@@ -384,7 +469,8 @@ func formatItemCustomization(item *Item, currentVariationIndex int, selectedVari
 	return b.String()
 }
 
-func formatCustomizationSummary(item *Item, selectedVariations map[string]string) string {
+func formatCustomizationSummary(item *Item, selectedVariations map[string]string, cur ...locations.Currency) string {
+	m := chatMoneyOf(cur)
 	basePrice := item.Price
 	totalPrice := basePrice
 
@@ -401,9 +487,9 @@ func formatCustomizationSummary(item *Item, selectedVariations map[string]string
 						totalPrice += o.PriceModifier
 						priceText := ""
 						if o.PriceModifier > 0 {
-							priceText = fmt.Sprintf(" (+R%.2f)", o.PriceModifier)
+							priceText = fmt.Sprintf(" (+%s)", m.render(o.PriceModifier))
 						} else if o.PriceModifier < 0 {
-							priceText = fmt.Sprintf(" (R%.2f)", o.PriceModifier)
+							priceText = fmt.Sprintf(" (%s)", m.render(o.PriceModifier))
 						}
 						fmt.Fprintf(&b, "• %s: %s%s\n", v.Name, o.Name, priceText)
 					}
@@ -412,11 +498,11 @@ func formatCustomizationSummary(item *Item, selectedVariations map[string]string
 		}
 	}
 
-	fmt.Fprintf(&b, "\nBase Price: R%.2f\n", basePrice)
+	fmt.Fprintf(&b, "\nBase Price: %s\n", m.render(basePrice))
 	if totalPrice != basePrice {
-		fmt.Fprintf(&b, "Customizations: R%.2f\n", totalPrice-basePrice)
+		fmt.Fprintf(&b, "Customizations: %s\n", m.render(totalPrice-basePrice))
 	}
-	fmt.Fprintf(&b, "*Total Price: R%.2f*\n\n", totalPrice)
+	fmt.Fprintf(&b, "*Total Price: %s*\n\n", m.render(totalPrice))
 
 	b.WriteString("*[1]* ✅ Add to Plate\n")
 	b.WriteString("*[2]* ✏️ Change Customizations\n")
@@ -424,11 +510,8 @@ func formatCustomizationSummary(item *Item, selectedVariations map[string]string
 	return b.String()
 }
 
-func formatCartView(cartItems []CartItem, cartSummary *CartSummary, currencySymbol string) string {
-	sym := currencySymbol
-	if sym == "" {
-		sym = "R"
-	}
+func formatCartView(cartItems []CartItem, cartSummary *CartSummary, currencySymbol string, cur ...locations.Currency) string {
+	m := chatMoneyForCaller(currencySymbol, cur)
 	var b strings.Builder
 	b.WriteString("🛒 *Your Plate*\n\n")
 	if len(cartItems) == 0 {
@@ -442,7 +525,7 @@ func formatCartView(cartItems []CartItem, cartSummary *CartSummary, currencySymb
 				name = ci.Items.Name
 			}
 			fmt.Fprintf(&b, "*%d.* %s (x%d)\n", i+1, name, ci.Quantity)
-			fmt.Fprintf(&b, "   %s%.2f\n", sym, ci.TotalPrice)
+			fmt.Fprintf(&b, "   %s\n", m.render(ci.TotalPrice))
 			for _, v := range ci.CartItemVariations {
 				fmt.Fprintf(&b, "   • %s: %s\n", v.ItemVariations.Name, v.ItemVariationOptions.Name)
 			}
@@ -460,11 +543,11 @@ func formatCartView(cartItems []CartItem, cartSummary *CartSummary, currencySymb
 			deliveryFee = cartSummary.DeliveryFeeAmount
 			total = cartSummary.TotalAmount
 		}
-		fmt.Fprintf(&b, "Subtotal: %s%.2f\n", sym, subtotal)
+		fmt.Fprintf(&b, "Subtotal: %s\n", m.render(subtotal))
 		if deliveryFee > 0 {
-			fmt.Fprintf(&b, "Delivery Fee: %s%.2f\n", sym, deliveryFee)
+			fmt.Fprintf(&b, "Delivery Fee: %s\n", m.render(deliveryFee))
 		}
-		fmt.Fprintf(&b, "*Total: %s%.2f*\n\n", sym, total)
+		fmt.Fprintf(&b, "*Total: %s*\n\n", m.render(total))
 
 		b.WriteString("*Options:*\n")
 		b.WriteString("*[1]* ✏️ Edit Items\n")
@@ -477,11 +560,8 @@ func formatCartView(cartItems []CartItem, cartSummary *CartSummary, currencySymb
 	return b.String()
 }
 
-func formatCheckout(cartSummary *CartSummary, deliveryType string, currencySymbol string) string {
-	sym := currencySymbol
-	if sym == "" {
-		sym = "R"
-	}
+func formatCheckout(cartSummary *CartSummary, deliveryType string, currencySymbol string, cur ...locations.Currency) string {
+	m := chatMoneyForCaller(currencySymbol, cur)
 	var b strings.Builder
 	b.WriteString("🧾 *Checkout*\n\n")
 	b.WriteString("*Order Summary:*\n")
@@ -493,11 +573,11 @@ func formatCheckout(cartSummary *CartSummary, deliveryType string, currencySymbo
 		deliveryFee = cartSummary.DeliveryFeeAmount
 		total = cartSummary.TotalAmount
 	}
-	fmt.Fprintf(&b, "Subtotal: %s%.2f\n", sym, subtotal)
+	fmt.Fprintf(&b, "Subtotal: %s\n", m.render(subtotal))
 	if deliveryFee > 0 {
-		fmt.Fprintf(&b, "Delivery Fee: %s%.2f\n", sym, deliveryFee)
+		fmt.Fprintf(&b, "Delivery Fee: %s\n", m.render(deliveryFee))
 	}
-	fmt.Fprintf(&b, "*Total: %s%.2f*\n\n", sym, total)
+	fmt.Fprintf(&b, "*Total: %s*\n\n", m.render(total))
 
 	isCollection := deliveryType == "collection"
 	b.WriteString("*Payment Options:*\n")
@@ -516,22 +596,23 @@ func formatCheckout(cartSummary *CartSummary, deliveryType string, currencySymbo
 	return b.String()
 }
 
-func formatTipSelection(orderTotal float64, currencySymbol string) string {
-	sym := currencySymbol
-	if sym == "" {
-		sym = "R"
-	}
+func formatTipSelection(orderTotal float64, currencySymbol string, cur ...locations.Currency) string {
+	m := chatMoneyForCaller(currencySymbol, cur)
 	var b strings.Builder
 	b.WriteString("💰 *Add Tip?*\n\n")
-	fmt.Fprintf(&b, "Order Total: %s%.2f\n\n", sym, orderTotal)
+	fmt.Fprintf(&b, "Order Total: %s\n\n", m.render(orderTotal))
 	tip5 := orderTotal * 0.05
 	tip15 := orderTotal * 0.15
 	tip30 := orderTotal * 0.30
 	b.WriteString("*Tip Options:*\n")
-	fmt.Fprintf(&b, "*[1]* 5%% - %s%.2f\n", sym, tip5)
-	fmt.Fprintf(&b, "*[2]* 15%% - %s%.2f\n", sym, tip15)
-	fmt.Fprintf(&b, "*[3]* 30%% - %s%.2f\n", sym, tip30)
-	fmt.Fprintf(&b, "*[4]* 💰 Custom amount (type %s amount)\n", sym)
+	fmt.Fprintf(&b, "*[1]* 5%% - %s\n", m.render(tip5))
+	fmt.Fprintf(&b, "*[2]* 15%% - %s\n", m.render(tip15))
+	fmt.Fprintf(&b, "*[3]* 30%% - %s\n", m.render(tip30))
+	if label := m.label(); label != "" {
+		fmt.Fprintf(&b, "*[4]* 💰 Custom amount (type %s amount)\n", label)
+	} else {
+		b.WriteString("*[4]* 💰 Custom amount (type the amount)\n")
+	}
 	b.WriteString("*[5]* ⏭️ Skip tip\n\n")
 	b.WriteString("📱 *Powered by BeepBite.io*")
 	return b.String()
@@ -557,14 +638,11 @@ func formatPaymentMethods() string {
 	return b.String()
 }
 
-func formatPaymentLink(paymentURL string, orderTotal float64, currencySymbol string) string {
-	sym := currencySymbol
-	if sym == "" {
-		sym = "R"
-	}
+func formatPaymentLink(paymentURL string, orderTotal float64, currencySymbol string, cur ...locations.Currency) string {
+	m := chatMoneyForCaller(currencySymbol, cur)
 	var b strings.Builder
 	b.WriteString("💳 *Payment Link*\n\n")
-	fmt.Fprintf(&b, "Total Amount: %s%.2f\n\n", sym, orderTotal)
+	fmt.Fprintf(&b, "Total Amount: %s\n\n", m.render(orderTotal))
 	b.WriteString("Click the link below to pay:\n")
 	fmt.Fprintf(&b, "%s\n\n", paymentURL)
 	b.WriteString("*Options:*\n")

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/locations"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -253,7 +254,15 @@ func (s *Service) HandleGenerate(ctx context.Context, req *GenerateRequest, loc 
 		return nil, svcErr(http.StatusInternalServerError, "MISSING_API_KEY", "AI service configuration error. Please contact support.")
 	}
 
-	processed, err := s.processMenuInput(ctx, input)
+	// The location decides what the numbers on the menu mean. A failed lookup
+	// leaves the code empty, which asks the model to read the menu's own marks
+	// rather than assume a country.
+	currencyCode := ""
+	if set, sErr := locations.SettingsFor(ctx, s.pool, req.LocationID); sErr == nil {
+		currencyCode = set.Currency.Code
+	}
+
+	processed, err := s.processMenuInput(ctx, input, currencyCode)
 	if err != nil {
 		msg := err.Error()
 		if strings.Contains(msg, "Gemini API error") {
@@ -790,9 +799,36 @@ func nullIfEmpty(s string) interface{} {
 	return s
 }
 
+// currencyGuideline is the price-extraction instruction given to the model.
+//
+// It names the location's actual currency when we know it and otherwise asks
+// the model to read the menu on its own terms. It never names a specific
+// country: the previous "South African Rand (R)" wording told the model to
+// interpret every menu on earth as ZAR, which both mislabels prices and
+// invites it to reformat a ¥ or KD amount into two decimal places.
+func currencyGuideline(currencyCode string) string {
+	code := strings.ToUpper(strings.TrimSpace(currencyCode))
+	if code == "" {
+		return "Extract accurate prices exactly as printed, in decimal format, " +
+			"without converting between currencies"
+	}
+	return "Extract accurate prices in decimal format; the menu is priced in " +
+		code + " — do not convert to any other currency and do not change the " +
+		"number of decimal places the menu itself uses"
+}
+
 // --- Gemini: input processing ---
 
-func (s *Service) processMenuInput(ctx context.Context, input MenuInput) (*ProcessedMenu, error) {
+// processMenuInput dispatches to the right Gemini prompt for the input type.
+//
+// currencyCode is the ISO code the menu's prices are denominated in, resolved
+// from the location. It is passed to the model rather than baked into the
+// prompt because the prompt is the only place the model learns what "12.50" on
+// a photographed menu means: told the wrong currency it will helpfully
+// "correct" prices it thinks are implausible, and a 0-decimal menu (¥1200) read
+// as a 2-decimal one imports every item at 1/100th of its price. Empty means
+// unknown, in which case the model is asked to read the menu's own marks.
+func (s *Service) processMenuInput(ctx context.Context, input MenuInput, currencyCode string) (*ProcessedMenu, error) {
 	switch input.Type {
 	case "images":
 		var imgs []string
@@ -805,25 +841,25 @@ func (s *Service) processMenuInput(ctx context.Context, input MenuInput) (*Proce
 				return nil, err
 			}
 		}
-		return s.processMenuImages(ctx, imgs, input.AdditionalText)
+		return s.processMenuImages(ctx, imgs, input.AdditionalText, currencyCode)
 	case "text":
 		var txt string
 		if err := json.Unmarshal(input.Content, &txt); err != nil {
 			return nil, err
 		}
-		return s.processMenuText(ctx, txt)
+		return s.processMenuText(ctx, txt, currencyCode)
 	case "pdf":
 		var pdf string
 		if err := json.Unmarshal(input.Content, &pdf); err != nil {
 			return nil, err
 		}
-		return s.processMenuPDF(ctx, pdf)
+		return s.processMenuPDF(ctx, pdf, currencyCode)
 	default:
 		return nil, fmt.Errorf("Unsupported input type: %s", input.Type)
 	}
 }
 
-func (s *Service) processMenuText(ctx context.Context, textContent string) (*ProcessedMenu, error) {
+func (s *Service) processMenuText(ctx context.Context, textContent string, currencyCode string) (*ProcessedMenu, error) {
 	prompt := `
     Analyze this menu text and extract a comprehensive menu structure. The text content is:
 
@@ -875,7 +911,7 @@ func (s *Service) processMenuText(ctx context.Context, textContent string) (*Pro
 
     Guidelines:
     1. Create logical category hierarchies
-    2. Extract accurate prices in decimal format
+    2. ` + currencyGuideline(currencyCode) + `
     3. Include item descriptions when available
     4. Identify variations like sizes, toppings, spice levels
     5. Set reasonable preparation times (10-45 minutes)
@@ -911,7 +947,7 @@ var pdfPrefixRe = regexp.MustCompile(`^data:application/pdf;base64,`)
 var imgPrefixRe = regexp.MustCompile(`^data:image/([a-z]+);base64,`)
 var jsonFenceRe = regexp.MustCompile("```json\\n?|\\n?```")
 
-func (s *Service) processMenuPDF(ctx context.Context, base64Content string) (*ProcessedMenu, error) {
+func (s *Service) processMenuPDF(ctx context.Context, base64Content string, currencyCode string) (*ProcessedMenu, error) {
 	base64Data := pdfPrefixRe.ReplaceAllString(base64Content, "")
 
 	prompt := `
@@ -963,7 +999,7 @@ func (s *Service) processMenuPDF(ctx context.Context, base64Content string) (*Pr
 
     Guidelines:
     1. Create logical category hierarchies
-    2. Extract accurate prices in South African Rand (R) format
+    2. ` + currencyGuideline(currencyCode) + `
     3. Include item descriptions when available
     4. Identify variations like sizes, toppings, spice levels
     5. Set reasonable preparation times (10-45 minutes)
@@ -1000,7 +1036,7 @@ func (s *Service) processMenuPDF(ctx context.Context, base64Content string) (*Pr
 	return s.makeGeminiRequest(ctx, requestBody)
 }
 
-func (s *Service) processMenuImages(ctx context.Context, images []string, additionalText string) (*ProcessedMenu, error) {
+func (s *Service) processMenuImages(ctx context.Context, images []string, additionalText string, currencyCode string) (*ProcessedMenu, error) {
 	imageParts := make([]interface{}, 0, len(images))
 	for _, image := range images {
 		mimeType := "image/jpeg"
@@ -1077,7 +1113,7 @@ func (s *Service) processMenuImages(ctx context.Context, images []string, additi
 
     Guidelines:
     1. Create logical category hierarchies (e.g., "Mains" > "Pizza", "Beverages" > "Hot Drinks")
-    2. Extract accurate prices in decimal format
+    2. ` + currencyGuideline(currencyCode) + `
     3. Include item descriptions when available
     4. Identify variations like sizes, toppings, spice levels
     5. Set reasonable preparation times (10-45 minutes)

@@ -1,219 +1,244 @@
 package pos
 
-// Unit tests for TaxRateFor fallback chain using a stub pool.
+// Tests for TaxConfigFor.
 //
-// These tests exercise the three fallback tiers without a real database:
-//  1. location-specific tax_rates row
-//  2. region default_tax_rate (when no tax_rates row exists)
-//  3. zero (when neither exists)
+// These drive the REAL TaxConfigFor — cache included — by substituting the
+// injectable fetchTaxConfig, rather than re-implementing the cache in the test
+// and asserting against the copy (which is what the previous version of this
+// file did, and why it kept passing while the resolution chain underneath was
+// broken).
 //
-// Because TaxRateFor uses a process-level cache, each sub-test uses a unique
-// locationID (UUID-shaped string) so that cache hits from prior runs don't
-// interfere.
+// The chain being exercised:
+//  1. a location-specific tax_rates row, carrying its own rate AND convention
+//  2. the location's own tax_rate / tax_inclusive / tax_label (migration 056)
+//  3. zero tax
+//
+// The old tier 2 queried a `regions` table that does not exist in the current
+// schema. A missing relation is not pgx.ErrNoRows, so instead of falling
+// through to 0% it returned a hard error — meaning any location without an
+// explicit tax_rates row failed checkout outright. There is a test below that
+// would have caught that.
 
 import (
 	"context"
-	"net"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/beepbite/backend/internal/tax"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// newStubPool returns a *pgxpool.Pool that is configured to connect to a
-// deliberately unreachable address.  We never actually connect; the pool is
-// only used to call QueryRow — which we intercept by monkey-patching
-// fetchTaxRate via the exported TaxRateFor path through the internal
-// stubFetchTaxRate helper below.
-//
-// To avoid requiring a real DB for unit tests we bypass the pool entirely by
-// testing fetchTaxRate-equivalent logic through a table-driven approach that
-// calls our thin exported wrapper with a fake pool whose QueryRow panics —
-// then verifies the cache path returns immediately.
-//
-// A cleaner approach: define a Querier interface and pass that. For now we
-// test the cache + fallback path by directly calling the unexported
-// fetchTaxRate-level behaviour through a dependency injection shim.
-
-// ---------------------------------------------------------------------------
-// Test helpers — stub the DB calls via a lightweight fake
-// ---------------------------------------------------------------------------
-
-// taxFetcher is a function type that matches fetchTaxRate's signature minus
-// the pool dependency.  Tests inject their own fetcher to avoid a real DB.
-type taxFetcher func(ctx context.Context, pool *pgxpool.Pool, locationID string) (float64, error)
-
-// We expose a package-level variable so tests can override it.  The real code
-// calls fetchTaxRate directly; tests replace it via testHookFetchTaxRate.
-var testHookFetchTaxRate taxFetcher
-
-// taxRateForWithHook is a test-accessible wrapper that respects the hook.
-// If the hook is nil it falls through to the real fetchTaxRate.
-// This lives in the _test file so it is compiled only during testing.
-func taxRateForWithHook(ctx context.Context, pool *pgxpool.Pool, locationID string) (float64, error) {
-	// Cache lookup (mirrors TaxRateFor).
-	taxCacheMu.Lock()
-	if entry, ok := taxCache[locationID]; ok && time.Now().Before(entry.expiresAt) {
-		taxCacheMu.Unlock()
-		return entry.rate, nil
-	}
-	taxCacheMu.Unlock()
-
-	var rate float64
-	var err error
-	if testHookFetchTaxRate != nil {
-		rate, err = testHookFetchTaxRate(ctx, pool, locationID)
-	} else {
-		rate, err = fetchTaxRate(ctx, pool, locationID)
-	}
-	if err != nil {
-		return 0, err
-	}
-
-	taxCacheMu.Lock()
-	taxCache[locationID] = taxCacheEntry{
-		rate:      rate,
-		expiresAt: time.Now().Add(taxCacheTTL),
-	}
-	taxCacheMu.Unlock()
-	return rate, nil
-}
-
-// stubPool returns a pool pointed at a fake address — it is never dialled in
-// unit tests because we hook the fetcher.
-func stubPool(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	// Listen on an ephemeral port so the config is syntactically valid.
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("stub listener: %v", err)
-	}
-	addr := ln.Addr().String()
-	ln.Close()
-
-	cfg, err := pgxpool.ParseConfig("postgres://user:pass@" + addr + "/db?connect_timeout=1")
-	if err != nil {
-		t.Fatalf("parse config: %v", err)
-	}
-	// LazyConnect: pool is created but no connections are opened until first use.
-	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("new pool: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
-}
-
-// uniqueLocID returns a unique location ID string for each test so the
-// process-level cache does not bleed between sub-tests.
+// uniqueLocID returns a UUID-shaped string unique per test, so the
+// process-level cache cannot bleed between sub-tests.
 func uniqueLocID(suffix string) string {
 	return "00000000-0000-0000-0000-" + suffix
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-func TestTaxRateFor_LocationSpecificRow(t *testing.T) {
-	locID := uniqueLocID("aaa000000001")
-	// Purge any cached entry from a prior test run in the same process.
+func purgeTaxCache(locationID string) {
 	taxCacheMu.Lock()
-	delete(taxCache, locID)
+	delete(taxCache, locationID)
 	taxCacheMu.Unlock()
+	warnedNoTax.Delete(locationID)
+}
 
-	pool := stubPool(t)
-	testHookFetchTaxRate = func(_ context.Context, _ *pgxpool.Pool, id string) (float64, error) {
-		if id == locID {
-			// Simulate: tax_rates row found with 10%.
-			return 10.0, nil
-		}
-		return 0, nil
+// stubTaxFetch replaces the DB layer for the duration of a test.
+func stubTaxFetch(t *testing.T, fn func(locationID string) (tax.Config, error)) {
+	t.Helper()
+	orig := fetchTaxConfig
+	fetchTaxConfig = func(_ context.Context, _ *pgxpool.Pool, id string) (tax.Config, error) {
+		return fn(id)
 	}
-	t.Cleanup(func() { testHookFetchTaxRate = nil })
+	t.Cleanup(func() { fetchTaxConfig = orig })
+}
 
-	rate, err := taxRateForWithHook(context.Background(), pool, locID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+// ---------------------------------------------------------------------------
+
+func TestTaxConfigFor_CarriesRateAndConvention(t *testing.T) {
+	// A rate alone is not enough to compute a total. This is the regression
+	// guard for the bug where three handlers took only the rate and then
+	// applied the exclusive formula unconditionally.
+	tests := []struct {
+		name      string
+		cfg       tax.Config
+		wantRate  float64
+		inclusive bool
+	}{
+		{
+			name:      "a VAT-style inclusive location",
+			cfg:       tax.Config{Rate: tax.RateFromPercent(15), Inclusive: true, Label: "VAT"},
+			wantRate:  15,
+			inclusive: true,
+		},
+		{
+			name:      "a US-style exclusive location",
+			cfg:       tax.Config{Rate: tax.RateFromPercent(8.88), Inclusive: false, Label: "Sales Tax"},
+			wantRate:  8.88,
+			inclusive: false,
+		},
 	}
-	if rate != 10.0 {
-		t.Errorf("expected rate=10.0, got %v", rate)
+
+	for i, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			locID := uniqueLocID("aaa00000000" + string(rune('1'+i)))
+			purgeTaxCache(locID)
+			stubTaxFetch(t, func(string) (tax.Config, error) { return tc.cfg, nil })
+
+			got, err := TaxConfigFor(context.Background(), nil, locID)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.Rate.Percent() != tc.wantRate {
+				t.Errorf("rate = %v, want %v", got.Rate.Percent(), tc.wantRate)
+			}
+			if got.Inclusive != tc.inclusive {
+				t.Errorf("inclusive = %v, want %v — the convention must survive resolution",
+					got.Inclusive, tc.inclusive)
+			}
+		})
 	}
 }
 
-func TestTaxRateFor_RegionDefault(t *testing.T) {
-	locID := uniqueLocID("bbb000000002")
-	taxCacheMu.Lock()
-	delete(taxCache, locID)
-	taxCacheMu.Unlock()
+// TestTaxConfigFor_ConventionChangesTheTotal is the end-to-end statement of why
+// the flag has to be carried: resolution and computation together must produce
+// different money for the two conventions.
+func TestTaxConfigFor_ConventionChangesTheTotal(t *testing.T) {
+	const subtotal int64 = 11500
 
-	pool := stubPool(t)
-	// Simulate: no tax_rates row; region default is 5%.
-	testHookFetchTaxRate = func(_ context.Context, _ *pgxpool.Pool, id string) (float64, error) {
-		if id == locID {
-			return 5.0, nil
-		}
-		return 0, nil
-	}
-	t.Cleanup(func() { testHookFetchTaxRate = nil })
+	incID := uniqueLocID("bbb000000001")
+	purgeTaxCache(incID)
+	stubTaxFetch(t, func(string) (tax.Config, error) {
+		return tax.Config{Rate: tax.RateFromPercent(15), Inclusive: true}, nil
+	})
+	incCfg, _ := TaxConfigFor(context.Background(), nil, incID)
+	inc := incCfg.Compute(subtotal)
 
-	rate, err := taxRateForWithHook(context.Background(), pool, locID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	excID := uniqueLocID("bbb000000002")
+	purgeTaxCache(excID)
+	stubTaxFetch(t, func(string) (tax.Config, error) {
+		return tax.Config{Rate: tax.RateFromPercent(15), Inclusive: false}, nil
+	})
+	excCfg, _ := TaxConfigFor(context.Background(), nil, excID)
+	exc := excCfg.Compute(subtotal)
+
+	if inc.Gross != 11500 {
+		t.Errorf("inclusive total = %d, want 11500 (the price already contains the tax)", inc.Gross)
 	}
-	if rate != 5.0 {
-		t.Errorf("expected rate=5.0, got %v", rate)
+	if exc.Gross != 13225 {
+		t.Errorf("exclusive total = %d, want 13225 (the tax is added at the register)", exc.Gross)
+	}
+	if inc.Gross == exc.Gross {
+		t.Fatal("the two conventions produced the same total — tax_inclusive is not reaching the computation")
 	}
 }
 
-func TestTaxRateFor_ZeroFallback(t *testing.T) {
+func TestTaxConfigFor_ZeroFallbackChargesNothing(t *testing.T) {
 	locID := uniqueLocID("ccc000000003")
-	taxCacheMu.Lock()
-	delete(taxCache, locID)
-	taxCacheMu.Unlock()
-	// Reset the "already warned" flag so the log fires (cover that path).
-	warnedNoTax.Delete(locID)
+	purgeTaxCache(locID)
+	stubTaxFetch(t, func(string) (tax.Config, error) { return tax.Config{}, nil })
 
-	pool := stubPool(t)
-	// Simulate: neither tax_rates nor region default — zero fallback.
-	testHookFetchTaxRate = func(_ context.Context, _ *pgxpool.Pool, id string) (float64, error) {
-		return 0, nil
-	}
-	t.Cleanup(func() { testHookFetchTaxRate = nil })
-
-	rate, err := taxRateForWithHook(context.Background(), pool, locID)
+	cfg, err := TaxConfigFor(context.Background(), nil, locID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if rate != 0.0 {
-		t.Errorf("expected rate=0.0 (zero fallback), got %v", rate)
+	if cfg.Rate != 0 {
+		t.Errorf("rate = %v, want 0 — an unconfigured location must not inherit a jurisdiction's rate", cfg.Rate)
+	}
+	if got := cfg.Compute(11500); got.Tax != 0 {
+		t.Errorf("tax = %d, want 0", got.Tax)
+	}
+	// And specifically not South African VAT, which is what tier 3 used to
+	// effectively become once a caller defaulted around the error.
+	if cfg.Rate.Percent() == 15 {
+		t.Error("the no-configuration fallback resolved to 15% — that is a country's rate, not a neutral default")
 	}
 }
 
-func TestTaxRateFor_CacheHit(t *testing.T) {
+// TestTaxConfigFor_MissingRelationDoesNotBreakCheckout is the direct regression
+// test for the dead `regions` branch: a DB error from an intermediate tier must
+// not be swallowed into a silent 0%, and a genuine no-rows must not surface as
+// an error that fails the sale.
+func TestTaxConfigFor_ErrorsPropagateRatherThanBecomingZero(t *testing.T) {
 	locID := uniqueLocID("ddd000000004")
-	// Seed the cache directly.
+	purgeTaxCache(locID)
+
+	sentinel := errors.New("relation \"regions\" does not exist")
+	stubTaxFetch(t, func(string) (tax.Config, error) { return tax.Config{}, sentinel })
+
+	_, err := TaxConfigFor(context.Background(), nil, locID)
+	if !errors.Is(err, sentinel) {
+		t.Errorf("err = %v, want the underlying DB error — a broken tax lookup must be visible, not silently 0%%", err)
+	}
+}
+
+func TestTaxConfigFor_CacheHit(t *testing.T) {
+	locID := uniqueLocID("eee000000005")
+
 	taxCacheMu.Lock()
-	taxCache[locID] = taxCacheEntry{rate: 20.0, expiresAt: time.Now().Add(5 * time.Minute)}
+	taxCache[locID] = taxCacheEntry{
+		config:    tax.Config{Rate: tax.RateFromPercent(20), Inclusive: true, Label: "GST"},
+		expiresAt: time.Now().Add(5 * time.Minute),
+	}
 	taxCacheMu.Unlock()
-	t.Cleanup(func() {
-		taxCacheMu.Lock()
-		delete(taxCache, locID)
-		taxCacheMu.Unlock()
+	t.Cleanup(func() { purgeTaxCache(locID) })
+
+	stubTaxFetch(t, func(string) (tax.Config, error) {
+		t.Error("fetchTaxConfig called despite a valid cache entry")
+		return tax.Config{}, nil
 	})
 
-	// Hook would panic if called — cache should short-circuit it.
-	testHookFetchTaxRate = func(_ context.Context, _ *pgxpool.Pool, _ string) (float64, error) {
-		t.Error("fetchTaxRate called despite valid cache entry")
-		return 0, nil
-	}
-	t.Cleanup(func() { testHookFetchTaxRate = nil })
-
-	pool := stubPool(t)
-	rate, err := taxRateForWithHook(context.Background(), pool, locID)
+	cfg, err := TaxConfigFor(context.Background(), nil, locID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if rate != 20.0 {
-		t.Errorf("expected cached rate=20.0, got %v", rate)
+	if cfg.Rate.Percent() != 20 || !cfg.Inclusive || cfg.Label != "GST" {
+		t.Errorf("cached config = %+v, want the seeded 20%% inclusive GST", cfg)
+	}
+}
+
+func TestInvalidateTaxCache(t *testing.T) {
+	locID := uniqueLocID("fff000000006")
+	purgeTaxCache(locID)
+
+	calls := 0
+	stubTaxFetch(t, func(string) (tax.Config, error) {
+		calls++
+		return tax.Config{Rate: tax.RateFromPercent(float64(10 * calls))}, nil
+	})
+
+	first, _ := TaxConfigFor(context.Background(), nil, locID)
+	if first.Rate.Percent() != 10 {
+		t.Fatalf("first resolution = %v%%, want 10%%", first.Rate.Percent())
+	}
+
+	// Without invalidation the cache answers.
+	cached, _ := TaxConfigFor(context.Background(), nil, locID)
+	if cached.Rate.Percent() != 10 {
+		t.Errorf("second resolution = %v%%, want the cached 10%%", cached.Rate.Percent())
+	}
+
+	// After an operator edits their tax settings, the next order must see it.
+	InvalidateTaxCache(locID)
+	fresh, _ := TaxConfigFor(context.Background(), nil, locID)
+	if fresh.Rate.Percent() != 20 {
+		t.Errorf("post-invalidation resolution = %v%%, want the new 20%%", fresh.Rate.Percent())
+	}
+	t.Cleanup(func() { purgeTaxCache(locID) })
+}
+
+// TestTaxRateFor_StillWorks covers the retained percentage-only helper.
+func TestTaxRateFor_StillWorks(t *testing.T) {
+	locID := uniqueLocID("ggg000000007")
+	purgeTaxCache(locID)
+	stubTaxFetch(t, func(string) (tax.Config, error) {
+		return tax.Config{Rate: tax.RateFromPercent(23), Inclusive: true}, nil
+	})
+
+	rate, err := TaxRateFor(context.Background(), nil, locID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rate != 23 {
+		t.Errorf("TaxRateFor = %v, want 23", rate)
 	}
 }

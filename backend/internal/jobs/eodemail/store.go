@@ -42,7 +42,11 @@ func loadActiveLocations(ctx context.Context, pool *pgxpool.Pool) ([]locationRow
 SELECT
     l.id                                            AS location_id,
     l.name                                          AS location_name,
-    COALESCE(l.currency_code, 'ZAR')                AS currency_code,
+    -- No 'ZAR' fallback: an unconfigured location would otherwise receive a
+    -- nightly takings email denominating its real turnover in rand. Empty
+    -- renders as a bare number, so the owner sees an amount without a symbol
+    -- and knows the location's currency_code still needs setting.
+    COALESCE(l.currency_code, '')                   AS currency_code,
     COALESCE(p.email, '')                           AS owner_email
 FROM locations l
 JOIN organizations o ON o.id = l.organization_id

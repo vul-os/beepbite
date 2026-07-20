@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beepbite/backend/internal/locations"
 )
 
 // Sentinel errors mapped to HTTP status codes in handler.go.
@@ -440,9 +442,23 @@ func (s *Store) CreatePO(ctx context.Context, in CreatePOInput) (*PurchaseOrder,
 		return nil, fmt.Errorf("at least one line item is required")
 	}
 
+	// purchase_orders.currency is NOT NULL and, since migration 056, has no
+	// database default — so an omitted currency is now an error rather than a
+	// silent 'ZAR'. Resolve it from the location the PO belongs to: a purchase
+	// order is a commitment to pay a supplier, and getting the currency wrong
+	// means a Tokyo store's ¥50,000 order reconciles against R50,000 of stock.
 	currency := in.Currency
 	if currency == "" {
-		currency = "ZAR"
+		settings, err := locations.SettingsFor(ctx, s.pool, in.LocationID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve currency for location %s: %w", in.LocationID, err)
+		}
+		currency = settings.Currency.Code
+	}
+	if currency == "" {
+		// Refuse rather than guess. The operator has to set the location's
+		// currency_code once; inventing one here would be invisible and permanent.
+		return nil, fmt.Errorf("no currency for location %s: set the location's currency_code or pass currency explicitly", in.LocationID)
 	}
 
 	// Compute totals from lines.

@@ -12,6 +12,8 @@ import (
 
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/escpos"
+	"github.com/beepbite/backend/internal/locations"
+	"github.com/beepbite/backend/internal/money"
 )
 
 // Handler wires HTTP routes to the Store.
@@ -321,7 +323,15 @@ func (h *Handler) printReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := buildReceiptTicket(snap)
+	// Resolve how this location prints money before building the ticket; a
+	// wrong exponent silently misstates every amount on the slip.
+	set, err := locations.SettingsFor(r.Context(), h.pool, req.LocationID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "resolve location settings: "+err.Error())
+		return
+	}
+
+	data := buildReceiptTicket(snap, set)
 
 	// Resolve printer(s) to send to.
 	var printers []Printer
@@ -436,7 +446,29 @@ func dispatchPrint(ctx context.Context, printers []Printer, data []byte) []print
 // ---------------------------------------------------------------------------
 
 // buildReceiptTicket builds a customer-facing receipt ticket.
-func buildReceiptTicket(s *OrderSnapshot) []byte {
+//
+// set is the printing location's locale posture. Only its currency matters
+// here: it supplies the ISO code for the header and, more importantly, the
+// minor-unit exponent. Thermal receipts previously divided every amount by 100
+// and printed it with two decimals, which turns a ¥1000 line into "10.00" and
+// a KD 1.234 line into "12.34" — the customer is handed a slip that disagrees
+// with what the card machine charged.
+//
+// Amounts use money.Decimal, not money.Format: this is a fixed-pitch 42-column
+// thermal printer, so the column must contain digits only. Locale grouping
+// ("1 234,56") and a variable-width symbol would both break the alignment, and
+// most ESC/POS code pages cannot render ¥ or ₦ at all. The currency is stated
+// once, in the header, where it applies to every figure below it.
+func buildReceiptTicket(s *OrderSnapshot, set locations.Settings) []byte {
+	decimals := set.Decimals()
+
+	// amount renders one right-aligned money column. The width matches the old
+	// "R%7.2f" field (symbol + 7) so the 42-column layout is unchanged; a
+	// 3-decimal currency simply uses more of the reserved space.
+	amount := func(minor int64) string {
+		return fmt.Sprintf("%8s", money.Decimal(minor, decimals))
+	}
+
 	b := escpos.New().
 		Init().
 		Align(escpos.AlignCenter).
@@ -450,28 +482,40 @@ func buildReceiptTicket(s *OrderSnapshot) []byte {
 
 	b.Divider().
 		Align(escpos.AlignLeft).
-		Text(fmt.Sprintf("Order : %s\n", s.OrderNumber)).
-		Divider()
+		Text(fmt.Sprintf("Order : %s\n", s.OrderNumber))
+
+	// State the currency once. Omitted entirely when the location has none
+	// configured — a bare number is honest, an invented "R" is not.
+	if code := currencyCode(s, set); code != "" {
+		b.Text(fmt.Sprintf("Prices in %s\n", code))
+	}
+	b.Divider()
 
 	for _, item := range s.Items {
-		line := fmt.Sprintf("%-24s %3d  R%7.2f\n",
+		line := fmt.Sprintf("%-24s %3d %s\n",
 			truncate(item.ItemName, 24),
 			item.Quantity,
-			float64(item.UnitPriceCents*item.Quantity)/100.0,
+			amount(item.UnitPriceCents*item.Quantity),
 		)
 		b.Text(line)
 	}
 
 	b.Divider().
-		Text(fmt.Sprintf("%-24s        R%7.2f\n", "Subtotal", float64(s.SubtotalCents)/100.0)).
-		Text(fmt.Sprintf("%-24s        R%7.2f\n", "Tax", float64(s.TaxCents)/100.0))
+		Text(fmt.Sprintf("%-24s        %s\n", "Subtotal", amount(s.SubtotalCents))).
+		Text(fmt.Sprintf("%-24s        %s\n", set.Tax.EffectiveLabel(), amount(s.TaxCents)))
 
 	if s.TipCents > 0 {
-		b.Text(fmt.Sprintf("%-24s        R%7.2f\n", "Tip", float64(s.TipCents)/100.0))
+		b.Text(fmt.Sprintf("%-24s        %s\n", "Tip", amount(s.TipCents)))
 	}
 
+	// The grand total repeats the currency, because it is the one figure a
+	// customer reads in isolation.
+	totalLabel := "TOTAL"
+	if code := currencyCode(s, set); code != "" {
+		totalLabel = "TOTAL " + code
+	}
 	b.Bold(true).
-		Text(fmt.Sprintf("%-24s        R%7.2f\n", "TOTAL", float64(s.TotalCents)/100.0)).
+		Text(fmt.Sprintf("%-24s        %s\n", totalLabel, amount(s.TotalCents))).
 		Bold(false).
 		Divider().
 		Align(escpos.AlignCenter).
@@ -480,6 +524,19 @@ func buildReceiptTicket(s *OrderSnapshot) []byte {
 		Cut()
 
 	return b.Bytes()
+}
+
+// currencyCode picks the ISO code to print on a ticket.
+//
+// The order's own snapshot wins: it records what the customer was actually
+// charged in, and must not be relabelled if the location's setting changes
+// later. The live location setting is only a fallback for orders written
+// before currency_code was populated.
+func currencyCode(s *OrderSnapshot, set locations.Settings) string {
+	if s.CurrencyCode != "" {
+		return s.CurrencyCode
+	}
+	return set.Currency.Code
 }
 
 // buildKitchenTicket builds a kitchen order ticket.

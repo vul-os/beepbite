@@ -22,7 +22,51 @@ var (
 	ErrLoyaltyConfigNotFound = errors.New("loyalty config not found for organization")
 	ErrBelowMinRedemption    = errors.New("points below minimum redemption threshold")
 	ErrExceedsMaxRedemption  = errors.New("redemption exceeds max percentage of order")
+
+	// ErrCurrencyNotConfigured is returned when store credit must be written for
+	// an organization that has no default_currency_code. store_credits.currency
+	// is NOT NULL and migration 056 removed its 'ZAR' default, so there is
+	// nothing honest to put in the column until the operator configures one.
+	ErrCurrencyNotConfigured = errors.New("organization has no default_currency_code — set it before issuing store credit")
 )
+
+// orgCurrency resolves an organization's configured currency code and its
+// minor-unit exponent.
+//
+// Store credit is organization-scoped rather than location-scoped — the
+// store_credits row has no location_id — so the organization's
+// default_currency_code is the correct authority here, not a location's.
+//
+// `code` is empty when the organization has not configured one. `decimals`
+// falls back to 2 in that case: it is the ISO 4217 majority and only governs
+// how an already-currency-less amount is split for display, so it cannot claim
+// a currency the way an invented code would.
+func orgCurrency(ctx context.Context, tx pgx.Tx, organizationID string) (code string, decimals int, err error) {
+	decimals = 2
+	var (
+		c *string
+		d *int
+	)
+	err = tx.QueryRow(ctx, `
+SELECT o.default_currency_code, c.decimal_digits
+FROM organizations o
+LEFT JOIN currencies c ON c.code = o.default_currency_code
+WHERE o.id = $1
+`, organizationID).Scan(&c, &d)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", decimals, nil
+	}
+	if err != nil {
+		return "", decimals, err
+	}
+	if c != nil {
+		code = *c
+	}
+	if d != nil {
+		decimals = *d
+	}
+	return code, decimals, nil
+}
 
 // Store wraps a pgxpool.Pool for all store-credit DB operations.
 type Store struct {
@@ -85,17 +129,29 @@ func (s *Store) GrantCredit(
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	// Currency was a SQL literal here, which made it not merely a bad default but
+	// impossible to override: every organization on the platform, in every
+	// country, had its customers' credit balances denominated in rand no matter
+	// what its settings said. It is now a parameter resolved from the org.
+	currency, _, err := orgCurrency(ctx, tx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	if currency == "" {
+		return nil, ErrCurrencyNotConfigured
+	}
+
 	// Upsert the store_credits row and return the new balance.
 	var creditID string
 	var newBalance int64
 	err = tx.QueryRow(ctx, `
 INSERT INTO store_credits (organization_id, customer_id, balance_cents, currency)
-VALUES ($1, $2, $3, 'ZAR')
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (organization_id, customer_id)
 DO UPDATE SET balance_cents = store_credits.balance_cents + EXCLUDED.balance_cents,
               updated_at    = now()
 RETURNING id, balance_cents
-`, organizationID, customerID, amountCents).Scan(&creditID, &newBalance)
+`, organizationID, customerID, amountCents, currency).Scan(&creditID, &newBalance)
 	if err != nil {
 		return nil, err
 	}
@@ -199,16 +255,27 @@ func (s *Store) RefundToCredit(
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	// Same as GrantCredit: the currency is the organization's, not a literal.
+	// A refund credited back to a customer must be denominated in the currency
+	// they actually paid in.
+	currency, _, err := orgCurrency(ctx, tx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	if currency == "" {
+		return nil, ErrCurrencyNotConfigured
+	}
+
 	var creditID string
 	var newBalance int64
 	err = tx.QueryRow(ctx, `
 INSERT INTO store_credits (organization_id, customer_id, balance_cents, currency)
-VALUES ($1, $2, $3, 'ZAR')
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (organization_id, customer_id)
 DO UPDATE SET balance_cents = store_credits.balance_cents + EXCLUDED.balance_cents,
               updated_at    = now()
 RETURNING id, balance_cents
-`, organizationID, customerID, amountCents).Scan(&creditID, &newBalance)
+`, organizationID, customerID, amountCents, currency).Scan(&creditID, &newBalance)
 	if err != nil {
 		return nil, err
 	}
