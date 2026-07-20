@@ -15,7 +15,6 @@ const getLoadingMessage = (pathname) => {
   if (pathname.includes('/home')) return 'Loading home...';
   if (pathname.includes('/reports')) return 'Loading reports...';
   if (pathname.includes('/reviews')) return 'Loading reviews...';
-  if (pathname.includes('/menu/ai-menu-creator')) return 'Loading AI menu creator...';
   if (pathname.includes('/menu')) return 'Loading menu...';
   if (pathname.includes('/categories')) return 'Loading categories...';
   if (pathname.includes('/settings')) return 'Loading settings...';
@@ -64,7 +63,6 @@ const SignUp = lazyImport(() => import('./pages/auth/signup'));
 const ForgotPassword = lazyImport(() => import('./pages/auth/forgot-password'));
 const UpdatePassword = lazyImport(() => import('./pages/auth/update-password'));
 const VerifyEmail = lazyImport(() => import('./pages/auth/verify-email'));
-const OAuthCallback = lazyImport(() => import('./pages/auth/oauth-callback'));
 
 // Lazy loaded components - App pages
 const Home = lazyImport(() => import('./pages/home'));
@@ -74,7 +72,6 @@ const Members = lazyImport(() => import('./pages/members'));
 const Staff = lazyImport(() => import('./pages/staff'));
 const Menu = lazyImport(() => import('./pages/menu'));
 const Categories = lazyImport(() => import('./pages/categories'));
-const AIMenuCreator = lazyImport(() => import('./pages/menu/ai-menu-creator'));
 const Account = lazyImport(() => import('./pages/account'));
 
 // Lazy loaded components - Settings pages
@@ -104,7 +101,6 @@ const KdsStation = lazyImport(() => import('./pages/kds/station'));
 const KdsExpo = lazyImport(() => import('./pages/kds/expo'));
 // OrderAdjustmentsDemo removed — functionality now lives in the POS ticket panel (T11.4).
 const Cash = lazyImport(() => import('./pages/cash'));
-const SettingsPayouts = lazyImport(() => import('./pages/settings/payouts'));
 const SettingsLocationPayments = lazyImport(() => import('./pages/settings/location/payments'));
 const SettingsPromotions = lazyImport(() => import('./pages/settings/promotions'));
 const MenuSchedules = lazyImport(() => import('./pages/menu/schedules'));
@@ -117,8 +113,6 @@ const InventoryPOs = lazyImport(() => import('./pages/inventory/purchase-orders'
 const InventoryAutoPO = lazyImport(() => import('./pages/inventory/auto-suggestions'));
 const InventoryGRNs = lazyImport(() => import('./pages/inventory/grns'));
 const InventoryInvoiceMatch = lazyImport(() => import('./pages/inventory/invoice-match'));
-const SettingsBilling = lazyImport(() => import('./pages/settings/billing'));
-const SettingsWallet = lazyImport(() => import('./pages/settings/billing/wallet'));
 const SettingsApiKeys = lazyImport(() => import('./pages/settings/api-keys'));
 const SettingsKitchen = lazyImport(() => import('./pages/settings/kitchen'));
 const PlatformAdmin = lazyImport(() => import('./pages/admin'));
@@ -179,7 +173,6 @@ const AppRoutes = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/update-password" element={<UpdatePassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/auth/callback" element={<OAuthCallback />} />
           <Route path="/pos/login" element={<PosLogin />} />
           {/* Marketplace-scoped staff PIN login — public, no ProtectedRoute */}
           <Route path="/s/:slug" element={<StaffPin />} />
@@ -263,11 +256,6 @@ const AppRoutes = () => {
               <Menu />
             </Protected>
           } />
-          <Route path="/menu/ai-menu-creator" element={
-            <Protected>
-              <AIMenuCreator />
-            </Protected>
-          } />
           <Route path="/categories" element={
             <Protected>
               <Categories />
@@ -283,10 +271,7 @@ const AppRoutes = () => {
             <Route path="location" element={<Navigate to="/settings/organization" replace />} />
             <Route path="location/:locationId" element={<LocationSettings />} />
             <Route path="location/:locationId/payments" element={<SettingsLocationPayments />} />
-            <Route path="payouts" element={<SettingsPayouts />} />
             <Route path="promotions" element={<SettingsPromotions />} />
-            <Route path="billing" element={<SettingsBilling />} />
-            <Route path="billing/wallet" element={<SettingsWallet />} />
             <Route path="api-keys" element={<SettingsApiKeys />} />
             <Route path="kitchen" element={<SettingsKitchen />} />
             <Route path="domains" element={<SettingsDomains />} />

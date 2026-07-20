@@ -27,8 +27,6 @@ import {
   Minus,
   ArrowUp,
   ArrowDown,
-  Sparkles,
-  Zap,
   TreePine,
   Calculator,
   Layers,
@@ -939,30 +937,6 @@ const Menu = () => {
         </Card>
       </Reveal>
 
-      {/* AI Menu Creator FAB - Only show when there are items */}
-      {items.length > 0 && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={() => navigate('/menu/ai-menu-creator')}
-                className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center"
-                size="lg"
-              >
-                <Sparkles className="w-5 h-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="bg-gray-900 text-white">
-              <p className="flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                Try AI Menu Creator
-                <Badge className="bg-orange-500 text-white text-xs ml-1">Beta</Badge>
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 rounded-xl">
@@ -988,32 +962,6 @@ const Menu = () => {
                   </p>
                   {(!searchTerm && selectedCategory === 'all' && recipeTypeFilter === 'all' && complexityFilter === 'all' && itemUsageFilter === 'all') && (
                     <div className="space-y-4">
-                      {/* AI Menu Creator suggestion */}
-                      <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6 mb-6">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                          <Sparkles className="w-5 h-5 text-orange-500" />
-                          <h4 className="font-semibold text-foreground">Try Our AI Menu Creator</h4>
-                          <Badge className="bg-orange-500 text-white text-xs px-2 py-1">Beta</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Upload menu images or paste text and let AI automatically create your menu items with smart categorization and pricing.
-                        </p>
-                        <Button
-                          onClick={() => navigate('/menu/ai-menu-creator')}
-                          className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-                        >
-                          <Zap className="w-4 h-4 mr-2" />
-                          Try AI Menu Creator
-                        </Button>
-                      </div>
-
-                      {/* Or divider */}
-                      <div className="flex items-center gap-4 my-4">
-                        <div className="flex-1 h-px bg-border"></div>
-                        <span className="text-sm text-muted-foreground font-medium">or</span>
-                        <div className="flex-1 h-px bg-border"></div>
-                      </div>
-
                       {/* Manual add button */}
                       <Button
                         onClick={() => {
