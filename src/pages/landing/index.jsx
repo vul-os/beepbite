@@ -11,6 +11,7 @@ import MenuManagementPreview from '@/components/previews/menu-management-preview
 import WhatsAppPreview from '@/components/previews/whatsapp-preview';
 import POSInterfacePreview from '@/components/previews/pos-interface-preview';
 import { useTheme } from '@/components/theme-provider';
+import { formatMoney, currencyScale } from '@/lib/currency';
 import {
   Clock,
   Star,
@@ -39,6 +40,13 @@ const WhatsAppIcon = ({ className = 'w-5 h-5' }) => (
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.465 3.488" />
   </svg>
 );
+
+// The hero mock's order amounts are illustrative sample data, not tied to any
+// real store — no currency is assumed (see src/lib/currency.js). Mock values
+// stay major-unit floats and are scaled to minor units right before
+// formatMoney renders them, the same convention real money uses elsewhere.
+const DEMO_MONEY_SCALE = currencyScale();
+const money = (major) => formatMoney(Math.round((major || 0) * DEMO_MONEY_SCALE));
 
 // ---------- Animated counter ----------
 const AnimatedNumber = ({ value, prefix = '', suffix = '', duration = 1.6 }) => {
@@ -170,7 +178,7 @@ const HeroMock = () => {
                 <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">Maria Gonzalez</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 truncate">2× Spicy Burger · 1× Fries</div>
               </div>
-              <div className="ml-auto text-sm font-bold text-gray-900 dark:text-white">R180</div>
+              <div className="ml-auto text-sm font-bold text-gray-900 dark:text-white">{money(180)}</div>
             </div>
           </motion.div>
 
@@ -194,9 +202,9 @@ const HeroMock = () => {
           {/* Mini metrics */}
           <div className="grid grid-cols-3 gap-2 pt-1">
             {[
-              { k: 'Today', v: 'R12.4k', up: true },
+              { k: 'Today', v: money(12400), up: true },
               { k: 'Orders', v: '184', up: true },
-              { k: 'Avg', v: 'R67', up: false },
+              { k: 'Avg', v: money(67), up: false },
             ].map((m) => (
               <div key={m.k} className="rounded-xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-800/60 p-2.5 shadow-card">
                 <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">{m.k}</div>
@@ -902,9 +910,12 @@ const LandingPage = () => {
                 title: 'WhatsApp',
                 desc: 'Quick chat with our team',
                 cta: 'Message us',
-                href: 'https://wa.me/27118765432',
+                // No business WhatsApp number is configured here — a wa.me
+                // link needs one, and inventing one meant hardcoding a
+                // country's dialing code as if it were the default.
+                href: 'mailto:support@beepbite.io?subject=WhatsApp%20support',
                 accent: 'from-emerald-500 to-emerald-600',
-                ext: true,
+                ext: false,
               },
               {
                 icon: <Mail className="w-5 h-5" />,
@@ -918,9 +929,12 @@ const LandingPage = () => {
               {
                 icon: <Phone className="w-5 h-5" />,
                 title: 'Phone',
-                desc: 'Speak to a human',
-                cta: 'Call us',
-                href: 'tel:+27118765432',
+                desc: "Leave your number, we'll call you",
+                cta: 'Request a callback',
+                // No support line is configured here — a tel: link needs a
+                // real number, and a South African one is exactly the
+                // hardcoded default this pass removes.
+                href: 'mailto:support@beepbite.io?subject=Callback%20request',
                 accent: 'from-amber-500 to-orange-500',
                 ext: false,
               },

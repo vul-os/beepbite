@@ -32,7 +32,9 @@ export function LookupCard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [card, setCard] = useState(null); // LookupResult
-  const { format: formatCurrency } = useMoney({ currency: card?.currency });
+  const { format: formatCurrency, parse: parseAmount } = useMoney({
+    currency: card?.currency,
+  });
   const { formatDate } = useDateTime();
   const fmtExpiry = (iso) =>
     iso ? formatDate(iso, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never';
@@ -73,8 +75,11 @@ export function LookupCard() {
 
   async function handleReload(e) {
     e.preventDefault();
-    const cents = Math.round(parseFloat(reloadAmount) * 100);
-    if (!cents || cents <= 0) {
+    // parseAmount understands the currency's own exponent and the operator's
+    // decimal mark, and returns null on a typo like '12.345' in a 2-decimal
+    // currency rather than silently charging 1234.
+    const cents = parseAmount(reloadAmount);
+    if (cents === null || cents <= 0) {
       setReloadError('Enter a valid amount.');
       return;
     }
@@ -109,8 +114,8 @@ export function LookupCard() {
 
   async function handleRefund(e) {
     e.preventDefault();
-    const cents = Math.round(parseFloat(refundAmount) * 100);
-    if (!cents || cents <= 0) {
+    const cents = parseAmount(refundAmount);
+    if (cents === null || cents <= 0) {
       setRefundError('Enter a valid amount.');
       return;
     }
