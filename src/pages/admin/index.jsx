@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Shield, Search, Loader2, AlertTriangle, X, Pause, Play, Sliders, ArrowLeft, Wallet, Bell, RefreshCw } from 'lucide-react';
+import { Shield, Search, Loader2, AlertTriangle, X, Pause, Play, ArrowLeft, Bell, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,25 +29,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 
 import {
   searchTenants,
   getTenant,
   pauseTenant,
   unpauseTenant,
-  overrideQuota,
 } from '@/services/admin.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatCents(cents) {
-  if (cents == null) return '—';
-  const n = typeof cents === 'number' ? cents : Number(cents) || 0;
-  return `$${(n / 100).toFixed(2)}`;
-}
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -69,27 +61,6 @@ function formatDateTime(iso) {
   });
 }
 
-const TIER_COLORS = {
-  free: 'secondary',
-  starter: 'outline',
-  growth: 'default',
-  pro: 'default',
-  enterprise: 'default',
-};
-
-function TierBadge({ tier }) {
-  const t = (tier || 'free').toLowerCase();
-  const isHighValue = ['pro', 'enterprise', 'growth'].includes(t);
-  return (
-    <Badge
-      variant={TIER_COLORS[t] || 'outline'}
-      className={isHighValue ? 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100' : ''}
-    >
-      {tier || 'free'}
-    </Badge>
-  );
-}
-
 function StatusBadge({ status }) {
   const s = (status || '').toLowerCase();
   if (s === 'active') {
@@ -103,17 +74,6 @@ function StatusBadge({ status }) {
   }
   return <Badge variant="outline">{status || 'unknown'}</Badge>;
 }
-
-// Quota resource options
-const QUOTA_RESOURCES = [
-  { value: 'menu_items', label: 'Menu Items' },
-  { value: 'locations', label: 'Locations' },
-  { value: 'staff_members', label: 'Staff Members' },
-  { value: 'api_calls_monthly', label: 'API Calls (monthly)' },
-  { value: 'orders_monthly', label: 'Orders (monthly)' },
-  { value: 'integrations', label: 'Integrations' },
-  { value: 'storage_gb', label: 'Storage (GB)' },
-];
 
 // ---------------------------------------------------------------------------
 // Confirm Dialog (reusable)
@@ -142,97 +102,6 @@ function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, c
 }
 
 // ---------------------------------------------------------------------------
-// Quota Override Form Dialog
-// ---------------------------------------------------------------------------
-
-function QuotaOverrideDialog({ open, onOpenChange, orgId, orgName, onSuccess }) {
-  const [resource, setResource] = useState('');
-  const [includedCount, setIncludedCount] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  function reset() {
-    setResource('');
-    setIncludedCount('');
-    setError(null);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!resource) { setError('Select a resource.'); return; }
-    const count = parseInt(includedCount, 10);
-    if (isNaN(count) || count < 0) { setError('Enter a valid non-negative number.'); return; }
-    setLoading(true);
-    setError(null);
-    const { error: apiErr } = await overrideQuota(orgId, { resource, includedCount: count });
-    setLoading(false);
-    if (apiErr) { setError(apiErr.message || 'Failed to apply quota override.'); return; }
-    reset();
-    onOpenChange(false);
-    onSuccess?.();
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sliders className="h-4 w-4 text-orange-500" />
-            Quota Override
-          </DialogTitle>
-          <DialogDescription>
-            Set a custom quota limit for <strong>{orgName}</strong>.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="quota-resource">Resource</Label>
-            <Select value={resource} onValueChange={setResource}>
-              <SelectTrigger id="quota-resource">
-                <SelectValue placeholder="Select resource…" />
-              </SelectTrigger>
-              <SelectContent>
-                {QUOTA_RESOURCES.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="quota-count">Included count</Label>
-            <Input
-              id="quota-count"
-              type="number"
-              min="0"
-              step="1"
-              placeholder="e.g. 500"
-              value={includedCount}
-              onChange={(e) => setIncludedCount(e.target.value)}
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading} className="bg-orange-500 hover:bg-orange-600 text-white">
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Apply Override
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Tenant Detail Panel
 // ---------------------------------------------------------------------------
 
@@ -243,7 +112,6 @@ function TenantDetail({ orgId, onBack }) {
 
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
   const [unpauseDialogOpen, setUnpauseDialogOpen] = useState(false);
-  const [quotaDialogOpen, setQuotaDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
 
@@ -305,7 +173,7 @@ function TenantDetail({ orgId, onBack }) {
 
   if (!detail) return null;
 
-  const { org, wallet, recent_transactions: txns = [], alarms = [] } = detail;
+  const { org, alarms = [] } = detail;
   const isPaused = (org?.status || '').toLowerCase() === 'paused';
 
   return (
@@ -324,15 +192,6 @@ function TenantDetail({ orgId, onBack }) {
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Refresh
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1 border-orange-300 text-orange-700 hover:bg-orange-50"
-            onClick={() => setQuotaDialogOpen(true)}
-          >
-            <Sliders className="h-3.5 w-3.5" />
-            Quota Override
           </Button>
           {isPaused ? (
             <Button
@@ -375,7 +234,6 @@ function TenantDetail({ orgId, onBack }) {
               <CardDescription className="mt-1">{org?.owner_email || '—'}</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <TierBadge tier={org?.tier} />
               <StatusBadge status={org?.status} />
             </div>
           </div>
@@ -395,79 +253,6 @@ function TenantDetail({ orgId, onBack }) {
               <dd className="mt-0.5">{formatDate(org?.created_at)}</dd>
             </div>
           </dl>
-        </CardContent>
-      </Card>
-
-      {/* Wallet */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-orange-500" />
-            Wallet
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {wallet ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div>
-                  <p className="text-xs text-muted-foreground">Balance</p>
-                  <p className="text-2xl font-bold text-orange-600">{formatCents(wallet.balance_cents ?? wallet.wallet_balance_cents)}</p>
-                </div>
-                {wallet.hold_cents != null && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">On Hold</p>
-                    <p className="text-lg font-semibold text-muted-foreground">{formatCents(wallet.hold_cents)}</p>
-                  </div>
-                )}
-                {wallet.currency_code && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Currency</p>
-                    <p className="text-base font-medium">{wallet.currency_code}</p>
-                  </div>
-                )}
-              </div>
-
-              {txns.length > 0 && (
-                <>
-                  <Separator />
-                  <p className="text-sm font-medium text-muted-foreground">Recent Transactions</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Balance After</TableHead>
-                        <TableHead>Reason</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {txns.map((tx, i) => (
-                        <TableRow key={tx.id || i}>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize text-xs">{tx.kind || tx.type || '—'}</Badge>
-                          </TableCell>
-                          <TableCell className={`font-medium ${(tx.amount_cents ?? 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                            {(tx.amount_cents ?? 0) >= 0 ? '+' : ''}{formatCents(tx.amount_cents)}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{formatCents(tx.balance_after_cents)}</TableCell>
-                          <TableCell className="text-muted-foreground max-w-[160px] truncate">{tx.reason || '—'}</TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{formatDateTime(tx.created_at)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </>
-              )}
-
-              {txns.length === 0 && (
-                <p className="text-sm text-muted-foreground italic">No recent transactions.</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">No wallet data.</p>
-          )}
         </CardContent>
       </Card>
 
@@ -530,13 +315,6 @@ function TenantDetail({ orgId, onBack }) {
         loading={actionLoading}
       />
 
-      <QuotaOverrideDialog
-        open={quotaDialogOpen}
-        onOpenChange={setQuotaDialogOpen}
-        orgId={orgId}
-        orgName={org?.name}
-        onSuccess={load}
-      />
     </div>
   );
 }
@@ -615,7 +393,7 @@ export default function AdminDashboardPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Platform Admin</h1>
-          <p className="text-sm text-muted-foreground">Manage tenants, quotas, and platform health.</p>
+          <p className="text-sm text-muted-foreground">Manage tenants and platform health.</p>
         </div>
       </div>
 
@@ -698,8 +476,6 @@ export default function AdminDashboardPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Slug</TableHead>
                     <TableHead>Owner Email</TableHead>
-                    <TableHead>Tier</TableHead>
-                    <TableHead>Wallet Balance</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
@@ -716,8 +492,6 @@ export default function AdminDashboardPage() {
                         <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{t.slug || '—'}</span>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{t.owner_email || '—'}</TableCell>
-                      <TableCell><TierBadge tier={t.tier} /></TableCell>
-                      <TableCell className="font-medium text-orange-700">{formatCents(t.wallet_balance_cents)}</TableCell>
                       <TableCell><StatusBadge status={t.status} /></TableCell>
                       <TableCell className="text-muted-foreground text-xs">{formatDate(t.created_at)}</TableCell>
                     </TableRow>

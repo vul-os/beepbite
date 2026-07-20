@@ -250,9 +250,6 @@ type seedResult struct {
 	// A tracking token for org A (customer_profile_id = profileA)
 	trackingTokenA string
 
-	// A wallet transaction for org A
-	walletTxA string
-
 	// whatsapp link token
 	wlToken string
 
@@ -387,22 +384,6 @@ func seedData(ctx context.Context, pool *pgxpool.Pool) (*seedResult, error) {
 			 VALUES ($1, $2, $3, now() + interval '1 day')`,
 			s.trackingTokenA, s.orderA, s.profileA); err != nil {
 			return fmt.Errorf("tracking token A: %w", err)
-		}
-
-		// Seed org wallet for org A (needed for wallet_transaction).
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO org_wallets (org_id, balance_cents, currency_code) VALUES ($1, 0, 'ZAR')
-			 ON CONFLICT (org_id) DO NOTHING`, s.orgA); err != nil {
-			return fmt.Errorf("org_wallet A: %w", err)
-		}
-
-		// Seed wallet transaction for org A.
-		// kind uses wallet_txn_kind enum; amount positive = credit.
-		if err := tx.QueryRow(ctx,
-			`INSERT INTO wallet_transactions (org_id, amount_cents, kind, description, idempotency_key)
-			 VALUES ($1, 1000, 'topup', 'test top-up', 'test-idem-a') RETURNING id`,
-			s.orgA).Scan(&s.walletTxA); err != nil {
-			return fmt.Errorf("wallet_tx A: %w", err)
 		}
 
 		// Seed whatsapp_link_token.
@@ -668,9 +649,6 @@ func (s *suite) run() {
 	s.expectZeroRows("whatsapp_link_tokens", "anon", anon,
 		`SELECT count(*) FROM whatsapp_link_tokens`)
 
-	s.expectZeroRows("wallet_transactions", "anon", anon,
-		`SELECT count(*) FROM wallet_transactions`)
-
 	s.expectZeroRows("audit_log", "anon", anon,
 		`SELECT count(*) FROM audit_log`)
 
@@ -736,12 +714,6 @@ func (s *suite) run() {
 		`SELECT count(*) FROM staff`)
 
 	// Wallet transactions: sees own org's.
-	s.expectExactRows("wallet_transactions", "orgA", scopeA, 1,
-		`SELECT count(*) FROM wallet_transactions`)
-
-	// Cannot see org B's wallet_transactions.
-	s.expectZeroRows("wallet_transactions(orgB)", "orgA", scopeA,
-		`SELECT count(*) FROM wallet_transactions WHERE org_id = $1`, seed.orgB)
 
 	// ===========================================================================
 	// 3. SERVICE ROLE — sees everything; can insert for any org
@@ -771,10 +743,6 @@ func (s *suite) run() {
 	// Should see whatsapp_link_tokens.
 	s.expectRows("whatsapp_link_tokens", "svc", svc, 1,
 		`SELECT count(*) FROM whatsapp_link_tokens`)
-
-	// Should see wallet transactions.
-	s.expectRows("wallet_transactions", "svc", svc, 1,
-		`SELECT count(*) FROM wallet_transactions`)
 
 	// Service role can insert for org B.
 	s.probe("orders", "svc", "INSERT=OK", func() (bool, string) {
@@ -881,15 +849,7 @@ func (s *suite) run() {
 	s.expectDeleteZero("audit_log", "orgA", scopeA,
 		`DELETE FROM audit_log WHERE id = $1`, seed.auditLogA)
 
-	// 5f. wallet_transactions: UPDATE blocked (append-only USING(false)).
-	s.expectUpdateFails("wallet_transactions", "orgA", scopeA,
-		`UPDATE wallet_transactions SET amount_cents = 9999 WHERE id = $1`, seed.walletTxA)
-
-	// wallet_transactions DELETE blocked.
-	s.expectDeleteZero("wallet_transactions", "orgA", scopeA,
-		`DELETE FROM wallet_transactions WHERE id = $1`, seed.walletTxA)
-
-	// 5g. audit_log: org A owner cannot INSERT (only service_role can).
+	// 5f. audit_log: org A owner cannot INSERT (only service_role can).
 	s.expectInsertFails("audit_log", "orgA", scopeA,
 		`INSERT INTO audit_log (organization_id, actor_type, action, entity_type, entity_id)
 		 VALUES ($1,'member','forge.attempt','orders',$2)`, seed.orgA, seed.orderA)

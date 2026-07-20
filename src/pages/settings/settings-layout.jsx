@@ -3,8 +3,6 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Building2,
   MapPin,
-  CreditCard,
-  Banknote,
   Tag,
   Globe,
   Truck,
@@ -31,13 +29,6 @@ const SECTIONS = [
         matchPaths: ['/settings/location/'],
       },
       { label: 'Domains', to: '/settings/domains', icon: Globe },
-    ],
-  },
-  {
-    title: 'Money',
-    items: [
-      { label: 'Billing', to: '/settings/billing', icon: CreditCard },
-      { label: 'Payouts', to: '/settings/payouts', icon: Banknote },
     ],
   },
   {
@@ -86,7 +77,7 @@ function isItemActive(item, currentPath, currentSearch) {
   if (currentPath === base) {
     return !currentSearch || !new URLSearchParams(currentSearch).get('tab');
   }
-  // /settings/billing/wallet should still highlight Billing.
+  // Nested pages still highlight their parent nav entry.
   return currentPath.startsWith(base + '/');
 }
 
@@ -106,7 +97,7 @@ export default function SettingsLayout() {
               Settings
             </h1>
             <p className="mt-1 text-sm text-muted-foreground sm:text-[0.95rem]">
-              Configure your organization, billing, storefront, and system integrations.
+              Configure your organization, storefront, and system integrations.
             </p>
           </div>
         </header>

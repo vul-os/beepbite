@@ -8,8 +8,6 @@
 //  2. PIN failures — ≥ PINFailThreshold failed_login_attempts on one staff
 //     row (proxy for a device) at any point (column is
 //     cumulative and reset on successful login).
-//  3. Wallet drop  — org_wallet balance_cents dropped by > WalletDropPct %
-//     compared to 24 h ago (via wallet_transactions).
 //
 // Advisory lock key: 0xBEEF_0030 (does not collide with existing jobs).
 //
@@ -49,23 +47,11 @@ const (
 	// that triggers a PIN-failure alert for a staff member / device.
 	PINFailThreshold = 3
 
-	// WalletDropPct is the minimum balance drop (as a percentage of the
-	// 24-hour-ago balance) that triggers a wallet-drop alert.
-	// E.g. 50 means a drop of more than 50% from the prior balance.
-	WalletDropPct = 50
-
-	// WalletDropWindowHours is the look-back window for wallet balance
-	// comparison.
-	WalletDropWindowHours = 24
-
 	// advisoryLockKey identifies this job for pg_try_advisory_lock.
 	// 0xBEEF_0030 does not collide with existing jobs:
 	//
 	//  0xBEEF_0001  llmsync pricing
 	//  0xBEEF_0002  llmsync discovery
-	//  0xBEEF_0004  walletrefill
-	//  0xBEEF_0005  fxrates
-	//  0xBEEF_0010  subscriptionbilling
 	//  0xBEEF_0020  eodemail
 	//  0xBEEF_0030  activityalerts  ← this job
 	advisoryLockKey = int64(0xBEEF_0030)
@@ -156,11 +142,6 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 		log.Printf("activityalerts: checkPINFailures: %v", err)
 	}
 
-	// ── Check 3: wallet balance drops ────────────────────────────────────────
-	if err := r.checkWalletDrops(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		log.Printf("activityalerts: checkWalletDrops: %v", err)
-	}
-
 	return nil
 }
 
@@ -204,31 +185,6 @@ func (r *Runner) checkPINFailures(ctx context.Context) error {
 		log.Printf("activityalerts: ALERT pin_failures org=%s location=%s staff=%s attempts=%d",
 			h.OrgID, h.LocationID, h.StaffID, h.FailedAttempts)
 		r.emitAlert(ctx, h.OrgID, h.LocationID, "pin_failures", msg)
-	}
-	return nil
-}
-
-// ─── Check 3: wallet drops ───────────────────────────────────────────────────
-
-func (r *Runner) checkWalletDrops(ctx context.Context) error {
-	since := time.Now().UTC().Add(-WalletDropWindowHours * time.Hour)
-	hits, err := queryWalletDrops(ctx, r.db, since, WalletDropPct)
-	if err != nil {
-		return fmt.Errorf("query wallet drops: %w", err)
-	}
-	for _, h := range hits {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		msg := fmt.Sprintf(
-			"Wallet balance drop: org %s balance dropped from %d to %d (%d%% drop) in the last %d hour(s) — threshold is %d%%.",
-			h.OrgID, h.BalanceBefore, h.BalanceNow,
-			h.DropPct, WalletDropWindowHours, WalletDropPct,
-		)
-		log.Printf("activityalerts: ALERT wallet_drop org=%s before=%d now=%d drop_pct=%d",
-			h.OrgID, h.BalanceBefore, h.BalanceNow, h.DropPct)
-		// No location for wallet alerts — pass empty string.
-		r.emitAlert(ctx, h.OrgID, "", "wallet_drop", msg)
 	}
 	return nil
 }

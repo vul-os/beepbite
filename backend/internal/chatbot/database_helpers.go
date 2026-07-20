@@ -120,17 +120,6 @@ type CartSummary struct {
 	TotalAmount       float64 `json:"total_amount"`
 }
 
-type PaymentMethod struct {
-	ID              string  `json:"id"`
-	CardLastFour    *string `json:"card_last_four"`
-	CardType        *string `json:"card_type"`
-	CardExpMonth    *string `json:"card_exp_month"`
-	CardExpYear     *string `json:"card_exp_year"`
-	Nickname        *string `json:"nickname"`
-	IsDefault       bool    `json:"is_default"`
-	GatewayProvider string  `json:"gateway_provider"`
-}
-
 type OrderRef struct {
 	ID          string            `json:"id"`
 	OrderNumber string            `json:"order_number"`
@@ -597,76 +586,6 @@ func (s *Service) getCartSummary(ctx context.Context, customerID, locationID str
 		return nil
 	}
 	return cs
-}
-
-func (s *Service) getCustomerPaymentMethods(ctx context.Context, customerID string) []PaymentMethod {
-	rows, err := s.pool.Query(ctx,
-		`SELECT * FROM get_customer_payment_methods($1)`, customerID,
-	)
-	if err != nil {
-		log.Printf("Error getting customer payment methods: %v", err)
-		return nil
-	}
-	defer rows.Close()
-
-	fieldDesc := rows.FieldDescriptions()
-	colIndex := make(map[string]int, len(fieldDesc))
-	for i, fd := range fieldDesc {
-		colIndex[string(fd.Name)] = i
-	}
-
-	var methods []PaymentMethod
-	for rows.Next() {
-		values, err := rows.Values()
-		if err != nil {
-			log.Printf("Error reading payment method row: %v", err)
-			continue
-		}
-		m := PaymentMethod{}
-		if v, ok := valueAt(values, colIndex, "id"); ok {
-			m.ID = fmt.Sprintf("%v", v)
-		}
-		if v, ok := valueAt(values, colIndex, "card_last_four"); ok {
-			if v != nil {
-				str := fmt.Sprintf("%v", v)
-				m.CardLastFour = &str
-			}
-		}
-		if v, ok := valueAt(values, colIndex, "card_type"); ok {
-			if v != nil {
-				str := fmt.Sprintf("%v", v)
-				m.CardType = &str
-			}
-		}
-		if v, ok := valueAt(values, colIndex, "card_exp_month"); ok {
-			if v != nil {
-				str := fmt.Sprintf("%v", v)
-				m.CardExpMonth = &str
-			}
-		}
-		if v, ok := valueAt(values, colIndex, "card_exp_year"); ok {
-			if v != nil {
-				str := fmt.Sprintf("%v", v)
-				m.CardExpYear = &str
-			}
-		}
-		if v, ok := valueAt(values, colIndex, "nickname"); ok {
-			if v != nil {
-				str := fmt.Sprintf("%v", v)
-				m.Nickname = &str
-			}
-		}
-		if v, ok := valueAt(values, colIndex, "is_default"); ok {
-			if b, ok2 := v.(bool); ok2 {
-				m.IsDefault = b
-			}
-		}
-		if v, ok := valueAt(values, colIndex, "gateway_provider"); ok && v != nil {
-			m.GatewayProvider = fmt.Sprintf("%v", v)
-		}
-		methods = append(methods, m)
-	}
-	return methods
 }
 
 func valueAt(values []interface{}, idx map[string]int, key string) (interface{}, bool) {

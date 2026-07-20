@@ -100,18 +100,6 @@ var auditActions = map[string]tableAuditCfg{
 		delete:     "promotion.deleted",
 	},
 
-	// Subscription plans (migration 27) — only updates matter (rate changes)
-	"subscription_plans": {
-		entityType: "subscription_plan",
-		update:     "subscription_plan.rate_changed",
-	},
-
-	// Bank accounts — update path (create + delete handled by dedicated store)
-	"bank_accounts": {
-		entityType: "bank_account",
-		update:     "bank_account.updated",
-	},
-
 	// Order adjustments (void, comp, refund, etc.)
 	"order_adjustments": {
 		entityType: "order_adjustment",
