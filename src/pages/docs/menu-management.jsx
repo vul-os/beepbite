@@ -96,17 +96,6 @@ const MenuManagement = () => {
         />
       </Section>
 
-      <Section id="ai-import" kicker="Pro tip" title="Import a whole menu from a PDF">
-        <p>
-          The fastest way to migrate from another POS is the AI menu importer. Upload a photo or PDF and we'll structure
-          it into categories and items for you to review.
-        </p>
-        <Callout tone="info" title="How accurate is it?">
-          For typical restaurant menus, expect 80–95% accuracy on item names and prices. Always do a quick review pass —
-          look for misread prices and missing modifiers.
-        </Callout>
-      </Section>
-
       <PrevNext prev={prev} next={next} />
     </DocsLayout>
   );

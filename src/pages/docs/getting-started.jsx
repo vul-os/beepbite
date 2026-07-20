@@ -74,20 +74,14 @@ const GettingStarted = () => {
         </Steps>
       </Section>
 
-      <Section id="import-menu" kicker="Step 3" title="Import your menu">
+      <Section id="import-menu" kicker="Step 3" title="Add your menu">
         <p>
-          You have two options: upload a PDF or photo of your existing menu and let our AI build it for you, or add
-          items one by one. Most owners use the AI importer — it usually takes under two minutes.
+          Go to <strong>Menu</strong> and add your items. Give each one a name, a price and a category — that is the
+          minimum needed to start selling. Modifiers, schedules and courses can be layered on afterwards.
         </p>
-        <Screenshot
-          variant="browser"
-          url="app.beepbite.io/menu/ai-menu-creator"
-          alt="The AI menu creator with a PDF being parsed into structured menu items."
-          caption="AI menu creator — drop the real screenshot in /public/docs/menu-import.png"
-        />
-        <Callout tone="tip" title="Cleaner imports">
-          A clear, single-column menu PDF works best. After import you can review and edit each item, add modifiers and
-          assign categories.
+        <Callout tone="tip" title="Start small">
+          You do not need your whole menu on day one. Add your ten best sellers, take a few real orders, then fill in
+          the rest. Items can be edited or hidden at any time without re-publishing.
         </Callout>
       </Section>
 
