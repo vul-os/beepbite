@@ -248,6 +248,8 @@ func seedCustomers(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 	if err := s.tx(func(tx pgx.Tx) error {
 		for _, r := range rows {
 			var id string
+			// customers.total_spent is numeric MAJOR units, so the minor-unit
+			// integer is rendered at the currency's own scale.
 			if err := tx.QueryRow(s.ctx, `
 				INSERT INTO customers (
 					organization_id, whatsapp_number, first_name, last_name, email,
@@ -255,8 +257,6 @@ func seedCustomers(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 					last_order_at, last_seen_at
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 				RETURNING id
-			// customers.total_spent is numeric MAJOR units, so the minor-unit
-			// integer is rendered at the currency's own scale.
 			`, c.OrgID, r.phone, r.first, r.last, r.email,
 				r.totalOrders, money.Decimal(r.totalSpentMinor, s.cfg.Decimals), r.loyaltyPoints, r.tier,
 				r.lastOrderAt, r.lastSeenAt).Scan(&id); err != nil {
