@@ -73,19 +73,24 @@
  *     conversation response times/ratings; seedcopper's orders are inserted
  *     directly, not via a simulated chat, so those metrics are honestly
  *     zero, not a rendering bug). A screenshot of it would look broken.
- *   - /track/:token (customer order tracking) — the page loads and the
- *     order-progress stepper works, but the map and ETA never render: the
- *     backend (internal/handlers/tracking/handler.go) returns a FLAT JSON
- *     shape (store_lat, delivery_address as a string, no eta_minutes) while
- *     the frontend (src/pages/track/index.jsx, src/services/tracking.js)
- *     destructures a NESTED shape (store.lat, delivery_address.label,
- *     eta_minutes) that the backend never sends. That's a real API contract
- *     bug, not a seeding gap — filed as a finding, not fixed here (out of
- *     scope for a screenshot pass).
- *   - The "Orders" tab inside /work (POS Workspace shell) — throws
- *     `TypeError: Cannot read properties of undefined (reading 'length')`
- *     and blanks the page. The Home dashboard's Live Orders panel is the
- *     working equivalent and is what "orders feed" below actually shows.
+ *
+ * Previously-documented-here, now fixed (fix/ui-polish):
+ *   - /track/:token used to never render its map or ETA — the backend
+ *     (internal/handlers/tracking/handler.go) returns a flat JSON shape
+ *     while the frontend expected a nested one. services/tracking.js now
+ *     normalises the real wire shape; the page also degrades to a clean
+ *     "map isn't available yet" state instead of a blank box when the
+ *     backend genuinely has no coordinates yet (pre out-for-delivery).
+ *   - The "Orders" tab inside /work (POS Workspace shell) used to render
+ *     home/components/orders-section.jsx with none of the props it needs
+ *     and crash. That tab has been removed — Home's Live Orders panel
+ *     (which supplies those props correctly) is the supported surface for
+ *     that list, and is what "orders feed" below actually shows.
+ *   Neither is added to ROUTES here: /track needs a live tracking token
+ *   (order + token rows this seeder doesn't create) to show anything past
+ *   its empty state, and /work's default view duplicates /pos/workspace
+ *   visually. Still worth a dedicated capture if either page grows a
+ *   reason to be screenshotted on its own.
  */
 
 import { chromium } from 'playwright'
@@ -563,9 +568,9 @@ async function run_() {
       }
 
       console.log('\nSkipped on purpose (see header comment for why):')
-      console.log('  - /reports                — empty for this seed (unseeded WhatsApp chat metrics, not a bug)')
-      console.log('  - /track/:token            — frontend/backend response-shape mismatch (map/ETA never render)')
-      console.log('  - /work "Orders" tab       — crashes to a blank page (TypeError); Home\'s Live Orders panel is the working surface')
+      console.log('  - /reports     — empty for this seed (unseeded WhatsApp chat metrics, not a bug)')
+      console.log('  - /track/:token — needs a live tracking token this seeder doesn\'t create; page itself is fixed')
+      console.log('  - /work         — default view duplicates /pos/workspace; the old crashing "Orders" tab is gone')
       console.log('\nDone.')
     } finally {
       await frontend.teardown()

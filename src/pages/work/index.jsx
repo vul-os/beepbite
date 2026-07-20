@@ -2,7 +2,10 @@
 //
 // A single page with TWO top-level tabs: POS and Kitchen.
 //
-// POS views:     Quick | Full | Floor | Orders
+// POS views:     Quick | Full | Floor
+// (an "Orders" POS view was removed — it rendered the raw Home orders-section
+//  component with none of the state/props it needs, which crashed. The
+//  Home page's Live Orders panel is the supported place for that list.)
 // Kitchen views: Station | Expo | Bump-bar
 //
 // Role-aware tab visibility:
@@ -49,11 +52,6 @@ const PosWorkspace = lazy(() => import('@/pages/pos/workspace'));
 const QuickPOS = lazy(() => import('@/pages/quick-pos'));
 const FloorLive = lazy(() => import('@/pages/floor'));
 
-// Orders list (from home section, read-only)
-const OrdersSection = lazy(() =>
-  import('@/pages/home/components/orders-section'),
-);
-
 // Kitchen views
 const StationPage = lazy(() => import('@/pages/kds/station'));
 const ExpoPage = lazy(() => import('@/pages/kds/expo'));
@@ -66,7 +64,6 @@ const POS_VIEWS = [
   { id: 'full', label: 'Full POS' },
   { id: 'quick', label: 'Quick' },
   { id: 'floor', label: 'Floor' },
-  { id: 'orders', label: 'Orders' },
 ];
 
 const KDS_VIEWS = [
@@ -364,11 +361,6 @@ function POSPanel({ posView }) {
           <FloorLive />
         </Suspense>
       )}
-      {posView === 'orders' && (
-        <Suspense fallback={<ViewLoader />}>
-          <OrdersSection />
-        </Suspense>
-      )}
     </div>
   );
 }
@@ -397,7 +389,10 @@ export default function WorkspacePage() {
   // Load persisted preferences once on mount.
   useEffect(() => {
     fetchPrefs().then(({ lastViewPOS, lastViewKDS }) => {
-      setPosView(lastViewPOS || 'full');
+      // 'orders' was a removed POS view (see POS_VIEWS above) — coerce any
+      // previously-persisted preference back to a view that still exists.
+      const posView = POS_VIEWS.some((v) => v.id === lastViewPOS) ? lastViewPOS : 'full';
+      setPosView(posView);
       setKdsView(lastViewKDS || 'station');
       setPrefsLoaded(true);
     });

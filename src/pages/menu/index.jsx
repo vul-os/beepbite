@@ -93,6 +93,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { emojiFor } from '@/lib/item-emoji';
+import { COMPLEXITY_COLORS } from '@/lib/status-colors';
 import { formatDistanceToNow } from 'date-fns';
 // Import recipe components
 import RecipeBuilder from './recipe-builder';
@@ -566,14 +567,9 @@ const Menu = () => {
     }
   };
 
-  const getComplexityColor = (complexity) => {
-    switch (complexity) {
-      case 'simple': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'moderate': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'complex': return 'bg-rose-50 text-rose-700 border-rose-200';
-      default: return 'bg-muted text-muted-foreground border-border';
-    }
-  };
+  // Shared with recipe-breakdown.jsx and recipe-builder.jsx so complexity
+  // reads with the same colour everywhere it appears.
+  const getComplexityColor = (complexity) => COMPLEXITY_COLORS[complexity] || 'bg-muted text-muted-foreground';
 
   // Item prices are stored as major-unit floats (rands/dollars, not cents), so
   // they are scaled up to the currency's minor unit before going through the
@@ -1042,10 +1038,6 @@ const Menu = () => {
                                 className={cn("text-xs font-medium", getComplexityColor(item.recipe_complexity))}
                               >
                                 {item.recipe_complexity || 'simple'}
-                              </Badge>
-
-                              <Badge variant="outline" className="text-xs">
-                                {item.recipe_type || 'simple'}
                               </Badge>
 
                               {item.max_recipe_level > 0 && (

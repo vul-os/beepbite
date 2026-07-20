@@ -11,12 +11,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DollarSign, Loader2 } from 'lucide-react';
-
-function centsToDisplay(cents) {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { useMoney } from '@/context/locale-context';
 
 export function RecordPaymentDialog({ open, onOpenChange, invoice, onPay }) {
+  const { format: centsToDisplay, symbol } = useMoney();
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
@@ -66,7 +64,7 @@ export function RecordPaymentDialog({ open, onOpenChange, invoice, onPay }) {
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-1">
-            <Label htmlFor="pay-amount">Payment amount ($)</Label>
+            <Label htmlFor="pay-amount">Payment amount ({symbol})</Label>
             <Input
               id="pay-amount"
               type="number"

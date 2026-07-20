@@ -300,6 +300,7 @@ const FK = {
   order_items: {
     items:                 { table: 'items',                 kind: 'one',  col: 'item_id' },
     order_item_variations: { table: 'order_item_variations', kind: 'many', col: 'order_item_id' },
+    order_item_modifiers:  { table: 'order_item_modifiers',  kind: 'many', col: 'order_item_id' },
   },
   order_item_variations: {
     item_variations:        { table: 'item_variations',        kind: 'one', col: 'variation_id' },
@@ -330,9 +331,20 @@ const FK = {
 };
 
 // parseSelect("*, customers (id, name), order_items (*)") →
-//   { base: '*', joins: [ {name:'customers', cols:'id,name'}, {name:'order_items', cols:'*'} ] }
+//   { base: '*', joins: [ {name:'customers', relation:'customers', hint:null, cols:'id,name'}, ... ] }
+//
 // Whitespace tolerant. Doesn't handle deeper than one level; nested parens
 // inside a join become that join's scalar cols. Good enough for current usage.
+//
+// Also accepts PostgREST/supabase-js's aliased embed syntax, since several
+// call sites use it: `alias:relation (cols)` and `alias:relation!fkeyHint
+// (cols)` (e.g. `child_item:child_item_id (...)`, where the part after ':' is
+// actually the FK *column* name, not a relation; or
+// `child_item:items!item_recipes_child_item_id_fkey (...)`). `name` is what
+// the resolved data gets attached to the row as; `relation` and `hint` are
+// candidates resolveEmbeds() matches against FK[] — neither is assumed to be
+// a literal table name on its own, since PostgREST allows either position to
+// carry the disambiguating FK column/constraint instead.
 function parseSelect(raw) {
   if (!raw || !/\(/.test(raw)) return { base: raw || '*', joins: [] };
   const normalized = raw.replace(/\s+/g, ' ').trim();
@@ -358,7 +370,15 @@ function parseSelect(raw) {
         k++;
       }
       const cols = normalized.slice(j + 1, k).replace(/\s+/g, '').replace(/,+$/, '');
-      if (token) joins.push({ name: token, cols: cols || '*' });
+      if (token) {
+        const colonIdx = token.indexOf(':');
+        const alias = colonIdx === -1 ? null : token.slice(0, colonIdx).trim();
+        const target = colonIdx === -1 ? token : token.slice(colonIdx + 1).trim();
+        const bangIdx = target.indexOf('!');
+        const relation = bangIdx === -1 ? target : target.slice(0, bangIdx).trim();
+        const hint = bangIdx === -1 ? null : target.slice(bangIdx + 1).trim();
+        joins.push({ name: alias || relation, relation, hint, cols: cols || '*' });
+      }
       i = k + 1;
     } else {
       if (token) base.push(token);
@@ -368,11 +388,26 @@ function parseSelect(raw) {
   return { base: base.length ? base.join(',') : '*', joins };
 }
 
+// Match a parsed join against the FK map for its parent table. Tries, in
+// order: the relation name itself (the common case, `profiles (...)` or
+// `profiles!some_fkey (...)`); the relation as an FK *column* name instead
+// (supabase-js's `alias:fk_column (...)` shorthand); then the hint (after
+// '!') as either an FK column or a literal table name, for constraint-name
+// hints that don't match any of the above.
+function findEdge(map, j) {
+  if (map[j.relation]) return map[j.relation];
+  for (const edge of Object.values(map)) {
+    if (edge.col === j.relation) return edge;
+    if (j.hint && (edge.col === j.hint || edge.table === j.hint)) return edge;
+  }
+  return null;
+}
+
 async function resolveEmbeds(parentTable, rows, joins) {
   if (!joins.length || !rows.length) return rows;
   const map = FK[parentTable] || {};
   for (const j of joins) {
-    const edge = map[j.name];
+    const edge = findEdge(map, j);
     if (!edge) {
       for (const r of rows) r[j.name] = null;
       continue;

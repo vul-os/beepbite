@@ -6,16 +6,56 @@
 import { api } from '@/lib/api-client';
 
 /**
- * Fetch live tracking data for an order by its tracking token.
- *
- * Expected response shape (partial — backend controls exact fields):
+ * Raw response shape returned by GET /track/{token}
+ * (see backend/internal/handlers/tracking/store.go — OrderInfo):
  * {
- *   status: 'placed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'canceled',
- *   store:  { lat: number, lng: number, name: string, address?: string },
- *   delivery_address: { lat: number, lng: number, label?: string },
- *   eta_minutes: number | null,
- *   driver?: { lat: number, lng: number }   // omitted unless privacy gate passes
+ *   token: string, order_id: string,
+ *   status: 'pending'|'confirmed'|'preparing'|'ready'|'out_for_delivery'
+ *         |'delivered'|'completed'|'cancelled',
+ *   fulfillment_type: string,
+ *   estimated_delivery_time?: string,      // ISO timestamp, nullable
+ *   store_lat?: number, store_lng?: number,
+ *   delivery_address?: string,             // text label, always present when set
+ *   delivery_lat?: number, delivery_lng?: number,  // only once out_for_delivery
+ *   driver?: { lat: number, lng: number, recorded_at: string }
  * }
+ *
+ * The UI (track/index.jsx and friends) wants a friendlier normalised shape:
+ * { status, eta_minutes, store: {lat,lng}|null,
+ *   delivery_address: {lat,lng,label}|null, driver }
+ * normalizeTracking() bridges the two so the page never has to know about
+ * the flat wire format.
+ */
+function normalizeTracking(raw) {
+  if (!raw) return raw;
+
+  const hasStoreCoords = raw.store_lat != null && raw.store_lng != null;
+  const hasDeliveryCoords = raw.delivery_lat != null && raw.delivery_lng != null;
+
+  let etaMinutes = null;
+  if (raw.estimated_delivery_time) {
+    const diffMs = new Date(raw.estimated_delivery_time).getTime() - Date.now();
+    if (Number.isFinite(diffMs)) etaMinutes = Math.max(0, Math.round(diffMs / 60000));
+  }
+
+  return {
+    status: raw.status,
+    fulfillmentType: raw.fulfillment_type,
+    eta_minutes: etaMinutes,
+    // The backend never sends a store name/address — only coordinates — so
+    // there's no name/address field to carry through here.
+    store: hasStoreCoords ? { lat: raw.store_lat, lng: raw.store_lng } : null,
+    delivery_address: {
+      lat: hasDeliveryCoords ? raw.delivery_lat : null,
+      lng: hasDeliveryCoords ? raw.delivery_lng : null,
+      label: raw.delivery_address || null,
+    },
+    driver: raw.driver ? { lat: raw.driver.lat, lng: raw.driver.lng } : null,
+  };
+}
+
+/**
+ * Fetch live tracking data for an order by its tracking token.
  *
  * @param {string} token  — URL-safe tracking token from the customer link
  * @returns {Promise<{ data: TrackingPayload | null, error: { message: string, status: number } | null }>}
@@ -24,5 +64,7 @@ export async function fetchTracking(token) {
   if (!token) {
     return { data: null, error: { message: 'No tracking token provided', status: 400 } };
   }
-  return api.request('GET', `/track/${encodeURIComponent(token)}`, { auth: false });
+  const { data, error } = await api.request('GET', `/track/${encodeURIComponent(token)}`, { auth: false });
+  if (error) return { data: null, error };
+  return { data: normalizeTracking(data), error: null };
 }

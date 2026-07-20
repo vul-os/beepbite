@@ -37,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api-client';
+import { useMoney } from '@/context/locale-context';
 import { useAdjustmentReasons } from './use-adjustment-reasons';
 
 // ---- helpers ----------------------------------------------------------------
@@ -93,6 +94,7 @@ export default function AdjustmentModal({
   locationId,
 }) {
   const { toast } = useToast();
+  const { format: formatMoneyValue, symbol } = useMoney();
 
   // Step state
   const [step, setStep] = useState(STEP_REASON);
@@ -281,10 +283,10 @@ export default function AdjustmentModal({
             {isPriceOverride && (
               <div className="grid gap-1.5">
                 <Label htmlFor="adj-new-price">
-                  New Price (USD)
+                  New Price ({symbol})
                   {currentPriceCents != null && (
                     <span className="ml-1 font-normal text-muted-foreground">
-                      — current: ${(currentPriceCents / 100).toFixed(2)}
+                      — current: {formatMoneyValue(currentPriceCents)}
                     </span>
                   )}
                 </Label>
