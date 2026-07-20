@@ -41,9 +41,10 @@ const POSOverview = () => {
         </p>
         <Screenshot
           variant="browser"
-          url="app.beepbite.io/home"
-          alt="POS interface showing the menu, the cart and the live queue with a mix of in-store and WhatsApp orders."
-          caption="POS layout — drop the real screenshot in /public/docs/pos-layout.png"
+          url="app.beepbite.io/pos/workspace"
+          src="/docs/pos-layout.png"
+          alt="POS workspace showing the table/ticket bar along the top, the menu grid on the left and the running cart on the right."
+          caption="POS workspace — table bar, menu grid and running cart"
         />
       </Section>
 

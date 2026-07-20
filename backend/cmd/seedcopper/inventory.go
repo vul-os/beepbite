@@ -163,11 +163,11 @@ func seedInventory(s *seeder, c *Ctx) error {
 
 		for _, it := range items {
 			var id string
+			// cost_per_unit is numeric MAJOR units.
 			if err := tx.QueryRow(s.ctx, `
 				INSERT INTO inventory_items (location_id, name, unit, current_stock, minimum_stock, cost_per_unit)
 				VALUES ($1,$2,$3,$4,$5,$6)
 				RETURNING id
-				// cost_per_unit is numeric MAJOR units.
 			`, c.LocID, it.name, it.unit, it.currentStock, it.minStock,
 				money.Decimal(s.cfg.Price(it.costPerUnit), s.cfg.Decimals)).Scan(&id); err != nil {
 				return fmt.Errorf("insert inventory item %q: %w", it.name, err)
@@ -372,10 +372,10 @@ func seedInventory(s *seeder, c *Ctx) error {
 			if m.wasteReason != "" {
 				waste = m.wasteReason
 			}
+			// stock_movements.unit_cost is numeric MAJOR units.
 			if _, err := tx.Exec(s.ctx, `
 				INSERT INTO stock_movements (inventory_item_id, movement_type, quantity, unit_cost, waste_reason, notes, recorded_by, created_at)
 				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-				// stock_movements.unit_cost is numeric MAJOR units.
 			`, itemID[m.item], m.movementType, m.qty,
 				money.Decimal(s.cfg.Price(m.unitCost), s.cfg.Decimals),
 				waste, m.notes, buyer1, c.Now.AddDate(0, 0, -m.daysAgo)); err != nil {
