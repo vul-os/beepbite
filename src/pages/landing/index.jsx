@@ -539,7 +539,7 @@ const LandingPage = () => {
                 Built for restaurants that ship orders fast
               </motion.div>
 
-              {/* H1 — Fraunces globally via CSS; italic accent on "WhatsApp" */}
+              {/* H1 — Inter display weight; italic accent on the channel word */}
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

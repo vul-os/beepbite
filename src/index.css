@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -132,32 +132,28 @@
     touch-action: manipulation;
   }
   
-  /* Display headings — Fraunces gives the brand its warm, editorial character.
-     Applied to the large title tags; smaller UI labels (h4–h6) stay in Inter. */
+  /* One typeface across the whole product: Inter. Headings differ from body by
+     weight and tighter tracking, not by family — a single family reads as one
+     coherent system and avoids the serif/sans clash the app used to have. */
   h1, h2, h3 {
-    font-family: 'Fraunces', ui-serif, Georgia, serif;
-    font-optical-sizing: auto;
-    letter-spacing: -0.01em;
-  }
-
-  h1 {
-    line-height: 1.05;
+    font-weight: 700;
     letter-spacing: -0.02em;
   }
-  h2 { line-height: 1.12; }
-  h3 { line-height: 1.2; }
 
-  /* Opt-in display utility (and its italic-flourish companion) for non-heading
-     elements that still want the brand serif. */
+  h1 { line-height: 1.05; }
+  h2 { line-height: 1.12; }
+  h3 { line-height: 1.2; letter-spacing: -0.015em; }
+
+  /* .font-display is kept as an alias so existing call sites need no change;
+     it now selects the same Inter as everything else, at display weight. */
   .font-display {
-    font-family: 'Fraunces', ui-serif, Georgia, serif;
-    font-optical-sizing: auto;
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    letter-spacing: -0.02em;
   }
   .font-display-italic {
-    font-family: 'Fraunces', ui-serif, Georgia, serif;
+    font-weight: 600;
     font-style: italic;
-    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
   }
   
   /* Link styles */
