@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useDateTime } from '@/context/locale-context';
 import { ChevronLeft, ChevronRight, Plus, Trash2, AlertTriangle } from 'lucide-react';
 
 // ── date helpers ─────────────────────────────────────────────────────────────
@@ -29,8 +30,16 @@ function addDays(date, n) {
   return d;
 }
 
+// `date` here was already moved onto the right calendar day by local
+// getDate()/setDate() arithmetic above, so read that same local day back out
+// directly. `date.toISOString().slice(0, 10)` would instead render the UTC
+// date — for roughly half the globe that silently shifts every day in this
+// week grid (and the shift_date sent to the API) by one.
 function toISO(date) {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function fmt(date) {
@@ -183,6 +192,7 @@ function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubm
 // ── Tab ──────────────────────────────────────────────────────────────────────
 
 export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchShifts, createShift, deleteShift }) {
+  const { today } = useDateTime();
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeek(new Date()));
   const [createDate, setCreateDate] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -211,7 +221,8 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
 
   const prevWeek = () => setWeekAnchor((w) => addDays(w, -7));
   const nextWeek = () => setWeekAnchor((w) => addDays(w, 7));
-  const todayStr = toISO(new Date());
+  // The store's local trading date, not `new Date().toISOString().slice(0, 10)`.
+  const todayStr = today();
 
   return (
     <div className="space-y-4">

@@ -40,10 +40,12 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 
 const CostAnalysis = ({ activeLocation }) => {
+  const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
   const [analysisData, setAnalysisData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -226,11 +228,10 @@ const CostAnalysis = ({ activeLocation }) => {
     }
   };
 
+  // Analysis amounts are major-unit floats, so scale up to minor units before
+  // handing them to the minor-unit-based formatter.
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR'
-    }).format(amount || 0);
+    return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
   const formatPercentage = (value) => {

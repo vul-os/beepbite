@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { useMoney } from '@/context/locale-context';
 
 export default function ItemsPicker({
   schedule,
@@ -16,6 +17,7 @@ export default function ItemsPicker({
   addItemSchedule,
   deleteItemSchedule,
 }) {
+  const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
   const [items, setItems] = useState([]);
   const [linked, setLinked] = useState([]); // item_menu_schedules rows for this schedule
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function ItemsPicker({
                   </Label>
                   {item.price != null && (
                     <span className="text-xs text-gray-500">
-                      {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(item.price)}
+                      {formatMoneyValue(Math.round(item.price * currencyScaleValue))}
                     </span>
                   )}
                 </div>

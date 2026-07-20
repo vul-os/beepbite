@@ -32,10 +32,12 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 
 const RecipeBreakdown = ({ activeLocation }) => {
+  const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
   const [breakdownData, setBreakdownData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -164,11 +166,10 @@ const RecipeBreakdown = ({ activeLocation }) => {
     }
   };
 
+  // Cost contributions are major-unit floats, so scale up to minor units
+  // before handing them to the minor-unit-based formatter.
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR'
-    }).format(amount || 0);
+    return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
   const getItemTypeIcon = (type) => {

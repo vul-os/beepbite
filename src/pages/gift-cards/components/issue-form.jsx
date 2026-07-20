@@ -15,6 +15,7 @@ import {
 import { CardResult } from './card-result';
 import { AlertCircle, RefreshCw, X } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useLocale, useDateTime } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import CustomerSearch from '@/pages/pos/components/customer-search';
 
@@ -30,6 +31,8 @@ const STAFF_NONE = '__none__';
  */
 export function IssueForm() {
   const { activeOrganization, activeLocation } = useAuth();
+  const { currency } = useLocale();
+  const { today } = useDateTime();
 
   const [balanceDollars, setBalanceDollars] = useState('');
   const [cardType, setCardType] = useState('digital'); // 'physical' | 'digital'
@@ -154,7 +157,7 @@ export function IssueForm() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Initial balance */}
           <div className="space-y-1.5">
-            <Label htmlFor="balance">Initial Balance (ZAR) *</Label>
+            <Label htmlFor="balance">Initial Balance{currency ? ` (${currency})` : ''} *</Label>
             <Input
               id="balance"
               type="number"
@@ -198,7 +201,7 @@ export function IssueForm() {
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              min={new Date().toISOString().slice(0, 10)}
+              min={today()}
             />
           </div>
 

@@ -18,7 +18,8 @@ import {
   Truck,
 } from 'lucide-react';
 import { createOrder, clearCart, getStore } from '@/services/marketplace';
-import { formatPrice } from '@/lib/currency';
+import { formatPrice, currencyScale } from '@/lib/currency';
+import { useLocale } from '@/context/locale-context';
 import ReceiptModal from '@/pages/pos/components/receipt-modal';
 import AddressAutocomplete from '@/components/address-autocomplete';
 
@@ -39,6 +40,7 @@ const TIP_OPTIONS = [
 export default function CheckoutPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { currency: activeCurrency, phoneCountryCode } = useLocale();
 
   // State passed from the store page via navigate()
   const {
@@ -46,8 +48,16 @@ export default function CheckoutPage() {
     storeName = 'Store',
     items = [],
     subtotal: passedSubtotal = 0,
-    currency = 'ZAR',
+    // The store page always passes its own currency; the active location is
+    // only a fallback for a stale/incomplete navigation state.
+    currency = activeCurrency || '',
   } = location.state || {};
+
+  // Cart prices are held as MAJOR units (floats), but formatPrice takes minor
+  // units. The conversion factor is a property of the currency — 1 for JPY,
+  // 100 for USD, 1000 for KWD — so a literal *100 renders ¥1,000 as ¥100,000
+  // and KD 1.000 as KD 0.100.
+  const toMinor = (major) => Math.round(Number(major ?? 0) * currencyScale(currency));
 
   // Fallback: recalculate subtotal in case state was stale
   const subtotal =
@@ -202,7 +212,7 @@ export default function CheckoutPage() {
 
   // ── Confirmation screen ───────────────────────────────────────────────────
   if (confirmed) {
-    const totalFormatted = formatPrice(total * 100, currency);
+    const totalFormatted = formatPrice(toMinor(total), currency);
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-sm text-center shadow-xl border-0 rounded-3xl overflow-hidden">
@@ -438,7 +448,7 @@ export default function CheckoutPage() {
               <Input
                 id="phone"
                 type="tel"
-                placeholder="+27 82 000 0000"
+                placeholder={phoneCountryCode ? `+${phoneCountryCode} 82 000 0000` : '+ country code and number'}
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 required
@@ -461,14 +471,14 @@ export default function CheckoutPage() {
                     <span className="font-medium text-foreground">{item.quantity ?? 1}×</span>{' '}{item.name}
                   </span>
                   <span className="font-medium tabular-nums shrink-0 ml-3">
-                    {formatPrice(Number(item.price ?? 0) * (item.quantity ?? 1) * 100, currency)}
+                    {formatPrice(toMinor(Number(item.price ?? 0) * (item.quantity ?? 1)), currency)}
                   </span>
                 </div>
               ))}
               <Separator className="my-1" />
               <div className="flex justify-between text-sm font-semibold">
                 <span>Subtotal</span>
-                <span className="tabular-nums">{formatPrice(subtotal * 100, currency)}</span>
+                <span className="tabular-nums">{formatPrice(toMinor(subtotal), currency)}</span>
               </div>
             </CardContent>
           </Card>
@@ -516,7 +526,7 @@ export default function CheckoutPage() {
                 />
                 {tipAmount > 0 && (
                   <span className="text-sm font-medium text-orange-600 tabular-nums">
-                    {formatPrice(tipAmount * 100, currency)}
+                    {formatPrice(toMinor(tipAmount), currency)}
                   </span>
                 )}
               </div>
@@ -593,18 +603,18 @@ export default function CheckoutPage() {
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span className="tabular-nums">{formatPrice(subtotal * 100, currency)}</span>
+                  <span className="tabular-nums">{formatPrice(toMinor(subtotal), currency)}</span>
                 </div>
                 {tipAmount > 0 && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>Tip</span>
-                    <span className="tabular-nums">{formatPrice(tipAmount * 100, currency)}</span>
+                    <span className="tabular-nums">{formatPrice(toMinor(tipAmount), currency)}</span>
                   </div>
                 )}
                 <Separator className="my-2 border-orange-200" />
                 <div className="flex justify-between font-bold text-base">
                   <span>Total</span>
-                  <span className="text-orange-600 tabular-nums">{formatPrice(total * 100, currency)}</span>
+                  <span className="text-orange-600 tabular-nums">{formatPrice(toMinor(total), currency)}</span>
                 </div>
               </div>
 
@@ -647,7 +657,7 @@ export default function CheckoutPage() {
                       Placing your order…
                     </>
                   ) : (
-                    `Place order · ${formatPrice(total * 100, currency)}`
+                    `Place order · ${formatPrice(toMinor(total), currency)}`
                   )}
                 </Button>
               )}
@@ -665,7 +675,7 @@ export default function CheckoutPage() {
                       Processing…
                     </>
                   ) : (
-                    `Pay securely · ${formatPrice(total * 100, currency)}`
+                    `Pay securely · ${formatPrice(toMinor(total), currency)}`
                   )}
                 </Button>
               )}

@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useDateTime } from '@/context/locale-context';
 import { Plus, TrendingUp, Clock } from 'lucide-react';
 
 const RATE_TYPES = [
@@ -92,10 +93,13 @@ function RateCard({ rate }) {
 }
 
 function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
+  const { today } = useDateTime();
   const [form, setForm] = useState({
     rate_type: 'hourly',
     amount: '',
-    effective_from: new Date().toISOString().slice(0, 10),
+    // The store's local trading date, not `new Date().toISOString().slice(0, 10)`
+    // (the UTC date — wrong for most of the day in most timezones).
+    effective_from: today(),
     overtime_multiplier: '1.5',
     notes: '',
   });
@@ -127,7 +131,7 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
     setForm({
       rate_type: 'hourly',
       amount: '',
-      effective_from: new Date().toISOString().slice(0, 10),
+      effective_from: today(),
       overtime_multiplier: '1.5',
       notes: '',
     });

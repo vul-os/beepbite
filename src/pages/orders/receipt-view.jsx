@@ -14,6 +14,7 @@ import { Printer, Loader2, AlertCircle } from 'lucide-react';
 
 import { fetchReceipt } from '@/services/receipts';
 import { formatPrice } from '@/lib/currency';
+import { useLocale } from '@/context/locale-context';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,6 +74,7 @@ function Row({ label, value, bold = false, indent = false }) {
  * @param {{ orderId: string, onClose?: () => void }} props
  */
 export default function ReceiptView({ orderId, onClose }) {
+  const { currency: activeCurrency } = useLocale();
   const [receipt, setReceipt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -124,7 +126,9 @@ export default function ReceiptView({ orderId, onClose }) {
 
   if (!receipt) return null;
 
-  const currency = receipt.currency_code || 'ZAR';
+  // The order's own currency wins; the active location is only a fallback
+  // for older receipts that predate the currency_code column.
+  const currency = receipt.currency_code || activeCurrency || '';
   const fmt = (cents) => formatPrice(cents, currency);
 
   return (

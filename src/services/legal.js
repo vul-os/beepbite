@@ -57,23 +57,41 @@ export async function acceptDocument(documentId) {
  *   contact_email?: string,
  * } | null} [taxProfile]  Row from `tax_profiles` if available; null/undefined degrades gracefully.
  *
+ * @param {string} [timeZone]  IANA zone for the "effective date" stamp. This
+ *   module is a plain function with no React context, so it cannot call
+ *   useDateTime(); callers that know the store's timezone should pass it.
+ *   Defaults to 'UTC' so behaviour is unchanged for callers that don't.
+ *
  * @returns {string}  Markdown-formatted privacy policy string.
  */
-export function generateStorePolicyMd(organization, taxProfile = null) {
+export function generateStorePolicyMd(organization, taxProfile = null, timeZone = 'UTC') {
   if (!organization || !organization.name) {
     throw new Error('generateStorePolicyMd: organization.name is required');
   }
 
   // Prefer tax_profiles data when available; fall back to organizations fields.
+  // No country/currency default is invented when neither source has one — the
+  // copy below is written to read sensibly with either field blank.
   const legalName    = taxProfile?.legal_name      || organization.name;
   const address      = taxProfile?.registered_address || organization.address || 'address on file';
-  const country      = taxProfile?.country         || organization.country     || 'ZA';
+  const country      = taxProfile?.country         || organization.country     || '';
   const contactEmail = taxProfile?.contact_email   || organization.contact_email || 'privacy@beepbite.io';
   const vatNumber    = taxProfile?.vat_number;
   const storeName    = organization.name;
-  const currency     = organization.default_currency_code || 'ZAR';
+  const currency     = organization.default_currency_code || '';
+  // This is a data-residency claim, not a UI string — it must reflect where
+  // the platform actually hosts the tenant's data, which is a fact only the
+  // deployment knows, not something this module should hardcode. Falls back
+  // to a generic, non-committal description if neither source configures it.
+  const hostingLocation =
+    organization.data_residency ||
+    import.meta.env.VITE_DATA_RESIDENCY ||
+    'see your BeepBite hosting agreement';
 
-  const today = new Date().toISOString().slice(0, 10);
+  // toISOString().slice(0, 10) is the UTC date, which disagrees with the
+  // store's local date for hours at a time outside UTC. 'en-CA' is used only
+  // because its short date format IS ISO 8601; `timeZone` does the real work.
+  const today = new Date().toLocaleDateString('en-CA', { timeZone });
 
   return `# Privacy Policy — ${storeName}
 
@@ -86,8 +104,7 @@ services for **${storeName}** using the BeepBite platform.
 
 ${vatNumber ? `**VAT/Tax registration:** ${vatNumber}  ` : ''}
 **Registered address:** ${address}
-**Country:** ${country}
-**Contact:** ${contactEmail}
+${country ? `**Country:** ${country}\n` : ''}**Contact:** ${contactEmail}
 
 ## 2. Information we collect
 
@@ -95,7 +112,7 @@ We collect information you provide when you place an order, create an account, o
 contact us:
 
 - **Contact details** — name, phone number (including WhatsApp), email address.
-- **Order information** — items ordered, transaction amounts (in ${currency}),
+- **Order information** — items ordered, transaction amounts${currency ? ` (in ${currency})` : ''},
   fulfilment preferences.
 - **Device & session data** — IP address, browser type, timestamps.
 - **Payment data** — payment method type and last-four digits (full card numbers
@@ -117,7 +134,7 @@ We share data with the following trusted service providers:
 
 | Provider | Purpose | Location |
 |---|---|---|
-| **BeepBite / Exolution Technologies** | POS platform, data storage | South Africa / Fly.io (EU & US) |
+| **BeepBite / Exolution Technologies** | POS platform, data storage | ${hostingLocation} |
 | **Cloudflare R2** | Media & file storage | Global CDN |
 | **Meta (WhatsApp Business API)** | Order & notification messaging | US |
 | **Anthropic** | AI-assisted floor plans and owner assistant | US |
@@ -165,7 +182,6 @@ your acceptance of the updated policy.
 Questions about this policy?  Email us at **${contactEmail}** or write to:
 
 > ${legalName}
-> ${address}
-> ${country}
+> ${address}${country ? `\n> ${country}` : ''}
 `;
 }

@@ -44,6 +44,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useMoney } from '@/context/locale-context';
 import { splitCheck } from '@/services/tables';
 import TenderModal from './tender-modal';
 
@@ -51,10 +52,14 @@ import TenderModal from './tender-modal';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const fmt = (cents) => `R ${(Math.abs(cents) / 100).toFixed(2)}`;
-
-/** Build a flat list of order-items from all sent orders on the ticket. */
-function buildItemList(ticket) {
+/**
+ * Build a flat list of order-items from all sent orders on the ticket.
+ *
+ * `scale` is the currency's minor units per major unit. It has to be passed in
+ * because `unit_price` arrives from the API as a major-unit decimal string, and
+ * a literal 100 turns a ¥500 item into ¥50 000.
+ */
+function buildItemList(ticket, scale) {
   if (!ticket) return [];
   const rows = [];
   for (const order of ticket.sentOrders || []) {
@@ -67,9 +72,9 @@ function buildItemList(ticket) {
         quantity: item.quantity || 1,
         unitCents: item.total_cents
           ? Math.round(item.total_cents / (item.quantity || 1))
-          : Math.round((parseFloat(item.unit_price || 0)) * 100),
+          : Math.round((parseFloat(item.unit_price || 0)) * scale),
         totalCents: item.total_cents
-          || Math.round((parseFloat(item.unit_price || 0) * (item.quantity || 1)) * 100),
+          || Math.round((parseFloat(item.unit_price || 0) * (item.quantity || 1)) * scale),
       });
     }
   }
@@ -136,8 +141,10 @@ export default function SplitBySeat({
   const [tenderError, setTenderError] = useState('');
   const [paidSplits, setPaidSplits] = useState(new Set());
 
+  const { format, scale } = useMoney();
+
   // ------ Derived -----------------------------------------------------------
-  const allItems = useMemo(() => buildItemList(ticket), [ticket]);
+  const allItems = useMemo(() => buildItemList(ticket, scale), [ticket, scale]);
 
   // Reset when modal opens
   useEffect(() => {
@@ -368,7 +375,7 @@ export default function SplitBySeat({
                           <tr key={item.key} className={cn('border-b last:border-0', unallocated > 0 && 'bg-red-50/30')}>
                             <td className="px-3 py-2">
                               <span className="font-medium text-gray-900 line-clamp-1">{item.name}</span>
-                              <span className="text-gray-400 ml-1">({fmt(item.unitCents)}/ea)</span>
+                              <span className="text-gray-400 ml-1">({format(Math.abs(item.unitCents))}/ea)</span>
                             </td>
                             <td className="px-2 py-2 text-center font-semibold">{item.quantity}</td>
                             {seats.map((seat) => {
@@ -419,7 +426,7 @@ export default function SplitBySeat({
                         <td className="px-3 py-2 font-semibold text-xs text-gray-600" colSpan={2}>Subtotal</td>
                         {seats.map((seat) => (
                           <td key={seat.id} className="px-2 py-2 text-center font-bold tabular-nums text-xs text-orange-700">
-                            {fmt(seatTotalCents(seat.id, assignments, allItems))}
+                            {format(Math.abs(seatTotalCents(seat.id, assignments, allItems)))}
                           </td>
                         ))}
                         <td />
@@ -471,7 +478,7 @@ export default function SplitBySeat({
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold tabular-nums text-base">{fmt(amountCents)}</span>
+                        <span className="font-bold tabular-nums text-base">{format(Math.abs(amountCents))}</span>
                         {!isPaid ? (
                           <Button
                             size="sm"

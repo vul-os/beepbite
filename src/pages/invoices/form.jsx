@@ -9,7 +9,7 @@
  *   /invoices/:id/edit   — edit draft
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -38,10 +38,15 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getInvoice, createInvoice, updateInvoice } from '@/services/invoicing';
+import { useLocale } from '@/context/locale-context';
+import { formatMoney, currencySymbol } from '@/lib/currency';
+import { currencyOptions } from '@/lib/locale-data';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const CURRENCIES = ['ZAR', 'USD', 'EUR', 'GBP', 'KES', 'NGN', 'GHS'];
+//
+// The currency list comes from src/lib/locale-data.js, which mirrors the
+// backend `currencies` table (there is no endpoint that lists it — see that
+// file's KNOWN GAP note); it is not re-declared here.
 
 const EMPTY_LINE = { description: '', qty: 1, unit_cents: 0 };
 
@@ -51,7 +56,9 @@ const EMPTY_FORM = {
   recipient_customer_id: '',
   recipient_name:        '',
   recipient_address:     '',
-  currency:              'ZAR',
+  // No hardcoded currency default — an unconfigured location should look
+  // unconfigured, not confidently priced in some country's currency.
+  currency:              '',
   vat_rate_pct:          0,
   lines:                 [{ ...EMPTY_LINE }],
 };
@@ -73,14 +80,6 @@ function subtotal(lines) {
   return lines.reduce((acc, l) => acc + l.qty * l.unit_cents, 0);
 }
 
-function fmtCents(cents, currency) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency || 'ZAR',
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function InvoiceFormPage() {
@@ -88,7 +87,19 @@ export default function InvoiceFormPage() {
   const navigate = useNavigate();
   const isEdit = !!id;
 
-  const [form, setForm] = useState(EMPTY_FORM);
+  const { currency: activeCurrency, locale, taxLabel } = useLocale();
+  // The tax is called VAT in the EU/UK/ZA, GST elsewhere, IVA in Spain/Italy/
+  // Latin America, Consumption Tax in Japan and Sales Tax in the US — the
+  // label must come from the location's own configured name, not a hardcode.
+  const tax = taxLabel || 'Tax';
+  // The full option list is rebuilt from Intl.DisplayNames, so it is memoised
+  // against the locale that names it rather than recomputed every render.
+  const currencyChoices = useMemo(() => currencyOptions(locale), [locale]);
+  // fmtCents needs the reader's locale, which only the hook can supply, so it
+  // lives inside the component rather than as a module-level helper.
+  const fmtCents = (cents, currency) => formatMoney(cents ?? 0, { currency, locale });
+
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, currency: activeCurrency || '' }));
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -109,7 +120,7 @@ export default function InvoiceFormPage() {
         recipient_customer_id: data.recipient_customer_id ?? '',
         recipient_name:        data.recipient_name        ?? '',
         recipient_address:     data.recipient_address     ?? '',
-        currency:              data.currency              ?? 'ZAR',
+        currency:              data.currency              ?? activeCurrency ?? '',
         vat_rate_pct:          data.vat_rate_percent      ?? 0,
         lines: (existingLines && existingLines.length > 0)
           ? existingLines.map((l) => ({
@@ -121,7 +132,7 @@ export default function InvoiceFormPage() {
       });
     }
     setLoading(false);
-  }, [id]);
+  }, [id, activeCurrency]);
 
   useEffect(() => { if (isEdit) load(); }, [isEdit, load]);
 
@@ -195,7 +206,7 @@ export default function InvoiceFormPage() {
     ? Math.round(sub * parseFloat(form.vat_rate_pct) / 100)
     : 0;
   const totalCents = sub + vatCents;
-  const currency = form.currency || 'ZAR';
+  const currency = form.currency || activeCurrency || '';
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -251,8 +262,8 @@ export default function InvoiceFormPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Choose "My business" to invoice your customers. VAT is applied
-                automatically if your VAT number is set in Business Info.
+                Choose "My business" to invoice your customers. {tax} is applied
+                automatically if your {tax} number is set in Business Info.
               </p>
             </div>
 
@@ -267,19 +278,21 @@ export default function InvoiceFormPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  {currencyChoices.map(({ code }) => (
+                    <SelectItem key={code} value={code}>
+                      {code} {currencySymbol(code, locale)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* VAT rate */}
+            {/* Tax rate */}
             <div className="space-y-1">
               <Label htmlFor="vat_rate_pct">
-                VAT rate %{' '}
+                {tax} rate %{' '}
                 <span className="text-muted-foreground text-xs">
-                  (applied automatically when VAT number is set in Business Info)
+                  (applied automatically when {tax} number is set in Business Info)
                 </span>
               </Label>
               <Input
@@ -411,7 +424,7 @@ export default function InvoiceFormPage() {
               </div>
               {vatCents > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>VAT ({form.vat_rate_pct}%)</span>
+                  <span>{tax} ({form.vat_rate_pct}%)</span>
                   <span className="tabular-nums">{fmtCents(vatCents, currency)}</span>
                 </div>
               )}

@@ -119,7 +119,7 @@ const AuthLayout = ({ children }) => (
         </ul>
 
         <p className="text-xs text-white/50">
-          Trusted by restaurants across South Africa
+          Trusted by restaurants and cafés everywhere
         </p>
       </div>
     </div>

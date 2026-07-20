@@ -8,23 +8,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, User } from 'lucide-react';
 import { fetchCashOut } from '@/services/cashout';
-import { formatPrice } from '@/lib/currency';
+import { useMoney } from '@/context/locale-context';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const CURRENCY = 'ZAR';
-
-function fmt(cents) {
-  return formatPrice(cents ?? 0, CURRENCY);
-}
-
-function fmtSigned(cents) {
-  if (cents == null) return '—';
-  const sign = cents >= 0 ? '+' : '';
-  return `${sign}${formatPrice(cents, CURRENCY)}`;
-}
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -76,11 +64,21 @@ function ReportRow({ label, value, sub, highlight }) {
  *
  * Props:
  *   sessionId {string}  — UUID of the cash_drawer_session
+ *
+ * Requires LocaleProvider above it. The report carries a location_id but no
+ * currency of its own, so the provider must be scoped to that same location.
  */
 export function CashOutReport({ sessionId }) {
+  const { format } = useMoney();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState(null);
+
+  // Inside the component because they need the hook; a negative amount already
+  // formats with its own minus sign, so only the '+' has to be added.
+  const fmt = (cents) => format(cents ?? 0);
+  const fmtSigned = (cents) =>
+    cents == null ? '—' : `${cents >= 0 ? '+' : ''}${format(cents)}`;
 
   useEffect(() => {
     if (!sessionId) return;
@@ -259,7 +257,7 @@ export function CashOutReport({ sessionId }) {
               ? '—'
               : isBalanced
               ? fmt(0)
-              : `${isShort ? '' : '+'}${formatPrice(variance, CURRENCY)}`}
+              : `${isShort ? '' : '+'}${format(variance)}`}
           </div>
           {!isUncounted && (
             <div className="flex items-center gap-1 mt-1">
@@ -268,9 +266,9 @@ export function CashOutReport({ sessionId }) {
               {isBalanced && <CheckCircle2 className="h-4 w-4 text-green-500" />}
               <span className={`text-sm ${varianceColor}`}>
                 {isShort
-                  ? `Drawer is R ${(Math.abs(variance) / 100).toFixed(2)} short of expected`
+                  ? `Drawer is ${fmt(Math.abs(variance))} short of expected`
                   : isOver
-                  ? `Drawer is R ${(Math.abs(variance) / 100).toFixed(2)} over expected`
+                  ? `Drawer is ${fmt(Math.abs(variance))} over expected`
                   : 'Drawer is exactly balanced'}
               </span>
             </div>
