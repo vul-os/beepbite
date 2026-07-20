@@ -7,6 +7,9 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/tax"
 )
 
 // seedCommerce builds gift cards, house accounts, tenant invoices, promotions
@@ -83,10 +86,15 @@ func seedCommerce(s *seeder, c *Ctx) error {
 // ---------------------------------------------------------------------------
 
 type giftCardSpec struct {
-	code        string
-	cardType    string // digital|physical
-	initial     int64  // cents
-	currentPct  float64
+	code     string
+	cardType string // digital|physical
+	// initial is authored in the 2-decimal reference scale and rescaled by
+	// cfg.Price into the configured currency's minor units.
+	initial int64
+	// currentPct is the remaining balance as a whole percentage. It was a
+	// float64 multiplied straight into the balance, which is float money
+	// arithmetic; as an integer percent it can be applied with DivRound.
+	currentPct  int
 	status      string // active|redeemed|expired|disabled
 	custIdx     int    // -1 => walk-in (no linked customer)
 	walkInName  string
@@ -96,25 +104,26 @@ type giftCardSpec struct {
 
 func seedGiftCards(s *seeder, c *Ctx, custAt func(int) *CustomerRef, nullStr func(string) interface{}, staffID *string) (int, error) {
 	specs := []giftCardSpec{
-		{"GC-4F2A91", "digital", 50000, 1.00, "active", 0, "", "", 40},
-		{"GC-7B3D02", "digital", 100000, 0.40, "active", 1, "", "", 75},
-		{"GC-19E6C4", "physical", 25000, 1.00, "active", 2, "", "", 10},
-		{"GC-88AA55", "digital", 75000, 0.00, "redeemed", 3, "", "", 100},
-		{"GC-D02B7E", "physical", 150000, 1.00, "active", 4, "", "", 5},
-		{"GC-3C9F10", "digital", 30000, 0.50, "active", 5, "", "", 60},
-		{"GC-6E1177", "digital", 50000, 1.00, "active", -1, "Zanele Khumalo", "zanele.khumalo@example.test", 20},
-		{"GC-A5D390", "physical", 20000, 1.00, "expired", 6, "", "", 400},
-		{"GC-F70C2D", "digital", 40000, 1.00, "disabled", 7, "", "", 15},
-		{"GC-2B8E64", "digital", 100000, 0.75, "active", 8, "", "", 30},
-		{"GC-9D4471", "physical", 60000, 1.00, "active", -1, "Ryan September", "ryan.september@example.test", 8},
-		{"GC-C10F98", "digital", 35000, 0.20, "active", 9, "", "", 90},
+		{"GC-4F2A91", "digital", 50000, 100, "active", 0, "", "", 40},
+		{"GC-7B3D02", "digital", 100000, 40, "active", 1, "", "", 75},
+		{"GC-19E6C4", "physical", 25000, 100, "active", 2, "", "", 10},
+		{"GC-88AA55", "digital", 75000, 0, "redeemed", 3, "", "", 100},
+		{"GC-D02B7E", "physical", 150000, 100, "active", 4, "", "", 5},
+		{"GC-3C9F10", "digital", 30000, 50, "active", 5, "", "", 60},
+		{"GC-6E1177", "digital", 50000, 100, "active", -1, "Zanele Khumalo", s.cfg.Email("zanele.khumalo"), 20},
+		{"GC-A5D390", "physical", 20000, 100, "expired", 6, "", "", 400},
+		{"GC-F70C2D", "digital", 40000, 100, "disabled", 7, "", "", 15},
+		{"GC-2B8E64", "digital", 100000, 75, "active", 8, "", "", 30},
+		{"GC-9D4471", "physical", 60000, 100, "active", -1, "Ryan September", s.cfg.Email("ryan.september"), 8},
+		{"GC-C10F98", "digital", 35000, 20, "active", 9, "", "", 90},
 	}
 
 	err := s.tx(func(tx pgx.Tx) error {
 		for _, sp := range specs {
 			activatedAt := c.Now.AddDate(0, 0, -sp.daysAgo)
 			expiresAt := activatedAt.AddDate(3, 0, 0)
-			current := int64(float64(sp.initial) * sp.currentPct)
+			initial := s.cfg.Price(sp.initial)
+			current := money.DivRound(initial*int64(sp.currentPct), 100)
 
 			var custID interface{}
 			issuedName := sp.walkInName
@@ -128,7 +137,7 @@ func seedGiftCards(s *seeder, c *Ctx, custAt func(int) *CustomerRef, nullStr fun
 			}
 
 			var lastRedeemedAt interface{}
-			if current < sp.initial {
+			if current < initial {
 				lastRedeemedAt = activatedAt.AddDate(0, 0, sp.daysAgo/3+1)
 			}
 
@@ -138,11 +147,12 @@ func seedGiftCards(s *seeder, c *Ctx, custAt func(int) *CustomerRef, nullStr fun
 					organization_id, code, card_type, initial_balance_cents, current_balance_cents,
 					currency, status, issued_to_customer_id, issued_to_name, issued_to_email,
 					issued_by_staff_id, expires_at, activated_at, last_redeemed_at, notes
-				) VALUES ($1,$2,$3,$4,$5,'ZAR',$6,$7,$8,$9,$10,$11,$12,$13,$14)
+				) VALUES ($1,$2,$3,$4,$5,$15,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 				RETURNING id
-			`, c.OrgID, sp.code, sp.cardType, sp.initial, current,
+			`, c.OrgID, sp.code, sp.cardType, initial, current,
 				sp.status, custID, nullStr(issuedName), nullStr(issuedEmail),
 				staffID, expiresAt, activatedAt, lastRedeemedAt, "Seed data — The Copper Table",
+				s.cfg.Currency,
 			).Scan(&gcID); err != nil {
 				return fmt.Errorf("insert gift card %s: %w", sp.code, err)
 			}
@@ -150,13 +160,13 @@ func seedGiftCards(s *seeder, c *Ctx, custAt func(int) *CustomerRef, nullStr fun
 			if _, err := tx.Exec(s.ctx, `
 				INSERT INTO gift_card_transactions (gift_card_id, txn_type, amount_cents, balance_after_cents, performed_by_staff_id, notes, created_at)
 				VALUES ($1,'issue',$2,$2,$3,'Card issued',$4)
-			`, gcID, sp.initial, staffID, activatedAt); err != nil {
+			`, gcID, initial, staffID, activatedAt); err != nil {
 				return fmt.Errorf("issue txn %s: %w", sp.code, err)
 			}
 
-			if current < sp.initial {
+			if current < initial {
 				redeemAt := activatedAt.AddDate(0, 0, sp.daysAgo/3+1)
-				redeemedAmt := sp.initial - current
+				redeemedAmt := initial - current
 				if _, err := tx.Exec(s.ctx, `
 					INSERT INTO gift_card_transactions (gift_card_id, txn_type, amount_cents, balance_after_cents, performed_by_staff_id, notes, created_at)
 					VALUES ($1,'redeem',$2,$3,$4,'Redeemed against order',$5)
@@ -187,11 +197,12 @@ func seedGiftCards(s *seeder, c *Ctx, custAt func(int) *CustomerRef, nullStr fun
 // ---------------------------------------------------------------------------
 
 type houseAccountSpec struct {
-	name          string
-	contactName   string
-	contactEmail  string
-	contactPhone  string
-	address       string
+	name         string
+	contactName  string
+	contactLocal string // local-part of the seeded example.com address
+	phoneSeq     int    // index into the shared phone allocation (shared.go)
+	address      string
+	// creditLimit/currentBal are authored in the 2-decimal reference scale.
 	creditLimit   int64
 	currentBal    int64
 	billingCycle  string
@@ -201,25 +212,27 @@ type houseAccountSpec struct {
 }
 
 func seedHouseAccounts(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, int, error) {
+	// Fictional corporate customers in the seeded Example City, with contact
+	// details in the reserved example.com domain and on the configured dial code.
 	specs := []houseAccountSpec{
 		{
-			name: "Atlantic Seaboard Corp", contactName: "Michael van der Berg",
-			contactEmail: "accounts@atlanticseaboardcorp.co.za", contactPhone: "+27214213300",
-			address:     "5th Floor, Sea Point Corporate Park, Cape Town, 8005",
+			name: "Harbour Quarter Holdings", contactName: "Michael Arendse",
+			contactLocal: "accounts.harbourquarter", phoneSeq: houseAccountPhoneSeq + 0,
+			address:     "5th Floor, Example Corporate Park, Harbour Quarter, Example City",
 			creditLimit: 5000000, currentBal: 1250000, billingCycle: "monthly", netTermsDays: 30,
 			memberIdxs: []int{10, 11}, invoiceStatus: []string{"paid", "sent"},
 		},
 		{
-			name: "Sea Point Medical Centre", contactName: "Dr. Fatima Adams",
-			contactEmail: "admin@spmedical.co.za", contactPhone: "+27214397722",
-			address:     "18 Regent Road, Sea Point, Cape Town, 8005",
+			name: "Old Town Medical Centre", contactName: "Dr. Fatima Haddad",
+			contactLocal: "admin.oldtownmedical", phoneSeq: houseAccountPhoneSeq + 1,
+			address:     "18 Sample Street, Old Town, Example City",
 			creditLimit: 2000000, currentBal: 350000, billingCycle: "monthly", netTermsDays: 30,
 			memberIdxs: []int{12}, invoiceStatus: []string{"overdue"},
 		},
 		{
-			name: "Clifton Property Group", contactName: "James Retief",
-			contactEmail: "finance@cliftonproperty.co.za", contactPhone: "+27214381190",
-			address:     "2 Victoria Road, Clifton, Cape Town, 8005",
+			name: "Riverside Property Group", contactName: "James Duarte",
+			contactLocal: "finance.riversideproperty", phoneSeq: houseAccountPhoneSeq + 2,
+			address:     "2 Demo Avenue, Riverside, Example City",
 			creditLimit: 3000000, currentBal: 0, billingCycle: "on_demand", netTermsDays: 14,
 			memberIdxs: []int{13, 14}, invoiceStatus: nil,
 		},
@@ -228,16 +241,20 @@ func seedHouseAccounts(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, i
 	haCount, invCount := 0, 0
 	err := s.tx(func(tx pgx.Tx) error {
 		for i, sp := range specs {
+			creditLimit := s.cfg.Price(sp.creditLimit)
+			currentBal := s.cfg.Price(sp.currentBal)
+
 			var haID string
 			if err := tx.QueryRow(s.ctx, `
 				INSERT INTO house_accounts (
 					organization_id, account_name, contact_name, contact_email, contact_phone,
 					billing_address, credit_limit_cents, current_balance_cents, currency,
 					billing_cycle, net_terms_days
-				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'ZAR',$9,$10)
+				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$11,$9,$10)
 				RETURNING id
-			`, c.OrgID, sp.name, sp.contactName, sp.contactEmail, sp.contactPhone,
-				sp.address, sp.creditLimit, sp.currentBal, sp.billingCycle, sp.netTermsDays,
+			`, c.OrgID, sp.name, sp.contactName, s.cfg.Email(sp.contactLocal), s.cfg.Phone(sp.phoneSeq),
+				sp.address, creditLimit, currentBal, sp.billingCycle, sp.netTermsDays,
+				s.cfg.Currency,
 			).Scan(&haID); err != nil {
 				return fmt.Errorf("insert house account %s: %w", sp.name, err)
 			}
@@ -252,7 +269,7 @@ func seedHouseAccounts(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, i
 					INSERT INTO house_account_members (house_account_id, customer_id, spending_limit_cents)
 					VALUES ($1,$2,$3)
 					ON CONFLICT (house_account_id, customer_id) DO NOTHING
-				`, haID, cr.ID, sp.creditLimit/int64(len(sp.memberIdxs))); err != nil {
+				`, haID, cr.ID, money.DivRound(creditLimit, int64(len(sp.memberIdxs)))); err != nil {
 					return fmt.Errorf("house account member %s: %w", sp.name, err)
 				}
 			}
@@ -260,9 +277,15 @@ func seedHouseAccounts(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, i
 			for j, status := range sp.invoiceStatus {
 				periodEnd := c.Now.AddDate(0, -1, -j*30)
 				periodStart := periodEnd.AddDate(0, -1, 0)
-				subtotal := sp.currentBal + int64(j)*40000 + 60000
-				tax := int64(float64(subtotal) * 0.15)
-				total := subtotal + tax
+				subtotal := currentBal + s.cfg.Price(int64(j)*40000+60000)
+				// House-account statements bill a business for a period of
+				// trading and quote a net figure with the tax shown as a
+				// separate line — the invoicing convention, which is exclusive
+				// regardless of whether the restaurant's own menu prices are
+				// tax-inclusive. So this uses tax.Add rather than cfg.TaxOn:
+				// the rate is configuration, the convention is the document type.
+				taxed := tax.Add(subtotal, s.cfg.Tax.Rate)
+				total := taxed.Gross
 				dueDate := periodEnd.AddDate(0, 0, sp.netTermsDays)
 
 				var sentAt, paidAt interface{}
@@ -285,7 +308,7 @@ func seedHouseAccounts(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, i
 						subtotal_cents, tax_cents, total_cents, status, due_date,
 						sent_at, paid_at, paid_amount_cents
 					) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-				`, haID, invNum, periodStart, periodEnd, subtotal, tax, total, status, dueDate,
+				`, haID, invNum, periodStart, periodEnd, subtotal, taxed.Tax, total, status, dueDate,
 					sentAt, paidAt, paidAmt); err != nil {
 					return fmt.Errorf("house account invoice %s: %w", invNum, err)
 				}
@@ -306,8 +329,9 @@ func seedHouseAccounts(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, i
 
 func seedTenantInvoices(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, error) {
 	type invSpec struct {
-		num      string
-		custIdx  int
+		num     string
+		custIdx int
+		// subtotal is authored in the 2-decimal reference scale, net of tax.
 		subtotal int64
 		status   string
 		daysAgo  int
@@ -329,8 +353,12 @@ func seedTenantInvoices(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, 
 			}
 			issuedAt := c.Now.AddDate(0, 0, -sp.daysAgo)
 			dueDate := issuedAt.AddDate(0, 0, sp.dueIn)
-			vat := int64(float64(sp.subtotal) * 0.15)
-			total := sp.subtotal + vat
+			// Like house-account statements, a tenant invoice quotes a net
+			// subtotal and adds the tax as its own line, so the exclusive
+			// computation is used whatever the retail convention is.
+			subtotal := s.cfg.Price(sp.subtotal)
+			taxed := tax.Add(subtotal, s.cfg.Tax.Rate)
+			total := taxed.Gross
 
 			var paidAt interface{}
 			if sp.status == "paid" {
@@ -342,8 +370,12 @@ func seedTenantInvoices(s *seeder, c *Ctx, custAt func(int) *CustomerRef) (int, 
 					issuer, issuer_org_id, recipient_customer_id, invoice_number, currency,
 					subtotal_cents, vat_cents, vat_rate_percent, vat_applied, total_cents,
 					due_date, status, issued_at, paid_at
-				) VALUES ('tenant',$1,$2,$3,'ZAR',$4,$5,15,true,$6,$7,$8,$9,$10)
-			`, c.OrgID, cr.ID, sp.num, sp.subtotal, vat, total, dueDate, sp.status, issuedAt, paidAt); err != nil {
+				) VALUES ('tenant',$1,$2,$3,$11,$4,$5,$12,$13,$6,$7,$8,$9,$10)
+			`, c.OrgID, cr.ID, sp.num, subtotal, taxed.Tax, total, dueDate, sp.status, issuedAt, paidAt,
+				s.cfg.Currency,
+				// vat_applied records whether any tax was actually charged — a
+				// tax-exempt or unconfigured locale (rate 0) charges none.
+				s.cfg.TaxRatePercent(), s.cfg.TaxRatePercent() > 0); err != nil {
 				return fmt.Errorf("insert invoice %s: %w", sp.num, err)
 			}
 			count++
@@ -404,7 +436,7 @@ func seedPromotions(s *seeder, c *Ctx) (int, int, error) {
 		bogoGetQty      int
 		bogoDiscPct     float64
 		freeItemID      interface{}
-		minSpend        int64
+		minSpend        int64 // already in minor units
 		maxDiscount     interface{}
 		requiresCoupon  bool
 		dayparts        interface{}
@@ -417,17 +449,27 @@ func seedPromotions(s *seeder, c *Ctx) (int, int, error) {
 		targetCatID     string
 	}
 
+	// Promotion copy quotes real thresholds, so the amounts are formatted from
+	// the same values the columns get rather than typed into the string. The
+	// originals read "Free Delivery over R350": a currency symbol and a
+	// rand-denominated number welded into a name, which would still say R350
+	// after SEED_CURRENCY changed and the threshold column had become 350 yen.
+	freeDeliveryOver := s.cfg.Price(35000)
+	freeDessertOver := s.cfg.Price(45000)
+	midweekOff := s.cfg.Price(5000)
+	midweekOver := s.cfg.Price(15000)
+
 	specs := []promoSpec{
 		{
 			name: "Winter Special 15% Off", description: "15% off your whole order — winter warmer.",
 			promoType: "percent_off", scope: "order", percentOff: 15.0,
-			minSpend: 25000, maxDiscount: int64(20000),
+			minSpend: s.cfg.Price(25000), maxDiscount: s.cfg.Price(20000),
 			requiresCoupon: true, fromDaysAgo: 20, untilDaysAhead: 40,
 			usageLimitTotal: 500, usagePerCust: 2, priority: 10,
 		},
 		{
 			name: "Happy Hour Cocktails", description: "Discounted cocktail pricing, weekdays 16:00-18:30.",
-			promoType: "happy_hour_price", scope: "category", hhPriceCents: int64(6500),
+			promoType: "happy_hour_price", scope: "category", hhPriceCents: s.cfg.Price(6500),
 			dayparts:    `{"days":[1,2,3,4,5],"start":"16:00","end":"18:30"}`,
 			fromDaysAgo: 60, untilDaysAhead: 180, usagePerCust: 10, priority: 5,
 			targetCatID: cocktailCatIDIf(haveCocktailCat, cocktailCatID),
@@ -439,20 +481,24 @@ func seedPromotions(s *seeder, c *Ctx) (int, int, error) {
 			targetItemID: burgerIDIf(haveBurger, burgerID),
 		},
 		{
-			name: "Free Delivery over R350", description: "Free delivery on orders over R350.",
-			promoType: "free_delivery", scope: "delivery", minSpend: 35000,
+			name:        fmt.Sprintf("Free Delivery over %s", s.cfg.Format(freeDeliveryOver)),
+			description: fmt.Sprintf("Free delivery on orders over %s.", s.cfg.Format(freeDeliveryOver)),
+			promoType:   "free_delivery", scope: "delivery", minSpend: freeDeliveryOver,
 			fromDaysAgo: 90, untilDaysAhead: 365, usagePerCust: 10, priority: 3,
 		},
 		{
-			name: "Family Feast Free Dessert", description: "Free dessert when you spend over R450.",
-			promoType: "free_item", scope: "order", minSpend: 45000,
+			name:        "Family Feast Free Dessert",
+			description: fmt.Sprintf("Free dessert when you spend over %s.", s.cfg.Format(freeDessertOver)),
+			promoType:   "free_item", scope: "order", minSpend: freeDessertOver,
 			freeItemID:  dessertIDIf(haveDessert, dessertID),
 			fromDaysAgo: 15, untilDaysAhead: 45, usagePerCust: 1, priority: 6,
 		},
 		{
-			name: "Midweek R50 Off", description: "R50 off orders over R150, Wed only.",
-			promoType: "fixed_off", scope: "order", fixedOffCents: int64(5000),
-			minSpend: 15000, requiresCoupon: true,
+			name: fmt.Sprintf("Midweek %s Off", s.cfg.Format(midweekOff)),
+			description: fmt.Sprintf("%s off orders over %s, Wed only.",
+				s.cfg.Format(midweekOff), s.cfg.Format(midweekOver)),
+			promoType: "fixed_off", scope: "order", fixedOffCents: midweekOff,
+			minSpend: midweekOver, requiresCoupon: true,
 			fromDaysAgo: 10, untilDaysAhead: 50, usageLimitTotal: 200, usagePerCust: 1, priority: 4,
 		},
 	}

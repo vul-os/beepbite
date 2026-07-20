@@ -127,8 +127,11 @@ func Load() (Config, error) {
 		Country:  strings.ToUpper(envOr("SEED_COUNTRY", DefaultCountry)),
 		Currency: strings.ToUpper(envOr("SEED_CURRENCY", DefaultCurrency)),
 		Timezone: envOr("SEED_TIMEZONE", DefaultTimezone),
-		Locale:   envOr("SEED_LOCALE", DefaultLocale),
-		PhoneCC:  strings.TrimPrefix(envOr("SEED_PHONE_CC", DefaultPhoneCC), "+"),
+		// Locale is the one setting where an explicitly empty value is a real
+		// choice — "format with CLDR root, belonging to no country" — so it
+		// uses envOrEmpty rather than falling back.
+		Locale:  envOrEmpty("SEED_LOCALE", DefaultLocale),
+		PhoneCC: strings.TrimPrefix(envOr("SEED_PHONE_CC", DefaultPhoneCC), "+"),
 	}
 
 	if len(c.Country) != 2 {
@@ -290,10 +293,22 @@ func (c Config) Email(local string) string {
 // env helpers
 // ---------------------------------------------------------------------------
 
+// envOr returns the trimmed variable, falling back when it is unset OR set but
+// empty. Empty is treated as absent because `SEED_COUNTRY=` in a .env file or a
+// CI matrix that leaves a cell blank means "I did not choose one", not "seed a
+// location with no country" — and the latter would fail a CHECK constraint far
+// from the place the blank was written.
 func envOr(key, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// envOrEmpty distinguishes unset from set-and-empty, for the one setting where
+// empty is a meaningful value rather than a missing one.
+func envOrEmpty(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok {
-		// An explicitly empty value is a real choice for SEED_LOCALE ("use
-		// root formatting"), so LookupEnv is used rather than Getenv.
 		return strings.TrimSpace(v)
 	}
 	return fallback

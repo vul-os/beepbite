@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/beepbite/backend/internal/money"
 )
 
 // seedLive adds a slice of in-progress "current service" orders dated today,
@@ -123,12 +125,20 @@ func seedLive(s *seeder, c *Ctx) error {
 
 				var deliveryFee, gratuity int64
 				if fulfillment == "delivery" {
-					deliveryFee = 3500
+					deliveryFee = s.cfg.Price(3500)
 				}
 				if fulfillment == "dine_in" && rng.Intn(2) == 0 {
-					gratuity = subtotal * 12 / 100
+					// A 12% service gratuity — a business policy, not tax, and
+					// deliberately unrelated to SEED_TAX_RATE. DivRound rounds
+					// the way the tax engine and cash drawer do.
+					gratuity = money.DivRound(subtotal*12, 100)
 				}
-				total := subtotal + deliveryFee + gratuity
+
+				// Tax under the configured rate and convention. Under an
+				// exclusive locale the tax is added on top, so the order total
+				// is the gross the engine returns rather than the bare sum.
+				taxed := s.cfg.TaxOn(subtotal + deliveryFee + gratuity)
+				total := taxed.Gross
 
 				var custID *string
 				if len(c.Customers) > 0 && rng.Intn(10) < 8 {
@@ -153,14 +163,17 @@ func seedLive(s *seeder, c *Ctx) error {
 					INSERT INTO orders (
 						location_id, organization_id, customer_id, order_number,
 						status, fulfillment_type, order_type,
-						subtotal_cents, delivery_fee_cents, gratuity_cents, total_cents,
+						subtotal_cents, delivery_fee_cents, gratuity_cents, tax_cents, total_cents,
 						tax_rate, tax_inclusive, currency_code,
 						ready_at, created_at, updated_at
-					) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,15.00,true,'ZAR',$12,$13,$13)
+					) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17)
 					RETURNING id
 				`, c.LocID, c.OrgID, custID, orderNum,
 					p.status, fulfillment, orderType,
-					subtotal, deliveryFee, gratuity, total,
+					subtotal, deliveryFee, gratuity, taxed.Tax, total,
+					// Snapshotted from the locale so a later change cannot
+					// restate what this order was taxed at.
+					s.cfg.TaxRatePercent(), s.cfg.TaxInclusive(), s.cfg.Currency,
 					readyAt, placedAt).Scan(&orderID); err != nil {
 					return fmt.Errorf("insert live order %s: %w", orderNum, err)
 				}

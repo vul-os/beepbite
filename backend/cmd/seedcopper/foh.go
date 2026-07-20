@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/beepbite/backend/internal/money"
 )
 
 // seedFOH populates front-of-house data for The Copper Table: customers,
@@ -104,20 +105,25 @@ func randRange(rng *rand.Rand, min, max int) int {
 	return min + rng.Intn(max-min+1)
 }
 
-func round2(f float64) float64 {
-	return math.Round(f*100) / 100
-}
-
 // ---------------------------------------------------------------------------
 // customers
 // ---------------------------------------------------------------------------
 
+// Person names are the one thing here that cannot be made country-neutral,
+// because no name is: every name belongs to some language and some place. So
+// rather than swap one country's name list for another's — which would just
+// re-anchor the demo somewhere else — the pool is deliberately broad, drawing
+// from many regions at once. seedlocale offers no knob for this, and inventing
+// one would imply the product can pick culturally correct names per country,
+// which it cannot.
 var fohFirstNames = []string{
 	"Thabo", "Nomsa", "Sipho", "Lindiwe", "Priya", "Aisha", "Marco", "Pieter",
 	"Lunga", "Zanele", "Kagiso", "Naledi", "Werner", "Chantal", "Farai", "Amahle",
 	"Riaan", "Bongani", "Yusuf", "Fatima", "Johan", "Karabo", "Mpho", "Tumi",
 	"Ashwin", "Ronel", "Zola", "Michael", "Sarah", "David", "Nokuthula", "Andile",
-	"Bianca", "Wandile", "Candice", "Ruvimbo",
+	"Bianca", "Wandile", "Candice", "Ruvimbo", "Mateus", "Ingrid", "Hiroshi",
+	"Elena", "Omar", "Sofia", "Niamh", "Kenji", "Lucia", "Anders", "Leilani",
+	"Tomasz", "Amara", "Rafael", "Mei", "Idris", "Freya", "Santiago", "Anjali",
 }
 
 var fohLastNames = []string{
@@ -125,23 +131,34 @@ var fohLastNames = []string{
 	"Khumalo", "Adams", "Pillay", "Naidoo", "Smith", "Abrahams", "Petersen",
 	"Mahlangu", "Steyn", "Govender", "Sithole", "Daniels", "Julies", "Mokoena",
 	"Human", "Kruger", "Booysen", "September", "Fortuin", "Ngcobo", "Willemse",
+	"Okafor", "Tanaka", "Rossi", "Nowak", "Silva", "Haddad", "Lindqvist",
+	"O'Sullivan", "Mendoza", "Fischer", "Sharma", "Duarte", "Karlsson", "Rahman",
 }
 
-var fohEmailDomains = []string{"gmail.com", "gmail.com", "gmail.com", "outlook.com", "outlook.com", "icloud.com", "webmail.co.za", "yahoo.com"}
-
-var fohPhonePrefixes = []string{"82", "83", "84", "71", "72", "73", "76", "78", "79", "81", "61", "63", "64", "65"}
+// Customer contact details are synthetic by construction: every address is in
+// the RFC 2606 reserved domain example.com (which can never be registered) and
+// every number is built from the configured dial code with a reserved
+// subscriber prefix.
+//
+// The previous version drew from real consumer mail providers and real +27
+// mobile prefixes, which meant a staging environment wired to live WhatsApp or
+// SMTP credentials could message an actual stranger about an order that never
+// existed. Unroutable-by-construction is the only version of that which is safe.
 
 func seedCustomers(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
+	// minSpent/maxSpent are authored in the 2-decimal reference scale (1800000 =
+	// "eighteen thousand") and rescaled by cfg.Price, so a platinum customer in
+	// a JPY location has spent ¥18,000 rather than ¥1,800,000.
 	type tierPlan struct {
 		tier                 string
 		minOrders, maxOrders int
-		minSpent, maxSpent   float64
+		minSpent, maxSpent   int64
 	}
 	plans := map[string]tierPlan{
-		"platinum": {"platinum", 45, 70, 18000, 35000},
-		"gold":     {"gold", 20, 40, 7000, 15000},
-		"silver":   {"silver", 8, 18, 2000, 6000},
-		"bronze":   {"bronze", 0, 8, 0, 2200},
+		"platinum": {"platinum", 45, 70, 1800000, 3500000},
+		"gold":     {"gold", 20, 40, 700000, 1500000},
+		"silver":   {"silver", 8, 18, 200000, 600000},
+		"bronze":   {"bronze", 0, 8, 0, 220000},
 	}
 
 	// 3 platinum, 5 gold, 8 silver, 14 bronze = 30 customers.
@@ -165,7 +182,7 @@ func seedCustomers(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 	type row struct {
 		first, last, phone, email, tier string
 		totalOrders                     int
-		totalSpent                      float64
+		totalSpentMinor                 int64 // minor units of the configured currency
 		loyaltyPoints                   int
 		lastOrderAt                     *time.Time
 		lastSeenAt                      *time.Time
@@ -176,17 +193,26 @@ func seedCustomers(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 		first := fohFirstNames[firstPerm[i%len(firstPerm)]]
 		last := fohLastNames[rng.Intn(len(fohLastNames))]
 
-		prefix := fohPhonePrefixes[i%len(fohPhonePrefixes)]
-		suffix := 1000000 + i*3011
-		phone := fmt.Sprintf("+27%s%07d", prefix, suffix%10000000)
-
-		domain := fohEmailDomains[rng.Intn(len(fohEmailDomains))]
-		email := fmt.Sprintf("%s.%s%d@%s", strings.ToLower(first), strings.ToLower(strings.ReplaceAll(last, " ", "")), i, domain)
+		// Customer phone seeds start at 1000 so they cannot collide with the
+		// location, staff, supplier or house-account numbers, which are
+		// allocated from lower blocks.
+		phone := s.cfg.Phone(fohCustomerPhoneSeq + i)
+		email := s.cfg.Email(fmt.Sprintf("%s.%s%d", first, strings.ReplaceAll(last, " ", ""), i))
 
 		plan := plans[tierOrder[i]]
 		totalOrders := randRange(rng, plan.minOrders, plan.maxOrders)
-		totalSpent := round2(plan.minSpent + rng.Float64()*(plan.maxSpent-plan.minSpent))
-		loyaltyPoints := int(totalSpent/10) + randRange(rng, 0, 50)
+		// Spend is chosen as an integer in the reference scale and only then
+		// rescaled — the float never touches the money value itself.
+		spanUnits := plan.maxSpent - plan.minSpent
+		spentRef := plan.minSpent
+		if spanUnits > 0 {
+			spentRef += rng.Int63n(spanUnits + 1)
+		}
+		totalSpentMinor := s.cfg.Price(spentRef)
+		// One loyalty point per 10 major units spent. Scale(decimals) is the
+		// number of minor units in one major unit — never a literal 100.
+		perPoint := 10 * money.Scale(s.cfg.Decimals)
+		loyaltyPoints := int(totalSpentMinor/perPoint) + randRange(rng, 0, 50)
 
 		var lastOrderAt, lastSeenAt *time.Time
 		if totalOrders > 0 {
@@ -214,7 +240,7 @@ func seedCustomers(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 
 		rows = append(rows, row{
 			first: first, last: last, phone: phone, email: email, tier: tierOrder[i],
-			totalOrders: totalOrders, totalSpent: totalSpent, loyaltyPoints: loyaltyPoints,
+			totalOrders: totalOrders, totalSpentMinor: totalSpentMinor, loyaltyPoints: loyaltyPoints,
 			lastOrderAt: lastOrderAt, lastSeenAt: lastSeenAt,
 		})
 	}
@@ -229,8 +255,10 @@ func seedCustomers(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 					last_order_at, last_seen_at
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 				RETURNING id
+			// customers.total_spent is numeric MAJOR units, so the minor-unit
+			// integer is rendered at the currency's own scale.
 			`, c.OrgID, r.phone, r.first, r.last, r.email,
-				r.totalOrders, r.totalSpent, r.loyaltyPoints, r.tier,
+				r.totalOrders, money.Decimal(r.totalSpentMinor, s.cfg.Decimals), r.loyaltyPoints, r.tier,
 				r.lastOrderAt, r.lastSeenAt).Scan(&id); err != nil {
 				return fmt.Errorf("insert customer %s %s: %w", r.first, r.last, err)
 			}
@@ -255,19 +283,26 @@ type fohAddress struct {
 	lat, lng                float64
 }
 
+// Delivery addresses in the fictional Example City, clustered in small offsets
+// around Null Island (0, 0) so they fall inside the seeded delivery zones.
+//
+// Real coordinates would put real buildings into every developer's database and
+// would anchor the demo to one country's geography — and a delivery zone drawn
+// around a real neighbourhood implies the product knows something about that
+// neighbourhood that it does not.
 var fohAddresses = []fohAddress{
-	{"12 Regent Road", "Sea Point, Cape Town", "8005", -33.9169, 18.3856},
-	{"45 Beach Road", "Sea Point, Cape Town", "8005", -33.9139, 18.3796},
-	{"8 Main Road", "Green Point, Cape Town", "8051", -33.9067, 18.4102},
-	{"22 Ocean View Drive", "Green Point, Cape Town", "8051", -33.9058, 18.4022},
-	{"5 Victoria Road", "Camps Bay, Cape Town", "8040", -33.9508, 18.3775},
-	{"17 Geneva Drive", "Camps Bay, Cape Town", "8040", -33.9522, 18.3801},
-	{"3 High Level Road", "Sea Point, Cape Town", "8005", -33.9186, 18.3839},
-	{"9 Portswood Road", "Green Point, Cape Town", "8051", -33.9037, 18.4192},
-	{"31 The Rocks", "Camps Bay, Cape Town", "8040", -33.9553, 18.3789},
-	{"14 Main Road", "Sea Point, Cape Town", "8005", -33.9156, 18.3811},
-	{"27 Kloof Road", "Sea Point, Cape Town", "8005", -33.9201, 18.3822},
-	{"6 Somerset Road", "Green Point, Cape Town", "8051", -33.9101, 18.4145},
+	{"12 Example Road", "Harbour Quarter, Example City", "00100", 0.010, 0.010},
+	{"45 Sample Street", "Harbour Quarter, Example City", "00100", 0.012, 0.014},
+	{"8 Placeholder Way", "Old Town, Example City", "00200", 0.030, 0.012},
+	{"22 Specimen Drive", "Old Town, Example City", "00200", 0.034, 0.016},
+	{"5 Demo Avenue", "Riverside, Example City", "00300", 0.011, 0.032},
+	{"17 Fixture Lane", "Riverside, Example City", "00300", 0.015, 0.035},
+	{"3 Example Terrace", "Harbour Quarter, Example City", "00100", 0.014, 0.011},
+	{"9 Sample Crescent", "Old Town, Example City", "00200", 0.032, 0.019},
+	{"31 Placeholder Row", "Riverside, Example City", "00300", 0.018, 0.033},
+	{"14 Specimen Road", "Harbour Quarter, Example City", "00100", 0.016, 0.013},
+	{"27 Demo Close", "Harbour Quarter, Example City", "00100", 0.013, 0.017},
+	{"6 Fixture Street", "Old Town, Example City", "00200", 0.031, 0.014},
 }
 
 func seedCustomerAddresses(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
@@ -384,7 +419,7 @@ func seedReservations(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 				custName, custPhone, custEmail = cust.Name, cust.Phone, cust.Email
 			} else {
 				custName = standaloneNames[i%len(standaloneNames)]
-				custPhone = fmt.Sprintf("+27%02d%07d", 60+i%20, 2000000+i*777)
+				custPhone = s.cfg.Phone(reservationPhoneSeq + i)
 			}
 
 			var tableID, sectionID *string
@@ -445,7 +480,7 @@ func seedWaitlist(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 					organization_id, location_id, customer_name, customer_phone,
 					party_size, quoted_wait_minutes, added_at
 				) VALUES ($1,$2,$3,$4,$5,$6,$7)
-			`, c.OrgID, c.LocID, name, fmt.Sprintf("+27%02d%07d", 70+i, 3000000+i*991),
+			`, c.OrgID, c.LocID, name, s.cfg.Phone(waitlistPhoneSeq+i),
 				party, wait, addedAt); err != nil {
 				return fmt.Errorf("insert waitlist active %s: %w", name, err)
 			}
@@ -462,7 +497,7 @@ func seedWaitlist(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 					organization_id, location_id, customer_name, customer_phone,
 					party_size, quoted_wait_minutes, added_at, seated_at
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-			`, c.OrgID, c.LocID, name, fmt.Sprintf("+27%02d%07d", 75+i, 4000000+i*811),
+			`, c.OrgID, c.LocID, name, s.cfg.Phone(waitlistPhoneSeq+500+i),
 				party, wait, addedAt, seatedAt); err != nil {
 				return fmt.Errorf("insert waitlist historical %s: %w", name, err)
 			}
@@ -479,38 +514,46 @@ func seedWaitlist(s *seeder, c *Ctx, rng *rand.Rand) (int, error) {
 // marketplace reviews
 // ---------------------------------------------------------------------------
 
+// Review copy references only the seeded menu and the fictional Example City.
+//
+// The original corpus name-checked Sea Point, the Karoo, Cape Malay curry and
+// "worth every rand" — which meant the demo's *prose* re-asserted a country
+// even after the currency column stopped doing so. Money is never written as a
+// symbol or an amount in review text; a hardcoded "R350" would be wrong the
+// moment SEED_CURRENCY changed, and there is no reason for a review to quote a
+// price at all.
 var fohReviews5 = []string{
-	"Absolutely loved the Karoo lamb shank — falling off the bone and full of flavour. The copper-topped bar makes for a beautiful backdrop too.",
-	"Best meal we've had in Sea Point in years. The springbok carpaccio was outstanding and the sunset view over the promenade sealed the deal.",
+	"Absolutely loved the slow-braised lamb shank — falling off the bone and full of flavour. The copper-topped bar makes for a beautiful backdrop too.",
+	"Best meal we've had in the Harbour Quarter in years. The beef carpaccio was outstanding and the sunset view over the waterfront sealed the deal.",
 	"Chef Marco's tasting menu is a must. Every course was thoughtfully plated and the wine pairing suggestions were spot on.",
-	"The Cape Malay curry reminded me of my grandmother's cooking. Warm, generous portions, and the staff made us feel like regulars.",
-	"Booked for our anniversary and they went above and beyond — a candle on the malva pudding and a genuinely warm team.",
-	"West Coast mussels in that white wine broth are unreal. Will be back for the biltong-crusted fillet next time.",
-	"Craft G&Ts at the bar while we waited for our table, then a flawless dinner service. Highly recommend the bobotie spring rolls.",
+	"The butter chicken curry reminded me of my grandmother's cooking. Warm, generous portions, and the staff made us feel like regulars.",
+	"Booked for our anniversary and they went above and beyond — a candle on the warm caramel sponge and a genuinely warm team.",
+	"The harbour mussels in that white wine broth are unreal. Will be back for the fillet steak next time.",
+	"Craft cocktails at the bar while we waited for our table, then a flawless dinner service. Highly recommend the crispy pork belly bites.",
 	"Perfect spot for a celebration — the team decorated our table without us even asking after I mentioned it was a birthday.",
 	"Consistently excellent. We've been three times now and the quality never dips.",
 	"The service was warm without being intrusive, and the food arrived exactly when they said it would.",
-	"Gorgeous room, gorgeous plates, gorgeous view. Worth every rand.",
-	"Our waiter recommended the springbok loin and it was the best dish on the table by far.",
+	"Gorgeous room, gorgeous plates, gorgeous view. Worth every bit of it.",
+	"Our waiter recommended the venison loin and it was the best dish on the table by far.",
 }
 
 var fohReviews4 = []string{
-	"Really solid meal overall — the malva pudding is a must-order for dessert. Only knock is the wait for our table despite a booking.",
+	"Really solid meal overall — the warm caramel sponge is a must-order for dessert. Only knock is the wait for our table despite a booking.",
 	"Great food and atmosphere. Got a little loud once the bar filled up around 8pm but the cocktails made up for it.",
-	"Loved the bobotie spring rolls starter. Mains were good though the fillet was slightly over for our liking.",
-	"Lovely evening on the promenade side. Service was attentive, just a touch slow getting the bill at the end.",
-	"The Cape Malay curry was fantastic. Would've given five stars but parking nearby is a mission on weekends.",
-	"Great value for a Sea Point spot with this view. Kids menu was a nice touch for our little one.",
+	"Loved the duck liver parfait starter. Mains were good though the fillet was slightly over for our liking.",
+	"Lovely evening on the waterfront side. Service was attentive, just a touch slow getting the bill at the end.",
+	"The butter chicken curry was fantastic. Would've given five stars but parking nearby is a mission on weekends.",
+	"Great value for a Harbour Quarter spot with this view. The kids menu was a nice touch for our little one.",
 	"Good wine list, friendly staff, tasty food. Nothing groundbreaking but a very reliable choice for date night.",
 	"The mussels and the craft cocktails were the highlights. Would go back for the bar alone.",
-	"Enjoyed our meal — the springbok carpaccio stood out. Room was busy so a bit noisy for conversation.",
+	"Enjoyed our meal — the beef carpaccio stood out. Room was busy so a bit noisy for conversation.",
 	"Solid Sunday lunch. The staff were lovely with our extended family and the lamb shank was a hit with everyone.",
 	"Really good spot for a business lunch — quick, professional service and a quiet corner table when we asked.",
 }
 
 var fohReviews3 = []string{
 	"Food was good but service was noticeably slow on a busy Friday night — waited almost 20 minutes just to order.",
-	"Decent meal, nothing special. The malva pudding saved the evening after a fairly average main course.",
+	"Decent meal, nothing special. The warm caramel sponge saved the evening after a fairly average main course.",
 	"Nice setting but a bit pricey for the portion sizes. Would come back for drinks and starters only.",
 	"Mixed experience — starters were excellent, but our mains arrived lukewarm.",
 }

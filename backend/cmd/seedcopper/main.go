@@ -1,8 +1,30 @@
 // Command seedcopper builds a realistic, fully-populated demo tenant — "The
-// Copper Table", a full-service Cape Town restaurant — on the local beepbite DB,
-// and (with --clean) removes e2e burner users + stale junk orgs first.
+// Copper Table", a full-service restaurant in the fictional Example City — on
+// the local beepbite DB, and (with --clean) removes e2e burner users + stale
+// junk orgs first.
 //
 //	go run ./cmd/seedcopper --env=local --clean
+//
+// # The restaurant has no country
+//
+// Every country-dependent value — currency and its minor-unit exponent, tax
+// rate and inclusive/exclusive convention, timezone, locale, dial code, country
+// code — comes from internal/seedlocale, which reads SEED_* environment
+// variables and defaults to reserved placeholders (XTS currency, +999 dial
+// code, ZZ country). Nothing here is denominated in any real currency unless an
+// operator asks for one:
+//
+//	SEED_COUNTRY=PT SEED_CURRENCY=EUR SEED_TIMEZONE=Europe/Lisbon \
+//	SEED_LOCALE=pt-PT SEED_TAX_RATE=23 SEED_TAX_LABEL=IVA SEED_PHONE_CC=351 \
+//	  go run ./cmd/seedcopper --env=local --clean
+//
+// This matters beyond tidiness. The seeder is the only large body of data most
+// developers ever see, so whatever it assumes becomes what the product appears
+// to support: while it hardcoded rand, 15% inclusive VAT and +27 numbers,
+// nothing in the suite ever exercised a 0-decimal currency, an exclusive tax
+// jurisdiction, or a location whose trading day was not UTC. Seeding XTS by
+// default keeps those paths honest — and keeps demo data recognisable as demo
+// data in a screenshot or a support ticket.
 //
 // Dashboard logins (all password Demo1234!):
 //
@@ -30,13 +52,44 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/beepbite/backend/internal/config"
+	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/seedlocale"
 )
 
+// The seeded tenant's identity is deliberately fictional and country-neutral.
+//
+// "Example City" and "Harbour Quarter" are invented places, and the street
+// address follows the RFC 2606 spirit of example.com: a reader can tell at a
+// glance that the row is demo data. A real address — of any country — would
+// both anchor the demo to one jurisdiction and put a real building into
+// everyone's staging database.
 const (
-	orgName  = "The Copper Table"
-	locSlug  = "the-copper-table--sea-point"
-	demoPass = "Demo1234!"
+	orgName     = "The Copper Table"
+	locName     = "The Copper Table — Harbour Quarter"
+	locSlug     = "the-copper-table--harbour-quarter"
+	locCity     = "Example City"
+	locAddress  = "1 Example Way, Harbour Quarter, Example City"
+	locDesc     = "Contemporary bistro on the Harbour Quarter waterfront — seasonal plates, craft cocktails & a copper-topped bar."
+	locPostcode = "00100"
+	demoPass    = "Demo1234!"
 )
+
+// Null Island (0, 0) is the conventional placeholder coordinate: it is in the
+// Gulf of Guinea, belongs to no country, and is instantly recognisable as
+// unset. The seeded delivery zones and customer addresses sit in small offsets
+// around it so the demo geography stays internally consistent.
+const (
+	locLatitude  = 0.0
+	locLongitude = 0.0
+)
+
+// Gratuity is NOT tax. auto_gratuity_percent is a service charge the operator
+// chooses to levy; it has nothing to do with SEED_TAX_RATE and must never be
+// folded into the tax configuration. It is left as a plain seeded number
+// because it is a business policy, not a jurisdictional fact — though note that
+// mandatory service charges are unusual or unlawful in several countries, which
+// is why migration 056 changed its column default to 0.
+const autoGratuityPercent = 15.00
 
 // fullOwnerCaps is the canonical capability set for an owner. Passing it
 // explicitly (rather than relying on the trigger) guarantees bank/settings pages
@@ -71,6 +124,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+
+	// Resolve the locale before touching the database. A typo in SEED_TAX_RATE
+	// is worth stopping for: seeding 0% silently would look like it worked.
+	loc, err := seedlocale.Load()
+	if err != nil {
+		log.Fatalf("locale: %v", err)
+	}
+
 	ctx := context.Background()
 	poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
@@ -89,7 +150,28 @@ func main() {
 	}
 	defer pool.Close()
 
-	s := &seeder{pool: pool, ctx: ctx}
+	s := &seeder{pool: pool, ctx: ctx, cfg: loc}
+
+	// Announce the resolved locale before writing anything, so an operator
+	// reading the log knows which country's database they just built — and so a
+	// run that silently fell back to the placeholders is obvious rather than
+	// discovered later in a report.
+	taxConvention := "exclusive (added at the register)"
+	if loc.TaxInclusive() {
+		taxConvention = "inclusive (already in the price)"
+	}
+	log.Printf("locale: country=%s currency=%s (%d decimals) timezone=%s locale=%q phone=+%s",
+		loc.Country, loc.Currency, loc.Decimals, loc.Timezone, loc.Locale, loc.PhoneCC)
+	log.Printf("locale: %s %.2f%% %s   sample price %s",
+		loc.Tax.EffectiveLabel(), loc.TaxRatePercent(), taxConvention, loc.Format(loc.Price(12500)))
+
+	// The currency must exist before any insert that references it: every
+	// currency column is a foreign key to currencies.code, and the default XTS
+	// is deliberately not one of the currencies migration 056 loads. This also
+	// lets an operator seed a currency the migrations do not ship.
+	if err := s.ensureCurrency(); err != nil {
+		log.Fatalf("ensure currency %s: %v", loc.Currency, err)
+	}
 
 	if *clean {
 		if err := s.cleanup(); err != nil {
@@ -141,6 +223,8 @@ func main() {
 	fmt.Println("=== The Copper Table — seed complete ===")
 	fmt.Printf("Org:        %s (%s)\n", c.OrgName, c.OrgID)
 	fmt.Printf("Location:   %s  slug=%s\n", c.LocID, c.LocSlug)
+	fmt.Printf("Locale:     %s / %s / %s   %s %.2f%%\n",
+		loc.Country, loc.Currency, loc.Timezone, loc.Tax.EffectiveLabel(), loc.TaxRatePercent())
 	fmt.Printf("Categories: %d   Items: %d   Stations: %d\n", len(c.Categories), len(c.Items), len(c.Stations))
 	fmt.Printf("Tables:     %d   Customers: %d   Staff: %d\n", len(c.Tables), len(c.Customers), len(c.Staff))
 	fmt.Println()
@@ -188,8 +272,8 @@ func (s *seeder) bootstrap(c *Ctx) error {
 		err := tx.QueryRow(s.ctx, `SELECT id FROM organizations WHERE name=$1`, orgName).Scan(&c.OrgID)
 		if err == pgx.ErrNoRows {
 			if err := tx.QueryRow(s.ctx,
-				`INSERT INTO organizations (name, default_currency_code) VALUES ($1,'ZAR') RETURNING id`,
-				orgName).Scan(&c.OrgID); err != nil {
+				`INSERT INTO organizations (name, default_currency_code) VALUES ($1,$2) RETURNING id`,
+				orgName, s.cfg.Currency).Scan(&c.OrgID); err != nil {
 				return fmt.Errorf("insert org: %w", err)
 			}
 		} else if err != nil {
@@ -200,6 +284,14 @@ func (s *seeder) bootstrap(c *Ctx) error {
 		// Location (idempotent on slug).
 		err = tx.QueryRow(s.ctx, `SELECT id FROM locations WHERE slug=$1`, locSlug).Scan(&c.LocID)
 		if err == pgx.ErrNoRows {
+			// delivery_fee and free_delivery_threshold are numeric MAJOR units
+			// (see migration 056), not cents — so the authored reference price
+			// is rescaled to the currency's exponent and then rendered as a
+			// plain decimal. money.Decimal keeps that conversion integer-only
+			// and correct for 0- and 3-decimal currencies alike.
+			deliveryFee := money.Decimal(s.cfg.Price(3500), s.cfg.Decimals)
+			freeDeliveryFrom := money.Decimal(s.cfg.Price(35000), s.cfg.Decimals)
+
 			if err := tx.QueryRow(s.ctx, `
 				INSERT INTO locations (
 					organization_id, name, slug, description,
@@ -209,19 +301,30 @@ func (s *seeder) bootstrap(c *Ctx) error {
 					delivery_fee, free_delivery_threshold, max_delivery_distance_km,
 					offers_delivery, offers_collection, accepts_delivery, accepts_pickup,
 					on_delivery_payment_methods, is_marketplace_visible, is_active,
-					auto_gratuity_enabled, auto_gratuity_percent, auto_gratuity_min_party
+					auto_gratuity_enabled, auto_gratuity_percent, auto_gratuity_min_party,
+					timezone, locale, tax_rate, tax_inclusive, tax_label, phone_country_code
 				) VALUES (
-					$1,'The Copper Table — Sea Point',$2,
-					'Contemporary South African bistro on the Sea Point promenade — seasonal plates, craft cocktails & a copper-topped bar.',
-					'Cape Town','ZA','122 Beach Road, Sea Point, Cape Town, 8005','+27214391200',
-					-33.9138, 18.3843,
-					'ZAR', 25, 20,
-					35.00, 350.00, 12.0,
+					$1,$3,$2,
+					$4,
+					$5,$6,$7,$8,
+					$9, $10,
+					$11, 25, 20,
+					$12, $13, 12.0,
 					true, true, true, true,
 					ARRAY['cash','card_on_delivery'], true, true,
-					true, 15.00, 8
+					true, $14, 8,
+					$15, $16, $17, $18, $19, $20
 				) RETURNING id
-			`, c.OrgID, locSlug).Scan(&c.LocID); err != nil {
+			`, c.OrgID, locSlug, locName,
+				locDesc,
+				locCity, s.cfg.Country, locAddress, s.cfg.Phone(locationPhoneSeq),
+				locLatitude, locLongitude,
+				s.cfg.Currency,
+				deliveryFee, freeDeliveryFrom,
+				autoGratuityPercent,
+				s.cfg.Timezone, nullIfEmpty(s.cfg.Locale), s.cfg.TaxRatePercent(),
+				s.cfg.TaxInclusive(), s.cfg.Tax.EffectiveLabel(), s.cfg.PhoneCC,
+			).Scan(&c.LocID); err != nil {
 				return fmt.Errorf("insert location: %w", err)
 			}
 		} else if err != nil {
@@ -309,6 +412,17 @@ func (s *seeder) upsertMember(tx pgx.Tx, orgID, profileID, role, caps string) er
 		ON CONFLICT (organization_id, profile_id) DO UPDATE SET role=EXCLUDED.role, capabilities=EXCLUDED.capabilities
 	`, orgID, profileID, role, caps)
 	return err
+}
+
+// ensureCurrency registers the configured currency so that every currency
+// foreign key downstream resolves. It must run before the first insert that
+// names a currency, which in practice means before bootstrap.
+func (s *seeder) ensureCurrency() error {
+	q, args := s.cfg.EnsureCurrencySQL()
+	return s.tx(func(tx pgx.Tx) error {
+		_, err := tx.Exec(s.ctx, q, args...)
+		return err
+	})
 }
 
 // ensurePaymentMethods makes sure the offline payment methods used by the seed

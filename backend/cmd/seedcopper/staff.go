@@ -51,43 +51,48 @@ func seedStaff(s *seeder, c *Ctx) error {
 	type staffSpec struct {
 		first, last string
 		email       string
-		phone       string
-		role        string // staff.role CHECK: owner, manager, cashier, kitchen, admin
-		empID       string
-		username    string
-		pin         string
-		hireDate    time.Time
-		notes       string
-		rateType    string
-		rateCents   int64
+		// phoneSeq indexes into the shared phone allocation (see shared.go);
+		// the number itself is built by cfg.Phone from the configured dial code.
+		phoneSeq int
+		role     string // staff.role CHECK: owner, manager, cashier, kitchen, admin
+		empID    string
+		username string
+		pin      string
+		hireDate time.Time
+		notes    string
+		rateType string
+		// rateAmount is authored in the 2-decimal reference scale and rescaled
+		// by cfg.Price, so a monthly salary of 3800000 reads as "thirty-eight
+		// thousand" in whatever currency the run is configured for.
+		rateAmount int64
 	}
 
 	specs := []staffSpec{
-		{"Nomsa", "Dlamini", "nomsa.pos@coppertable.test", "+27214391201", "manager", "CT-001", "nomsa_pos", "1928",
+		{"Nomsa", "Dlamini", "nomsa.pos@coppertable.test", staffPhoneSeq + 0, "manager", "CT-001", "nomsa_pos", "1928",
 			c.Now.AddDate(-2, -3, 0), "Front of house general manager; opens and closes most shifts.",
 			"salary_monthly", 3800000},
-		{"Marco", "Ferreira", "marco.pos@coppertable.test", "+27214391202", "admin", "CT-002", "marco_pos", "4471",
+		{"Marco", "Ferreira", "marco.pos@coppertable.test", staffPhoneSeq + 1, "admin", "CT-002", "marco_pos", "4471",
 			c.Now.AddDate(-2, -1, 0), "Head chef; back-office admin access for menu & inventory.",
 			"salary_monthly", 4200000},
-		{"Aisha", "Patel", "aisha.pos@coppertable.test", "+27214391203", "cashier", "CT-003", "aisha_pos", "5502",
+		{"Aisha", "Patel", "aisha.pos@coppertable.test", staffPhoneSeq + 2, "cashier", "CT-003", "aisha_pos", "5502",
 			c.Now.AddDate(-1, -4, 0), "Front-of-house cashier, weekday lunch & dinner shifts.",
 			"hourly", 8500},
-		{"Lunga", "Mbeki", "lunga.pos@coppertable.test", "+27214391204", "cashier", "CT-004", "lunga_pos", "3319",
+		{"Lunga", "Mbeki", "lunga.pos@coppertable.test", staffPhoneSeq + 3, "cashier", "CT-004", "lunga_pos", "3319",
 			c.Now.AddDate(-1, 0, 0), "Weekend cashier & host.",
 			"hourly", 7800},
-		{"Thabo", "Nkosi", "thabo.pos@coppertable.test", "+27214391205", "kitchen", "CT-005", "thabo_nkosi", "6640",
+		{"Thabo", "Nkosi", "thabo.pos@coppertable.test", staffPhoneSeq + 4, "kitchen", "CT-005", "thabo_nkosi", "6640",
 			c.Now.AddDate(-1, -8, 0), "Line cook, grill station.",
 			"hourly", 9200},
-		{"Priya", "Naidoo", "priya.pos@coppertable.test", "+27214391206", "kitchen", "CT-006", "priya_naidoo", "2087",
+		{"Priya", "Naidoo", "priya.pos@coppertable.test", staffPhoneSeq + 5, "kitchen", "CT-006", "priya_naidoo", "2087",
 			c.Now.AddDate(0, -10, 0), "Line cook, pastry & desserts.",
 			"hourly", 8800},
-		{"Sipho", "Zulu", "sipho.pos@coppertable.test", "+27214391207", "kitchen", "CT-007", "sipho_zulu", "9153",
+		{"Sipho", "Zulu", "sipho.pos@coppertable.test", staffPhoneSeq + 6, "kitchen", "CT-007", "sipho_zulu", "9153",
 			c.Now.AddDate(0, -6, 0), "Commis chef, prep & sauces.",
 			"hourly", 7200},
-		{"Bongani", "Khumalo", "bongani.pos@coppertable.test", "+27214391208", "kitchen", "CT-008", "bongani_khumalo", "1476",
+		{"Bongani", "Khumalo", "bongani.pos@coppertable.test", staffPhoneSeq + 7, "kitchen", "CT-008", "bongani_khumalo", "1476",
 			c.Now.AddDate(0, -3, 0), "Kitchen porter / dishwasher, evening shifts.",
 			"hourly", 6500},
-		{"Chantelle", "Adams", "chantelle.pos@coppertable.test", "+27214391209", "cashier", "CT-009", "chantelle_adams", "8264",
+		{"Chantelle", "Adams", "chantelle.pos@coppertable.test", staffPhoneSeq + 8, "cashier", "CT-009", "chantelle_adams", "8264",
 			c.Now.AddDate(0, -2, 0), "Weekend & holiday relief cashier.",
 			"hourly", 7500},
 	}
@@ -116,7 +121,7 @@ func seedStaff(s *seeder, c *Ctx) error {
 					$7,$8,$9,$10,NULL,
 					$11,true,$12
 				) RETURNING id
-			`, c.LocID, sp.first, sp.last, displayName, sp.email, sp.phone,
+			`, c.LocID, sp.first, sp.last, displayName, sp.email, s.cfg.Phone(sp.phoneSeq),
 				sp.role, sp.empID, sp.username, string(pinHash),
 				sp.hireDate.Format("2006-01-02"), sp.notes).Scan(&staffID); err != nil {
 				return fmt.Errorf("insert staff %q: %w", displayName, err)
@@ -132,8 +137,8 @@ func seedStaff(s *seeder, c *Ctx) error {
 					staff_id, rate_type, amount_cents, currency,
 					overtime_multiplier, overtime_threshold_hours_per_week,
 					effective_from, notes
-				) VALUES ($1,$2,$3,'ZAR',1.5,45,$4,$5)
-			`, staffID, sp.rateType, sp.rateCents, effFrom,
+				) VALUES ($1,$2,$3,$4,1.5,45,$5,$6)
+			`, staffID, sp.rateType, s.cfg.Price(sp.rateAmount), s.cfg.Currency, effFrom,
 				fmt.Sprintf("Standard %s rate on hire.", sp.rateType)); err != nil {
 				return fmt.Errorf("insert pay rate for %q: %w", displayName, err)
 			}
