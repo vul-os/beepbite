@@ -6,9 +6,11 @@ package marketplace
 // order directly against a store's public slug.  On-delivery fallback mirrors
 // the logic in pos.CreateOrder:
 //
-//   - No active location_payment_credentials → consult on_delivery_payment_methods.
-//   - Empty array                             → 422 "no payment method available".
-//   - Non-empty + delivery                   → status='pending_on_delivery'.
+// BeepBite takes no payment online, so every marketplace order is settled in
+// person: at collection, or at the door on delivery.
+//
+//   - on_delivery_payment_methods empty → 422 "no payment method available".
+//   - Non-empty + delivery              → status='pending_on_delivery'.
 
 import (
 	"context"
@@ -145,30 +147,21 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		return nil, err
 	}
 
-	// --- 2. Check active payment credential ---
-	var hasActiveCredential bool
-	if err := tx.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM location_payment_credentials WHERE location_id = $1 AND is_active = true)`,
-		locationID,
-	).Scan(&hasActiveCredential); err != nil {
-		return nil, err
-	}
-
+	// --- 2. Resolve how this order will be paid ---
+	// There is no online gateway to check for: the customer pays a person.
 	initialStatus := "confirmed"
 	initialPaymentMethod := "cash"
 
-	if !hasActiveCredential {
-		if len(onDeliveryMethods) == 0 {
-			return nil, ErrNoPaymentMethod
-		}
-		if req.FulfillmentType == "delivery" {
-			initialStatus = "pending_on_delivery"
-			switch req.OnDeliveryMethod {
-			case "card_machine":
-				initialPaymentMethod = "card_on_delivery"
-			default:
-				initialPaymentMethod = "cash_on_delivery"
-			}
+	if len(onDeliveryMethods) == 0 {
+		return nil, ErrNoPaymentMethod
+	}
+	if req.FulfillmentType == "delivery" {
+		initialStatus = "pending_on_delivery"
+		switch req.OnDeliveryMethod {
+		case "card_machine":
+			initialPaymentMethod = "card_on_delivery"
+		default:
+			initialPaymentMethod = "cash_on_delivery"
 		}
 	}
 
@@ -316,8 +309,7 @@ func nullableStr(s string) interface{} {
 // taxRateFor resolves the effective tax rate (percentage, e.g. 15.0) for the
 // given location using the same fallback chain as pos.TaxRateFor:
 //  1. First active row in tax_rates for the location.
-//  2. Region's default_tax_rate (via locations.region_id).
-//  3. Zero — logged for ops visibility.
+//  2. Zero.
 //
 // This is a local copy to avoid a cross-package dependency on the pos package.
 func taxRateFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (float64, error) {
@@ -338,20 +330,7 @@ func taxRateFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (flo
 		return 0, err
 	}
 
-	// Step 2: region default.
-	err = pool.QueryRow(ctx, `
-		SELECT CAST(r.default_tax_rate AS float8)
-		FROM locations l
-		JOIN regions r ON r.id = l.region_id
-		WHERE l.id = $1
-	`, locationID).Scan(&rate)
-	if err == nil {
-		return rate, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return 0, err
-	}
-
-	// Step 3: zero fallback.
+	// Step 2: zero fallback. There is no region table to inherit a default
+	// tax rate from — a self-hosted shop configures its own tax_rates rows.
 	return 0, nil
 }

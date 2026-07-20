@@ -56,30 +56,35 @@ ON CONFLICT (code) DO UPDATE
 -- ---------------------------------------------------------------------------
 -- A.2  payment_methods
 -- The complete tender vocabulary. BeepBite records how money moved at the
--- counter; it never processes a card.
+-- counter; it never processes a card. Every method is 'offline' because the
+-- money has already changed hands by the time it is recorded.
 --
---   cash      — notes and coins into the drawer.
---   card      — swiped on the SHOP'S OWN card machine. No card data touches
---               BeepBite and there is no gateway involved.
---   transfer  — EFT / instant bank transfer; reference captured for recon.
---   voucher   — gift card, meal voucher or comp instrument.
---
--- The *_on_delivery variants are collected at the door by the driver, not at
--- the counter, so they are deliberately distinct codes: drawer reconciliation
--- must not expect that money to be in the till.
+--   cash             — notes and coins into the drawer.
+--   card_in_person   — run on the SHOP'S OWN card machine. No card data
+--                      touches BeepBite and there is no gateway involved.
+--                      The terminal/slip reference is captured for recon.
+--   eft              — bank transfer; reference captured for recon.
+--   gift_card        — redeemed against a BeepBite gift card balance.
+--   house_account    — charged to an account settled later on invoice.
+--   store_credit     — redeemed against a customer's store credit balance.
+--   *_on_delivery    — collected at the door by the driver, NOT at the
+--                      counter. Deliberately distinct codes so drawer
+--                      reconciliation does not expect that money in the till.
 --
 -- requires_reference forces the operator to capture an external identifier
--- (card-machine slip number, EFT reference, voucher serial) so the shop can
--- reconcile against its own bank or card-machine statement.
+-- (card-machine slip number, EFT reference) so the shop can reconcile against
+-- its own bank or card-machine statement.
 -- ---------------------------------------------------------------------------
 INSERT INTO payment_methods (code, name, kind, is_active, requires_reference, supports_tips)
 VALUES
-    ('cash',     'Cash',          'offline', true, false, true),
-    ('card',     'Card Machine',  'offline', true, true,  true),
-    ('transfer', 'Bank Transfer', 'offline', true, true,  false),
-    ('voucher',  'Voucher',       'offline', true, true,  false),
-    ('cash_on_delivery', 'Cash on Delivery', 'offline', true, false, true),
-    ('card_on_delivery', 'Card on Delivery', 'offline', true, true,  true)
+    ('cash',             'Cash',              'offline', true, false, true),
+    ('card_in_person',   'Card Machine',      'offline', true, true,  true),
+    ('eft',              'Bank Transfer',     'offline', true, true,  false),
+    ('gift_card',        'Gift Card',         'offline', true, false, false),
+    ('house_account',    'House Account',     'offline', true, false, true),
+    ('store_credit',     'Store Credit',      'offline', true, false, false),
+    ('cash_on_delivery', 'Cash on Delivery',  'offline', true, false, true),
+    ('card_on_delivery', 'Card on Delivery',  'offline', true, true,  true)
 ON CONFLICT (code) DO UPDATE
     SET name               = EXCLUDED.name,
         kind               = EXCLUDED.kind,
@@ -718,8 +723,7 @@ COMMENT ON FUNCTION refresh_reporting_views() IS
 -- =============================================================================
 -- DONE — Migration 014
 -- No new tables.
--- Seed: currencies (8 rows), payment_methods (6 rows: cash/card/transfer/voucher
---       + cash_on_delivery/card_on_delivery).
+-- Seed: currencies (8 rows), payment_methods (8 rows).
 -- Views (10): daily_sales_summary, hourly_sales_heatmap, menu_engineering,
 --              labor_hours_daily, labor_cost_daily, sales_per_labor_hour,
 --              theoretical_vs_actual_cogs, revenue_by_payment_method,

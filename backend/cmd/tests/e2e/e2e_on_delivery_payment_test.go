@@ -45,20 +45,20 @@ import (
 // seedOnDeliveryLocation inserts a location configured for on-delivery payment
 // only (no payment credentials are seeded). Marketplace-visible and offers
 // delivery so that the checkout flow falls back to pending_on_delivery.
-func seedOnDeliveryLocation(t *testing.T, pool *pgxpool.Pool, orgID, name, regionID, slug string) string {
+func seedOnDeliveryLocation(t *testing.T, pool *pgxpool.Pool, orgID, name, slug string) string {
 	t.Helper()
 	var id string
 	svcQueryRow(t, pool, &id, `
 		INSERT INTO locations (
-		    organization_id, name, region_id, slug, city,
+		    organization_id, name, slug, city,
 		    is_marketplace_visible, is_active,
 		    on_delivery_payment_methods,
 		    offers_delivery, offers_collection
 		)
-		VALUES ($1, $2, $3, $4, 'OnDeliveryCity', true, true,
+		VALUES ($1, $2, $3, 'OnDeliveryCity', true, true,
 		        ARRAY['cash','card_machine']::text[], true, true)
 		RETURNING id`,
-		orgID, name, regionID, slug)
+		orgID, name, slug)
 	return id
 }
 
@@ -200,12 +200,11 @@ func settleOnDeliverySQL(
 // when no active payment credential is configured for the location.
 func TestOnDeliveryPayment_CheckoutCreatesOrder(t *testing.T) {
 	pool := openPool(t)
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 
 	orgID := seedOrg(t, pool, "OnDel_"+suffix)
 	slug := "on-del-store-" + suffix
-	locID := seedOnDeliveryLocation(t, pool, orgID, "OnDel Store "+suffix, regionID, slug)
+	locID := seedOnDeliveryLocation(t, pool, orgID, "OnDel Store "+suffix, slug)
 	catID := seedCategory(t, pool, locID, "Sides "+suffix)
 	itemID := seedMarketplaceItem(t, pool, locID, catID, "Chips "+suffix, 30.00)
 
@@ -238,12 +237,11 @@ func TestOnDeliveryPayment_CheckoutCreatesOrder(t *testing.T) {
 // Asserts: order status = 'completed', order_payments row, audit_log row.
 func TestOnDeliveryPayment_SettleUpdatesStatusAndCreatesRows(t *testing.T) {
 	pool := openPool(t)
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 
 	orgID := seedOrg(t, pool, "OnDelSettle_"+suffix)
 	slug := "on-del-settle-" + suffix
-	locID := seedOnDeliveryLocation(t, pool, orgID, "OnDel Settle "+suffix, regionID, slug)
+	locID := seedOnDeliveryLocation(t, pool, orgID, "OnDel Settle "+suffix, slug)
 	catID := seedCategory(t, pool, locID, "Mains "+suffix)
 	itemID := seedMarketplaceItem(t, pool, locID, catID, "Pie "+suffix, 65.00)
 
@@ -297,12 +295,11 @@ func TestOnDeliveryPayment_SettleUpdatesStatusAndCreatesRows(t *testing.T) {
 // 'confirmed', not 'pending_on_delivery'.
 func TestOnDeliveryPayment_CollectionOrder_StatusIsConfirmed(t *testing.T) {
 	pool := openPool(t)
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 
 	orgID := seedOrg(t, pool, "OnDelCol_"+suffix)
 	slug := "on-del-col-" + suffix
-	locID := seedOnDeliveryLocation(t, pool, orgID, "OnDel Col "+suffix, regionID, slug)
+	locID := seedOnDeliveryLocation(t, pool, orgID, "OnDel Col "+suffix, slug)
 	catID := seedCategory(t, pool, locID, "Snacks "+suffix)
 	itemID := seedMarketplaceItem(t, pool, locID, catID, "Sandwich "+suffix, 45.00)
 

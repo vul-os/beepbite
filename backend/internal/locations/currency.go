@@ -48,9 +48,7 @@ var (
 //
 // Fallback chain:
 //  1. locations.currency_code (direct column on the location row).
-//  2. regions.currency (via locations.region_id) — for legacy rows that have
-//     no currency_code set.
-//  3. Hard-coded "ZAR" / "R" / 2 — logged once so ops can investigate.
+//  2. Hard-coded "ZAR" / "R" / 2 — logged once so ops can investigate.
 func CurrencyFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (Currency, error) {
 	// --- Cache lookup ---
 	if v, ok := currencyCache.Load(locationID); ok {
@@ -108,25 +106,7 @@ func fetchCurrencyFromDB(ctx context.Context, pool *pgxpool.Pool, locationID str
 		return Currency{}, err
 	}
 
-	// --- Step 2: regions.currency → JOIN currencies ---
-	// Same service-role wrap for the locations/regions join.
-	err = db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `
-			SELECT c.code, c.symbol, c.decimal_digits
-			FROM locations l
-			JOIN regions r ON r.id = l.region_id
-			JOIN currencies c ON c.code = r.currency
-			WHERE l.id = $1
-		`, locationID).Scan(&code, &symbol, &decimals)
-	})
-	if err == nil {
-		return Currency{Code: code, Symbol: symbol, Decimals: decimals}, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return Currency{}, err
-	}
-
-	// --- Step 3: hard-coded fallback ---
+	// --- Step 2: hard-coded fallback ---
 	log.Printf("locations.CurrencyFor: no currency found for location %s — defaulting to ZAR", locationID)
 	return Currency{Code: "ZAR", Symbol: "R", Decimals: 2}, nil
 }

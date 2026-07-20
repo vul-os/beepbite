@@ -4,8 +4,8 @@ package locations
 //
 // Fallback tiers exercised:
 //  1. locations.currency_code → currencies row found (ZAR / R).
-//  2. regions.currency fallback when currency_code is NULL (USD / $).
-//  3. Hard-coded ZAR fallback when neither path returns a row.
+//  2. A non-ZAR location currency is returned verbatim (USD / $).
+//  3. Hard-coded ZAR fallback when the lookup returns no row.
 //  4. Cache hit: fetchCurrency is NOT called a second time.
 //
 // Because CurrencyFor uses a process-level sync.Map cache, each sub-test uses a
@@ -64,16 +64,16 @@ func TestCurrencyFor_LocationRow(t *testing.T) {
 	}
 }
 
-// TestCurrencyFor_RegionFallback verifies that when a location has no direct
-// currency_code, the region's currency is used instead.
-func TestCurrencyFor_RegionFallback(t *testing.T) {
+// TestCurrencyFor_NonDefaultCurrency verifies a location configured in a
+// currency other than the ZAR fallback is returned verbatim.
+func TestCurrencyFor_NonDefaultCurrency(t *testing.T) {
 	locID := uniqueLocID("bbb000000002")
 	purgeCache(locID)
 
 	orig := fetchCurrency
 	fetchCurrency = func(_ context.Context, _ *pgxpool.Pool, id string) (Currency, error) {
 		if id == locID {
-			// Simulates: no currency_code on location; region has 'USD'.
+			// Simulates: locations.currency_code = 'USD'.
 			return Currency{Code: "USD", Symbol: "$", Decimals: 2}, nil
 		}
 		return Currency{}, nil
@@ -89,8 +89,8 @@ func TestCurrencyFor_RegionFallback(t *testing.T) {
 	}
 }
 
-// TestCurrencyFor_HardCodedFallback verifies the final ZAR fallback when
-// neither the location row nor the region has a currency configured.
+// TestCurrencyFor_HardCodedFallback verifies the ZAR fallback when the
+// location row has no currency configured.
 func TestCurrencyFor_HardCodedFallback(t *testing.T) {
 	locID := uniqueLocID("ccc000000003")
 	purgeCache(locID)

@@ -21,12 +21,11 @@ import (
 func TestPOSFlow_StaffOrder_KDSBump_Settle(t *testing.T) {
 	pool := openPool(t)
 	ctx := context.Background()
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 
 	// ---------- Seed tenant ----------
 	orgID := seedOrg(t, pool, "POS E2E Org "+suffix)
-	locID := seedLocation(t, pool, orgID, "POS Loc "+suffix, regionID)
+	locID := seedLocation(t, pool, orgID, "POS Loc "+suffix)
 	catID := seedCategory(t, pool, locID, "Grills "+suffix)
 	itemID := seedItem(t, pool, locID, catID, "Steak "+suffix, 150.00)
 	stationID := seedKitchenStation(t, pool, locID, "Grill Station "+suffix)

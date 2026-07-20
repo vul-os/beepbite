@@ -242,11 +242,10 @@ func (s *seeder) ensurePaymentMethods() error {
 			code, name, kind string
 		}{
 			{"cash", "Cash", "offline"},
-			{"card", "Card Machine", "offline"},
+			{"card_in_person", "Card Machine", "offline"},
 			{"card_on_delivery", "Card on delivery", "offline"},
 			{"cash_on_delivery", "Cash on delivery", "offline"},
-			{"transfer", "Bank Transfer", "offline"},
-			{"voucher", "Voucher", "offline"},
+			{"eft", "Bank Transfer", "offline"},
 		}
 		for _, m := range methods {
 			_, err := tx.Exec(s.ctx, `

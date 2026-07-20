@@ -8,10 +8,11 @@ import (
 
 func TestValidTender(t *testing.T) {
 	valid := []string{
-		"cash", "card", "transfer", "voucher",
+		"cash", "card_in_person", "eft",
+		"gift_card", "house_account", "store_credit",
 		"cash_on_delivery", "card_on_delivery",
 		// Case and surrounding whitespace must not decide whether a shop gets paid.
-		"CASH", "  Card  ",
+		"CASH", "  card_in_person  ",
 	}
 	for _, code := range valid {
 		if !ValidTender(code) {
@@ -21,7 +22,7 @@ func TestValidTender(t *testing.T) {
 
 	// Anything that implies BeepBite processed a card must be rejected: the
 	// whole point of the manual-tender model is that no gateway exists.
-	invalid := []string{"", "paystack", "stripe", "yoco", "card_token", "online"}
+	invalid := []string{"", "paystack", "stripe", "yoco", "card_token", "online", "card"}
 	for _, code := range invalid {
 		if ValidTender(code) {
 			t.Errorf("ValidTender(%q) = true, want false", code)

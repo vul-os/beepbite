@@ -6,13 +6,18 @@ import { api } from '@/lib/api-client';
 // ---- Payment method catalogue -----------------------------------------------
 
 /**
- * Ordered list of payment methods rendered in the v1 checkout UI.
- * The backend supports additional codes (eft, gift_card, store_credit, etc.);
- * extend this array to expose them in future UI versions.
+ * Ordered list of payment methods rendered in the checkout UI.
+ *
+ * These codes must exist in the backend's payment_methods table — order_payments
+ * has a foreign key to it, so an unknown code is rejected outright.
+ *
+ * 'card_in_person' means the shop ran the card on its OWN machine. BeepBite
+ * records the amount and the slip reference; it never processes a card.
  */
 export const PAYMENT_METHODS = [
   { code: 'cash',           label: 'Cash', icon: '💵' },
   { code: 'card_in_person', label: 'Card', icon: '💳' },
+  { code: 'eft',            label: 'Transfer', icon: '🏦' },
 ];
 
 // ---- Charge -----------------------------------------------------------------

@@ -24,12 +24,11 @@ func TestCrossTenant_OrgA_CannotRead_OrgB(t *testing.T) {
 	pool := openPool(t)
 	ctx := context.Background()
 	_ = ctx
-	regionID := zaRegionID(t, pool)
 	suffix := randStr(6)
 
 	// ---------- Seed org-A ----------
 	orgAID := seedOrg(t, pool, "TenantA_"+suffix)
-	locAID := seedLocation(t, pool, orgAID, "Loc A "+suffix, regionID)
+	locAID := seedLocation(t, pool, orgAID, "Loc A "+suffix)
 	userA := seedAuthUser(t, pool, "user_a_"+suffix+"@example.com")
 	seedMember(t, pool, orgAID, userA, "owner")
 	catA := seedCategory(t, pool, locAID, "Cat A "+suffix)
@@ -38,7 +37,7 @@ func TestCrossTenant_OrgA_CannotRead_OrgB(t *testing.T) {
 
 	// ---------- Seed org-B ----------
 	orgBID := seedOrg(t, pool, "TenantB_"+suffix)
-	locBID := seedLocation(t, pool, orgBID, "Loc B "+suffix, regionID)
+	locBID := seedLocation(t, pool, orgBID, "Loc B "+suffix)
 	userB := seedAuthUser(t, pool, "user_b_"+suffix+"@example.com")
 	seedMember(t, pool, orgBID, userB, "owner")
 	catB := seedCategory(t, pool, locBID, "Cat B "+suffix)

@@ -29,16 +29,19 @@ var ErrNotFound = errors.New("payments: charge not found")
 
 // ─── Tender types ─────────────────────────────────────────────────────────────
 
-// Tender identifies how the money actually moved at the counter. These values
-// match the seeded payment_methods.code column.
+// Tender identifies how the money actually moved. These values are exactly the
+// payment_methods.code column seeded by migration 014 — order_payments has a FK
+// to it, so anything not in this list is rejected by the database too.
 //
-// TenderCard means the shop swiped the customer on its OWN card machine. No
-// card data ever reaches BeepBite.
+// TenderCard means the shop ran the customer on its OWN card machine. No card
+// data ever reaches BeepBite.
 const (
-	TenderCash     = "cash"
-	TenderCard     = "card"
-	TenderTransfer = "transfer"
-	TenderVoucher  = "voucher"
+	TenderCash         = "cash"
+	TenderCard         = "card_in_person"
+	TenderTransfer     = "eft"
+	TenderGiftCard     = "gift_card"
+	TenderHouseAccount = "house_account"
+	TenderStoreCredit  = "store_credit"
 
 	// On-delivery variants: the driver collected at the door, either in notes
 	// or on a portable card machine. Kept distinct from the counter tenders so
@@ -50,7 +53,8 @@ const (
 // ValidTender reports whether code is a tender this build can record.
 func ValidTender(code string) bool {
 	switch strings.ToLower(strings.TrimSpace(code)) {
-	case TenderCash, TenderCard, TenderTransfer, TenderVoucher,
+	case TenderCash, TenderCard, TenderTransfer,
+		TenderGiftCard, TenderHouseAccount, TenderStoreCredit,
 		TenderCashOnDelivery, TenderCardOnDelivery:
 		return true
 	}
