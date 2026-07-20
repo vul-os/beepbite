@@ -28,3 +28,7 @@ backend/beepbite-server-*
 playwright-report
 # Playwright test artifacts
 test-results/
+
+# agent tooling
+.agents/
+.claude/
