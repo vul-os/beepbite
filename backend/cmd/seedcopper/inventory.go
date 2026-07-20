@@ -5,6 +5,10 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/seedlocale"
+	"github.com/beepbite/backend/internal/tax"
 )
 
 // seedInventory builds the supply-chain and back-of-house operations data for
@@ -128,7 +132,7 @@ func seedInventory(s *seeder, c *Ctx) error {
 		{"Red Wine (Cabernet Sauvignon)", "case", 4, 6, 72000}, // low
 		{"Craft Beer", "case", 10, 5, 38000},
 		{"Tonic Water", "case", 14, 8, 16500},
-		{"Gin (London Dry)", "each", 9, 4, 24500},
+		{"Gin (Dry)", "each", 9, 4, 24500},
 		{"Lemons", "kg", 11, 5, 2800},
 		{"Garlic", "kg", 7, 4, 6500},
 		{"Parmesan", "kg", 4, 3, 31000},
@@ -178,6 +182,7 @@ func seedInventory(s *seeder, c *Ctx) error {
 	// -------------------------------------------------------------------
 	// 3. Purchase orders + line items + goods receipts.
 	// -------------------------------------------------------------------
+	// unitPriceCents is authored in the 2-decimal reference scale, net of tax.
 	type poLine struct {
 		item           string
 		qty            float64
@@ -189,9 +194,9 @@ func seedInventory(s *seeder, c *Ctx) error {
 		poNumber       string
 		supplier       string
 		status         string
-		orderedDaysAgo int // 0 = not yet ordered (draft)
-		expectDaysAgo  int // relative to c.Now, negative = future
-		shippingCents  int64
+		orderedDaysAgo int   // 0 = not yet ordered (draft)
+		expectDaysAgo  int   // relative to c.Now, negative = future
+		shippingCents  int64 // reference scale, like poLine.unitPriceCents
 		lines          []poLine
 		receiptNumber  string
 		receiptDaysAgo int
@@ -200,7 +205,7 @@ func seedInventory(s *seeder, c *Ctx) error {
 	}
 	pos := []poSpec{
 		{
-			poNumber: "PO-1001", supplier: "Cape Fresh Produce", status: "received",
+			poNumber: "PO-1001", supplier: "Harbour Fresh Produce", status: "received",
 			orderedDaysAgo: 10, expectDaysAgo: 8, shippingCents: 5000,
 			lines: []poLine{
 				{"Potatoes", 50, "kg", 1250, 50},
@@ -211,7 +216,7 @@ func seedInventory(s *seeder, c *Ctx) error {
 			receiptNumber: "GR-1001-1", receiptDaysAgo: 8, deliveryNote: "DN-88213", buyer: "1",
 		},
 		{
-			poNumber: "PO-1002", supplier: "Karoo Meat Co", status: "received",
+			poNumber: "PO-1002", supplier: "Uplands Meat Co", status: "received",
 			orderedDaysAgo: 9, expectDaysAgo: 7, shippingCents: 0,
 			lines: []poLine{
 				{"Beef Fillet", 20, "kg", 28500, 20},
@@ -220,27 +225,27 @@ func seedInventory(s *seeder, c *Ctx) error {
 			receiptNumber: "GR-1002-1", receiptDaysAgo: 7, deliveryNote: "DN-44120", buyer: "2",
 		},
 		{
-			poNumber: "PO-1003", supplier: "Two Oceans Seafood", status: "partially_received",
+			poNumber: "PO-1003", supplier: "Blue Bay Seafood", status: "partially_received",
 			orderedDaysAgo: 5, expectDaysAgo: 3, shippingCents: 2500,
 			lines: []poLine{
-				{"Hake (Fresh)", 40, "kg", 9550, 25},
+				{"White Fish (Fresh)", 40, "kg", 9550, 25},
 				{"Lemons", 10, "kg", 2800, 10},
 			},
 			receiptNumber: "GR-1003-1", receiptDaysAgo: 3, deliveryNote: "DN-99304", buyer: "1",
 		},
 		{
-			poNumber: "PO-1004", supplier: "Woodstock Beverages", status: "sent",
+			poNumber: "PO-1004", supplier: "Old Town Beverages", status: "sent",
 			orderedDaysAgo: 2, expectDaysAgo: -3, shippingCents: 7500,
 			lines: []poLine{
 				{"Red Wine (Cabernet Sauvignon)", 6, "case", 72000, 0},
 				{"Craft Beer", 10, "case", 38000, 0},
 				{"Tonic Water", 8, "case", 16500, 0},
-				{"Gin (Cape Town Dry)", 12, "each", 24500, 0},
+				{"Gin (Dry)", 12, "each", 24500, 0},
 			},
 			buyer: "2",
 		},
 		{
-			poNumber: "PO-1005", supplier: "Table Bay Dry Goods", status: "draft",
+			poNumber: "PO-1005", supplier: "Riverside Dry Goods", status: "draft",
 			orderedDaysAgo: 0, expectDaysAgo: -7, shippingCents: 0,
 			lines: []poLine{
 				{"Flour", 25, "kg", 1850, 0},
@@ -250,7 +255,7 @@ func seedInventory(s *seeder, c *Ctx) error {
 			buyer: "1",
 		},
 		{
-			poNumber: "PO-1006", supplier: "Cape Fresh Produce", status: "cancelled",
+			poNumber: "PO-1006", supplier: "Harbour Fresh Produce", status: "cancelled",
 			orderedDaysAgo: 15, expectDaysAgo: 13, shippingCents: 0,
 			lines: []poLine{
 				{"Lettuce", 20, "each", 1400, 0},
@@ -331,32 +336,34 @@ func seedInventory(s *seeder, c *Ctx) error {
 	// -------------------------------------------------------------------
 	// 4. Stock movements.
 	// -------------------------------------------------------------------
+	// unitCost is authored in the 2-decimal reference scale and matches the
+	// corresponding inventory item's cost.
 	type movementSpec struct {
 		item         string
 		movementType string
 		qty          float64
-		unitCost     float64
+		unitCost     int64
 		wasteReason  string // only for movementType == "waste"
 		daysAgo      int
 		notes        string
 	}
 	movements := []movementSpec{
-		{"Potatoes", "purchase", 50, 12.50, "", 8, "PO-1001 receipt"},
-		{"Onions", "purchase", 40, 9.75, "", 8, "PO-1001 receipt"},
-		{"Tomatoes", "purchase", 25, 22.00, "", 8, "PO-1001 receipt"},
-		{"Beef Fillet", "purchase", 20, 285.00, "", 7, "PO-1002 receipt"},
-		{"Chicken Breast", "purchase", 30, 78.00, "", 7, "PO-1002 receipt"},
-		{"Hake (Fresh)", "grn", 25, 95.50, "", 3, "PO-1003 partial receipt"},
-		{"Beef Fillet", "sale", 12, 285.00, "", 4, "dinner service consumption"},
-		{"Chicken Breast", "sale", 18, 78.00, "", 3, "dinner service consumption"},
-		{"Hake (Fresh)", "sale", 10, 95.50, "", 2, "lunch service consumption"},
-		{"Coffee Beans", "sale", 4, 210.00, "", 1, "espresso bar consumption"},
-		{"Tomatoes", "waste", 3, 22.00, "spoilage", 2, "overripe, discarded"},
-		{"Cream", "waste", 2, 55.00, "spillage", 5, "knocked over in prep"},
-		{"Lettuce", "waste", 2, 14.00, "prep_loss", 3, "trim loss"},
-		{"Milk", "waste", 3, 19.50, "expired", 6, "past use-by date"},
-		{"Parmesan", "adjustment", 1, 310.00, "", 1, "cycle count correction"},
-		{"Garlic", "adjustment", 2, 65.00, "", 1, "cycle count correction"},
+		{"Potatoes", "purchase", 50, 1250, "", 8, "PO-1001 receipt"},
+		{"Onions", "purchase", 40, 975, "", 8, "PO-1001 receipt"},
+		{"Tomatoes", "purchase", 25, 2200, "", 8, "PO-1001 receipt"},
+		{"Beef Fillet", "purchase", 20, 28500, "", 7, "PO-1002 receipt"},
+		{"Chicken Breast", "purchase", 30, 7800, "", 7, "PO-1002 receipt"},
+		{"White Fish (Fresh)", "grn", 25, 9550, "", 3, "PO-1003 partial receipt"},
+		{"Beef Fillet", "sale", 12, 28500, "", 4, "dinner service consumption"},
+		{"Chicken Breast", "sale", 18, 7800, "", 3, "dinner service consumption"},
+		{"White Fish (Fresh)", "sale", 10, 9550, "", 2, "lunch service consumption"},
+		{"Coffee Beans", "sale", 4, 21000, "", 1, "espresso bar consumption"},
+		{"Tomatoes", "waste", 3, 2200, "spoilage", 2, "overripe, discarded"},
+		{"Cream", "waste", 2, 5500, "spillage", 5, "knocked over in prep"},
+		{"Lettuce", "waste", 2, 1400, "prep_loss", 3, "trim loss"},
+		{"Milk", "waste", 3, 1950, "expired", 6, "past use-by date"},
+		{"Parmesan", "adjustment", 1, 31000, "", 1, "cycle count correction"},
+		{"Garlic", "adjustment", 2, 6500, "", 1, "cycle count correction"},
 	}
 
 	if err := s.tx(func(tx pgx.Tx) error {
@@ -368,7 +375,10 @@ func seedInventory(s *seeder, c *Ctx) error {
 			if _, err := tx.Exec(s.ctx, `
 				INSERT INTO stock_movements (inventory_item_id, movement_type, quantity, unit_cost, waste_reason, notes, recorded_by, created_at)
 				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-			`, itemID[m.item], m.movementType, m.qty, m.unitCost, waste, m.notes, buyer1, c.Now.AddDate(0, 0, -m.daysAgo)); err != nil {
+				// stock_movements.unit_cost is numeric MAJOR units.
+			`, itemID[m.item], m.movementType, m.qty,
+				money.Decimal(s.cfg.Price(m.unitCost), s.cfg.Decimals),
+				waste, m.notes, buyer1, c.Now.AddDate(0, 0, -m.daysAgo)); err != nil {
 				return fmt.Errorf("insert stock movement %q/%q: %w", m.item, m.movementType, err)
 			}
 		}
@@ -380,6 +390,12 @@ func seedInventory(s *seeder, c *Ctx) error {
 	// -------------------------------------------------------------------
 	// 5. Delivery zones, tip pools, bank account.
 	// -------------------------------------------------------------------
+	// Delivery zones over the fictional Example City. The polygons sit in small
+	// offsets around Null Island (0, 0) so they contain the seeded customer
+	// addresses in foh.go — a real city's outline would put the demo back in a
+	// real country and imply coverage the product does not have.
+	//
+	// feeCents/minOrderCents are authored in the 2-decimal reference scale.
 	type zoneSpec struct {
 		name                    string
 		polygon                 string
@@ -388,18 +404,18 @@ func seedInventory(s *seeder, c *Ctx) error {
 	}
 	zones := []zoneSpec{
 		{
-			name:     "Sea Point & Green Point",
-			polygon:  `{"type":"Polygon","coordinates":[[[18.38,-33.91],[18.40,-33.91],[18.40,-33.93],[18.38,-33.93],[18.38,-33.91]]]}`,
+			name:     "Harbour Quarter",
+			polygon:  `{"type":"Polygon","coordinates":[[[0.005,0.005],[0.025,0.005],[0.025,0.025],[0.005,0.025],[0.005,0.005]]]}`,
 			feeCents: 3500, minOrderCents: 15000, etaMinutes: 35, priority: 1,
 		},
 		{
-			name:     "Camps Bay & Bantry Bay",
-			polygon:  `{"type":"Polygon","coordinates":[[[18.36,-33.93],[18.39,-33.93],[18.39,-33.96],[18.36,-33.96],[18.36,-33.93]]]}`,
+			name:     "Riverside",
+			polygon:  `{"type":"Polygon","coordinates":[[[0.005,0.026],[0.025,0.026],[0.025,0.045],[0.005,0.045],[0.005,0.026]]]}`,
 			feeCents: 5500, minOrderCents: 20000, etaMinutes: 45, priority: 2,
 		},
 		{
-			name:     "City Bowl",
-			polygon:  `{"type":"Polygon","coordinates":[[[18.40,-33.91],[18.43,-33.91],[18.43,-33.94],[18.40,-33.94],[18.40,-33.91]]]}`,
+			name:     "Old Town",
+			polygon:  `{"type":"Polygon","coordinates":[[[0.026,0.005],[0.045,0.005],[0.045,0.025],[0.026,0.025],[0.026,0.005]]]}`,
 			feeCents: 4500, minOrderCents: 18000, etaMinutes: 40, priority: 3,
 		},
 	}
@@ -419,7 +435,8 @@ func seedInventory(s *seeder, c *Ctx) error {
 			if _, err := tx.Exec(s.ctx, `
 				INSERT INTO delivery_zones (organization_id, location_id, name, polygon, delivery_fee_cents, min_order_cents, estimated_eta_minutes, is_active, priority)
 				VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,true,$8)
-			`, c.OrgID, c.LocID, z.name, z.polygon, z.feeCents, z.minOrderCents, z.etaMinutes, z.priority); err != nil {
+			`, c.OrgID, c.LocID, z.name, z.polygon, s.cfg.Price(z.feeCents), s.cfg.Price(z.minOrderCents),
+				z.etaMinutes, z.priority); err != nil {
 				return fmt.Errorf("insert delivery zone %q: %w", z.name, err)
 			}
 		}
