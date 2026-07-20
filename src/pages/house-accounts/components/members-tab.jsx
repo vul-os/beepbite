@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { UserPlus, Trash2, Loader2, Users } from 'lucide-react';
+import { useMoney } from '@/context/locale-context';
 
 function customerLabel(c) {
   const name = [c.first_name, c.last_name].filter(Boolean).join(' ');
@@ -33,6 +34,7 @@ function customerLabel(c) {
 }
 
 export function MembersTab({ members = [], orgId, addMember, removeMember, fetchCustomers }) {
+  const { format: formatMoneyValue } = useMoney();
   const [addOpen, setAddOpen] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -122,7 +124,7 @@ export function MembersTab({ members = [], orgId, addMember, removeMember, fetch
                 </TableCell>
                 <TableCell>
                   {m.spending_limit_cents != null
-                    ? `$${(m.spending_limit_cents / 100).toFixed(2)}`
+                    ? formatMoneyValue(m.spending_limit_cents)
                     : <span className="text-muted-foreground text-xs">unlimited</span>}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">

@@ -3,6 +3,7 @@ import { MapPin, Store, DollarSign, CheckCircle, Package, Truck, XCircle, Loader
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useMoney } from '@/context/locale-context';
 
 // Map statuses to human-readable labels and badge colours
 const STATUS_META = {
@@ -20,12 +21,9 @@ const NEXT_ACTION = {
   picked_up: { action: 'deliver', label: 'Delivered',  Icon: Truck,        variant: 'default' },
 };
 
-function formatCurrency(cents) {
-  if (cents == null) return '—';
-  return `$${(Number(cents) / 100).toFixed(2)}`;
-}
-
 export default function AssignmentCard({ assignment, onAction }) {
+  const { format: formatMoneyValue } = useMoney();
+  const formatCurrency = (cents) => (cents == null ? '—' : formatMoneyValue(cents));
   const [busy, setBusy] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
 

@@ -22,15 +22,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/services/supabase-client';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-const fmtDelta = (cents) => {
-  if (!cents) return '';
-  const abs = Math.abs(cents) / 100;
-  return (cents > 0 ? '+' : '-') + 'R' + abs.toFixed(2);
-};
+import { useMoney } from '@/context/locale-context';
 
 const emptyGroup = () => ({
   name: '',
@@ -52,6 +44,11 @@ const emptyModifier = () => ({
 // Inline editable row for a single modifier
 // ---------------------------------------------------------------------------
 function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
+  const { format: formatMoneyValue, symbol } = useMoney();
+  const fmtDelta = (cents) => {
+    if (!cents) return '';
+    return (cents > 0 ? '+' : '-') + formatMoneyValue(Math.abs(cents));
+  };
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...mod });
   const [saving, setSaving] = useState(false);
@@ -85,7 +82,7 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
           value={form.price_delta_cents}
           onChange={(e) => setForm((f) => ({ ...f, price_delta_cents: parseInt(e.target.value) || 0 }))}
           placeholder="Delta cents"
-          title="Price delta in cents (e.g. 50 = +R0.50)"
+          title={`Price delta in cents (e.g. 50 = +${symbol}0.50)`}
         />
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Switch

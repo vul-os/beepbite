@@ -6,21 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/auth-context';
+import { useMoney } from '@/context/locale-context';
 import { useHouseAccountDetail } from './hooks/use-house-account';
 import { MembersTab } from './components/members-tab';
 import { ChargesTab } from './components/charges-tab';
 import { InvoicesTab } from './components/invoices-tab';
 import { ArrowLeft, Building2, Loader2, AlertCircle } from 'lucide-react';
 
-function centsToDisplay(cents) {
-  if (cents == null) return '—';
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 export default function HouseAccountDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { activeOrganization } = useAuth();
+  const { format: formatMoneyValue } = useMoney();
+  const centsToDisplay = (cents) => (cents == null ? '—' : formatMoneyValue(cents));
 
   const {
     account,

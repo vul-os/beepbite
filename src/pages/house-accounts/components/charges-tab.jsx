@@ -10,12 +10,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { FileText, Loader2, Receipt } from 'lucide-react';
-
-function centsToDisplay(cents) {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { useMoney } from '@/context/locale-context';
 
 export function ChargesTab({ accountId, generateInvoice, fetchCharges }) {
+  const { format: centsToDisplay } = useMoney();
   const [charges, setCharges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
