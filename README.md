@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo-mark.svg" alt="BeepBite" width="110" />
+<img src="public/icon.svg" alt="BeepBite" width="96" />
 
 # BeepBite
 
