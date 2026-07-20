@@ -7,11 +7,13 @@ import { Clock, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function EtaCard({ etaMinutes, status, lastUpdated }) {
-  const isLive = status !== 'delivered' && status !== 'canceled';
+  const isDelivered = status === 'delivered' || status === 'completed';
+  const isCancelled = status === 'cancelled';
+  const isLive = !isDelivered && !isCancelled;
 
   const etaLabel = React.useMemo(() => {
-    if (status === 'delivered') return 'Order delivered';
-    if (status === 'canceled')  return 'Order canceled';
+    if (isDelivered)            return 'Order delivered';
+    if (isCancelled)            return 'Order cancelled';
     if (etaMinutes == null)     return 'Calculating ETA…';
     if (etaMinutes <= 1)        return 'Arriving any moment';
     return `~${etaMinutes} min away`;
@@ -28,9 +30,9 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
     <div
       className={cn(
         'flex items-center justify-between gap-4 rounded-2xl border px-4 py-4 shadow-sm transition-colors',
-        status === 'delivered'
+        isDelivered
           ? 'bg-green-50 border-green-200'
-          : status === 'canceled'
+          : isCancelled
             ? 'bg-muted border-border'
             : 'bg-card border-border/60',
       )}
@@ -39,9 +41,9 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
         <div
           className={cn(
             'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
-            status === 'delivered'
+            isDelivered
               ? 'bg-green-100'
-              : status === 'canceled'
+              : isCancelled
                 ? 'bg-muted-foreground/10'
                 : 'bg-orange-100',
           )}
@@ -49,9 +51,9 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
           <Clock
             className={cn(
               'h-5 w-5',
-              status === 'delivered'
+              isDelivered
                 ? 'text-green-600'
-                : status === 'canceled'
+                : isCancelled
                   ? 'text-muted-foreground'
                   : 'text-orange-600',
             )}
@@ -62,7 +64,7 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
           <p
             className={cn(
               'text-base font-bold leading-tight',
-              status === 'delivered' ? 'text-green-700' : 'text-foreground',
+              isDelivered ? 'text-green-700' : 'text-foreground',
             )}
           >
             {etaLabel}
@@ -87,7 +89,7 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
         <RefreshCw
           className={cn(
             'h-4 w-4 shrink-0',
-            status === 'delivered' ? 'text-green-500' : 'text-muted-foreground',
+            isDelivered ? 'text-green-500' : 'text-muted-foreground',
           )}
           aria-hidden="true"
         />
