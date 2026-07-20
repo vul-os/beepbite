@@ -12,10 +12,7 @@ import {
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { FileText, Loader2 } from 'lucide-react';
 import { HOUSE_ACCOUNT_INVOICE_STATUS_COLORS } from '@/lib/status-colors';
-
-function centsToDisplay(cents) {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { useMoney } from '@/context/locale-context';
 
 function statusBadge(status) {
   const cls = HOUSE_ACCOUNT_INVOICE_STATUS_COLORS[status] || HOUSE_ACCOUNT_INVOICE_STATUS_COLORS.open;
@@ -24,6 +21,7 @@ function statusBadge(status) {
 }
 
 export function InvoicesTab({ accountId, fetchInvoices, payInvoice }) {
+  const { format: centsToDisplay } = useMoney();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);

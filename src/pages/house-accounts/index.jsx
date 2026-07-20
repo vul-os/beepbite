@@ -12,15 +12,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAuth } from '@/context/auth-context';
+import { useMoney } from '@/context/locale-context';
 import { useHouseAccounts } from './hooks/use-house-account';
 import { AccountFormDialog } from './components/account-form';
 import { Plus, Loader2, Building2, AlertCircle } from 'lucide-react';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
-
-function centsToDisplay(cents) {
-  if (cents == null) return '—';
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function statusBadge(isActive) {
   return isActive
@@ -32,6 +28,9 @@ export default function HouseAccountsPage() {
   const { activeOrganization } = useAuth();
   const navigate = useNavigate();
   const orgId = activeOrganization?.id;
+  const { format: formatMoneyValue } = useMoney();
+
+  const centsToDisplay = (cents) => (cents == null ? '—' : formatMoneyValue(cents));
 
   const { accounts, loading, error, createAccount } = useHouseAccounts(orgId);
   const [dialogOpen, setDialogOpen] = useState(false);

@@ -37,24 +37,18 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { useAuth } from '@/context/auth-context';
+import { useMoney } from '@/context/locale-context';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { useDeliveryZones } from './hooks/use-delivery-zones';
 import ZoneForm from './components/zone-form';
-
-// ---- helpers ----
-
-function fmtCents(cents) {
-  if (cents == null) return '—';
-  const amount = Number(cents) / 100;
-  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 // ---- page ----
 
 export default function DeliveryZonesPage() {
   const { activeLocation, activeOrganization } = useAuth();
   const { toast } = useToast();
+  const { format: fmtCents } = useMoney();
 
   const {
     zones,
@@ -192,11 +186,11 @@ export default function DeliveryZonesPage() {
                   <TableCell className="text-sm">
                     {zone.delivery_fee_cents === 0
                       ? <Badge variant="outline" className="text-green-700 border-green-400">Free</Badge>
-                      : `$${fmtCents(zone.delivery_fee_cents)}`
+                      : fmtCents(zone.delivery_fee_cents)
                     }
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {zone.min_order_cents > 0 ? `$${fmtCents(zone.min_order_cents)}` : '—'}
+                    {zone.min_order_cents > 0 ? fmtCents(zone.min_order_cents) : '—'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {zone.estimated_eta_minutes} min
