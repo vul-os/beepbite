@@ -3,7 +3,11 @@
 //
 //	go run ./cmd/bootstrapdemo --env=local
 //
-// Login: demo@beepbite.app / Demo1234!  (owner, full capabilities)
+// Login: demo@example.com / Demo1234!  (owner, full capabilities)
+//
+// The country, currency, tax posture, timezone and dial code of the demo tenant
+// come from internal/seedlocale (the SEED_* environment variables), not from
+// this file. See that package for why the defaults are deliberately fictional.
 package main
 
 import (
@@ -18,14 +22,26 @@ import (
 
 	"github.com/beepbite/backend/internal/config"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/seedlocale"
 )
 
 func main() {
 	envFlag := flag.String("env", "", "environment: local (default)")
-	email := flag.String("email", "demo@beepbite.app", "owner email")
+	// RFC 2606 reserves example.com so it can never be registered — a bootstrap
+	// account cannot end up sending mail to, or being confused with, a real
+	// address at a domain someone owns.
+	email := flag.String("email", "demo@"+seedlocale.EmailDomain, "owner email")
 	pass := flag.String("pass", "Demo1234!", "owner password")
 	orgName := flag.String("org", "BeepBite Demo Diner", "organization name")
 	flag.Parse()
+
+	loc, err := seedlocale.Load()
+	if err != nil {
+		log.Fatalf("locale: %v", err)
+	}
+	log.Printf("bootstrap locale: country=%s currency=%s (%d dp) tz=%s tax=%.2f%% inclusive=%t phone=+%s",
+		loc.Country, loc.Currency, loc.Decimals, loc.Timezone,
+		loc.TaxRatePercent(), loc.TaxInclusive(), loc.PhoneCC)
 
 	cfg, err := config.Load(*envFlag)
 	if err != nil {
@@ -37,6 +53,17 @@ func main() {
 		log.Fatalf("connect db: %v", err)
 	}
 	defer pool.Close()
+
+	// Every currency column is a foreign key to currencies, and the default XTS
+	// is deliberately not one of the codes the migrations ship — so the row has
+	// to exist before anything priced in it is inserted.
+	if err := db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		q, args := loc.EnsureCurrencySQL()
+		_, err := tx.Exec(ctx, q, args...)
+		return err
+	}); err != nil {
+		log.Fatalf("ensure currency %s: %v", loc.Currency, err)
+	}
 
 	hashBytes, err := bcrypt.GenerateFromPassword([]byte(*pass), bcrypt.DefaultCost)
 	if err != nil {
@@ -75,7 +102,12 @@ func main() {
 		// Org (idempotent on name).
 		err = tx.QueryRow(ctx, `SELECT id FROM organizations WHERE name=$1`, *orgName).Scan(&orgID)
 		if err == pgx.ErrNoRows {
-			if err := tx.QueryRow(ctx, `INSERT INTO organizations (name) VALUES ($1) RETURNING id`, *orgName).Scan(&orgID); err != nil {
+			// default_currency_code must be passed explicitly: migration 056
+			// dropped its 'ZAR' default, so omitting it now leaves the org with
+			// no currency at all rather than silently inheriting one country's.
+			if err := tx.QueryRow(ctx,
+				`INSERT INTO organizations (name, default_currency_code) VALUES ($1,$2) RETURNING id`,
+				*orgName, loc.Currency).Scan(&orgID); err != nil {
 				return fmt.Errorf("insert org: %w", err)
 			}
 		} else if err != nil {
@@ -95,10 +127,22 @@ func main() {
 		slug := "beepbite-demo-diner--main"
 		err = tx.QueryRow(ctx, `SELECT id FROM locations WHERE slug=$1`, slug).Scan(&locID)
 		if err == pgx.ErrNoRows {
+			// City is a placeholder rather than a real one: a demo tenant that
+			// names an actual city reads as production data in a screenshot.
+			// The locale columns are all written explicitly — the schema no
+			// longer supplies a country's worth of defaults for them.
 			if err := tx.QueryRow(ctx,
-				`INSERT INTO locations (organization_id, name, slug, city, country, currency_code)
-				 VALUES ($1,'Main',$2,'Johannesburg','ZA','ZAR') RETURNING id`,
-				orgID, slug).Scan(&locID); err != nil {
+				`INSERT INTO locations (
+					organization_id, name, slug,
+					city, country, currency_code,
+					timezone, locale, tax_rate, tax_inclusive, tax_label,
+					phone_country_code
+				 ) VALUES ($1,'Main',$2,'Demo City',$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+				orgID, slug,
+				loc.Country, loc.Currency,
+				loc.Timezone, nullIfEmpty(loc.Locale),
+				loc.TaxRatePercent(), loc.TaxInclusive(), loc.Tax.EffectiveLabel(),
+				loc.PhoneCC).Scan(&locID); err != nil {
 				return fmt.Errorf("insert location: %w", err)
 			}
 		} else if err != nil {
@@ -110,5 +154,16 @@ func main() {
 		log.Fatalf("bootstrap: %v", err)
 	}
 
-	fmt.Printf("OK\nowner=%s\norg=%s\nlocation=%s\nlogin: %s / %s\n", ownerID, orgID, locID, *email, *pass)
+	fmt.Printf("OK\nowner=%s\norg=%s\nlocation=%s\nlogin: %s / %s\ncurrency=%s country=%s\n",
+		ownerID, orgID, locID, *email, *pass, loc.Currency, loc.Country)
+}
+
+// nullIfEmpty maps an unset locale to SQL NULL. locations.locale is nullable
+// and NULL means "CLDR root formatting"; writing an empty string instead would
+// make the column look configured when it is not.
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }

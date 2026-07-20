@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/seedlocale"
 )
 
 // seeder holds the DB pool + context. All writes run under service_role scope so
@@ -16,6 +17,45 @@ import (
 type seeder struct {
 	pool *pgxpool.Pool
 	ctx  context.Context
+
+	// cfg is the resolved locale for this run: currency and its exponent, tax
+	// rate and convention, country, timezone, dial code.
+	//
+	// It lives on the seeder rather than on Ctx because every section already
+	// receives the seeder, and one owner cannot drift out of sync with itself.
+	// Sections must read every country-dependent value from here — a literal
+	// 'ZAR', a '+27', a `* 15 / 115` or a bare `/100` in a section file is a bug
+	// even when it happens to match the currently configured locale.
+	cfg seedlocale.Config
+}
+
+// Phone-number sequence allocation.
+//
+// cfg.Phone(seq) is deterministic: the same seq always yields the same number,
+// which is what makes re-running the seeder idempotent against ON CONFLICT
+// clauses keyed on a phone. That only holds if two sections never claim the
+// same seq, so the space is carved into blocks here rather than each section
+// picking its own numbers.
+const (
+	locationPhoneSeq     = 1
+	staffPhoneSeq        = 100
+	supplierPhoneSeq     = 200
+	houseAccountPhoneSeq = 300
+	fohCustomerPhoneSeq  = 1000
+	reservationPhoneSeq  = 2000
+	waitlistPhoneSeq     = 3000
+)
+
+// nullIfEmpty renders "" as SQL NULL.
+//
+// Empty and NULL are different answers for the nullable locale columns: NULL
+// means "no locale chosen, use root formatting", whereas an empty string would
+// be a value that no formatter can interpret.
+func nullIfEmpty(v string) any {
+	if v == "" {
+		return nil
+	}
+	return v
 }
 
 // tx runs fn inside a single service-role scoped transaction.
@@ -63,7 +103,7 @@ type Ctx struct {
 	// Populated by seedMenu.
 	Categories map[string]string // category name -> id
 	Items      map[string]string // item name -> id
-	ItemPrice  map[string]int64  // item name -> price in cents
+	ItemPrice  map[string]int64  // item name -> price in the configured currency's minor units
 	Stations   map[string]string // KDS station name -> id
 
 	// Populated by seedFloor.

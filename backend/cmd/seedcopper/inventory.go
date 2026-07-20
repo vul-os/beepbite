@@ -51,42 +51,48 @@ func seedInventory(s *seeder, c *Ctx) error {
 	// -------------------------------------------------------------------
 	// 1. Suppliers + primary contacts.
 	// -------------------------------------------------------------------
+	// Suppliers are fictional businesses in the seeded Example City. Company
+	// suffixes are left generic — "(Pty) Ltd" is a South African/Australian
+	// form, "Inc" a US one, and picking either would re-anchor the demo to a
+	// jurisdiction. Websites and emails use the RFC 2606 reserved domain, so
+	// nothing here resolves to a real company.
 	type supplierSpec struct {
-		name, display, taxID, website string
-		termsDays                     int
-		contactName, contactRole      string
-		contactEmail, contactPhone    string
+		name, display, taxID     string
+		termsDays                int
+		contactName, contactRole string
+		contactLocal             string // local-part of the seeded address
+		phoneSeq                 int
 	}
 	suppliers := []supplierSpec{
 		{
-			name: "Cape Fresh Produce", display: "Cape Fresh Produce (Pty) Ltd",
-			taxID: "4230192837", website: "https://capefreshproduce.co.za", termsDays: 14,
+			name: "Harbour Fresh Produce", display: "Harbour Fresh Produce",
+			taxID: "4230192837", termsDays: 14,
 			contactName: "Sipho Nkosi", contactRole: "Sales Rep",
-			contactEmail: "sipho@capefreshproduce.co.za", contactPhone: "+27214481203",
+			contactLocal: "sipho.harbourfresh", phoneSeq: supplierPhoneSeq + 0,
 		},
 		{
-			name: "Karoo Meat Co", display: "Karoo Meat Co (Pty) Ltd",
-			taxID: "4239817264", website: "https://karoomeatco.co.za", termsDays: 30,
-			contactName: "Deon van der Merwe", contactRole: "Account Manager",
-			contactEmail: "deon@karoomeatco.co.za", contactPhone: "+27214815522",
+			name: "Uplands Meat Co", display: "Uplands Meat Company",
+			taxID: "4239817264", termsDays: 30,
+			contactName: "Deon Fischer", contactRole: "Account Manager",
+			contactLocal: "deon.uplandsmeat", phoneSeq: supplierPhoneSeq + 1,
 		},
 		{
-			name: "Two Oceans Seafood", display: "Two Oceans Seafood Suppliers",
-			taxID: "4231772940", website: "https://twooceansseafood.co.za", termsDays: 7,
+			name: "Blue Bay Seafood", display: "Blue Bay Seafood Suppliers",
+			taxID: "4231772940", termsDays: 7,
 			contactName: "Faith Adams", contactRole: "Sales Coordinator",
-			contactEmail: "faith@twooceansseafood.co.za", contactPhone: "+27214253391",
+			contactLocal: "faith.bluebayseafood", phoneSeq: supplierPhoneSeq + 2,
 		},
 		{
-			name: "Woodstock Beverages", display: "Woodstock Beverages Distributors",
-			taxID: "4238190456", website: "https://woodstockbeverages.co.za", termsDays: 30,
+			name: "Old Town Beverages", display: "Old Town Beverage Distributors",
+			taxID: "4238190456", termsDays: 30,
 			contactName: "Ryan Solomons", contactRole: "Key Account Manager",
-			contactEmail: "ryan@woodstockbeverages.co.za", contactPhone: "+27214479981",
+			contactLocal: "ryan.oldtownbeverages", phoneSeq: supplierPhoneSeq + 3,
 		},
 		{
-			name: "Table Bay Dry Goods", display: "Table Bay Dry Goods (Pty) Ltd",
-			taxID: "4237654123", website: "https://tablebaydrygoods.co.za", termsDays: 45,
+			name: "Riverside Dry Goods", display: "Riverside Dry Goods",
+			taxID: "4237654123", termsDays: 45,
 			contactName: "Naledi Khumalo", contactRole: "Sales Rep",
-			contactEmail: "naledi@tablebaydrygoods.co.za", contactPhone: "+27214607744",
+			contactLocal: "naledi.riversidedrygoods", phoneSeq: supplierPhoneSeq + 4,
 		},
 	}
 	supplierID := map[string]string{}
@@ -95,34 +101,38 @@ func seedInventory(s *seeder, c *Ctx) error {
 	// 2. Inventory items — ~22 raw ingredients, ~5 deliberately below
 	//    minimum_stock to drive low-stock alerts.
 	// -------------------------------------------------------------------
+	// costPerUnit is authored in the 2-decimal reference scale (28500 = "two
+	// hundred and eighty-five") and rescaled per currency, like every other
+	// seeded amount. Stock quantities stay float64: they are kilograms and
+	// litres, not money, and fractional stock is real.
 	type itemSpec struct {
 		name, unit             string
 		currentStock, minStock float64
-		costPerUnit            float64
+		costPerUnit            int64
 	}
 	items := []itemSpec{
-		{"Beef Fillet", "kg", 8, 10, 285.00}, // low
-		{"Hake (Fresh)", "kg", 15, 8, 95.50},
-		{"Chicken Breast", "kg", 22, 12, 78.00},
-		{"Potatoes", "kg", 60, 30, 12.50},
-		{"Onions", "kg", 45, 20, 9.75},
-		{"Tomatoes", "kg", 5, 15, 22.00}, // low
-		{"Lettuce", "each", 18, 10, 14.00},
-		{"Olive Oil", "L", 12, 6, 89.00},
-		{"Butter", "kg", 9, 8, 105.00},
-		{"Flour", "kg", 40, 20, 18.50},
-		{"Sugar", "kg", 25, 15, 21.00},
-		{"Coffee Beans", "kg", 3, 6, 210.00}, // low
-		{"Milk", "L", 30, 20, 19.50},
-		{"Cream", "L", 6, 10, 55.00},                            // low
-		{"Red Wine (Cabernet Sauvignon)", "case", 4, 6, 720.00}, // low
-		{"Craft Beer", "case", 10, 5, 380.00},
-		{"Tonic Water", "case", 14, 8, 165.00},
-		{"Gin (Cape Town Dry)", "each", 9, 4, 245.00},
-		{"Lemons", "kg", 11, 5, 28.00},
-		{"Garlic", "kg", 7, 4, 65.00},
-		{"Parmesan", "kg", 4, 3, 310.00},
-		{"Sourdough", "each", 20, 10, 32.00},
+		{"Beef Fillet", "kg", 8, 10, 28500}, // low
+		{"White Fish (Fresh)", "kg", 15, 8, 9550},
+		{"Chicken Breast", "kg", 22, 12, 7800},
+		{"Potatoes", "kg", 60, 30, 1250},
+		{"Onions", "kg", 45, 20, 975},
+		{"Tomatoes", "kg", 5, 15, 2200}, // low
+		{"Lettuce", "each", 18, 10, 1400},
+		{"Olive Oil", "L", 12, 6, 8900},
+		{"Butter", "kg", 9, 8, 10500},
+		{"Flour", "kg", 40, 20, 1850},
+		{"Sugar", "kg", 25, 15, 2100},
+		{"Coffee Beans", "kg", 3, 6, 21000}, // low
+		{"Milk", "L", 30, 20, 1950},
+		{"Cream", "L", 6, 10, 5500},                            // low
+		{"Red Wine (Cabernet Sauvignon)", "case", 4, 6, 72000}, // low
+		{"Craft Beer", "case", 10, 5, 38000},
+		{"Tonic Water", "case", 14, 8, 16500},
+		{"Gin (London Dry)", "each", 9, 4, 24500},
+		{"Lemons", "kg", 11, 5, 2800},
+		{"Garlic", "kg", 7, 4, 6500},
+		{"Parmesan", "kg", 4, 3, 31000},
+		{"Sourdough", "each", 20, 10, 3200},
 	}
 	itemID := map[string]string{}
 
@@ -131,9 +141,10 @@ func seedInventory(s *seeder, c *Ctx) error {
 			var id string
 			if err := tx.QueryRow(s.ctx, `
 				INSERT INTO suppliers (organization_id, name, display_name, tax_id, payment_terms_days, default_currency, website, is_active)
-				VALUES ($1,$2,$3,$4,$5,'ZAR',$6,true)
+				VALUES ($1,$2,$3,$4,$5,$7,$6,true)
 				RETURNING id
-			`, c.OrgID, sup.name, sup.display, sup.taxID, sup.termsDays, sup.website).Scan(&id); err != nil {
+			`, c.OrgID, sup.name, sup.display, sup.taxID, sup.termsDays,
+				"https://"+seedlocale.EmailDomain, s.cfg.Currency).Scan(&id); err != nil {
 				return fmt.Errorf("insert supplier %q: %w", sup.name, err)
 			}
 			supplierID[sup.name] = id
@@ -141,7 +152,7 @@ func seedInventory(s *seeder, c *Ctx) error {
 			if _, err := tx.Exec(s.ctx, `
 				INSERT INTO supplier_contacts (supplier_id, name, role, email, phone, is_primary)
 				VALUES ($1,$2,$3,$4,$5,true)
-			`, id, sup.contactName, sup.contactRole, sup.contactEmail, sup.contactPhone); err != nil {
+			`, id, sup.contactName, sup.contactRole, s.cfg.Email(sup.contactLocal), s.cfg.Phone(sup.phoneSeq)); err != nil {
 				return fmt.Errorf("insert supplier contact %q: %w", sup.contactName, err)
 			}
 		}
@@ -152,7 +163,9 @@ func seedInventory(s *seeder, c *Ctx) error {
 				INSERT INTO inventory_items (location_id, name, unit, current_stock, minimum_stock, cost_per_unit)
 				VALUES ($1,$2,$3,$4,$5,$6)
 				RETURNING id
-			`, c.LocID, it.name, it.unit, it.currentStock, it.minStock, it.costPerUnit).Scan(&id); err != nil {
+				// cost_per_unit is numeric MAJOR units.
+			`, c.LocID, it.name, it.unit, it.currentStock, it.minStock,
+				money.Decimal(s.cfg.Price(it.costPerUnit), s.cfg.Decimals)).Scan(&id); err != nil {
 				return fmt.Errorf("insert inventory item %q: %w", it.name, err)
 			}
 			itemID[it.name] = id
@@ -251,10 +264,17 @@ func seedInventory(s *seeder, c *Ctx) error {
 		for _, po := range pos {
 			var subtotal int64
 			for _, ln := range po.lines {
-				subtotal += int64(ln.qty) * ln.unitPriceCents
+				subtotal += int64(ln.qty) * s.cfg.Price(ln.unitPriceCents)
 			}
-			taxCents := subtotal * 15 / 100
-			totalCents := subtotal + taxCents + po.shippingCents
+			shippingCents := s.cfg.Price(po.shippingCents)
+			// A supplier quotes goods net of tax and adds it as its own line —
+			// the trade-invoicing convention, which is exclusive whatever
+			// convention the restaurant uses for its own menu prices. So the
+			// rate comes from configuration but the convention does not:
+			// tax.Add, not cfg.TaxOn.
+			taxed := tax.Add(subtotal, s.cfg.Tax.Rate)
+			taxCents := taxed.Tax
+			totalCents := taxed.Gross + shippingCents
 
 			buyer := buyer1
 			if po.buyer == "2" {
@@ -273,21 +293,23 @@ func seedInventory(s *seeder, c *Ctx) error {
 				INSERT INTO purchase_orders (
 					location_id, supplier_id, po_number, status, ordered_by, ordered_at,
 					expected_delivery_date, currency, subtotal_cents, tax_cents, shipping_cents, total_cents
-				) VALUES ($1,$2,$3,$4,$5,$6,$7,'ZAR',$8,$9,$10,$11)
+				) VALUES ($1,$2,$3,$4,$5,$6,$7,$12,$8,$9,$10,$11)
 				RETURNING id
 			`, c.LocID, supplierID[po.supplier], po.poNumber, po.status, buyer, orderedAt,
-				expectedDelivery, subtotal, taxCents, po.shippingCents, totalCents).Scan(&poID); err != nil {
+				expectedDelivery, subtotal, taxCents, shippingCents, totalCents,
+				s.cfg.Currency).Scan(&poID); err != nil {
 				return fmt.Errorf("insert PO %q: %w", po.poNumber, err)
 			}
 
 			for _, ln := range po.lines {
-				lineTotal := int64(ln.qty) * ln.unitPriceCents
+				unitPrice := s.cfg.Price(ln.unitPriceCents)
+				lineTotal := int64(ln.qty) * unitPrice
 				if _, err := tx.Exec(s.ctx, `
 					INSERT INTO purchase_order_items (
 						purchase_order_id, inventory_item_id, ordered_quantity, ordered_unit,
 						ordered_unit_price_cents, received_quantity, line_total_cents
 					) VALUES ($1,$2,$3,$4,$5,$6,$7)
-				`, poID, itemID[ln.item], ln.qty, ln.unit, ln.unitPriceCents, ln.receivedQty, lineTotal); err != nil {
+				`, poID, itemID[ln.item], ln.qty, ln.unit, unitPrice, ln.receivedQty, lineTotal); err != nil {
 					return fmt.Errorf("insert PO line %q/%q: %w", po.poNumber, ln.item, err)
 				}
 			}

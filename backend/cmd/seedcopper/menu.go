@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/beepbite/backend/internal/money"
 )
 
 // seedMenu builds the full menu + KDS setup for The Copper Table: categories,
@@ -42,19 +43,28 @@ func seedMenu(s *seeder, c *Ctx) error {
 				return err
 			}
 
-			rows, err = tx.Query(s.ctx, `SELECT id, name, price FROM items WHERE location_id=$1`, c.LocID)
+			// price is read as text and parsed with money.Parse rather than
+			// scanned into a float64 and multiplied by 100: the old form both
+			// routed money through a float and assumed a 2-decimal currency, so
+			// re-running the seeder against a JPY or KWD location would have
+			// loaded prices off by a factor of 100 or 1000.
+			rows, err = tx.Query(s.ctx, `SELECT id, name, price::text FROM items WHERE location_id=$1`, c.LocID)
 			if err != nil {
 				return fmt.Errorf("load items: %w", err)
 			}
 			for rows.Next() {
-				var id, name string
-				var price float64
+				var id, name, price string
 				if err := rows.Scan(&id, &name, &price); err != nil {
 					rows.Close()
 					return err
 				}
+				minor, err := money.Parse(price, s.cfg.Decimals)
+				if err != nil {
+					rows.Close()
+					return fmt.Errorf("parse price %q for item %s: %w", price, name, err)
+				}
 				c.Items[name] = id
-				c.ItemPrice[name] = int64(math.Round(price * 100))
+				c.ItemPrice[name] = minor
 			}
 			rows.Close()
 			if err := rows.Err(); err != nil {
@@ -87,9 +97,14 @@ func seedMenu(s *seeder, c *Ctx) error {
 	// Local types describing the menu content.
 	// -------------------------------------------------------------------
 	type itemSpec struct {
-		name      string
-		desc      string
-		price     float64
+		name string
+		desc string
+		// price is authored in the 2-decimal reference scale that
+		// seedlocale.Price rescales to the configured currency's exponent —
+		// 14500 reads as "one hundred and forty-five", which becomes ¥145 under
+		// JPY and KD 14.500 under KWD. It is never a float and is never divided
+		// by a literal 100.
+		price     int64
 		prepMin   int
 		calories  int
 		trackInv  bool
@@ -112,89 +127,89 @@ func seedMenu(s *seeder, c *Ctx) error {
 		"Sides":          "Shareable sides for the table.",
 		"Desserts":       "Sweet finishes, made in-house.",
 		"Cocktails":      "Craft cocktails from the copper bar.",
-		"Wine":           "By the glass — Cape wine estates.",
+		"Wine":           "By the glass — estate selections.",
 		"Soft Drinks":    "Cold drinks, juices & mixers.",
 		"Hot Drinks":     "Coffee, tea & after-dinner warmers.",
 	}
 
 	menuByCategory := map[string][]itemSpec{
 		"Starters": {
-			{name: "Chargrilled Octopus", desc: "Smoked paprika, crispy potato, salsa verde.", price: 145, prepMin: 18, calories: 320, allergens: []string{"shellfish"}, schedules: []string{"dinner"}},
-			{name: "Beef Carpaccio", desc: "Shaved parmesan, wild rocket, truffle oil, lemon.", price: 135, prepMin: 15, calories: 280, allergens: []string{"dairy"}, schedules: []string{"dinner"}},
-			{name: "Crispy Pork Belly Bites", desc: "Apple slaw, wholegrain mustard jus.", price: 110, prepMin: 15, calories: 380},
-			{name: "West Coast Mussels", desc: "White wine, garlic, cream, toasted ciabatta.", price: 120, prepMin: 15, calories: 420, allergens: []string{"shellfish", "dairy", "gluten"}},
-			{name: "Duck Liver Parfait", desc: "Fig preserve, toasted brioche, pickled shallot.", price: 125, prepMin: 12, calories: 410, allergens: []string{"dairy", "gluten", "eggs"}},
-			{name: "Halloumi & Beetroot Stack", desc: "Candied walnuts, rocket, honey drizzle.", price: 95, prepMin: 12, calories: 360, allergens: []string{"dairy", "tree_nuts"}, dietary: []string{"vegetarian"}, schedules: []string{"lunch"}},
+			{name: "Chargrilled Octopus", desc: "Smoked paprika, crispy potato, salsa verde.", price: 14500, prepMin: 18, calories: 320, allergens: []string{"shellfish"}, schedules: []string{"dinner"}},
+			{name: "Beef Carpaccio", desc: "Shaved parmesan, wild rocket, truffle oil, lemon.", price: 13500, prepMin: 15, calories: 280, allergens: []string{"dairy"}, schedules: []string{"dinner"}},
+			{name: "Crispy Pork Belly Bites", desc: "Apple slaw, wholegrain mustard jus.", price: 11000, prepMin: 15, calories: 380},
+			{name: "Harbour Mussels", desc: "White wine, garlic, cream, toasted ciabatta.", price: 12000, prepMin: 15, calories: 420, allergens: []string{"shellfish", "dairy", "gluten"}},
+			{name: "Duck Liver Parfait", desc: "Fig preserve, toasted brioche, pickled shallot.", price: 12500, prepMin: 12, calories: 410, allergens: []string{"dairy", "gluten", "eggs"}},
+			{name: "Halloumi & Beetroot Stack", desc: "Candied walnuts, rocket, honey drizzle.", price: 9500, prepMin: 12, calories: 360, allergens: []string{"dairy", "tree_nuts"}, dietary: []string{"vegetarian"}, schedules: []string{"lunch"}},
 		},
 		"Salads": {
-			{name: "Roasted Butternut & Feta Salad", desc: "Toasted seeds, wild rocket, aged balsamic.", price: 95, prepMin: 10, calories: 340, allergens: []string{"dairy", "sesame"}, dietary: []string{"vegetarian", "gluten_free"}, schedules: []string{"lunch"}},
-			{name: "Grilled Chicken Caesar", desc: "Cos lettuce, parmesan, anchovy dressing, croutons.", price: 110, prepMin: 12, calories: 480, allergens: []string{"dairy", "fish", "gluten", "eggs"}, modGroup: "addons", schedules: []string{"lunch"}},
-			{name: "Karoo Lamb Salad", desc: "Rosemary lamb loin, feta, mint, pomegranate.", price: 150, prepMin: 15, calories: 520, allergens: []string{"dairy"}, dietary: []string{"gluten_free"}},
-			{name: "Heirloom Tomato & Burrata", desc: "Basil oil, aged balsamic, sourdough crisp.", price: 125, prepMin: 10, calories: 390, allergens: []string{"dairy", "gluten"}, dietary: []string{"vegetarian"}},
-			{name: "Quinoa & Roast Vegetable Bowl", desc: "Tahini dressing, toasted pumpkin seeds.", price: 105, prepMin: 10, calories: 410, allergens: []string{"sesame"}, dietary: []string{"vegan", "vegetarian", "gluten_free"}, schedules: []string{"lunch"}},
+			{name: "Roasted Butternut & Feta Salad", desc: "Toasted seeds, wild rocket, aged balsamic.", price: 9500, prepMin: 10, calories: 340, allergens: []string{"dairy", "sesame"}, dietary: []string{"vegetarian", "gluten_free"}, schedules: []string{"lunch"}},
+			{name: "Grilled Chicken Caesar", desc: "Cos lettuce, parmesan, anchovy dressing, croutons.", price: 11000, prepMin: 12, calories: 480, allergens: []string{"dairy", "fish", "gluten", "eggs"}, modGroup: "addons", schedules: []string{"lunch"}},
+			{name: "Herbed Lamb Salad", desc: "Rosemary lamb loin, feta, mint, pomegranate.", price: 15000, prepMin: 15, calories: 520, allergens: []string{"dairy"}, dietary: []string{"gluten_free"}},
+			{name: "Heirloom Tomato & Burrata", desc: "Basil oil, aged balsamic, sourdough crisp.", price: 12500, prepMin: 10, calories: 390, allergens: []string{"dairy", "gluten"}, dietary: []string{"vegetarian"}},
+			{name: "Quinoa & Roast Vegetable Bowl", desc: "Tahini dressing, toasted pumpkin seeds.", price: 10500, prepMin: 10, calories: 410, allergens: []string{"sesame"}, dietary: []string{"vegan", "vegetarian", "gluten_free"}, schedules: []string{"lunch"}},
 		},
 		"Mains": {
-			{name: "Pan-Seared Kingklip", desc: "Saffron beurre blanc, crushed baby potatoes, wilted greens.", price: 215, prepMin: 22, calories: 610, allergens: []string{"fish", "dairy"}, dietary: []string{"gluten_free"}, schedules: []string{"dinner"}},
-			{name: "Springbok Loin", desc: "Juniper jus, sweet potato puree, tenderstem broccoli.", price: 255, prepMin: 22, calories: 640, allergens: []string{"dairy"}, dietary: []string{"gluten_free"}, schedules: []string{"dinner"}},
-			{name: "Chicken Schnitzel", desc: "Lemon butter, capers, hand-cut chips.", price: 145, prepMin: 20, calories: 780, allergens: []string{"gluten", "dairy", "eggs"}, modGroup: "addons", schedules: []string{"lunch"}},
-			{name: "Butter Chicken Curry", desc: "Basmati rice, garlic naan, coriander.", price: 155, prepMin: 20, calories: 720, allergens: []string{"dairy", "gluten"}, dietary: []string{"spicy"}},
-			{name: "Wild Mushroom & Truffle Risotto", desc: "Parmesan, white wine, chive oil.", price: 145, prepMin: 20, calories: 610, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
-			{name: "Slow-Braised Lamb Shank", desc: "Red wine jus, roasted garlic mash.", price: 225, prepMin: 25, calories: 780, allergens: []string{"dairy"}, dietary: []string{"gluten_free"}, schedules: []string{"dinner"}},
-			{name: "Beer-Battered Fish & Chips", desc: "Tartare sauce, mushy peas, lemon.", price: 135, prepMin: 18, calories: 820, allergens: []string{"fish", "gluten", "eggs"}, modGroup: "addons", schedules: []string{"lunch"}},
+			{name: "Pan-Seared Line Fish", desc: "Saffron beurre blanc, crushed baby potatoes, wilted greens.", price: 21500, prepMin: 22, calories: 610, allergens: []string{"fish", "dairy"}, dietary: []string{"gluten_free"}, schedules: []string{"dinner"}},
+			{name: "Venison Loin", desc: "Juniper jus, sweet potato puree, tenderstem broccoli.", price: 25500, prepMin: 22, calories: 640, allergens: []string{"dairy"}, dietary: []string{"gluten_free"}, schedules: []string{"dinner"}},
+			{name: "Chicken Schnitzel", desc: "Lemon butter, capers, hand-cut chips.", price: 14500, prepMin: 20, calories: 780, allergens: []string{"gluten", "dairy", "eggs"}, modGroup: "addons", schedules: []string{"lunch"}},
+			{name: "Butter Chicken Curry", desc: "Basmati rice, garlic naan, coriander.", price: 15500, prepMin: 20, calories: 720, allergens: []string{"dairy", "gluten"}, dietary: []string{"spicy"}},
+			{name: "Wild Mushroom & Truffle Risotto", desc: "Parmesan, white wine, chive oil.", price: 14500, prepMin: 20, calories: 610, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
+			{name: "Slow-Braised Lamb Shank", desc: "Red wine jus, roasted garlic mash.", price: 22500, prepMin: 25, calories: 780, allergens: []string{"dairy"}, dietary: []string{"gluten_free"}, schedules: []string{"dinner"}},
+			{name: "Beer-Battered Fish & Chips", desc: "Tartare sauce, mushy peas, lemon.", price: 13500, prepMin: 18, calories: 820, allergens: []string{"fish", "gluten", "eggs"}, modGroup: "addons", schedules: []string{"lunch"}},
 		},
 		"From the Grill": {
-			{name: "300g Rump Steak", desc: "Choice of sauce, hand-cut chips.", price: 195, prepMin: 22, calories: 720, trackInv: true, stock: 40, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
-			{name: "250g Fillet Steak", desc: "Peppercorn or mushroom sauce, chips.", price: 285, prepMin: 22, calories: 650, trackInv: true, stock: 28, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
-			{name: "Ribeye 400g", desc: "Bone marrow butter, triple-cooked chips.", price: 335, prepMin: 25, calories: 890, trackInv: true, stock: 22, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
-			{name: "T-Bone 500g", desc: "Chimichurri, grilled tomato.", price: 355, prepMin: 28, calories: 920, trackInv: true, stock: 16, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
-			{name: "Lamb Chops", desc: "Rosemary & garlic, mint jus.", price: 245, prepMin: 22, calories: 680, trackInv: true, stock: 24, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
-			{name: "Boerewors Grill Plate", desc: "Farm-style boerewors, tomato relish, pap.", price: 145, prepMin: 18, calories: 760, trackInv: true, stock: 35, modGroup: "addons"},
+			{name: "300g Rump Steak", desc: "Choice of sauce, hand-cut chips.", price: 19500, prepMin: 22, calories: 720, trackInv: true, stock: 40, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
+			{name: "250g Fillet Steak", desc: "Peppercorn or mushroom sauce, chips.", price: 28500, prepMin: 22, calories: 650, trackInv: true, stock: 28, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
+			{name: "Ribeye 400g", desc: "Bone marrow butter, triple-cooked chips.", price: 33500, prepMin: 25, calories: 890, trackInv: true, stock: 22, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
+			{name: "T-Bone 500g", desc: "Chimichurri, grilled tomato.", price: 35500, prepMin: 28, calories: 920, trackInv: true, stock: 16, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
+			{name: "Lamb Chops", desc: "Rosemary & garlic, mint jus.", price: 24500, prepMin: 22, calories: 680, trackInv: true, stock: 24, dietary: []string{"gluten_free"}, modGroup: "cook_temp", schedules: []string{"dinner"}},
+			{name: "Farmhouse Sausage Grill Plate", desc: "Coiled farmhouse sausage, tomato relish, soft polenta.", price: 14500, prepMin: 18, calories: 760, trackInv: true, stock: 35, modGroup: "addons"},
 		},
 		"Sides": {
-			{name: "Truffle Parmesan Fries", desc: "Rosemary salt, aioli.", price: 55, prepMin: 10, calories: 420, allergens: []string{"dairy", "eggs"}, dietary: []string{"vegetarian"}},
-			{name: "Creamed Spinach", desc: "Nutmeg, cream, parmesan.", price: 45, prepMin: 8, calories: 260, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
-			{name: "Sweet Potato Mash", desc: "Butter, cinnamon.", price: 45, prepMin: 8, calories: 220, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
-			{name: "Grilled Broccolini", desc: "Chilli, garlic, lemon.", price: 50, prepMin: 8, calories: 140, dietary: []string{"vegan", "vegetarian", "gluten_free", "spicy"}},
-			{name: "Onion Rings", desc: "Buttermilk batter, smoked paprika mayo.", price: 48, prepMin: 10, calories: 380, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
-			{name: "Garlic Butter Mushrooms", desc: "Thyme, parmesan.", price: 52, prepMin: 10, calories: 210, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
+			{name: "Truffle Parmesan Fries", desc: "Rosemary salt, aioli.", price: 5500, prepMin: 10, calories: 420, allergens: []string{"dairy", "eggs"}, dietary: []string{"vegetarian"}},
+			{name: "Creamed Spinach", desc: "Nutmeg, cream, parmesan.", price: 4500, prepMin: 8, calories: 260, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
+			{name: "Sweet Potato Mash", desc: "Butter, cinnamon.", price: 4500, prepMin: 8, calories: 220, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
+			{name: "Grilled Broccolini", desc: "Chilli, garlic, lemon.", price: 5000, prepMin: 8, calories: 140, dietary: []string{"vegan", "vegetarian", "gluten_free", "spicy"}},
+			{name: "Onion Rings", desc: "Buttermilk batter, smoked paprika mayo.", price: 4800, prepMin: 10, calories: 380, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
+			{name: "Garlic Butter Mushrooms", desc: "Thyme, parmesan.", price: 5200, prepMin: 10, calories: 210, allergens: []string{"dairy"}, dietary: []string{"vegetarian", "gluten_free"}},
 		},
 		"Desserts": {
-			{name: "Malva Pudding", desc: "Warm sponge, vanilla custard.", price: 75, prepMin: 12, calories: 480, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
-			{name: "Chocolate Fondant", desc: "Salted caramel ice cream.", price: 85, prepMin: 15, calories: 520, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
-			{name: "Crème Brûlée", desc: "Madagascan vanilla, burnt sugar.", price: 70, prepMin: 10, calories: 460, allergens: []string{"dairy", "eggs"}, dietary: []string{"vegetarian", "gluten_free"}},
-			{name: "Baked Cheesecake", desc: "Berry compote, shortbread crumb.", price: 75, prepMin: 10, calories: 510, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
-			{name: "Milk Tart", desc: "Cinnamon, traditional Cape recipe.", price: 65, prepMin: 10, calories: 390, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
-			{name: "Affogato", desc: "Vanilla gelato, double espresso, amaretti.", price: 55, prepMin: 6, calories: 220, allergens: []string{"dairy", "gluten", "tree_nuts"}, dietary: []string{"vegetarian"}},
+			{name: "Warm Caramel Sponge", desc: "Warm sponge, vanilla custard.", price: 7500, prepMin: 12, calories: 480, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
+			{name: "Chocolate Fondant", desc: "Salted caramel ice cream.", price: 8500, prepMin: 15, calories: 520, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
+			{name: "Crème Brûlée", desc: "Madagascan vanilla, burnt sugar.", price: 7000, prepMin: 10, calories: 460, allergens: []string{"dairy", "eggs"}, dietary: []string{"vegetarian", "gluten_free"}},
+			{name: "Baked Cheesecake", desc: "Berry compote, shortbread crumb.", price: 7500, prepMin: 10, calories: 510, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
+			{name: "Cinnamon Custard Tart", desc: "Baked custard, cinnamon dusting.", price: 6500, prepMin: 10, calories: 390, allergens: []string{"gluten", "dairy", "eggs"}, dietary: []string{"vegetarian"}},
+			{name: "Affogato", desc: "Vanilla gelato, double espresso, amaretti.", price: 5500, prepMin: 6, calories: 220, allergens: []string{"dairy", "gluten", "tree_nuts"}, dietary: []string{"vegetarian"}},
 		},
 		"Cocktails": {
-			{name: "Copper Old Fashioned", desc: "Bourbon, bitters, orange twist.", price: 110, prepMin: 5, calories: 210},
-			{name: "Sea Point Sundowner", desc: "Gin, Aperol, grapefruit, soda.", price: 105, prepMin: 5, calories: 190},
-			{name: "Espresso Martini", desc: "Vodka, espresso, coffee liqueur.", price: 115, prepMin: 5, calories: 220},
-			{name: "Gin & Elderflower Spritz", desc: "Cape gin, elderflower, prosecco, soda.", price: 100, prepMin: 5, calories: 180},
-			{name: "Cape Malay Mule", desc: "Spiced rum, ginger beer, lime.", price: 105, prepMin: 5, calories: 200, dietary: []string{"spicy"}},
-			{name: "Whisky Sour", desc: "Bourbon, lemon, sugar, egg white.", price: 110, prepMin: 5, calories: 210, allergens: []string{"eggs"}},
+			{name: "Copper Old Fashioned", desc: "Bourbon, bitters, orange twist.", price: 11000, prepMin: 5, calories: 210},
+			{name: "Harbour Sundowner", desc: "Gin, Aperol, grapefruit, soda.", price: 10500, prepMin: 5, calories: 190},
+			{name: "Espresso Martini", desc: "Vodka, espresso, coffee liqueur.", price: 11500, prepMin: 5, calories: 220},
+			{name: "Gin & Elderflower Spritz", desc: "Dry gin, elderflower, prosecco, soda.", price: 10000, prepMin: 5, calories: 180},
+			{name: "Spiced Ginger Mule", desc: "Spiced rum, ginger beer, lime.", price: 10500, prepMin: 5, calories: 200, dietary: []string{"spicy"}},
+			{name: "Whisky Sour", desc: "Bourbon, lemon, sugar, egg white.", price: 11000, prepMin: 5, calories: 210, allergens: []string{"eggs"}},
 		},
 		"Wine": {
-			{name: "Sauvignon Blanc, Constantia", desc: "Crisp, tropical, citrus finish.", price: 65, prepMin: 3, calories: 120},
-			{name: "Chenin Blanc, Swartland", desc: "Stone fruit, honeyed.", price: 60, prepMin: 3, calories: 120},
-			{name: "Chardonnay, Hemel-en-Aarde", desc: "Oak-aged, buttery.", price: 75, prepMin: 3, calories: 130},
-			{name: "Pinotage, Stellenbosch", desc: "Smoky, dark berry.", price: 70, prepMin: 3, calories: 130},
-			{name: "Cabernet Sauvignon, Stellenbosch", desc: "Full-bodied, blackcurrant.", price: 75, prepMin: 3, calories: 135},
+			{name: "Sauvignon Blanc, Harbour Valley", desc: "Crisp, tropical, citrus finish.", price: 6500, prepMin: 3, calories: 120},
+			{name: "Chenin Blanc, Old Town Ridge", desc: "Stone fruit, honeyed.", price: 6000, prepMin: 3, calories: 120},
+			{name: "Chardonnay, Riverside Estate", desc: "Oak-aged, buttery.", price: 7500, prepMin: 3, calories: 130},
+			{name: "Merlot, Hillside Estate", desc: "Smoky, dark berry.", price: 7000, prepMin: 3, calories: 130},
+			{name: "Cabernet Sauvignon, Hillside Estate", desc: "Full-bodied, blackcurrant.", price: 7500, prepMin: 3, calories: 135},
 		},
 		"Soft Drinks": {
-			{name: "Coca-Cola 300ml", desc: "Chilled, served over ice.", price: 28, prepMin: 2, calories: 140},
-			{name: "Sparkling Water 500ml", desc: "", price: 32, prepMin: 2, calories: 0},
-			{name: "Still Water 500ml", desc: "", price: 28, prepMin: 2, calories: 0},
-			{name: "Fresh Orange Juice", desc: "Freshly squeezed.", price: 38, prepMin: 3, calories: 160},
-			{name: "Ginger Beer", desc: "House-brewed, spicy ginger.", price: 32, prepMin: 2, calories: 150},
+			{name: "Coca-Cola 300ml", desc: "Chilled, served over ice.", price: 2800, prepMin: 2, calories: 140},
+			{name: "Sparkling Water 500ml", desc: "", price: 3200, prepMin: 2, calories: 0},
+			{name: "Still Water 500ml", desc: "", price: 2800, prepMin: 2, calories: 0},
+			{name: "Fresh Orange Juice", desc: "Freshly squeezed.", price: 3800, prepMin: 3, calories: 160},
+			{name: "Ginger Beer", desc: "House-brewed, spicy ginger.", price: 3200, prepMin: 2, calories: 150},
 		},
 		"Hot Drinks": {
-			{name: "Cappuccino", desc: "Double shot, steamed milk.", price: 32, prepMin: 4, calories: 90, allergens: []string{"dairy"}, modGroup: "milk"},
-			{name: "Flat White", desc: "Double shot, micro-foam.", price: 32, prepMin: 4, calories: 100, allergens: []string{"dairy"}, modGroup: "milk"},
-			{name: "Americano", desc: "Double shot, hot water.", price: 28, prepMin: 3, calories: 5},
-			{name: "Rooibos Tea", desc: "Cape red bush tea.", price: 28, prepMin: 3, calories: 0, dietary: []string{"vegan", "gluten_free"}},
-			{name: "Hot Chocolate", desc: "Steamed milk, real chocolate.", price: 38, prepMin: 4, calories: 210, allergens: []string{"dairy"}, modGroup: "milk"},
-			{name: "Espresso", desc: "Double shot.", price: 24, prepMin: 2, calories: 5},
+			{name: "Cappuccino", desc: "Double shot, steamed milk.", price: 3200, prepMin: 4, calories: 90, allergens: []string{"dairy"}, modGroup: "milk"},
+			{name: "Flat White", desc: "Double shot, micro-foam.", price: 3200, prepMin: 4, calories: 100, allergens: []string{"dairy"}, modGroup: "milk"},
+			{name: "Americano", desc: "Double shot, hot water.", price: 2800, prepMin: 3, calories: 5},
+			{name: "Red Bush Tea", desc: "Caffeine-free herbal infusion.", price: 2800, prepMin: 3, calories: 0, dietary: []string{"vegan", "gluten_free"}},
+			{name: "Hot Chocolate", desc: "Steamed milk, real chocolate.", price: 3800, prepMin: 4, calories: 210, allergens: []string{"dairy"}, modGroup: "milk"},
+			{name: "Espresso", desc: "Double shot.", price: 2400, prepMin: 2, calories: 5},
 		},
 	}
 
@@ -230,7 +245,13 @@ func seedMenu(s *seeder, c *Ctx) error {
 		for _, catName := range categoryOrder {
 			catID := c.Categories[catName]
 			for i, it := range menuByCategory[catName] {
-				cost := math.Round(it.price*0.35*2) / 2
+				// Rescale the authored price into the configured currency's
+				// minor units once, then derive everything from that integer.
+				priceMinor := s.cfg.Price(it.price)
+				// Food cost is modelled at 35% of menu price. DivRound keeps it
+				// integer and rounds the way the tax engine and cash drawer do.
+				costMinor := money.DivRound(priceMinor*35, 100)
+
 				var id string
 				if err := tx.QueryRow(s.ctx, `
 					INSERT INTO items (
@@ -238,12 +259,14 @@ func seedMenu(s *seeder, c *Ctx) error {
 						preparation_time, calories, sort_order, is_active, track_inventory, current_stock
 					) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10,$11) RETURNING id
 				`, c.LocID, catID, it.name, it.desc,
-					fmt.Sprintf("%.2f", it.price), fmt.Sprintf("%.2f", cost),
+					// items.price and cost_price are numeric MAJOR units, so the
+					// minor-unit integer is rendered at the currency's own scale.
+					money.Decimal(priceMinor, s.cfg.Decimals), money.Decimal(costMinor, s.cfg.Decimals),
 					it.prepMin, it.calories, i, it.trackInv, it.stock).Scan(&id); err != nil {
 					return fmt.Errorf("insert item %s: %w", it.name, err)
 				}
 				c.Items[it.name] = id
-				c.ItemPrice[it.name] = int64(math.Round(it.price * 100))
+				c.ItemPrice[it.name] = priceMinor
 				allItems = append(allItems, insertedItem{id: id, spec: it})
 			}
 		}
@@ -255,6 +278,8 @@ func seedMenu(s *seeder, c *Ctx) error {
 	// -------------------------------------------------------------------
 	// Modifier groups + modifiers.
 	// -------------------------------------------------------------------
+	// delta is authored in the same 2-decimal reference scale as item prices and
+	// rescaled at insert time; modifiers.price_delta_cents is minor units.
 	type modOption struct {
 		name      string
 		delta     int64
@@ -308,7 +333,7 @@ func seedMenu(s *seeder, c *Ctx) error {
 				if _, err := tx.Exec(s.ctx, `
 					INSERT INTO modifiers (modifier_group_id, name, price_delta_cents, is_default, is_active, sort_order)
 					VALUES ($1,$2,$3,$4,true,$5)
-				`, groupID, opt.name, opt.delta, opt.isDefault, j); err != nil {
+				`, groupID, opt.name, s.cfg.Price(opt.delta), opt.isDefault, j); err != nil {
 					return fmt.Errorf("insert modifier %s: %w", opt.name, err)
 				}
 			}

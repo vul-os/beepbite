@@ -9,6 +9,12 @@
 //
 // All inserts run as service_role to bypass RLS (db.Scoped + db.ServiceRoleScope).
 // The command is idempotent: each section is skipped if the org already has data.
+//
+// The demo restaurant has no country. Its currency, tax posture, timezone,
+// locale and phone dial code all come from internal/seedlocale (the SEED_*
+// environment variables), so the same seeder can produce a 15%-inclusive ZAR
+// database, an 8.875%-exclusive USD one, or — by default — an obviously
+// fictional one denominated in the ISO test currency XTS.
 package main
 
 import (
@@ -26,6 +32,8 @@ import (
 
 	"github.com/beepbite/backend/internal/config"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/seedlocale"
 )
 
 // ---------------------------------------------------------------------------
@@ -42,6 +50,14 @@ func main() {
 		log.Fatal("provide --email or --org")
 	}
 
+	loc, err := seedlocale.Load()
+	if err != nil {
+		log.Fatalf("locale: %v", err)
+	}
+	log.Printf("seed locale: country=%s currency=%s (%d dp) tz=%s locale=%q tax=%.2f%% %s label=%q phone=+%s",
+		loc.Country, loc.Currency, loc.Decimals, loc.Timezone, loc.Locale,
+		loc.TaxRatePercent(), inclusiveWord(loc.TaxInclusive()), loc.Tax.EffectiveLabel(), loc.PhoneCC)
+
 	cfg, err := config.Load(*envFlag)
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -54,7 +70,14 @@ func main() {
 	}
 	defer pool.Close()
 
-	s := &seeder{pool: pool, ctx: ctx}
+	s := &seeder{pool: pool, ctx: ctx, loc: loc}
+
+	// Register the configured currency before anything priced in it is
+	// inserted: every currency column is a foreign key to currencies, and the
+	// default XTS is deliberately not one of the codes migration 056 loads.
+	if err := s.ensureCurrency(); err != nil {
+		log.Fatalf("ensure currency %s: %v", loc.Currency, err)
+	}
 
 	// Ensure baseline reference data (payment_methods) exists.
 	if err := s.ensurePaymentMethods(); err != nil {
@@ -86,6 +109,8 @@ func main() {
 	fmt.Println()
 	fmt.Println("=== BeepBite Demo Seed Summary ===")
 	fmt.Printf("Org:            %s (%s)\n", orgName, orgID)
+	fmt.Printf("Locale:         %s / %s / %s / %.2f%% %s\n",
+		loc.Country, loc.Currency, loc.Timezone, loc.TaxRatePercent(), inclusiveWord(loc.TaxInclusive()))
 	fmt.Printf("Location:       %s (slug: %s)\n", sum.locationName, sum.locationSlug)
 	fmt.Printf("Categories:     %d\n", sum.categories)
 	fmt.Printf("Items:          %d\n", sum.items)
@@ -106,6 +131,18 @@ func main() {
 type seeder struct {
 	pool *pgxpool.Pool
 	ctx  context.Context
+	// loc is the resolved locale posture, threaded to every section rather than
+	// re-read per call site so one run cannot mix two jurisdictions.
+	loc seedlocale.Config
+}
+
+// inclusiveWord renders the tax convention for the startup log, where
+// "inclusive=false" is easy to misread as "no tax".
+func inclusiveWord(inclusive bool) string {
+	if inclusive {
+		return "inclusive"
+	}
+	return "exclusive"
 }
 
 type summary struct {
@@ -236,6 +273,16 @@ func (s *seeder) seed(orgID, orgName string) (*summary, error) {
 // 0. Ensure reference data: payment_methods
 // ---------------------------------------------------------------------------
 
+// ensureCurrency makes the configured currency exist so the currency foreign
+// keys on locations and orders resolve.
+func (s *seeder) ensureCurrency() error {
+	return db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		q, args := s.loc.EnsureCurrencySQL()
+		_, err := tx.Exec(s.ctx, q, args...)
+		return err
+	})
+}
+
 func (s *seeder) ensurePaymentMethods() error {
 	return db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		methods := []struct {
@@ -279,24 +326,44 @@ func (s *seeder) seedLocation(orgID, orgName string) (id, name, slug string, cre
 	// Create one.
 	name = orgName + " — Main"
 	slug = slugify(name)
+	// The address is a placeholder that names no real place. A seeded location
+	// carrying a plausible street in a real city is indistinguishable from a
+	// live tenant in a screenshot or a support ticket — and demo data reaches
+	// staging environments wired to real delivery and messaging integrations.
+	//
+	// Every locale column is written explicitly. Migration 056 dropped the ZAR
+	// currency default precisely so that an omitted value fails loudly instead
+	// of quietly denominating the location in one country's money.
 	err = db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		return tx.QueryRow(s.ctx, `
 			INSERT INTO locations (
 				organization_id, name, slug,
 				city, country, address,
 				currency_code,
+				timezone, locale,
+				tax_rate, tax_inclusive, tax_label,
+				phone_country_code,
 				is_marketplace_visible,
 				offers_collection, offers_delivery,
 				on_delivery_payment_methods
 			) VALUES (
 				$1, $2, $3,
-				'Johannesburg', 'ZA', '1 Demo Street, Sandton, 2196',
-				'ZAR',
+				'Demo City', $4, '1 Demo Street',
+				$5,
+				$6, $7,
+				$8, $9, $10,
+				$11,
 				true,
 				true, true,
 				ARRAY['cash','card_on_delivery']
 			) RETURNING id
-		`, orgID, name, slug).Scan(&id)
+		`, orgID, name, slug,
+			s.loc.Country,
+			s.loc.Currency,
+			s.loc.Timezone, nullIfEmpty(s.loc.Locale),
+			s.loc.TaxRatePercent(), s.loc.TaxInclusive(), s.loc.Tax.EffectiveLabel(),
+			s.loc.PhoneCC,
+		).Scan(&id)
 	})
 	if err != nil {
 		return "", "", "", false, err
@@ -364,26 +431,35 @@ func (s *seeder) seedCategories(orgID, locID string) (categoryMap, int, error) {
 // ---------------------------------------------------------------------------
 
 // itemEntry describes a demo menu item.
+//
+// priceRef is an INTEGER count of minor units in the 2-decimal reference scale
+// seed data is authored in — 8900 is "eighty-nine units". It is not a currency
+// amount until Config.Price rescales it to the configured currency's exponent,
+// which is what keeps a ¥89 lunch from being seeded as ¥8,900.
+//
+// It was a float64 "in rand". Two bugs in one field: the currency was baked
+// into the type's meaning, and money in a float64 loses cents the moment it is
+// multiplied by a quantity — which is exactly what the order generator does.
 type itemEntry struct {
 	name     string
 	cat      string
-	price    float64 // in rand (decimal)
+	priceRef int64
 	calories int
 }
 
 var demoItems = []itemEntry{
-	{"Classic Burger", "Burgers", 89.00, 650},
-	{"Cheese Burger", "Burgers", 99.00, 720},
-	{"Bacon Burger", "Burgers", 119.00, 810},
-	{"Chicken Burger", "Burgers", 95.00, 580},
-	{"Fries", "Sides", 35.00, 380},
-	{"Onion Rings", "Sides", 45.00, 420},
-	{"Coke", "Drinks", 25.00, 140},
-	{"Sprite", "Drinks", 25.00, 120},
-	{"Water", "Drinks", 15.00, 0},
-	{"Milkshake", "Drinks", 49.00, 480},
-	{"Ice Cream", "Desserts", 35.00, 310},
-	{"Brownie", "Desserts", 45.00, 420},
+	{"Classic Burger", "Burgers", 8900, 650},
+	{"Cheese Burger", "Burgers", 9900, 720},
+	{"Bacon Burger", "Burgers", 11900, 810},
+	{"Chicken Burger", "Burgers", 9500, 580},
+	{"Fries", "Sides", 3500, 380},
+	{"Onion Rings", "Sides", 4500, 420},
+	{"Coke", "Drinks", 2500, 140},
+	{"Sprite", "Drinks", 2500, 120},
+	{"Water", "Drinks", 1500, 0},
+	{"Milkshake", "Drinks", 4900, 480},
+	{"Ice Cream", "Desserts", 3500, 310},
+	{"Brownie", "Desserts", 4500, 420},
 }
 
 type itemMap map[string]string // name → id
@@ -422,15 +498,20 @@ func (s *seeder) seedItems(orgID, locID string, cats categoryMap) (itemMap, int,
 		if !ok {
 			return nil, 0, fmt.Errorf("unknown category %q", it.cat)
 		}
+		// items.price is a decimal MAJOR-unit column, so the minor-unit amount
+		// is rendered by money.Decimal at the currency's own exponent and sent
+		// as an exact decimal string. Postgres parses it into the numeric
+		// without a float ever holding the value.
+		priceText := money.Decimal(s.loc.Price(it.priceRef), s.loc.Decimals)
 		var iid string
 		err := db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 			return tx.QueryRow(s.ctx, `
 				INSERT INTO items (
 					location_id, category_id, name, price,
 					is_active, sort_order, calories
-				) VALUES ($1, $2, $3, $4, true, $5, $6)
+				) VALUES ($1, $2, $3, $4::numeric, true, $5, $6)
 				RETURNING id
-			`, locID, catID, it.name, it.price, i, it.calories).Scan(&iid)
+			`, locID, catID, it.name, priceText, i, it.calories).Scan(&iid)
 		})
 		if err != nil {
 			return nil, 0, fmt.Errorf("item %q: %w", it.name, err)
@@ -477,21 +558,24 @@ func (s *seeder) seedModifiers(items itemMap) (int, error) {
 			return 0, fmt.Errorf("modifier group add-ons for %q: %w", bName, err)
 		}
 
-		// Add-on options
+		// Add-on options. deltaRef is in the same 2-decimal reference scale as
+		// itemEntry.priceRef and is rescaled per currency, so a surcharge stays
+		// proportionate to the item it is added to.
 		addons := []struct {
-			name  string
-			delta int64
+			name     string
+			deltaRef int64
 		}{
 			{"Extra Cheese", 1500},
 			{"Bacon", 2000},
 			{"Avo", 2500},
 		}
 		for j, a := range addons {
+			delta := s.loc.Price(a.deltaRef)
 			err := db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 				_, err := tx.Exec(s.ctx, `
 					INSERT INTO modifiers (modifier_group_id, name, price_delta_cents, sort_order, is_active)
 					VALUES ($1, $2, $3, $4, true)
-				`, addonsGroupID, a.name, a.delta, j)
+				`, addonsGroupID, a.name, delta, j)
 				return err
 			})
 			if err != nil {
@@ -685,12 +769,22 @@ func (s *seeder) seedStaff(locID string) (int, error) {
 // 7. Customers
 // ---------------------------------------------------------------------------
 
+// demoCustomers are placeholder people. The names are generic rather than
+// drawn from any one country's naming conventions, and the phone numbers are
+// built by Config.Phone rather than written here — under the default dial code
+// 999 (reserved by ITU-T E.164) they are unroutable, so demo data loaded into a
+// staging environment with live WhatsApp credentials cannot message a stranger
+// about an order that does not exist.
 var demoCustomers = []struct {
-	first, last, whatsapp string
+	first, last string
+	// phoneSeq is the stable per-customer suffix. The same seq always yields
+	// the same number, which is what makes the ON CONFLICT upsert below
+	// idempotent across re-runs.
+	phoneSeq int
 }{
-	{"Thabo", "Nkosi", "+27821234567"},
-	{"Priya", "Pillay", "+27839876543"},
-	{"James", "van der Berg", "+27711112222"},
+	{"Demo", "Customer One", 1},
+	{"Demo", "Customer Two", 2},
+	{"Demo", "Customer Three", 3},
 }
 
 func (s *seeder) seedCustomers(orgID string) ([]string, int, error) {
@@ -730,7 +824,7 @@ func (s *seeder) seedCustomers(orgID string) ([]string, int, error) {
 				ON CONFLICT (organization_id, whatsapp_number) DO UPDATE
 					SET first_name = EXCLUDED.first_name
 				RETURNING id
-			`, orgID, c.whatsapp, c.first, c.last).Scan(&cid)
+			`, orgID, s.loc.Phone(c.phoneSeq), c.first, c.last).Scan(&cid)
 		})
 		if err != nil {
 			return nil, 0, fmt.Errorf("customer %q: %w", c.first, err)
@@ -744,28 +838,21 @@ func (s *seeder) seedCustomers(orgID string) ([]string, int, error) {
 // 8. Orders
 // ---------------------------------------------------------------------------
 
-// itemPriceCents maps item name → price in cents (matches demoItems).
-var itemPriceCents = map[string]int64{
-	"Classic Burger": 8900,
-	"Cheese Burger":  9900,
-	"Bacon Burger":   11900,
-	"Chicken Burger": 9500,
-	"Fries":          3500,
-	"Onion Rings":    4500,
-	"Coke":           2500,
-	"Sprite":         2500,
-	"Water":          1500,
-	"Milkshake":      4900,
-	"Ice Cream":      3500,
-	"Brownie":        4500,
-}
-
-// demoItemNames is the ordered list of item names used by the generator.
-var demoItemNames = []string{
-	"Classic Burger", "Cheese Burger", "Bacon Burger", "Chicken Burger",
-	"Fries", "Onion Rings",
-	"Coke", "Sprite", "Water", "Milkshake",
-	"Ice Cream", "Brownie",
+// itemUnitPrices maps item name → unit price in the configured currency's minor
+// units, and demoItemNames is the same list in menu order for the generator.
+//
+// Both are derived from demoItems rather than written out again. They used to
+// be a second and third hand-maintained copy of the price list, which meant an
+// order could be billed at a price the menu did not show if an edit missed one
+// of the copies.
+func itemUnitPrices(loc seedlocale.Config) (map[string]int64, []string) {
+	prices := make(map[string]int64, len(demoItems))
+	names := make([]string, 0, len(demoItems))
+	for _, it := range demoItems {
+		prices[it.name] = loc.Price(it.priceRef)
+		names = append(names, it.name)
+	}
+	return prices, names
 }
 
 // fulfillmentPairs pairs fulfillment_type with order_type.
@@ -852,6 +939,7 @@ func (s *seeder) seedOrders(orgID, locID string, custIDs []string, items itemMap
 	}
 
 	rng := rand.New(rand.NewSource(42))
+	unitPrices, demoItemNames := itemUnitPrices(s.loc)
 
 	now := time.Now().UTC()
 	// Reference point: midnight at the start of "today".
@@ -957,14 +1045,22 @@ func (s *seeder) seedOrders(orgID, locID string, custIDs []string, items itemMap
 							continue
 						}
 						qty := int64(1 + rng.Intn(3))
-						unitCent := itemPriceCents[name]
+						unitCent := unitPrices[name]
 						subtotal += unitCent * qty
 						lines = append(lines, lineItem{name, itemID, qty, unitCent})
 					}
 					if len(lines) == 0 {
 						continue
 					}
-					total := subtotal // VAT inclusive (tax_inclusive=true, tax_rate=15%)
+
+					// The tax engine decides what the subtotal means. Under the
+					// inclusive convention the subtotal is already the gross and
+					// the tax is extracted from it; under the exclusive one the
+					// tax is added on top and the total is larger. The seeder
+					// previously assumed the first and wrote total = subtotal
+					// with tax_cents left at 0 — an order stamped 15% VAT that
+					// recorded no VAT at all.
+					taxed := s.loc.TaxOn(subtotal)
 
 					orderNum := fmt.Sprintf("DEMO-%05d", orderSeq)
 
@@ -976,16 +1072,16 @@ func (s *seeder) seedOrders(orgID, locID string, custIDs []string, items itemMap
 							INSERT INTO orders (
 								location_id, organization_id, order_number,
 								status, fulfillment_type, order_type,
-								subtotal_cents, total_cents,
+								subtotal_cents, tax_cents, total_cents,
 								currency_code, tax_rate, tax_inclusive,
 								created_at, updated_at,
 								customer_id
-							) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+							) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 							RETURNING id
 						`, locID, orgID, orderNum,
 							"completed", fulfillmentType, orderType,
-							subtotal, total,
-							"ZAR", 15.00, true,
+							subtotal, taxed.Tax, taxed.Gross,
+							s.loc.Currency, s.loc.TaxRatePercent(), s.loc.TaxInclusive(),
 							orderAt, orderAt,
 							custID,
 						).Scan(&orderID)
@@ -994,15 +1090,15 @@ func (s *seeder) seedOrders(orgID, locID string, custIDs []string, items itemMap
 							INSERT INTO orders (
 								location_id, organization_id, order_number,
 								status, fulfillment_type, order_type,
-								subtotal_cents, total_cents,
+								subtotal_cents, tax_cents, total_cents,
 								currency_code, tax_rate, tax_inclusive,
 								created_at, updated_at
-							) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+							) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 							RETURNING id
 						`, locID, orgID, orderNum,
 							"completed", fulfillmentType, orderType,
-							subtotal, total,
-							"ZAR", 15.00, true,
+							subtotal, taxed.Tax, taxed.Gross,
+							s.loc.Currency, s.loc.TaxRatePercent(), s.loc.TaxInclusive(),
 							orderAt, orderAt,
 						).Scan(&orderID)
 					}
@@ -1028,7 +1124,7 @@ func (s *seeder) seedOrders(orgID, locID string, custIDs []string, items itemMap
 							order_id, payment_method_code,
 							amount_paid_cents, payment_status, paid_at
 						) VALUES ($1, $2, $3, 'completed', $4)
-					`, orderID, payCode, total, orderAt)
+					`, orderID, payCode, taxed.Gross, orderAt)
 					if err != nil {
 						return fmt.Errorf("order payment for %s: %w", orderNum, err)
 					}
@@ -1073,7 +1169,13 @@ func (s *seeder) seedCashDrawer(locID string) (string, error) {
 		return "", err
 	}
 
-	// One closed session.
+	// One closed session. The float and closing balance are authored in the
+	// reference scale like every other seeded amount, so the drawer holds a
+	// plausible day's cash in whichever currency is configured rather than a
+	// fixed number of minor units that reads as R500 in one and ¥50,000 in
+	// another. Declared matches expected, so over_short is zero by construction.
+	openingFloat := s.loc.Price(50000)
+	closingBalance := s.loc.Price(185000)
 	err = db.Scoped(s.ctx, s.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
 		_, err := tx.Exec(s.ctx, `
 			INSERT INTO cash_drawer_sessions (
@@ -1082,18 +1184,29 @@ func (s *seeder) seedCashDrawer(locID string) (string, error) {
 				status, opened_at, closed_at
 			) VALUES (
 				$1,
-				50000, 185000, 185000, 0,
+				$2, $3, $3, 0,
 				'closed',
 				now() - interval '12 hours',
 				now() - interval '4 hours'
 			)
-		`, drawerID)
+		`, drawerID, openingFloat, closingBalance)
 		return err
 	})
 	if err != nil {
 		return "", err
 	}
-	return "created (Front Register, 1 closed session)", nil
+	return fmt.Sprintf("created (Front Register, 1 closed session, float %s → %s)",
+		s.loc.Format(openingFloat), s.loc.Format(closingBalance)), nil
+}
+
+// nullIfEmpty maps an unset locale to SQL NULL. locations.locale is nullable
+// and NULL means "CLDR root formatting"; writing an empty string instead would
+// make the column look configured when it is not.
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // ---------------------------------------------------------------------------
