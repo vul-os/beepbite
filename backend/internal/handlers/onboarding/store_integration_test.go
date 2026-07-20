@@ -99,24 +99,26 @@ func seedOrg(t *testing.T, ctx context.Context, name string) string {
 func seedLocation(t *testing.T, ctx context.Context, orgID string) string {
 	t.Helper()
 	var locID string
+	// The location is configured for KUWAIT, and deliberately so: KWD has three
+	// decimal places, so a fixture using it fails loudly against any code path
+	// that still assumes 100 minor units to the major one. The previous version
+	// of this helper resolved a row from a `regions` table that does not exist
+	// outside migrations/legacy — and because a missing relation raises an error
+	// that is not pgx.ErrNoRows, the fallback never fired and every test in this
+	// file failed at setup. Locale now lives on the location itself
+	// (migration 056).
 	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		// Resolve the ZA region required for the FK.
-		var regionID string
-		if err := tx.QueryRow(ctx,
-			`SELECT id FROM regions WHERE code = 'ZA' AND is_active = true LIMIT 1`,
-		).Scan(&regionID); err != nil {
-			// fallback: any region
-			if err2 := tx.QueryRow(ctx,
-				`SELECT id FROM regions WHERE is_active = true LIMIT 1`,
-			).Scan(&regionID); err2 != nil {
-				return fmt.Errorf("resolve region: %w", err2)
-			}
-		}
 		return tx.QueryRow(ctx, `
-			INSERT INTO locations (organization_id, region_id, name, on_delivery_payment_methods)
-			VALUES ($1, $2, $3, ARRAY['cash']::text[])
+			INSERT INTO locations (
+				organization_id, name, on_delivery_payment_methods,
+				country, currency_code, timezone, locale,
+				tax_rate, tax_inclusive, tax_label, phone_country_code
+			)
+			VALUES ($1, $2, ARRAY['cash']::text[],
+			        'KW', 'KWD', 'Asia/Kuwait', 'ar-KW',
+			        0.00, false, NULL, '965')
 			RETURNING id`,
-			orgID, regionID, "Test Location",
+			orgID, "Test Location",
 		).Scan(&locID)
 	})
 	if err != nil {

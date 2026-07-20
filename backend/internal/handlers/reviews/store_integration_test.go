@@ -112,25 +112,26 @@ func fixtureOrg(t *testing.T, ctx context.Context, suffix string) (orgID, ownerP
 func fixtureLocation(t *testing.T, ctx context.Context, orgID, slug string) string {
 	t.Helper()
 	var locID string
+	// A Lisbon location, not a Johannesburg one. The `regions` lookup this
+	// replaces referenced a table that exists only in migrations/legacy, and a
+	// missing relation raises an error that is not pgx.ErrNoRows — so the
+	// fallback never fired and every test in this file failed at setup. Locale
+	// now lives on the location (migration 056).
+	//
+	// EUR with a 23% TAX-INCLUSIVE posture also gives the marketplace tests a
+	// fixture whose prices already contain tax, which is the convention the
+	// order handlers used to ignore.
 	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		var regionID string
-		if err := tx.QueryRow(ctx,
-			`SELECT id FROM regions WHERE code = 'ZA' AND is_active = true LIMIT 1`,
-		).Scan(&regionID); err != nil {
-			if err2 := tx.QueryRow(ctx,
-				`SELECT id FROM regions WHERE is_active = true LIMIT 1`,
-			).Scan(&regionID); err2 != nil {
-				return fmt.Errorf("resolve region: %w", err2)
-			}
-		}
-
 		if err := tx.QueryRow(ctx,
 			`INSERT INTO locations
-			   (organization_id, region_id, name, slug, city, country, currency_code,
-			    is_marketplace_visible, is_active)
-			 VALUES ($1, $2, $3, $4, 'Johannesburg', 'ZA', 'ZAR', true, true)
+			   (organization_id, name, slug, city, country, currency_code,
+			    timezone, locale, tax_rate, tax_inclusive, tax_label,
+			    phone_country_code, is_marketplace_visible, is_active)
+			 VALUES ($1, $2, $3, 'Lisbon', 'PT', 'EUR',
+			         'Europe/Lisbon', 'pt-PT', 23.00, true, 'IVA',
+			         '351', true, true)
 			 RETURNING id`,
-			orgID, regionID, "Test Location "+slug, slug,
+			orgID, "Test Location "+slug, slug,
 		).Scan(&locID); err != nil {
 			return fmt.Errorf("insert location: %w", err)
 		}
