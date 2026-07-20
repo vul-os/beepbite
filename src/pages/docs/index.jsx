@@ -345,7 +345,7 @@ const DocsIndex = () => {
                 },
                 {
                   q: 'Card payment declined',
-                  a: 'Confirm your payment processor is connected in Settings → Payments and that the card terminal is paired.',
+                  a: 'BeepBite records the tender, it does not process the card. Retry on your card machine, or settle the order as cash.',
                 },
                 {
                   q: 'Staff cannot access a feature',
