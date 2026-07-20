@@ -5,7 +5,7 @@
 // thin adapter that implements the Provider interface.  The Registry in
 // registry.go resolves the right provider + credentials per location,
 // preferring per-store BYO keys (location_email_credentials) over the
-// platform default (env-var-backed Resend).
+// platform default (env-var-backed, SMTP unless overridden).
 //
 // Table layout (migration 024):
 //
