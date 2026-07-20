@@ -1,6 +1,6 @@
 # Complete POS System Features
 
-BeepBite is a comprehensive Point of Sale (POS) system that provides all traditional restaurant POS features, enhanced with WhatsApp ordering, payments, and digital customer notifications.
+BeepBite is a self-hosted restaurant point-of-sale system providing the full set of traditional POS features, plus remote ordering through the channels your customers already use and digital order-ready notifications.
 
 ## 🏪 Traditional POS Features
 
