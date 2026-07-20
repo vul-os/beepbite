@@ -48,7 +48,19 @@ var (
 //
 // Fallback chain:
 //  1. locations.currency_code (direct column on the location row).
-//  2. Hard-coded "ZAR" / "R" / 2 — logged once so ops can investigate.
+//  2. The zero Currency — empty code, empty symbol, 2 decimals — logged so ops
+//     can investigate.
+//
+// Tier 2 used to be a hard-coded ZAR/R/2. That default was invisible in South
+// Africa and catastrophic anywhere else: a location whose currency had not been
+// configured would price, charge, print and report in rand without anything on
+// screen saying so. An empty code instead renders as a bare number
+// (money.Format declines to invent a symbol), which is unmistakably an
+// unfinished setup rather than a confident lie.
+//
+// Prefer SettingsFor, which resolves currency alongside timezone, locale and
+// tax in a single query. CurrencyFor remains for callers that need only the
+// currency.
 func CurrencyFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (Currency, error) {
 	// --- Cache lookup ---
 	if v, ok := currencyCache.Load(locationID); ok {
@@ -106,7 +118,11 @@ func fetchCurrencyFromDB(ctx context.Context, pool *pgxpool.Pool, locationID str
 		return Currency{}, err
 	}
 
-	// --- Step 2: hard-coded fallback ---
-	log.Printf("locations.CurrencyFor: no currency found for location %s — defaulting to ZAR", locationID)
-	return Currency{Code: "ZAR", Symbol: "R", Decimals: 2}, nil
+	// --- Step 2: neutral fallback ---
+	// Decimals stays 2 because it is the ISO 4217 majority and only affects how
+	// an already-unusable amount is split; Code and Symbol stay empty so nothing
+	// downstream can claim to know which currency this is.
+	log.Printf("locations.CurrencyFor: no currency configured for location %s — "+
+		"amounts will render without a currency until locations.currency_code is set", locationID)
+	return Currency{Decimals: 2}, nil
 }

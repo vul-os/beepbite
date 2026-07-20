@@ -28,6 +28,23 @@ type Config struct {
 
 	MapboxToken  string
 	GeminiAPIKey string
+
+	// MapboxCountry / MapboxProximity bias address autocomplete toward a
+	// region. Both are optional and default to EMPTY, meaning worldwide
+	// results. They previously defaulted to "za" and the Johannesburg CBD,
+	// which quietly made every address search in the product South African.
+	MapboxCountry   string
+	MapboxProximity string
+
+	// FXProvider selects the exchange-rate engine used for OPTIONAL
+	// consolidated multi-currency reporting. Empty (the default) disables
+	// conversion entirely and guarantees no outbound rate lookups; "openrate"
+	// enables it against FXBaseURL.
+	//
+	// Conversion is a reporting view only — it never changes a stored amount.
+	FXProvider string
+	FXBaseURL  string
+	FXCacheTTL time.Duration
 }
 
 // Load reads the env file that matches `env` (local/dev/main) from the repo
@@ -85,6 +102,11 @@ func Load(env string) (*Config, error) {
 		WhatsAppPhoneNumberID: os.Getenv("WHATSAPP_PHONE_NUMBER_ID"),
 		MapboxToken:           os.Getenv("MAPBOX_TOKEN"),
 		GeminiAPIKey:          os.Getenv("GEMINI_API_KEY"),
+		MapboxCountry:         os.Getenv("MAPBOX_COUNTRY"),
+		MapboxProximity:       os.Getenv("MAPBOX_PROXIMITY"),
+		FXProvider:            os.Getenv("FX_PROVIDER"),
+		FXBaseURL:             os.Getenv("FX_OPENRATE_URL"),
+		FXCacheTTL:            envDuration("FX_CACHE_TTL", 5*time.Minute),
 	}
 
 	if c.DatabaseURL == "" {
