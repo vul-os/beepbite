@@ -14,28 +14,34 @@ const STEPS = [
   { key: 'delivered',        label: 'Delivered',         Icon: MapPin },
 ];
 
-// Maps backend status string → step index (0-based).
+// Maps backend status string (see orders.status CHECK constraint) → step
+// index (0-based) in STEPS above. 'confirmed' collapses onto 'placed' and
+// 'ready'/'completed' collapse onto the adjacent step they most resemble —
+// this stepper only shows 4 coarse stages to the customer.
 const STATUS_INDEX = {
-  placed:           0,
+  pending:          0,
+  confirmed:        0,
   preparing:        1,
+  ready:            1,
   out_for_delivery: 2,
   delivered:        3,
-  canceled:         -1,
+  completed:        3,
+  cancelled:        -1,
 };
 
 export default function OrderStatusSteps({ status }) {
   const activeIdx = STATUS_INDEX[status] ?? 0;
-  const isCanceled = status === 'canceled';
+  const isCancelled = status === 'cancelled';
 
-  if (isCanceled) {
+  if (isCancelled) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/20 shrink-0">
           <Circle className="h-4 w-4 text-destructive" aria-hidden="true" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-destructive">Order canceled</p>
-          <p className="text-xs text-destructive/70 mt-0.5">This order has been canceled.</p>
+          <p className="text-sm font-semibold text-destructive">Order cancelled</p>
+          <p className="text-xs text-destructive/70 mt-0.5">This order has been cancelled.</p>
         </div>
       </div>
     );

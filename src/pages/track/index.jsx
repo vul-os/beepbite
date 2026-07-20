@@ -4,7 +4,7 @@
  *
  * Behaviour:
  * - Calls GET /track/{token} (public, no bearer) on mount.
- * - Polls every 10 s while order is active (not delivered / canceled).
+ * - Polls every 10 s while order is active (not delivered / cancelled).
  * - Cleans up interval on unmount or when polling should stop.
  * - Shows Leaflet map with store + delivery-address markers; adds driver
  *   marker ONLY when the backend sends coordinates (privacy-gated).
@@ -16,7 +16,6 @@ import { useParams } from 'react-router-dom';
 import { AlertCircle, Package } from 'lucide-react';
 
 import { fetchTracking } from '@/services/tracking';
-import { cn } from '@/lib/utils';
 
 import OrderStatusSteps from './components/OrderStatusSteps';
 import EtaCard         from './components/EtaCard';
@@ -28,7 +27,10 @@ const TrackingMap = React.lazy(() => import('./components/TrackingMap'));
 
 const POLL_INTERVAL_MS = 10_000;
 
-const TERMINAL_STATUSES = new Set(['delivered', 'canceled']);
+// Real backend statuses (orders.status CHECK constraint) — 'delivered' and
+// 'completed' are both end-of-life for a delivery order (the latter marks
+// post-delivery settlement), and 'cancelled' is the failure terminal.
+const TERMINAL_STATUSES = new Set(['delivered', 'completed', 'cancelled']);
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -180,14 +182,12 @@ export default function TrackOrderPage() {
           lastUpdated={lastUpdated}
         />
 
-        {/* Map or fallback */}
-        <div
-          className={cn(
-            'rounded-2xl overflow-hidden border border-border/60 shadow-md',
-            hasMap ? 'h-[300px] sm:h-[360px]' : 'hidden',
-          )}
-        >
-          {hasMap && (
+        {/* Map — only renders once the backend has both store + delivery
+            coordinates (delivery coordinates are withheld until the order
+            is out for delivery, for customer-address privacy). Everywhere
+            else gets a real empty state instead of a blank/hidden box. */}
+        {hasMap ? (
+          <div className="rounded-2xl overflow-hidden border border-border/60 shadow-md h-[300px] sm:h-[360px]">
             <React.Suspense fallback={<MapSkeleton />}>
               <TrackingMap
                 store={store}
@@ -195,13 +195,23 @@ export default function TrackOrderPage() {
                 driver={hasDriver ? driver : null}
               />
             </React.Suspense>
-          )}
-        </div>
+          </div>
+        ) : (
+          !terminal && (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-muted/40 px-5 py-8 text-center">
+              <span className="text-2xl" role="img" aria-label="Map">🗺️</span>
+              <p className="text-sm font-medium text-foreground mt-2">Map isn't available yet</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                The live map appears once your order is out for delivery.
+              </p>
+            </div>
+          )
+        )}
 
-        {/* Driver location note when not yet visible */}
-        {!hasDriver && !terminal && (
+        {/* Driver location note — only relevant once the map itself is showing */}
+        {hasMap && !hasDriver && !terminal && (
           <p className="text-xs text-center text-muted-foreground px-4">
-            Driver location will appear on the map once your order is on the way.
+            Driver location will appear on the map once available.
           </p>
         )}
 
@@ -221,7 +231,7 @@ export default function TrackOrderPage() {
         </div>
 
         {/* Delivered celebration */}
-        {status === 'delivered' && (
+        {(status === 'delivered' || status === 'completed') && (
           <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 px-5 py-5 text-center shadow-sm">
             <p className="text-2xl mb-2" role="img" aria-label="Celebration">🎉</p>
             <p className="text-base font-bold text-green-700">Your order has arrived!</p>
@@ -294,9 +304,12 @@ function AddressRow({ icon, label, value }) {
 }
 
 const STATUS_DISPLAY = {
-  placed:           'Your order has been placed.',
+  pending:          'Your order has been placed.',
+  confirmed:        'Your order has been confirmed.',
   preparing:        'The kitchen is preparing your order.',
+  ready:            'Your order is ready.',
   out_for_delivery: 'Your order is on the way!',
   delivered:        'Your order has been delivered.',
-  canceled:         'This order was canceled.',
+  completed:        'Your order has been delivered.',
+  cancelled:        'This order was cancelled.',
 };
