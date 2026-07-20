@@ -39,12 +39,19 @@ const (
 	TenderCard     = "card"
 	TenderTransfer = "transfer"
 	TenderVoucher  = "voucher"
+
+	// On-delivery variants: the driver collected at the door, either in notes
+	// or on a portable card machine. Kept distinct from the counter tenders so
+	// drawer reconciliation does not expect the money to be in the till.
+	TenderCashOnDelivery = "cash_on_delivery"
+	TenderCardOnDelivery = "card_on_delivery"
 )
 
 // ValidTender reports whether code is a tender this build can record.
 func ValidTender(code string) bool {
 	switch strings.ToLower(strings.TrimSpace(code)) {
-	case TenderCash, TenderCard, TenderTransfer, TenderVoucher:
+	case TenderCash, TenderCard, TenderTransfer, TenderVoucher,
+		TenderCashOnDelivery, TenderCardOnDelivery:
 		return true
 	}
 	return false

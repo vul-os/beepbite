@@ -64,6 +64,10 @@ ON CONFLICT (code) DO UPDATE
 --   transfer  — EFT / instant bank transfer; reference captured for recon.
 --   voucher   — gift card, meal voucher or comp instrument.
 --
+-- The *_on_delivery variants are collected at the door by the driver, not at
+-- the counter, so they are deliberately distinct codes: drawer reconciliation
+-- must not expect that money to be in the till.
+--
 -- requires_reference forces the operator to capture an external identifier
 -- (card-machine slip number, EFT reference, voucher serial) so the shop can
 -- reconcile against its own bank or card-machine statement.
@@ -73,7 +77,9 @@ VALUES
     ('cash',     'Cash',          'offline', true, false, true),
     ('card',     'Card Machine',  'offline', true, true,  true),
     ('transfer', 'Bank Transfer', 'offline', true, true,  false),
-    ('voucher',  'Voucher',       'offline', true, true,  false)
+    ('voucher',  'Voucher',       'offline', true, true,  false),
+    ('cash_on_delivery', 'Cash on Delivery', 'offline', true, false, true),
+    ('card_on_delivery', 'Card on Delivery', 'offline', true, true,  true)
 ON CONFLICT (code) DO UPDATE
     SET name               = EXCLUDED.name,
         kind               = EXCLUDED.kind,
@@ -712,7 +718,8 @@ COMMENT ON FUNCTION refresh_reporting_views() IS
 -- =============================================================================
 -- DONE — Migration 014
 -- No new tables.
--- Seed: currencies (8 rows), payment_methods (4 rows: cash/card/transfer/voucher).
+-- Seed: currencies (8 rows), payment_methods (6 rows: cash/card/transfer/voucher
+--       + cash_on_delivery/card_on_delivery).
 -- Views (10): daily_sales_summary, hourly_sales_heatmap, menu_engineering,
 --              labor_hours_daily, labor_cost_daily, sales_per_labor_hour,
 --              theoretical_vs_actual_cogs, revenue_by_payment_method,

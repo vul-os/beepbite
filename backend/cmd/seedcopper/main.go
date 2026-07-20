@@ -184,16 +184,11 @@ func (s *seeder) cleanup() error {
 
 func (s *seeder) bootstrap(c *Ctx) error {
 	return s.tx(func(tx pgx.Tx) error {
-		// ZA region.
-		if err := tx.QueryRow(s.ctx, `SELECT id FROM regions WHERE code='ZA' LIMIT 1`).Scan(&c.RegionZA); err != nil {
-			return fmt.Errorf("resolve ZA region: %w", err)
-		}
-
 		// Org (idempotent on name).
 		err := tx.QueryRow(s.ctx, `SELECT id FROM organizations WHERE name=$1`, orgName).Scan(&c.OrgID)
 		if err == pgx.ErrNoRows {
 			if err := tx.QueryRow(s.ctx,
-				`INSERT INTO organizations (name, default_currency_code, subscription_tier) VALUES ($1,'ZAR','growth') RETURNING id`,
+				`INSERT INTO organizations (name, default_currency_code) VALUES ($1,'ZAR') RETURNING id`,
 				orgName).Scan(&c.OrgID); err != nil {
 				return fmt.Errorf("insert org: %w", err)
 			}
@@ -207,7 +202,7 @@ func (s *seeder) bootstrap(c *Ctx) error {
 		if err == pgx.ErrNoRows {
 			if err := tx.QueryRow(s.ctx, `
 				INSERT INTO locations (
-					organization_id, region_id, name, slug, description,
+					organization_id, name, slug, description,
 					city, country, address, whatsapp_number,
 					latitude, longitude,
 					currency_code, estimated_prep_time, avg_prep_minutes,
@@ -216,7 +211,7 @@ func (s *seeder) bootstrap(c *Ctx) error {
 					on_delivery_payment_methods, is_marketplace_visible, is_active,
 					auto_gratuity_enabled, auto_gratuity_percent, auto_gratuity_min_party
 				) VALUES (
-					$1,$2,'The Copper Table — Sea Point',$3,
+					$1,'The Copper Table — Sea Point',$2,
 					'Contemporary South African bistro on the Sea Point promenade — seasonal plates, craft cocktails & a copper-topped bar.',
 					'Cape Town','ZA','122 Beach Road, Sea Point, Cape Town, 8005','+27214391200',
 					-33.9138, 18.3843,
@@ -226,7 +221,7 @@ func (s *seeder) bootstrap(c *Ctx) error {
 					ARRAY['cash','card_on_delivery'], true, true,
 					true, 15.00, 8
 				) RETURNING id
-			`, c.OrgID, c.RegionZA, locSlug).Scan(&c.LocID); err != nil {
+			`, c.OrgID, locSlug).Scan(&c.LocID); err != nil {
 				return fmt.Errorf("insert location: %w", err)
 			}
 		} else if err != nil {

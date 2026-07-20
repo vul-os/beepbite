@@ -10,23 +10,30 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/auth"
+	"github.com/beepbite/backend/internal/idempotency"
 )
 
 // Handler wires together the Store and HTTP routing.
 type Handler struct {
 	store *Store
+	pool  *pgxpool.Pool
 }
 
 // NewHandler constructs a Handler backed by pool.
 func NewHandler(pool *pgxpool.Pool) *Handler {
-	return &Handler{store: NewStore(pool)}
+	return &Handler{store: NewStore(pool), pool: pool}
 }
 
 // Mount registers all POS routes under the provided router.
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/pos", func(r chi.Router) {
 		r.Post("/orders", h.createOrder)
-		r.Post("/orders/{order_id}/charge", h.charge)
+		// Charging is the one POS action that must never happen twice when the
+		// till retries on a flaky connection, so it runs behind the shared
+		// Idempotency-Key machinery. A replayed key returns the stored response
+		// rather than recording a second tender.
+		r.With(idempotency.Middleware(h.pool, "pos_charge")).
+			Post("/orders/{order_id}/charge", h.charge)
 	})
 	// Mark-paid-on-delivery lives at /orders/:id/mark-paid-on-delivery so that
 	// it is accessible without the /pos prefix (shared with marketplace orders).
