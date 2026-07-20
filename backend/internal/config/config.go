@@ -19,10 +19,6 @@ type Config struct {
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 
-	GoogleClientID     string
-	GoogleClientSecret string
-	GoogleRedirectURL  string
-
 	CORSOrigins []string
 
 	WhatsAppVerifyToken   string
@@ -30,34 +26,7 @@ type Config struct {
 	WhatsAppAccessToken   string
 	WhatsAppPhoneNumberID string
 
-	// Platform-level Paystack (legacy fallback for flows that haven't been
-	// migrated to per-location BYO). Leave empty in prod once everything is
-	// merchant-scoped.
-	PaystackSecretKey string
-	PaystackPublicKey string
-
-	// 32-byte key (hex, base64, or raw) used to AES-GCM encrypt sensitive
-	// merchant data at rest — currently the bank account numbers stored in
-	// bank_accounts.account_number_ciphertext (migration 27). Losing this
-	// key means losing access to all encrypted columns — back it up in your
-	// secret manager.
-	PaymentKeyEncryptionSecret string
-
-	// Test credentials exercised by `go run ./cmd/tests --payment-gateways`.
-	// Never used at runtime in prod; tests call Paystack/Stripe's sandbox
-	// APIs against these keys.
-	PaystackTestSecretKey     string
-	PaystackTestPublicKey     string
-	PaystackTestWebhookSecret string
-	StripeTestSecretKey       string
-	StripeTestPublicKey       string
-	StripeTestWebhookSecret   string
-
-	ResendAPIKey string
-	ResendFrom   string
-
 	MapboxToken  string
-	OpenAIAPIKey string
 	GeminiAPIKey string
 }
 
@@ -103,34 +72,19 @@ func Load(env string) (*Config, error) {
 	}
 
 	c := &Config{
-		Env:                        env,
-		Port:                       envOr("PORT", "8080"),
-		DatabaseURL:                os.Getenv("DATABASE_URL"),
-		JWTSecret:                  os.Getenv("JWT_SECRET"),
-		AccessTokenTTL:             envDuration("JWT_ACCESS_TTL", 15*time.Minute),
-		RefreshTokenTTL:            envDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
-		GoogleClientID:             os.Getenv("GOOGLE_CLIENT_ID"),
-		GoogleClientSecret:         os.Getenv("GOOGLE_CLIENT_SECRET"),
-		GoogleRedirectURL:          os.Getenv("GOOGLE_REDIRECT_URL"),
-		CORSOrigins:                splitCSV(os.Getenv("CORS_ORIGINS")),
-		WhatsAppVerifyToken:        os.Getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),
-		WhatsAppAppSecret:          os.Getenv("WHATSAPP_APP_SECRET"),
-		WhatsAppAccessToken:        os.Getenv("WHATSAPP_ACCESS_TOKEN"),
-		WhatsAppPhoneNumberID:      os.Getenv("WHATSAPP_PHONE_NUMBER_ID"),
-		PaystackSecretKey:          os.Getenv("PAYSTACK_SECRET_KEY"),
-		PaystackPublicKey:          os.Getenv("PAYSTACK_PUBLIC_KEY"),
-		PaymentKeyEncryptionSecret: os.Getenv("PAYMENT_KEY_ENCRYPTION_SECRET"),
-		PaystackTestSecretKey:      os.Getenv("PAYSTACK_TEST_SECRET_KEY"),
-		PaystackTestPublicKey:      os.Getenv("PAYSTACK_TEST_PUBLIC_KEY"),
-		PaystackTestWebhookSecret:  os.Getenv("PAYSTACK_TEST_WEBHOOK_SECRET"),
-		StripeTestSecretKey:        os.Getenv("STRIPE_TEST_SECRET_KEY"),
-		StripeTestPublicKey:        os.Getenv("STRIPE_TEST_PUBLIC_KEY"),
-		StripeTestWebhookSecret:    os.Getenv("STRIPE_TEST_WEBHOOK_SECRET"),
-		ResendAPIKey:               os.Getenv("RESEND_API_KEY"),
-		ResendFrom:                 os.Getenv("RESEND_FROM"),
-		MapboxToken:                os.Getenv("MAPBOX_TOKEN"),
-		OpenAIAPIKey:               os.Getenv("OPENAI_API_KEY"),
-		GeminiAPIKey:               os.Getenv("GEMINI_API_KEY"),
+		Env:                   env,
+		Port:                  envOr("PORT", "8080"),
+		DatabaseURL:           os.Getenv("DATABASE_URL"),
+		JWTSecret:             os.Getenv("JWT_SECRET"),
+		AccessTokenTTL:        envDuration("JWT_ACCESS_TTL", 15*time.Minute),
+		RefreshTokenTTL:       envDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
+		CORSOrigins:           splitCSV(os.Getenv("CORS_ORIGINS")),
+		WhatsAppVerifyToken:   os.Getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),
+		WhatsAppAppSecret:     os.Getenv("WHATSAPP_APP_SECRET"),
+		WhatsAppAccessToken:   os.Getenv("WHATSAPP_ACCESS_TOKEN"),
+		WhatsAppPhoneNumberID: os.Getenv("WHATSAPP_PHONE_NUMBER_ID"),
+		MapboxToken:           os.Getenv("MAPBOX_TOKEN"),
+		GeminiAPIKey:          os.Getenv("GEMINI_API_KEY"),
 	}
 
 	if c.DatabaseURL == "" {

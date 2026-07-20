@@ -1,10 +1,10 @@
-// Package secretbox encrypts small secrets (payment gateway keys, webhook
-// signing secrets) at rest using AES-256-GCM.
+// Package secretbox encrypts small secrets (TOTP seeds, BYO email provider
+// credentials) at rest using AES-256-GCM.
 //
 // The encryption key is a 32-byte value held by the Go process and loaded from
-// PAYMENT_KEY_ENCRYPTION_SECRET. The DB never sees plaintext, so a leak of the
-// DB alone is not sufficient to impersonate a merchant's Paystack/Stripe
-// account — the attacker also needs the server secret.
+// APP_KEY_ENCRYPTION_SECRET, or a purpose-specific override. The DB never sees
+// plaintext, so a leak of the DB alone is not enough to read those secrets —
+// the attacker also needs the server key.
 //
 // Ciphertext format: base64(nonce || sealed). Nonces are random per encryption.
 package secretbox

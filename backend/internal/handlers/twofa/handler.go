@@ -8,8 +8,8 @@
 //	POST /2fa/disable  — disable 2FA (requires a valid TOTP code or backup code)
 //
 // Encryption: TOTP secrets are encrypted via internal/secretbox using the env
-// var TOTP_KEY_ENCRYPTION_SECRET (falls back to PAYMENT_KEY_ENCRYPTION_SECRET
-// if not set — they share the same 32-byte AES key format).
+// var TOTP_KEY_ENCRYPTION_SECRET (falls back to APP_KEY_ENCRYPTION_SECRET if
+// not set — they share the same 32-byte AES key format).
 package twofa
 
 import (
@@ -38,7 +38,7 @@ type Handler struct {
 func NewHandler(pool *pgxpool.Pool) *Handler {
 	key := os.Getenv("TOTP_KEY_ENCRYPTION_SECRET")
 	if key == "" {
-		key = os.Getenv("PAYMENT_KEY_ENCRYPTION_SECRET")
+		key = os.Getenv("APP_KEY_ENCRYPTION_SECRET")
 	}
 	var box *secretbox.Box
 	if key != "" {
