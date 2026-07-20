@@ -585,7 +585,6 @@ async function rpc(fn, args = {}) {
 async function invokeFunction(name, { body } = {}) {
   // Map supabase function names → our Go endpoints.
   const route = {
-    'ai-menu-creator': '/ai/menu',
     'chatbot-whatsapp-send': '/chatbot/whatsapp/send',
   }[name];
   if (!route) return { data: null, error: { message: `unknown function ${name}` } };

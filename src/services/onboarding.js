@@ -32,10 +32,9 @@ export async function putProgress({ step, completed_steps }) {
  *  - has_location       — at least one location exists
  *  - has_five_items     — at least 5 active menu items
  *  - has_staff_or_driver — at least one staff member
- *  - has_payment        — active payment credentials configured
  *  - has_order          — at least one completed/delivered order
  *
- * @returns {Promise<{ data: { has_location: boolean, has_five_items: boolean, has_staff_or_driver: boolean, has_payment: boolean, has_order: boolean }, error }>}
+ * @returns {Promise<{ data: { has_location: boolean, has_five_items: boolean, has_staff_or_driver: boolean, has_order: boolean }, error }>}
  */
 export async function getStatus() {
   return api.request('GET', '/onboarding/status');

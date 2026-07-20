@@ -30,7 +30,6 @@ import {
   MapPin,
   UtensilsCrossed,
   Users,
-  CreditCard,
   ShoppingBag,
   Loader2,
   ExternalLink,
@@ -122,17 +121,6 @@ const STEPS = [
     actionLabel: 'Go to Staff',
     actionPath: '/staff',
     statusKey: 'has_staff_or_driver',
-  },
-  {
-    key: 'payment',
-    icon: CreditCard,
-    title: 'Connect a payment provider',
-    description:
-      'Connect Paystack, Stripe, Yoco or Zapper — or enable cash / on-delivery so customers can pay.',
-    hint: 'Go to Settings → Location → Payments. Alternatively, on-delivery orders work without an online provider.',
-    actionLabel: 'Go to Payment Settings',
-    actionPath: '/settings',
-    statusKey: 'has_payment',
   },
   {
     key: 'order',
