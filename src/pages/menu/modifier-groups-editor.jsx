@@ -1,20 +1,8 @@
 // modifier-groups-editor.jsx — CRUD UI for modifier_groups + modifiers on a menu item.
 // Designed to be dropped inside the Recipe modal's tab set (or as a standalone dialog).
 /* eslint-disable react/prop-types */
-import React, { useEffect, useState } from 'react';
-import {
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Minus,
-  Plus,
-  Trash2,
-  Edit,
-  Check,
-  X,
-  ToggleLeft,
-  ToggleRight,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronRight, Loader2, Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -355,7 +343,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
                 value={newMod.price_delta_cents}
                 onChange={(e) => setNewMod((f) => ({ ...f, price_delta_cents: parseInt(e.target.value) || 0 }))}
                 placeholder="Delta (cents)"
-                title="e.g. 50 = +R0.50, -100 = -R1.00"
+                title={`e.g. 50 = +${symbol}0.50, -100 = -${symbol}1.00`}
               />
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Switch checked={newMod.is_default} onCheckedChange={(v) => setNewMod((f) => ({ ...f, is_default: v }))} />
