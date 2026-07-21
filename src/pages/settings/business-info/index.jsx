@@ -175,7 +175,7 @@ export default function BusinessInfoPage() {
                   name="legal_name"
                   value={form.legal_name}
                   onChange={handleChange}
-                  placeholder="Acme Pty Ltd"
+                  placeholder="Acme Restaurant Group"
                   className="rounded-xl h-10"
                 />
               </div>

@@ -1093,7 +1093,7 @@ const LandingPage = () => {
 
           <div className="border-t border-border/50 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-xs sm:text-sm text-muted-foreground text-center md:text-left">
-              &copy; {new Date().getFullYear()} BeepBite Pty, a member of Exolution Technologies Pty
+              &copy; {new Date().getFullYear()} BeepBite — a <a href="https://github.com/vul-os" className="underline hover:text-foreground">VulOS</a> project · open-source, MIT-licensed
             </p>
             <button
               onClick={() => scrollToSection('home')}

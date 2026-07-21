@@ -13,7 +13,6 @@ import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { getStores } from '@/services/marketplace';
 import StoreCard from './components/store-card';
 
-const CITIES = ['All cities', 'Cape Town', 'Johannesburg', 'Durban', 'Pretoria', 'Port Elizabeth'];
 const DISTANCES = [
   { label: 'Any distance', value: '' },
   { label: 'Within 2 km', value: '2' },
@@ -152,18 +151,12 @@ export default function DiscoverPage() {
       {showFilters && (
         <div className="border-b bg-muted/50 px-4 py-4">
           <div className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            <Select value={city} onValueChange={setCity}>
-              <SelectTrigger className="flex-1 h-9 text-sm rounded-lg">
-                <SelectValue placeholder="City" />
-              </SelectTrigger>
-              <SelectContent>
-                {CITIES.map((c) => (
-                  <SelectItem key={c} value={c === 'All cities' ? '' : c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              className="flex-1 h-9 text-sm rounded-lg"
+            />
 
             <Select value={distance} onValueChange={setDistance}>
               <SelectTrigger className="flex-1 h-9 text-sm rounded-lg">

@@ -61,21 +61,21 @@ function shortOrderNum(order) {
 function TicketHeader({ ticket, onAdjustGuests }) {
   if (!ticket) {
     return (
-      <div className="px-4 py-4 border-b border-orange-100 bg-gradient-to-r from-gray-50 to-orange-50/20">
-        <p className="text-sm font-medium text-gray-500">No ticket selected</p>
-        <p className="text-xs text-gray-400 mt-0.5">Tap a table or add a walk-in to start.</p>
+      <div className="px-4 py-4 border-b border-orange-100 dark:border-orange-900/50 bg-gradient-to-r from-gray-50 to-orange-50/20 dark:from-gray-900 dark:to-orange-950/10">
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No ticket selected</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Tap a table or add a walk-in to start.</p>
       </div>
     );
   }
 
   if (ticket.kind === 'walkin') {
     return (
-      <div className="px-4 py-3 border-b border-orange-100 bg-white flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-b border-orange-100 dark:border-orange-900/50 bg-card flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-widest text-orange-500 font-bold mb-0.5">Walk-in</p>
-          <p className="text-base font-bold text-gray-900 truncate">{ticket.label || `Walk-in #${ticket.id}`}</p>
+          <p className="text-[10px] uppercase tracking-widest text-orange-500 dark:text-orange-400 font-bold mb-0.5">Walk-in</p>
+          <p className="text-base font-bold text-gray-900 dark:text-white truncate">{ticket.label || `Walk-in #${ticket.id}`}</p>
         </div>
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold shrink-0">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-semibold shrink-0">
           <Receipt className="w-3 h-3" />
           Counter
         </span>
@@ -85,19 +85,19 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 
   // table-bound ticket
   return (
-    <div className="px-4 py-3 border-b border-orange-100 bg-white flex items-center justify-between gap-2">
+    <div className="px-4 py-3 border-b border-orange-100 dark:border-orange-900/50 bg-card flex items-center justify-between gap-2">
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-widest text-orange-500 font-bold mb-0.5">
+        <p className="text-[10px] uppercase tracking-widest text-orange-500 dark:text-orange-400 font-bold mb-0.5">
           {ticket.section_name ? `${ticket.section_name} · ` : ''}Table
         </p>
-        <p className="text-base font-bold text-gray-900">Table {ticket.table_number ?? '?'}</p>
+        <p className="text-base font-bold text-gray-900 dark:text-white">Table {ticket.table_number ?? '?'}</p>
       </div>
       {onAdjustGuests && (
         <button
           type="button"
           onClick={onAdjustGuests}
           aria-label={`Adjust guest count: ${ticket.party_size || 1} ${(ticket.party_size || 1) === 1 ? 'guest' : 'guests'}`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold hover:bg-orange-100 active:bg-orange-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 shrink-0"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 text-xs font-semibold hover:bg-orange-100 dark:hover:bg-orange-950/70 active:bg-orange-200 dark:active:bg-orange-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 shrink-0"
         >
           <Users className="w-3.5 h-3.5" />
           {ticket.party_size || 1} {(ticket.party_size || 1) === 1 ? 'guest' : 'guests'}
@@ -117,9 +117,9 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
   const { format, scale } = useMoney();
   const status = item.item_status || 'fired';
   const statusColor =
-    status === 'ready' ? 'text-green-600 bg-green-50 border-green-200'
-    : status === 'in_progress' ? 'text-amber-700 bg-amber-50 border-amber-200'
-    : 'text-gray-500 bg-gray-50 border-gray-200';
+    status === 'ready' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800'
+    : status === 'in_progress' ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
+    : 'text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700';
 
   const itemId     = item.order_item_id || item.id || null;
   // `unit_price` arrives as a major-unit decimal string; the multiplier that
@@ -141,19 +141,19 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
       <div
         className={cn(
           'flex items-start gap-2 px-3 py-2',
-          canActOnItem && itemId && 'cursor-context-menu hover:bg-orange-50/40 transition-colors',
+          canActOnItem && itemId && 'cursor-context-menu hover:bg-orange-50/40 dark:hover:bg-orange-950/20 transition-colors',
         )}
         title={canActOnItem && itemId ? 'Right-click or long-press to comp / discount' : undefined}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-gray-700 tabular-nums shrink-0">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 tabular-nums shrink-0">
               {item.quantity}×
             </span>
-            <span className="text-sm text-gray-700 truncate">{item.item_name || item.name}</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{item.item_name || item.name}</span>
           </div>
           {item.notes && (
-            <p className="mt-0.5 text-[11px] text-gray-500 truncate flex items-center gap-1">
+            <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
               <StickyNote className="w-2.5 h-2.5" />
               {item.notes}
             </p>
@@ -165,7 +165,7 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
         )}>
           {status === 'fired' ? 'Fired' : status === 'in_progress' ? 'Cooking' : status === 'ready' ? 'Ready' : status}
         </span>
-        <span className="text-sm font-medium text-gray-700 tabular-nums shrink-0">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 tabular-nums shrink-0">
           {format(priceCents)}
         </span>
       </div>
@@ -187,7 +187,7 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
   const canVoid = hasCapability('can_void');
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card overflow-hidden shadow-sm">
       {/* Header — right-click / long-press to Void the whole order */}
       <AdjustmentMenu
         orderId={order.id}
@@ -198,17 +198,17 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
       >
         <div
           className={cn(
-            'flex items-center justify-between px-3 py-2 bg-green-50/60 border-b border-green-100',
-            canVoid && 'cursor-context-menu hover:bg-orange-50/60 transition-colors',
+            'flex items-center justify-between px-3 py-2 bg-green-50/60 dark:bg-green-950/20 border-b border-green-100 dark:border-green-900/40',
+            canVoid && 'cursor-context-menu hover:bg-orange-50/60 dark:hover:bg-orange-950/30 transition-colors',
           )}
           title={canVoid ? 'Right-click or long-press to void this order' : undefined}
         >
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-green-700">
-            <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-green-700 dark:text-green-400">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
             Sent · {shortOrderNum(order)}
           </div>
           {firedDisplay && (
-            <span className="text-[10px] text-gray-400 inline-flex items-center gap-0.5">
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 inline-flex items-center gap-0.5">
               <Clock className="w-2.5 h-2.5" />
               {firedDisplay}
             </span>
@@ -217,7 +217,7 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
       </AdjustmentMenu>
 
       {/* Item rows — each has its own comp/discount context menu */}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {items.map((it, idx) => (
           <SentItemRow
             key={it.order_item_id || it.id || idx}
@@ -236,10 +236,10 @@ function SentSection({ sentOrders, locationId, onAdjustSuccess }) {
   if (!sentOrders || sentOrders.length === 0) return null;
   return (
     <div className="px-3 py-2.5 space-y-2">
-      <div className="flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-widest font-bold text-gray-400">
+      <div className="flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-gray-500">
         <ChefHat className="w-3.5 h-3.5" />
         Sent to kitchen
-        <span className="ml-1 text-gray-300">·</span>
+        <span className="ml-1 text-gray-300 dark:text-gray-600">·</span>
         <span>{sentOrders.length} {sentOrders.length === 1 ? 'round' : 'rounds'}</span>
       </div>
       <div className="space-y-2">
@@ -264,16 +264,16 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
   const { format, scale } = useMoney();
   const lineCents = Math.round((parseFloat(item.price || 0) * (item.qty || 0)) * scale);
   return (
-    <div className="flex flex-col px-3 py-2.5 bg-white gap-1.5">
+    <div className="flex flex-col px-3 py-2.5 bg-card gap-1.5">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{item.name}</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate leading-tight">{item.name}</p>
           {item.modifier_names && item.modifier_names.length > 0 && (
-            <p className="text-[11px] text-orange-600 truncate mt-0.5">
+            <p className="text-[11px] text-orange-600 dark:text-orange-400 truncate mt-0.5">
               {item.modifier_names.join(', ')}
             </p>
           )}
-          <p className="text-xs text-gray-400 tabular-nums mt-0.5">
+          <p className="text-xs text-gray-400 dark:text-gray-500 tabular-nums mt-0.5">
             {format(Math.round(parseFloat(item.price || 0) * scale))} each
           </p>
         </div>
@@ -284,7 +284,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
             variant="outline"
             onClick={() => onBumpQty(item.id, -1)}
             aria-label={`Decrease quantity of ${item.name}`}
-            className="h-9 w-9 p-0 rounded-full border-orange-200 hover:bg-orange-50 hover:border-orange-400 focus-visible:ring-2 focus-visible:ring-orange-400 transition"
+            className="h-9 w-9 p-0 rounded-full border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-400 dark:hover:border-orange-600 focus-visible:ring-2 focus-visible:ring-orange-400 transition"
           >
             <Minus className="w-4 h-4" />
           </Button>
@@ -312,7 +312,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
           </div>
         ) : <span />}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-gray-900 tabular-nums">
+          <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
             {format(lineCents)}
           </span>
           <Button
@@ -334,21 +334,21 @@ function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }) {
   if (!newItems || newItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-        <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mb-3">
-          <ShoppingCart className="w-7 h-7 text-orange-300" />
+        <div className="w-16 h-16 rounded-full bg-orange-50 dark:bg-orange-950/40 flex items-center justify-center mb-3">
+          <ShoppingCart className="w-7 h-7 text-orange-300 dark:text-orange-700" />
         </div>
-        <p className="text-sm font-semibold text-gray-600">Cart is empty</p>
-        <p className="text-xs text-gray-400 mt-1 max-w-[16ch] mx-auto">Tap any menu item to add it here.</p>
+        <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Cart is empty</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[16ch] mx-auto">Tap any menu item to add it here.</p>
       </div>
     );
   }
   return (
     <div className="px-3 py-2.5">
-      <div className="flex items-center gap-1.5 px-1 mb-2 text-[10px] uppercase tracking-widest font-bold text-orange-500">
+      <div className="flex items-center gap-1.5 px-1 mb-2 text-[10px] uppercase tracking-widest font-bold text-orange-500 dark:text-orange-400">
         <Utensils className="w-3 h-3" />
         New — not yet sent
       </div>
-      <div className="rounded-xl border border-orange-200 bg-white overflow-hidden divide-y divide-orange-100 shadow-sm">
+      <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-card overflow-hidden divide-y divide-orange-100 dark:divide-orange-900/40 shadow-sm">
         {newItems.map((it) => (
           <NewItemRow
             key={it.id}
@@ -384,18 +384,18 @@ function TicketFooter({
   const canCharge = hasUnpaidOrders && !sending && Boolean(ticket);
 
   return (
-    <div className="border-t border-orange-100 bg-white px-4 py-3 space-y-2.5 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+    <div className="border-t border-orange-100 dark:border-orange-900/50 bg-card px-4 py-3 space-y-2.5 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_-2px_8px_rgba(0,0,0,0.3)]">
       {/* Subtotal breakdown */}
       {(sentSubtotalCents > 0 || newSubtotalCents > 0) && (
-        <div className="text-xs space-y-1 rounded-lg bg-gray-50 px-3 py-2">
+        <div className="text-xs space-y-1 rounded-lg bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
           {sentSubtotalCents > 0 && (
-            <div className="flex justify-between text-gray-500">
+            <div className="flex justify-between text-gray-500 dark:text-gray-400">
               <span>Already sent</span>
               <span className="tabular-nums font-medium">{format(sentSubtotalCents)}</span>
             </div>
           )}
           {newSubtotalCents > 0 && (
-            <div className="flex justify-between text-orange-600 font-semibold">
+            <div className="flex justify-between text-orange-600 dark:text-orange-400 font-semibold">
               <span>New items</span>
               <span className="tabular-nums">{format(newSubtotalCents)}</span>
             </div>
@@ -405,8 +405,8 @@ function TicketFooter({
 
       {/* Grand total */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-600">Total</span>
-        <span className="text-2xl font-bold text-gray-900 tabular-nums tracking-tight">{format(totalCents)}</span>
+        <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Total</span>
+        <span className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums tracking-tight">{format(totalCents)}</span>
       </div>
 
       {/* Send / Charge — min-height 56px for thumb-friendly tap targets */}
@@ -420,7 +420,7 @@ function TicketFooter({
             'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
             canSend
               ? 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none',
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed shadow-none',
           )}
         >
           {sending ? (
@@ -448,7 +448,7 @@ function TicketFooter({
             'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-1',
             canCharge
               ? 'bg-green-600 hover:bg-green-700 active:bg-green-800 text-white'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none',
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed shadow-none',
           )}
         >
           <span className="flex items-center gap-1.5">
@@ -503,7 +503,7 @@ export default function ActiveTicketPanel({
     <aside
       aria-label="Order ticket"
       className={cn(
-        'flex flex-col bg-gray-50 border-l border-orange-100',
+        'flex flex-col bg-gray-50 dark:bg-gray-900 border-l border-orange-100 dark:border-orange-900/50',
         // Desktop: fixed-width sidebar; mobile: full-width drawer fixed to bottom
         'w-full sm:max-w-[380px] md:max-w-[420px]',
         'h-full',

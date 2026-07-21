@@ -115,8 +115,9 @@ contact us:
 - **Order information** — items ordered, transaction amounts${currency ? ` (in ${currency})` : ''},
   fulfilment preferences.
 - **Device & session data** — IP address, browser type, timestamps.
-- **Payment data** — payment method type and last-four digits (full card numbers
-  are processed by our payment provider and are never stored by us).
+- **Tender records** — how an order was settled (cash, card, transfer, voucher)
+  and the amount. We do **not** process card payments or store card numbers; a
+  card tender simply records that our own card machine was used.
 
 ## 3. How we use your information
 
@@ -128,19 +129,24 @@ We use your information to:
 - Improve our menu, operations, and service quality.
 - Comply with applicable law (tax records, consumer protection).
 
-## 4. Sub-processors and third parties
+## 4. Where your data lives, and who else sees it
 
-We share data with the following trusted service providers:
+Our point-of-sale runs on **BeepBite** — open-source, self-hosted software
+(part of [VulOS](https://github.com/vul-os/beepbite)). It runs on our own
+infrastructure (${hostingLocation}), and your data is stored in **our** database.
+The software sends nothing to "BeepBite" or any central operator — there is no
+such party.
 
-| Provider | Purpose | Location |
+We only involve a third party where we have chosen to switch on an optional
+integration, using our own account with that provider:
+
+| Provider | When it applies | Purpose |
 |---|---|---|
-| **BeepBite / Exolution Technologies** | POS platform, data storage | ${hostingLocation} |
-| **Cloudflare R2** | Media & file storage | Global CDN |
-| **Meta (WhatsApp Business API)** | Order & notification messaging | US |
-| **Anthropic** | AI-assisted floor plans and owner assistant | US |
-| **OpenAI** | AI-assisted features | US |
+| **Meta (WhatsApp Business API)** | If we offer WhatsApp ordering / notifications | Order and notification messaging |
+| **Map provider** | If maps are enabled | Delivery-zone and address lookup |
 
-We do not sell your personal information to third parties.
+Where none of these is enabled, no personal data leaves our own systems. We do
+not sell your personal information to third parties.
 
 ## 5. Data retention
 
