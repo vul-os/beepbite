@@ -243,10 +243,6 @@ difference matters.
 
 [MIT](LICENSE)
 
-<div align="center">
-<sub><strong>Built with purpose. Open by design.</strong></sub>
-</div>
-
 ---
 
 <p align="center">
