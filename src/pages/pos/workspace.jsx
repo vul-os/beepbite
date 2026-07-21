@@ -18,31 +18,10 @@
 // (owner/admin) session via useAuth(). One of them is required.
 
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  AlertCircle,
-  Banknote,
-  ChefHat,
-  CreditCard,
-  Filter,
-  Loader2,
-  Lock,
-  LogOut,
-  MapPin,
-  Plus,
-  Receipt,
-  RotateCcw,
-  Scissors,
-  Search,
-  ShoppingBag,
-  Unlock,
-  User as UserIcon,
-  UserCheck,
-  Utensils,
-} from 'lucide-react';
+import { Banknote, ChefHat, CreditCard, Filter, Loader2, Lock, LogOut, MapPin, Plus, Receipt, RotateCcw, Scissors, Search, ShoppingBag, Unlock, User as UserIcon, UserCheck, Utensils } from 'lucide-react';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -79,7 +58,7 @@ import {
   transferSession,
   getSessionDetail,
 } from '@/services/tables';
-import { chargeOrder, chargeOrdersWithLegs, PAYMENT_METHODS } from '@/services/payment';
+import { chargeOrdersWithLegs } from '@/services/payment';
 
 import OpenRegisterModal from '@/pages/home/components/open-register-modal';
 import ReturnModal from '@/pages/home/components/return-modal';
@@ -1011,7 +990,7 @@ export default function PosWorkspacePage() {
 
   if (!isAuthed) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
+      <div className="h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
       </div>
     );
@@ -1025,17 +1004,17 @@ export default function PosWorkspacePage() {
     : 0;
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-orange-50/40 overflow-hidden">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-orange-50/40 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
       {/* ============================== TOP BAR ============================== */}
-      <header className="bg-white border-b border-orange-200 shadow-sm shrink-0">
+      <header className="bg-card border-b border-orange-200 dark:border-orange-900/50 shadow-sm shrink-0">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-md">
               <Receipt className="w-5 h-5 text-white" />
             </div>
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="text-sm font-bold text-gray-900 truncate">POS Workspace</span>
-              <span className="text-[11px] text-gray-500 truncate flex items-center gap-1">
+              <span className="text-sm font-bold text-gray-900 dark:text-white truncate">POS Workspace</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                 <UserIcon className="w-3 h-3" />
                 {displayName}
                 {/* Actor overlay chip — shown when staff logged in via /s/:slug PIN */}
@@ -1052,7 +1031,7 @@ export default function PosWorkspacePage() {
                 )}
                 {activeLocation?.name && (
                   <>
-                    <span className="text-gray-300">·</span>
+                    <span className="text-gray-300 dark:text-gray-600">·</span>
                     <span className="truncate">{activeLocation.name}</span>
                   </>
                 )}
@@ -1064,17 +1043,17 @@ export default function PosWorkspacePage() {
           {isStaffSession && (
             <div className="hidden sm:flex items-center gap-2">
               {registerLoading ? (
-                <span className="text-xs text-gray-400 flex items-center gap-1">
+                <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" /> Checking register…
                 </span>
               ) : registerSession ? (
                 <button type="button" onClick={() => setIsOpenRegisterOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 text-xs font-semibold transition">
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-950/70 text-xs font-semibold transition">
                   <Unlock className="w-3 h-3" /> Register Open
                 </button>
               ) : (
                 <button type="button" onClick={() => setIsOpenRegisterOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 text-xs font-semibold transition animate-pulse">
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/70 text-xs font-semibold transition animate-pulse">
                   <Lock className="w-3 h-3" /> Open Register
                 </button>
               )}
@@ -1085,7 +1064,7 @@ export default function PosWorkspacePage() {
             {activeTicket && isDineInMode && (
               <Button size="sm" variant="outline" onClick={handleStartEatIn}
                 aria-label={activeTicket.kind === 'walkin' ? 'Assign this ticket to a table' : 'Move to a different table'}
-                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+                className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
                 <MapPin className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">
                   {activeTicket.kind === 'walkin' ? 'Assign Table' : 'Move Table'}
@@ -1095,20 +1074,20 @@ export default function PosWorkspacePage() {
             {activeTicket?.kind === 'table' && activeTicket?.sentOrders?.length > 0 && (
               <Button size="sm" variant="outline" onClick={() => setShowSplitBySeat(true)}
                 aria-label="Split check by seat"
-                className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+                className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
                 <Scissors className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">Split</span>
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={() => setIsReturnOpen(true)} disabled={isStaffSession && !registerSession}
               aria-label="Process a return"
-              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+              className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Return</span>
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate('/kds/expo')}
               aria-label="Open Kitchen Display System"
-              className="border-orange-200 text-orange-700 hover:bg-orange-50 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+              className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
               <ChefHat className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Kitchen</span>
             </Button>
@@ -1116,14 +1095,14 @@ export default function PosWorkspacePage() {
             {actor && (
               <Button size="sm" variant="outline" onClick={handleEndShift}
                 aria-label="End shift and return to PIN screen"
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-9 focus-visible:ring-2 focus-visible:ring-emerald-400">
+                className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 h-9 focus-visible:ring-2 focus-visible:ring-emerald-400">
                 <UserCheck className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">End shift</span>
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={handleSignOut}
               aria-label="Sign out"
-              className="text-gray-500 hover:text-gray-900 h-9 focus-visible:ring-2 focus-visible:ring-gray-400">
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white h-9 focus-visible:ring-2 focus-visible:ring-gray-400">
               <LogOut className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Sign Out</span>
             </Button>
@@ -1131,7 +1110,7 @@ export default function PosWorkspacePage() {
         </div>
 
         {/* Tables strip */}
-        <div className="px-3 py-2 border-t border-orange-100 bg-orange-50/30">
+        <div className="px-3 py-2 border-t border-orange-100 dark:border-orange-900/40 bg-orange-50/30 dark:bg-orange-950/20">
           <TablesStrip
             tables={tableTiles}
             walkIns={walkInTiles}
@@ -1149,10 +1128,10 @@ export default function PosWorkspacePage() {
       {/* ============================== MAIN ============================== */}
       <main className="flex-1 flex overflow-hidden">
         {/* Menu */}
-        <section className="flex-1 flex flex-col min-w-0 bg-white">
-          <div className="px-4 py-3 border-b border-orange-100">
+        <section className="flex-1 flex flex-col min-w-0 bg-card">
+          <div className="px-4 py-3 border-b border-orange-100 dark:border-orange-900/40">
             <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
               <Input
                 placeholder="Search menu…"
                 value={search}
@@ -1167,7 +1146,7 @@ export default function PosWorkspacePage() {
           <div
             role="group"
             aria-label="Filter by category"
-            className="px-3 py-2 border-b border-orange-100 overflow-x-auto scrollbar-none"
+            className="px-3 py-2 border-b border-orange-100 dark:border-orange-900/40 overflow-x-auto scrollbar-none"
             style={{ scrollbarWidth: 'none' }}
           >
             <div className="flex gap-1.5 min-w-max">
@@ -1179,7 +1158,7 @@ export default function PosWorkspacePage() {
                   'inline-flex items-center gap-1 h-9 rounded-full px-3.5 text-xs font-semibold whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
                   categoryId === 'all'
                     ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                    : 'border-orange-200 text-gray-700 bg-white hover:bg-orange-50 hover:border-orange-300',
+                    : 'border-orange-200 dark:border-orange-800 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-300 dark:hover:border-orange-700',
                 )}
               >
                 <Filter className="w-3 h-3" /> All
@@ -1194,7 +1173,7 @@ export default function PosWorkspacePage() {
                     'h-9 rounded-full px-3.5 text-xs font-semibold whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
                     categoryId === c.id
                       ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                      : 'border-orange-200 text-gray-700 bg-white hover:bg-orange-50 hover:border-orange-300',
+                      : 'border-orange-200 dark:border-orange-800 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-300 dark:hover:border-orange-700',
                   )}
                 >
                   {c.name}
@@ -1205,7 +1184,7 @@ export default function PosWorkspacePage() {
 
           <div className="flex-1 overflow-y-auto p-3">
             {!activeTicket && (
-              <div className="mb-4 rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm">
+              <div className="mb-4 rounded-2xl border border-orange-100 dark:border-orange-900/40 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20 p-4 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-3 text-center">
                   How will the customer be ordering?
                 </p>
@@ -1216,11 +1195,11 @@ export default function PosWorkspacePage() {
                       type="button"
                       onClick={handleStartEatIn}
                       aria-label="Start eat-in order — select a table"
-                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 bg-white hover:bg-green-50 hover:border-green-400 active:bg-green-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 dark:border-green-800 bg-white dark:bg-gray-900 hover:bg-green-50 dark:hover:bg-green-950/40 hover:border-green-400 dark:hover:border-green-600 active:bg-green-100 dark:active:bg-green-950/70 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
                     >
-                      <Utensils className="w-10 h-10 text-green-600" />
-                      <span className="text-base font-bold text-gray-900">Eat-in</span>
-                      <span className="text-[11px] text-gray-400">
+                      <Utensils className="w-10 h-10 text-green-600 dark:text-green-500" />
+                      <span className="text-base font-bold text-gray-900 dark:text-white">Eat-in</span>
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
                         {hasFloorPlan ? 'Select a table' : 'Set up tables first'}
                       </span>
                     </button>
@@ -1229,11 +1208,11 @@ export default function PosWorkspacePage() {
                       type="button"
                       onClick={handleAddWalkIn}
                       aria-label="Start takeaway / walk-in order"
-                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 active:bg-orange-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-orange-200 dark:border-orange-800 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-400 dark:hover:border-orange-600 active:bg-orange-100 dark:active:bg-orange-950/70 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                     >
                       <ShoppingBag className="w-10 h-10 text-orange-500" />
-                      <span className="text-base font-bold text-gray-900">Takeaway</span>
-                      <span className="text-[11px] text-gray-400">Walk-in / counter</span>
+                      <span className="text-base font-bold text-gray-900 dark:text-white">Takeaway</span>
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">Walk-in / counter</span>
                     </button>
                   </div>
                 ) : (
@@ -1242,11 +1221,11 @@ export default function PosWorkspacePage() {
                     type="button"
                     onClick={handleAddWalkIn}
                     aria-label="Start a new order"
-                    className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-orange-200 bg-white hover:bg-orange-50 hover:border-orange-400 active:bg-orange-100 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-orange-200 dark:border-orange-800 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-400 dark:hover:border-orange-600 active:bg-orange-100 dark:active:bg-orange-950/70 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                   >
                     <ShoppingBag className="w-10 h-10 text-orange-500" />
-                    <span className="text-base font-bold text-gray-900">New order</span>
-                    <span className="text-[11px] text-gray-400">Tap to start serving</span>
+                    <span className="text-base font-bold text-gray-900 dark:text-white">New order</span>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">Tap to start serving</span>
                   </button>
                 )}
               </div>
@@ -1254,15 +1233,15 @@ export default function PosWorkspacePage() {
             {loadingMenu ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="h-40 rounded-2xl bg-gray-100 animate-pulse" />
+                  <div key={i} className="h-40 rounded-2xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
                 ))}
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                  <Search className="w-7 h-7 text-gray-300" />
+                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
+                  <Search className="w-7 h-7 text-gray-300 dark:text-gray-600" />
                 </div>
-                <p className="text-sm font-semibold text-gray-500">No items match</p>
+                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">No items match</p>
                 {search && (
                   <button
                     type="button"
@@ -1290,15 +1269,15 @@ export default function PosWorkspacePage() {
                         disabled={isDisabled}
                         aria-label={`Add ${it.name} — ${format(Math.round(parseFloat(it.price || 0) * scale))}${is86 ? ' (86 — sold out)' : soldOutToday ? ' (sold out)' : ''}`}
                         className={cn(
-                          'flex w-full flex-col rounded-2xl bg-white border-2 overflow-hidden text-left',
+                          'flex w-full flex-col rounded-2xl bg-white dark:bg-gray-900 border-2 overflow-hidden text-left',
                           'transition-all duration-150',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
                           isDisabled
-                            ? 'border-gray-100 opacity-50 cursor-not-allowed shadow-none'
-                            : 'border-gray-200 shadow-sm hover:shadow-lg hover:border-orange-400 hover:-translate-y-0.5 active:scale-95 active:shadow-sm',
+                            ? 'border-gray-100 dark:border-gray-800 opacity-50 cursor-not-allowed shadow-none'
+                            : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg hover:border-orange-400 dark:hover:border-orange-600 hover:-translate-y-0.5 active:scale-95 active:shadow-sm',
                         )}
                       >
-                        <div className="h-24 sm:h-28 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 relative">
+                        <div className="h-24 sm:h-28 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 dark:from-orange-950/40 dark:via-amber-950/30 dark:to-orange-900/30 relative">
                           <span className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform duration-200 select-none">{emojiFor(it)}</span>
                           {is86 ? (
                             <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-600 text-white leading-none tracking-wide">
@@ -1309,9 +1288,9 @@ export default function PosWorkspacePage() {
                           )}
                         </div>
                         <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
-                          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">{it.name}</h3>
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 leading-tight">{it.name}</h3>
                           <div className="flex items-end justify-between mt-2">
-                            <span className="text-base font-bold text-gray-900 tabular-nums">
+                            <span className="text-base font-bold text-gray-900 dark:text-white tabular-nums">
                               {format(Math.round(parseFloat(it.price || 0) * scale))}
                             </span>
                             {!isDisabled && (
@@ -1398,7 +1377,7 @@ export default function PosWorkspacePage() {
           <DialogHeader>
             <DialogTitle>How is the customer paying?</DialogTitle>
             <DialogDescription>
-              Total due: <span className="font-bold tabular-nums text-gray-900">{format(activeUnpaidCents)}</span>
+              Total due: <span className="font-bold tabular-nums text-gray-900 dark:text-white">{format(activeUnpaidCents)}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 mt-3">
@@ -1406,21 +1385,21 @@ export default function PosWorkspacePage() {
               type="button"
               onClick={() => handlePickMethod('cash')}
               aria-label="Pay with cash — numpad and change calculator"
-              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 bg-green-50 hover:bg-green-100 hover:border-green-400 active:bg-green-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/60 hover:border-green-400 dark:hover:border-green-600 active:bg-green-200 dark:active:bg-green-950 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
             >
-              <Banknote className="w-9 h-9 text-green-600" />
-              <span className="text-base font-bold text-gray-900">Cash</span>
-              <span className="text-[11px] text-gray-400">Numpad + change calc</span>
+              <Banknote className="w-9 h-9 text-green-600 dark:text-green-500" />
+              <span className="text-base font-bold text-gray-900 dark:text-white">Cash</span>
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">Numpad + change calc</span>
             </button>
             <button
               type="button"
               onClick={() => handlePickMethod('card_in_person')}
               aria-label="Pay with card — external terminal"
-              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 active:bg-blue-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/60 hover:border-blue-400 dark:hover:border-blue-600 active:bg-blue-200 dark:active:bg-blue-950 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              <CreditCard className="w-9 h-9 text-blue-600" />
-              <span className="text-base font-bold text-gray-900">Card</span>
-              <span className="text-[11px] text-gray-400">External terminal</span>
+              <CreditCard className="w-9 h-9 text-blue-600 dark:text-blue-500" />
+              <span className="text-base font-bold text-gray-900 dark:text-white">Card</span>
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">External terminal</span>
             </button>
           </div>
         </DialogContent>
