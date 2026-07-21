@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import '@fontsource-variable/inter'; // self-hosted Inter (300-900) — no Google Fonts network call
 import './index.css';
 import './i18n'; // initialise i18next — must precede render (Wave 30)
 import App from './App.jsx';

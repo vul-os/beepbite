@@ -5,8 +5,8 @@ module.exports = {
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
-  			display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			sans: ['Inter Variable', 'Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
+  			display: ['Inter Variable', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
   		},
   		maxWidth: {
   			content: '1600px',
