@@ -11,7 +11,7 @@ one system, running on your own hardware. No cloud account, no per-order fee,
 no platform standing between you and them.
 
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-FF6B35.svg)](LICENSE-MIT)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-FF6B35.svg)](LICENSE-MIT)
 [![Self-hostable](https://img.shields.io/badge/self--hostable-your%20hardware-E8871E)](docs/setup.md)
 [![Platform fee](https://img.shields.io/badge/platform%20fee-none-14B8A6)](#what-beepbite-is-not)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://golang.org)
