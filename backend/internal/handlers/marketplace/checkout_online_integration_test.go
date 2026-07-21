@@ -276,4 +276,3 @@ func TestOnlinePayment_CheckoutOrder_NoGatewayUnchanged(t *testing.T) {
 		t.Errorf("expected no pay_url on the on-delivery path, got %q", resp2.PayURL)
 	}
 }
-
