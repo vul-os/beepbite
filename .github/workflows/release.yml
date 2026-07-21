@@ -1,0 +1,102 @@
+name: Release
+
+# On a vX.Y.Z tag:
+#   - version-guard: the tag must equal the VERSION file (fails before any build)
+#   - build: the frontend is built and embedded into the single Go `beepbite`
+#     server binary (site_embed.go), cross-compiled for linux/darwin amd64+arm64
+#   - one GitHub Release with all binaries + SHA256SUMS.txt
+#
+# The guard checks only VERSION (not package.json) so the release contract has a
+# single source of truth; bump VERSION to match the tag before pushing it.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version-guard:
+    name: tag matches VERSION
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag == VERSION
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          base="${tag%%-*}"   # v0.1.0-rc1 validates against base 0.1.0
+          ver="$(tr -d '[:space:]' < VERSION)"
+          echo "tag=$tag base=$base VERSION=$ver"
+          [ "$base" = "$ver" ] || {
+            echo "::error::Version mismatch — bump VERSION to match the tag before pushing it"; exit 1; }
+
+  build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: version-guard
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Build embedded frontend
+        run: |
+          npm ci
+          npm run build:main
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Build server binary
+        working-directory: backend
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          name="beepbite_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
+          mkdir -p dist/${name}
+          go build -trimpath \
+            -ldflags "-s -w -X main.Version=${GITHUB_REF_NAME}" \
+            -o "dist/${name}/beepbite" ./cmd/server
+          tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: backend/dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            Single self-contained `beepbite` server binary (frontend embedded) for each platform, plus `SHA256SUMS.txt` covering every attached file.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
