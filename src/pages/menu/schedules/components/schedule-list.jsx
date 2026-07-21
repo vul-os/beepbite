@@ -1,6 +1,6 @@
 // schedule-list.jsx — left-rail list of menu schedules + "New schedule" dialog.
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

@@ -14,7 +14,6 @@
 //   error       string|null  shown below dots
 //   submitLabel string   label for the submit button (default 'Sign In')
 
-import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

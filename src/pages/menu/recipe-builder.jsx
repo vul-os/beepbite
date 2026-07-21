@@ -1,47 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  TreePine, 
-  Plus,
-  Minus,
-  Trash2,
-  Save,
-  X,
-  Calculator,
-  Layers,
-  DollarSign,
-  Package,
-  ChefHat,
-  Utensils,
-  Hash,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  ArrowRight,
-  ArrowDown,
-  GripVertical,
-  Search,
-  Filter,
-  Eye,
-  EyeOff
-} from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TreePine, Plus, Trash2, Save, Calculator, Layers, Package, ChefHat, Utensils, Hash, AlertCircle, GripVertical, Search } from 'lucide-react';
 import {
   Alert,
   AlertDescription,

@@ -1,29 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
-  Calculator,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  CheckCircle,
-  Search,
-  Filter,
-  BarChart3,
-  PieChart,
-  Target,
-  Package,
-  ChefHat,
-  Utensils,
-  ArrowUpRight,
-  ArrowDownRight,
-  Minus,
-  Info,
-  RefreshCw
-} from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Search, BarChart3, PieChart, Target, Package, ChefHat, Utensils, ArrowUpRight, ArrowDownRight, Minus, Info, RefreshCw } from 'lucide-react';
 import {
   Select,
   SelectContent,

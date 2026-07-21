@@ -1,16 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { 
-  Plus, 
-  Search,
-  Utensils,
-  Filter,
-  X,
-  ChevronDown,
-  ChevronUp
-} from 'lucide-react';
+import { Plus, Search, Utensils, Filter, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 

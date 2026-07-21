@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Users, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Users, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { RESERVATION_STATUS_COLORS as STATUS_COLORS } from '@/lib/status-colors';
 

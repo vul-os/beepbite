@@ -9,8 +9,8 @@
 // The page uses the api-client's actor-overlay mechanism, so X-Actor-Token is
 // attached automatically when a staff PIN overlay is active.
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Clock, LogIn, LogOut, Coffee, RefreshCw, Edit2, X, Check, AlertCircle } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Clock, LogIn, LogOut, Coffee, RefreshCw, Edit2, Check, AlertCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

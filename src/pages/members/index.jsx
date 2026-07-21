@@ -1,32 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Plus, 
-  Search, 
-  Users, 
-  Mail,
-  MoreHorizontal,
-  UserPlus,
-  Shield,
-  Crown,
-  User,
-  Trash2,
-  Send,
-  CheckCircle,
-  Clock,
-  XCircle,
-  ChefHat,
-  Building2,
-  AlertCircle,
-  Archive,
-  Pencil,
-  Phone,
-  AtSign
-} from 'lucide-react';
+import { Search, Users, Mail, MoreHorizontal, UserPlus, Shield, Crown, User, Send, CheckCircle, Clock, XCircle, ChefHat, Building2, AlertCircle, Archive, Pencil, Phone } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,15 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogContent,

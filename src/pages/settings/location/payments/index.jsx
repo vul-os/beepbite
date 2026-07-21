@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';

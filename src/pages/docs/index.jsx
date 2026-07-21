@@ -1,31 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import DocsLayout from '@/components/layout/docs-layout';
 import { Screenshot, TopicCard, Callout } from '@/components/docs/docs-primitives';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Search,
-  Zap,
-  CreditCard,
-  Utensils,
-  MessageSquare,
-  BarChart3,
-  Users,
-  User,
-  Shield,
-  FileText,
-  Cookie,
-  HelpCircle,
-  Sparkles,
-  ArrowRight,
-  ChevronRight,
-  Mail,
-  BookOpen,
-  Image as ImageIcon,
-  PlayCircle,
-  Compass,
-} from 'lucide-react';
+import { Search, Zap, CreditCard, Utensils, User, Shield, FileText, Cookie, HelpCircle, Sparkles, ArrowRight, ChevronRight, Mail, BookOpen, PlayCircle, Compass } from 'lucide-react';
 
 const WhatsAppIcon = ({ className = 'w-5 h-5' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">

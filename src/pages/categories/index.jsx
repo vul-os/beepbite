@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,32 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader, PageContainer } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Reveal, Stagger, StaggerItem } from "@/components/ui/motion";
-import {
-  Folder,
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  EyeOff,
-  ChevronRight,
-  ChevronDown,
-  FolderOpen,
-  Tag,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  MapPin,
-  Clock,
-  Save,
-  X,
-  MoreHorizontal,
-  FolderPlus,
-  Settings,
-  ArrowUp,
-  ArrowDown,
-  LayoutGrid
-} from 'lucide-react';
+import { Folder, Search, Plus, Edit, Trash2, Eye, EyeOff, ChevronRight, ChevronDown, FolderOpen, Tag, AlertCircle, CheckCircle, Clock, Save, X, MoreHorizontal, FolderPlus, Settings, ArrowUp, ArrowDown, LayoutGrid } from 'lucide-react';
 import {
   Dialog,
   DialogContent,

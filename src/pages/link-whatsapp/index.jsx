@@ -14,9 +14,9 @@
  *   success or an error.
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Smartphone, CheckCircle, AlertCircle, Loader2, Phone, Trash2 } from 'lucide-react';
+import { Smartphone, CheckCircle, AlertCircle, Loader2, Phone } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

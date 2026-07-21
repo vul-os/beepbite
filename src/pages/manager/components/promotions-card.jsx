@@ -1,8 +1,7 @@
 // promotions-card.jsx — active promotions summary for the manager dashboard.
 
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Tag, ArrowRight, Megaphone } from 'lucide-react';
+import { ArrowRight, Megaphone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

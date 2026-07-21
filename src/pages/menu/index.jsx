@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,39 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader, PageContainer } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Reveal, Stagger, StaggerItem } from "@/components/ui/motion";
-import {
-  UtensilsCrossed,
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  EyeOff,
-  Clock,
-  Package,
-  AlertCircle,
-  CheckCircle,
-  MapPin,
-  Filter,
-  ChefHat,
-  Minus,
-  ArrowUp,
-  ArrowDown,
-  TreePine,
-  Calculator,
-  Layers,
-  Target,
-  DollarSign,
-  Utensils,
-  FlaskConical,
-  MoreHorizontal,
-  ChevronRight,
-  ChevronDown,
-  Hash,
-  TrendingUp,
-  TrendingDown,
-  CircleDot
-} from 'lucide-react';
+import { UtensilsCrossed, Search, Plus, Edit, Trash2, Eye, EyeOff, Clock, Package, AlertCircle, CheckCircle, ChefHat, TreePine, Calculator, Layers, Utensils, FlaskConical, MoreHorizontal, Hash } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -49,16 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -94,7 +52,6 @@ import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { emojiFor } from '@/lib/item-emoji';
 import { COMPLEXITY_COLORS } from '@/lib/status-colors';
-import { formatDistanceToNow } from 'date-fns';
 // Import recipe components
 import RecipeBuilder from './recipe-builder';
 import RecipeBreakdown from './recipe-breakdown';

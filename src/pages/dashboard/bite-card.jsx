@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -12,7 +11,6 @@ import {
   MessageSquare,
   Eye
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 
 const BiteCard = ({ 
   bite: order, 

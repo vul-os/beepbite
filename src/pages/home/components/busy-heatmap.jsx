@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useId } from 'react';
+import { useMemo, useState, useId } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice } from '@/lib/currency';

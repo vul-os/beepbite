@@ -3,7 +3,7 @@
 // shows matching customers as a card list. Clicking a customer fires
 // onSelect(customer) so the parent can open detail or attach to an order.
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Search, UserX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';

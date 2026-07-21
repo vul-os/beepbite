@@ -1,4 +1,3 @@
-import React from 'react';
 import { Check, Circle, Clock } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";

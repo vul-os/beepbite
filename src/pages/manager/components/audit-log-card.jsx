@@ -1,9 +1,7 @@
 // audit-log-card.jsx — last 20 audit_log entries for the location.
 
-import React from 'react';
 import { ClipboardList } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const ACTOR_COLORS = {

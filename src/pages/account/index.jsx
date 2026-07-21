@@ -1,23 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader, PageContainer } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import SecuritySettings from "@/pages/settings/security";
 import DataPrivacySettings from "@/pages/settings/account";
-import {
-  User,
-  Save,
-  CheckCircle,
-  Loader2,
-  AlertCircle,
-  ExternalLink,
-  Info
-} from 'lucide-react';
+import { User, Save, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";

@@ -1,49 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Users,
-  Search,
-  UserPlus,
-  Edit,
-  Trash2,
-  Shield,
-  Crown,
-  User,
-  ChefHat,
-  CreditCard,
-  Clock,
-  Mail,
-  Phone,
-  Calendar,
-  MapPin,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  Building2,
-  Timer,
-  PlayCircle,
-  StopCircle,
-  Coffee,
-  ArrowLeftCircle,
-  Hash,
-  KeyRound,
-  AlertTriangle
-} from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Users, Search, UserPlus, Edit, Trash2, Shield, Crown, User, ChefHat, CreditCard, Clock, MapPin, Eye, EyeOff, AlertCircle, CheckCircle, XCircle, Timer, PlayCircle, StopCircle, Coffee, ArrowLeftCircle, Hash, KeyRound, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,

@@ -1,6 +1,5 @@
 // eighty-six-card.jsx — items currently 86'd (is_86ed = true).
 
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ban, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';

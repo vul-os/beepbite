@@ -9,7 +9,7 @@
 // intentionally minimal and monochrome so it renders well on receipt paper.
 
 /* eslint-disable react/prop-types */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Printer, Loader2, AlertCircle } from 'lucide-react';
 
 import { fetchReceipt } from '@/services/receipts';

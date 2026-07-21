@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const VisuallyHidden = ({ children, ...props }) => {
   return (

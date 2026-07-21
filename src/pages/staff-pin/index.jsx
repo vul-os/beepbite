@@ -3,7 +3,7 @@
 // Marketplace-scoped staff PIN login — resolves a store by slug, then lets a
 // staff member enter their username + PIN without any org-level context leak.
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, AlertCircle, Loader2, Store } from 'lucide-react';
 

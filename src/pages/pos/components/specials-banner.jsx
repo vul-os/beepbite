@@ -20,7 +20,7 @@
 //   className   {string}    Optional additional wrapper class.
 
 /* eslint-disable react/prop-types */
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Star, ChevronRight } from 'lucide-react';
 
 import { cn } from '@/lib/utils';

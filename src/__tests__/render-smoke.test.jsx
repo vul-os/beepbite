@@ -6,7 +6,6 @@
 // module initialisation (the layer where TDZ crashes actually happen) without
 // loading the full render-heavy dependency graph (recharts, react-pdf, etc.).
 
-import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';

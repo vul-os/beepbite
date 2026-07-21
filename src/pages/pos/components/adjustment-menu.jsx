@@ -30,7 +30,7 @@
 //   (The usePinModal session-auth hook is for actor re-auth, not this flow.)
 
 /* eslint-disable react/prop-types */
-import React, {
+import {
   useCallback,
   useEffect,
   useRef,

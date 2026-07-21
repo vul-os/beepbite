@@ -16,7 +16,7 @@
  * Slot auth: the backend endpoint is PUBLIC — no token required.
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock, Loader2 } from 'lucide-react';
 import { fetchPickupSlots } from '@/services/pickup-slots';
 

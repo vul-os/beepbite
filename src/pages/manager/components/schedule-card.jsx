@@ -1,9 +1,9 @@
 // schedule-card.jsx — shows which daypart schedules are currently in effect.
 // Compares local time + ISO day-of-week against menu_schedule_slots windows.
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, ArrowRight, CalendarClock } from 'lucide-react';
+import { ArrowRight, CalendarClock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

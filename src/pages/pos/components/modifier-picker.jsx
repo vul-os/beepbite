@@ -2,13 +2,8 @@
 // Respects min_select / max_select / is_required per group.
 // Returns { selectedModifiers, extraCents } via onConfirm.
 /* eslint-disable react/prop-types */
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Check,
-  Loader2,
-  Minus,
-  Plus,
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

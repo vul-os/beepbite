@@ -29,7 +29,7 @@
  *   const { storeSlug, customHostname, isStoreHost } = useStore();
  */
 
-import React, { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
 // ---------------------------------------------------------------------------
 // Constants

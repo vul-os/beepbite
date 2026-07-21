@@ -12,7 +12,7 @@
 // generic /data/{table} API (api.from(...) builder from @/lib/api-client.js).
 
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ChefHat,

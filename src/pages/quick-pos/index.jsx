@@ -5,7 +5,7 @@
  * Then loads the menu via Supabase (same query as home/pos-section).
  * No top nav, no sidebar — full-screen tap-to-order-to-tender in ≤5 taps.
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 

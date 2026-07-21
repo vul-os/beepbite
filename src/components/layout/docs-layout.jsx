@@ -1,29 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import {
-  Book,
-  FileText,
-  Shield,
-  Cookie,
-  HelpCircle,
-  Menu as MenuIcon,
-  Zap,
-  MessageSquare,
-  ExternalLink,
-  User,
-  Search,
-  Compass,
-  Utensils,
-  CreditCard,
-  ChevronRight,
-  Home,
-  X,
-  ArrowLeft,
-} from 'lucide-react';
+import { FileText, Shield, Cookie, HelpCircle, Menu as MenuIcon, Zap, ExternalLink, User, Search, Compass, Utensils, CreditCard, ChevronRight, Home, X, ArrowLeft } from 'lucide-react';
 
 const WhatsAppIcon = ({ className = 'w-4 h-4' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">

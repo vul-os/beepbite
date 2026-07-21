@@ -1,7 +1,7 @@
 // /menu/schedules — configure dayparts (breakfast/lunch/dinner) and
 // happy-hour pricing per menu item.
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Calendar, AlertCircle, Loader2 } from 'lucide-react';
 import {
   Tabs,

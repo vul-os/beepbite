@@ -14,7 +14,7 @@
 //   • Stamps are shown as a grid of circles: filled (orange) for earned stamps,
 //     empty (grey ring) for stamps still needed.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Stamp, Gift, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

@@ -1,4 +1,3 @@
-import React from 'react';
 
 const Logo = ({ className = "", variant = "default" }) => {
   if (variant === "minimal") {

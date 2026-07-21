@@ -12,7 +12,6 @@
 // layout is not disrupted.
 
 /* eslint-disable react/prop-types */
-import React from 'react';
 import { cn } from '@/lib/utils';
 
 /**

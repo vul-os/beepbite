@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,24 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { 
-  Star, 
-  Search, 
-  Filter, 
-  MessageCircle, 
-  ThumbsUp,
-  Flag,
-  Reply,
-  MoreHorizontal,
-  TrendingUp
-} from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Star, Search, MessageCircle, ThumbsUp, Flag, Reply, MoreHorizontal, TrendingUp } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,

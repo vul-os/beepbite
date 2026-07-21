@@ -1,7 +1,7 @@
 // hours-grid.jsx — 7-row grid (Mon-Sun) of time-window slots per day.
 // day_of_week follows ISO: 1=Monday … 7=Sunday (matches the DB CHECK constraint).
 
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

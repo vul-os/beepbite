@@ -23,7 +23,6 @@
 // Pure presentational. Parent owns all state.
 
 /* eslint-disable react/prop-types */
-import React from 'react';
 import {
   ChefHat,
   CreditCard,

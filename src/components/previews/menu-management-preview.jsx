@@ -1,30 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Package,
-  Edit,
-  Plus,
-  Minus,
-  Search,
-  Filter,
-  BarChart3,
-  AlertTriangle,
-  CheckCircle,
-  Star,
-  Utensils,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Eye,
-  Save,
-  X,
-  Settings
-} from 'lucide-react';
+import { Package, Edit, Plus, Minus, Search, Filter, BarChart3, AlertTriangle, CheckCircle, Star, Utensils, DollarSign, TrendingUp, TrendingDown, Save, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatMoney, currencyScale } from "@/lib/currency";
 

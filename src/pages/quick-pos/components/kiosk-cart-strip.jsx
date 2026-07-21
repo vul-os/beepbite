@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShoppingCart, Minus, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';

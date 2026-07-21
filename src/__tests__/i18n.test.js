@@ -8,7 +8,7 @@
 //   3. changeLanguage + t() returns the locale value; missing keys
 //      fall back to English.
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // --- raw locale JSON (same static imports the source uses) ---
 import en from '../i18n/locales/en.json';

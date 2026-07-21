@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useId, useCallback } from 'react';
+import { useState, useEffect, useRef, useId, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Loader2, MapPin } from 'lucide-react';
 import { suggestAddress } from '@/services/geocode';

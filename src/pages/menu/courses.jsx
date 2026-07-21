@@ -10,7 +10,7 @@
 // owning org can read / write.
 
 /* eslint-disable react/prop-types */
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ChefHat,
   Plus,

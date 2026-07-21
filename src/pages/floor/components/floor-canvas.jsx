@@ -5,7 +5,7 @@
 // Snap-to-grid: positions are rounded to the nearest GRID_PX (16px) before
 // emitting onDragPersist.
 
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import {
   DndContext,
   PointerSensor,

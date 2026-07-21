@@ -7,7 +7,7 @@
 // wraps the /hardware/* Go backend endpoints.
 
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,

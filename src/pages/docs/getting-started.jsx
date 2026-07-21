@@ -1,4 +1,3 @@
-import React from 'react';
 import { useLocation } from 'react-router-dom';
 import DocsLayout, { usePrevNext } from '@/components/layout/docs-layout';
 import {

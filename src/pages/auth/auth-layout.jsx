@@ -9,7 +9,6 @@
  *     {formJSX}
  *   </AuthLayout>
  */
-import React from 'react';
 import { Reveal } from '@/components/ui/motion';
 import Logo from '@/components/ui/logo';
 import { ChefHat, Bell, BarChart3, Zap } from 'lucide-react';

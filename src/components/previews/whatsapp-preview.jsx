@@ -1,14 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from "@/components/ui/badge";
-import { 
-  MessageSquare,
-  CheckCheck,
-  Clock,
-  ArrowLeft,
-  Phone,
-  MoreVertical
-} from 'lucide-react';
+import { MessageSquare, CheckCheck, ArrowLeft, Phone, MoreVertical } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatMoney, currencyScale } from "@/lib/currency";
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Input } from '@/components/ui/input';
 import { denominationRows } from '@/lib/denominations';
 import { useMoney } from '@/context/locale-context';

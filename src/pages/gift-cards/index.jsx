@@ -1,4 +1,3 @@
-import React from 'react';
 import { Gift } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';

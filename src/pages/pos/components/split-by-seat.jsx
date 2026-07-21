@@ -19,19 +19,8 @@
 //                                    parent records order_payments rows
 //   staffId        {string?}
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  Plus,
-  Receipt,
-  Scissors,
-  UserRound,
-  Wallet,
-  X,
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, Loader2, Plus, Receipt, Scissors, UserRound, Wallet, X } from 'lucide-react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

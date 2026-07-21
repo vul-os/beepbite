@@ -1,4 +1,3 @@
-import * as React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
 // Tasteful, reduced-motion-aware entrance helpers used across the app.

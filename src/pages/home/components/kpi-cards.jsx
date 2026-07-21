@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShoppingBag, DollarSign, Users, BarChart2 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { Stagger, StaggerItem } from '@/components/ui/motion';

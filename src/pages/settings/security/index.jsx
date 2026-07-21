@@ -9,7 +9,7 @@
  * Route: wired externally; this file is the default export.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,

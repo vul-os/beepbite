@@ -7,7 +7,7 @@
 //
 // Uses shadcn/ui form primitives consistent with the rest of the settings pages.
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Stamp, Save, Loader2 } from 'lucide-react';
 
 import { Button }   from '@/components/ui/button';

@@ -1,28 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
-  TreePine, 
-  ChevronRight,
-  ChevronDown,
-  Package,
-  ChefHat,
-  Utensils,
-  Search,
-  Filter,
-  Layers,
-  Hash,
-  DollarSign,
-  Calculator,
-  ArrowRight,
-  CircleDot,
-  Minus,
-  Plus,
-  Eye,
-  EyeOff
-} from 'lucide-react';
+import { TreePine, ChevronRight, ChevronDown, Package, ChefHat, Utensils, Search, Layers, Hash, Calculator, CircleDot, Minus } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -34,7 +15,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
-import { cn } from "@/lib/utils";
 import { COMPLEXITY_COLORS } from '@/lib/status-colors';
 
 const RecipeBreakdown = ({ activeLocation }) => {

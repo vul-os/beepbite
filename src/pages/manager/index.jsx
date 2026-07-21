@@ -2,7 +2,6 @@
 // Shows active promotions, today's menu schedule, 86'd items,
 // allergen / dietary coverage stats, and recent audit log entries.
 
-import React from 'react';
 import { LayoutDashboard, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';

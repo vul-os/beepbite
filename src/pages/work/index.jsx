@@ -26,7 +26,7 @@
 // with the selected station id injected.
 
 /* eslint-disable react/prop-types */
-import React, {
+import {
   lazy,
   Suspense,
   useCallback,

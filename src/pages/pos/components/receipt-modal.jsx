@@ -18,7 +18,7 @@
 // both buttons are rendered in a disabled/coming-soon state with a tooltip.
 //
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import {
   CheckCircle2,
   Loader2,

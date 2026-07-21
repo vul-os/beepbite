@@ -16,7 +16,7 @@
 //     onConfirm={legs => ...}      // called with array of TenderLeg
 //   />
 /* eslint-disable react/prop-types */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Banknote,
   Building2,

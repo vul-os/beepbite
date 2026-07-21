@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import TopBar from '../nav/top-bar';

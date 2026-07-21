@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Shield, Search, Loader2, AlertTriangle, X, Pause, Play, ArrowLeft, Bell, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -21,14 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { PageHeader, PageContainer } from '@/components/ui/page-header';
 
 import {

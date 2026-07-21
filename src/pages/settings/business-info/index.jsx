@@ -8,7 +8,7 @@
  * Route: /settings/business-info (wire externally in routes.jsx)
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Reveal } from '@/components/ui/motion';
-import { Loader2, Save, Building2, AlertCircle, CheckCircle, Phone, Mail, FileText } from 'lucide-react';
+import { Loader2, Save, Building2, AlertCircle, CheckCircle, Phone } from 'lucide-react';
 import { getTaxProfile, saveTaxProfile } from '@/services/invoicing';
 import { useLocale } from '@/context/locale-context';
 import { countryOptions } from '@/lib/locale-data';

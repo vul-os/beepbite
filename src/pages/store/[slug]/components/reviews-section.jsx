@@ -8,7 +8,7 @@
  *   limit       {number}  — max reviews to fetch (default 20)
  */
 
-import React, { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { fetchStoreReviews } from '@/services/reviews';
 import { cn } from '@/lib/utils';

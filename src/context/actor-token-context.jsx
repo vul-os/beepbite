@@ -17,7 +17,7 @@
 //   - Both timers are cleared / reset via clearActor() or when the component
 //     unmounts.
 
-import React, {
+import {
   useState,
   useRef,
   useCallback,

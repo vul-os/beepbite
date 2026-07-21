@@ -1,32 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { hasCapability } from '@/services/pos';
-import {
-  Settings,
-  LogOut,
-  Users,
-  ChevronDown,
-  UserCircle,
-  BarChart3,
-  MessageSquare,
-  Hash,
-  X,
-  MapPin,
-  Menu,
-  ChefHat,
-  FileText,
-  PieChart,
-  Plus,
-  Building2,
-  Check,
-  Store,
-  Folder,
-  Receipt,
-  MonitorPlay,
-  Truck,
-  LockKeyhole,
-  LayoutDashboard
-} from 'lucide-react';
+import { LogOut, Users, ChevronDown, UserCircle, BarChart3, MessageSquare, Hash, X, MapPin, ChefHat, Building2, Check, Store, Folder, Receipt, MonitorPlay, Truck, LockKeyhole, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useActor } from '@/context/actor-token-context';
 import {

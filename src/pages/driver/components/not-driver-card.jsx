@@ -1,4 +1,3 @@
-import React from 'react';
 import { Truck, Mail } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 

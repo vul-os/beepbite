@@ -1,4 +1,3 @@
-import React from 'react';
 import { Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 

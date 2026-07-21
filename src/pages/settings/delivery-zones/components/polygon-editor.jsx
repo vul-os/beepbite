@@ -9,7 +9,7 @@
  * A collapsible "Advanced" section exposes the raw GeoJSON textarea for
  * power users who want to paste coordinates directly.
  */
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Polygon, useMapEvents } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
