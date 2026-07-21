@@ -14,6 +14,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/oauth2 v0.23.0
+	github.com/vul-os/patala/patala-go v0.0.0-20260721151334-1c99293c23b8
 )
 
 require (

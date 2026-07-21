@@ -23,6 +23,12 @@ backend/tmp/
 backend/beepbite-server-local
 backend/beepbite-server-*
 
+# Local workspace for the -tags patala build (see backend/Makefile's go.work
+# target). Wires the sibling patala-go module in for local cgo dev/test only
+# — never committed, and never needed by the default backend build.
+backend/go.work
+backend/go.work.sum
+
 .vscode
 
 playwright-report
