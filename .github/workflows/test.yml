@@ -14,7 +14,12 @@ jobs:
   # ---------- Go ----------
   go-build:
     name: Go build, vet & test
-    runs-on: ubuntu-latest
+    # Pinned to 22.04: the integration tests use testcontainers (Docker) via
+    # testenv.StartPostgres, which is unreliable on the ubuntu-latest image
+    # (currently Ubuntu 26+). The suite passes locally on Docker; pinning gives
+    # CI the same stable Docker/testcontainers path. Same rationale the
+    # Playwright job note below records.
+    runs-on: ubuntu-22.04
 
     # Postgres service container for the HTTP smoke suites.
     # The server and `go run ./cmd/tests --all` connect to this instance.
