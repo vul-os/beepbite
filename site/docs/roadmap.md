@@ -47,7 +47,7 @@ We treat this as a fresh system. Before any new feature lands, we **fold the exi
 
 The session-variable contract: every authenticated request sets `app.current_user_id`, `app.current_org_id`, `app.current_capabilities` (jsonb) on the connection via `SET LOCAL`. Policies read those values and gate every row. A `service_role` bypass exists for the migration tool and explicitly-scoped admin scripts. Anonymous connections see nothing on tenant-scoped tables; public marketplace endpoints use a tightly-scoped `marketplace_role` that can SELECT only `is_marketplace_visible=true` rows from a whitelist of tables.
 
-This work happens **first** (Wave 0 in [tasks.md](./tasks.md)) and is driven by **opus** agents in three phases:
+This work happens **first** (Wave 0 in [tasks.md](./docs/internal/tasks.md)) and is driven by **opus** agents in three phases:
 - Phase A — one opus designs the consolidation plan and writes the RLS helper functions.
 - Phase B — six opus agents in parallel implement the thirteen consolidated migrations with their RLS policies inline.
 - Phase C — one opus writes the RLS verification suite (anonymous, member-of-org-A, service-role) that becomes the Wave 0 acceptance gate.
@@ -94,13 +94,13 @@ Surfaced by the May 2026 audit pass. These are the proximal causes of "kitchen b
 9. **No offline plumbing** — zero service worker, zero IndexedDB, zero mutation queue. A 30-second WhatsApp outage in Durban drops orders.
 10. **Test coverage is thin** — two integration `_test.go` files + an HTTP runner that covers ~30% of critical paths. No CI runs Go tests. No pen-testing. No cross-tenant probing.
 
-Each of these has a corresponding task in [tasks.md](./tasks.md).
+Each of these has a corresponding task in [tasks.md](./docs/internal/tasks.md).
 
 ---
 
 ## Now — committed v1 scope
 
-The horizon line: launch the central marketplace, lock the platform against cross-tenant abuse, and ship the breadth of features that competes with Toast / Square / Loyverse on day one. Items are tracked as Now-0 through Now-22 below; each maps to one or more execution waves in [tasks.md](./tasks.md). "Now" doesn't mean "all simultaneously in flight" — it means "committed; in the active backlog." Wave 0 unblocks everything.
+The horizon line: launch the central marketplace, lock the platform against cross-tenant abuse, and ship the breadth of features that competes with Toast / Square / Loyverse on day one. Items are tracked as Now-0 through Now-22 below; each maps to one or more execution waves in [tasks.md](./docs/internal/tasks.md). "Now" doesn't mean "all simultaneously in flight" — it means "committed; in the active backlog." Wave 0 unblocks everything.
 
 ### Now-0 — Foundation reset (consolidated migrations + RLS)
 Folding the 46 chronological migrations into 13 domain-scoped migrations with Row-Level Security baked in from creation. Opus-driven, three phases (plan → parallel implement → verify). Acceptance gate: a verification suite proves anonymous = no access, member-of-org-A = only org-A rows visible, service-role = full access. Until this lands, every other wave is provisional.
@@ -231,7 +231,7 @@ Every tool call is metered, audited, and scoped by RLS via the owner's actor ses
 ### Now-11 — USD billing via FX
 - Platform prices subscriptions in **USD**; restaurants are charged in their local currency via Paystack using a fresh FX rate.
 - New schema: `exchange_rates` table (per currency pair, source, fetched_at) + `subscription_invoices` carry both USD amount and local-currency amount with the rate snapshot.
-- Hourly (or 2-hourly) FX fetch from a free-tier provider (selection task in [tasks.md](./tasks.md)).
+- Hourly (or 2-hourly) FX fetch from a free-tier provider (selection task in [tasks.md](./docs/internal/tasks.md)).
 
 ### Now-12 — Public API + scoped API keys + tenant webhooks
 Restaurants want to plug BeepBite into Xero, Quickbooks, Mailchimp, custom dashboards. Without an API we're a closed system.
@@ -322,7 +322,7 @@ Global product, English-only today.
 ### Now-21 — Backups + disaster recovery + GDPR/POPIA data deletion
 Compliance and reliability.
 - **Postgres backups** — Fly's managed snapshots (every 12h, 14-day retention) + an hourly logical dump via `pg_dump` to R2 for an additional 90-day retention. WAL-G if we need point-in-time recovery.
-- **Quarterly restore drill** — restore the latest backup to a staging instance, run a smoke suite, verify RPO ≤1h and RTO ≤2h. Document the runbook in `docs/dr-runbook.md`.
+- **Quarterly restore drill** — restore the latest backup to a staging instance, run a smoke suite, verify RPO ≤1h and RTO ≤2h. Document the runbook in `docs/internal/dr-runbook.md`.
 - **R2 object storage** — versioned + replicated to a second R2 bucket cross-region.
 - **GDPR / POPIA data deletion flow**:
   - "Delete my account" button in `/settings/account`. 30-day soft-delete (recoverable), then hard-delete.
@@ -350,7 +350,7 @@ Covered by Wave 13. Targeting loadshedding + global flaky-network resilience. **
 - `Idempotency-Key` header on every mutating POS endpoint; deduplicated server-side via the existing idempotency_keys table.
 - IndexedDB mutation queue with reconnect-and-retry; optimistic UI rolls back on conflict.
 - KDS SSE gains a `since_event_id` cursor — reconnecting client replays missed events.
-- Tier 2 (real offline POS) is in [Wave 33 / "Later"](./tasks.md).
+- Tier 2 (real offline POS) is in [Wave 33 / "Later"](./docs/internal/tasks.md).
 
 ### Now-25 — Testing infrastructure + pen-test workstream
 Covered by Waves 14 and 15. Tests are a roadmap-level commitment, not a chore.
@@ -451,7 +451,7 @@ A page is "done" when it passes axe-core (from Wave 30) **and** the responsivene
 
 ## Later (v2 — deferred behind triggers, not committed)
 
-Items below are tracked in [tasks.md Wave 33](./tasks.md). Each gets pulled into a real wave when a specific trigger fires.
+Items below are tracked in [tasks.md Wave 33](./docs/internal/tasks.md). Each gets pulled into a real wave when a specific trigger fires.
 
 | Item | Trigger to pull in |
 |---|---|
@@ -544,7 +544,7 @@ Pen-test findings file an issue and a fix-task in tasks.md. The bar holds before
 
 ## How we sequence work
 
-- Each **wave** in [tasks.md](./tasks.md) is a parallel-safe batch. Tasks within a wave do not edit the same files.
+- Each **wave** in [tasks.md](./docs/internal/tasks.md) is a parallel-safe batch. Tasks within a wave do not edit the same files.
 - Each **task** specifies its target agent: most are **sonnet** (fast, cheap, executes well-scoped change). **Pen-testing tasks are opus** (deeper adversarial reasoning).
 - Each task names the files it can edit and the acceptance criteria.
 - Migrations are numbered sequentially; a wave that ships migrations declares which numbers it owns to avoid collisions.

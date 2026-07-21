@@ -123,8 +123,8 @@ printf "  cmd/ entrypoints        : ${WHITE}%d${RESET}\n" "$cmd_count"
 # ════════════════════════════════════════════════════════════════════════
 sep "5. Wave Progress"
 
-PROGRESS_FILE="$REPO_ROOT/docs/PROGRESS.md"
-TASKS_FILE="$REPO_ROOT/tasks.md"
+PROGRESS_FILE="$REPO_ROOT/docs/internal/PROGRESS.md"
+TASKS_FILE="$REPO_ROOT/docs/internal/tasks.md"
 
 total_waves=0
 if [[ -f "$TASKS_FILE" ]]; then
@@ -163,7 +163,7 @@ if [[ -f "$PROGRESS_FILE" ]]; then
   printf "  ${BOLD}Summary: ${GREEN}%d done${RESET} · ${YELLOW}%d in-progress${RESET} · ${DIM}%d not started${RESET} · ${BOLD}%d total${RESET}\n" \
     "$done_count" "$inprog_count" "$notstarted_count" "$total_waves"
 else
-  warn "docs/PROGRESS.md not found"
+  warn "docs/internal/PROGRESS.md not found"
   printf "\n"
 fi
 

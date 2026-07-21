@@ -182,13 +182,13 @@ const DOCS = [
 ];
 const bySlug = Object.fromEntries(DOCS.map(d=>[d.slug,d]));
 const byFile = Object.fromEntries(DOCS.map(d=>[d.path.split('/').pop().toLowerCase(),d]));
-// Working/internal notes (tasks.md, README.md, etc.) are synced to site/docs/
-// too, by the same mechanical script, but are not part of the curated nav —
-// link them out to GitHub instead of silently 404ing.
+// Working/internal notes (tasks.md, README.md, etc.) live outside the
+// curated doc set synced into site/docs/ — link them out to GitHub instead
+// of silently 404ing.
 const OFFSITE = {
   'readme.md':'https://github.com/vul-os/beepbite/blob/main/README.md',
-  'tasks.md':'https://github.com/vul-os/beepbite/blob/main/tasks.md',
-  'plan.md':'https://github.com/vul-os/beepbite/blob/main/PLAN.md',
+  'tasks.md':'https://github.com/vul-os/beepbite/blob/main/docs/internal/tasks.md',
+  'plan.md':'https://github.com/vul-os/beepbite/blob/main/docs/internal/PLAN.md',
   'license':'https://github.com/vul-os/beepbite/blob/main/LICENSE'
 };
 const content = document.getElementById('content');
