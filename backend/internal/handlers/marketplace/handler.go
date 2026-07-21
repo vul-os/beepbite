@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/payments"
 )
 
 const (
@@ -50,12 +51,38 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 	}
 }
 
+// WithOnlinePayments wires an online payment gateway into the marketplace
+// checkout and its return-URL settlement endpoint. Call it only when
+// payments.NewOnlineGatewayProvider() actually returned a non-nil provider
+// (see cmd/server/main.go) — an unconfigured deployment must never call this,
+// so CreateCheckoutOrder's on-delivery-only behaviour stays exactly as it was
+// before this feature existed.
+//
+// apiPublicURL is this backend's own externally-reachable base URL (e.g.
+// "https://api.myshop.example"), used to build the gateway return URL — see
+// CheckoutStore.buildReturnURL. returnSecret signs/verifies that URL's token
+// (in practice cfg.JWTSecret; see payments.SignReturnToken's doc comment for
+// why reusing it is fine here).
+func (h *Handler) WithOnlinePayments(gateway payments.PaymentProvider, gatewayCode, returnSecret, apiPublicURL string) *Handler {
+	h.checkoutStore.gateway = gateway
+	h.checkoutStore.gatewayCode = gatewayCode
+	h.checkoutStore.returnSecret = returnSecret
+	h.checkoutStore.apiPublicURL = apiPublicURL
+	h.store.onlineAvailable = gateway != nil
+	return h
+}
+
 // Mount registers the public routes on r.
 // r is expected to be the /stores sub-router.
 func (h *Handler) Mount(r chi.Router) {
 	r.Get("/", h.listStores)
 	r.Get("/{slug}", h.getStore)
 	r.Post("/{slug}/orders", h.createCheckoutOrder)
+	// Gateway return URL (verify-on-return settlement — see payreturn.go).
+	// Mounted unconditionally: with no gateway configured, checkout never
+	// mints a link to it, and the handler itself fails closed with a
+	// "payments unavailable" page if it is ever hit anyway.
+	r.Get("/{slug}/orders/{order_id}/pay/return", h.payReturn)
 }
 
 // ---------------------------------------------------------------------------

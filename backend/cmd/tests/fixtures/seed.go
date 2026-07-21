@@ -117,8 +117,19 @@ func SeedOrg(ctx context.Context, pool *pgxpool.Pool, name string) (orgID, owner
 		}
 
 		// 2. profile
+		//
+		// migration 001's on_auth_user_created trigger (handle_new_user())
+		// already INSERTs a profiles row for this id the moment auth_users
+		// above commits its statement (BEFORE this call runs, since it is a
+		// row-level AFTER INSERT trigger within the same statement) — with
+		// full_name left NULL, since SeedOrg's auth_users insert never sets
+		// raw_user_meta_data. A second plain INSERT here always violated
+		// profiles_pkey; UPSERT is what the fixture actually needs (setting
+		// full_name/email to the values seeded tests assert on), not a
+		// competing insert.
 		if _, err2 := tx.Exec(ctx,
-			`INSERT INTO profiles (id, full_name, email) VALUES ($1, $2, $3)`,
+			`INSERT INTO profiles (id, full_name, email) VALUES ($1, $2, $3)
+			 ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = EXCLUDED.email`,
 			ownerUserID, name+" Owner", email,
 		); err2 != nil {
 			return fmt.Errorf("insert profile: %w", err2)

@@ -306,24 +306,48 @@ func (p *PatalaGatewayProvider) Charge(ctx context.Context, req ChargeRequest) (
 		reference = req.OrderID
 	}
 
+	// destination is patala_core::PayRequest's one opaque per-request string
+	// slot (patala-core/src/rail.rs). patala_core's own validation rejects it
+	// empty on EVERY rail — a base-level required field, not optional
+	// per-provider metadata — so this always sends a non-empty value.
+	//
+	// What a specific patala-fiat rail actually DOES with that string is
+	// rail-specific and, critically, NOT the same thing across rails:
+	//
+	//   - stripe, yoco and payfast's own module docs (patala-fiat/src/
+	//     {stripe,yoco,payfast}/rail.rs) say plainly that they reinterpret
+	//     `destination` AS the post-checkout return/callback URL (Stripe's
+	//     success_url AND cancel_url both, verbatim) — for exactly these
+	//     rails, req.ReturnURL (checkout.go's verify-on-return URL, see
+	//     ChargeRequest.ReturnURL's doc comment) belongs here, and this
+	//     adapter sends it when the caller supplied one.
+	//   - paystack's own module doc (patala-fiat/src/paystack/rail.rs)
+	//     reinterprets the SAME field as the BUYER'S EMAIL instead — sending
+	//     req.ReturnURL there would silently corrupt the charge (Paystack
+	//     would receive a URL where it expects an email address). This
+	//     adapter has no per-rail knowledge to special-case that here (one
+	//     Go type serves all ~20 rails via one by-name constructor — see
+	//     this file's own module doc comment), so it is a real, UNVERIFIED-
+	//     AGAINST-LIVE gap: a self-hoster picking paystack (or any other rail
+	//     that isn't confirmed hosted-checkout-with-a-return-slot) must not
+	//     assume the customer's browser will actually be redirected back to
+	//     ReturnURL — see docs/ONLINE-PAYMENTS.md.
+	//   - a rail with no redirect leg at all (invoice/QR-style) does not
+	//     care either way.
+	//
+	// Falling back to `reference` when ReturnURL is empty preserves this
+	// adapter's pre-existing behaviour (patala_core's non-empty requirement,
+	// a stable per-rail dedup key) for any caller that has not adopted the
+	// return-URL flow yet.
+	destination := reference
+	if rt := strings.TrimSpace(req.ReturnURL); rt != "" {
+		destination = rt
+	}
+
 	payReq := patala.PayRequest{
 		AmountMinor: uint64(req.Amount.Cents),
 		Currency:    currency,
-		// patala_core's own PayRequest validation (patala-core/src/rail.rs)
-		// rejects an empty destination on EVERY rail, not just hosted-
-		// checkout ones — it is a base-level required field, not optional
-		// per-provider metadata. ChargeRequest carries no callback/redirect
-		// URL or buyer-email field today (unlike cackle's own
-		// Order.CallbackURL, used for the same purpose there) — that field
-		// is exactly the piece a later checkout-wiring change would add.
-		// Until then, this adapter sends `reference` (never empty — see
-		// above): enough to satisfy patala_core's non-empty requirement and
-		// to keep a hosted-checkout rail's own dedup keyed consistently, but
-		// NOT a real redirect target or email. A rail whose provider-
-		// specific config genuinely needs a URL or an email address still
-		// fails closed with its own InvalidRequest for that reason, rather
-		// than this adapter fabricating one.
-		Destination: reference,
+		Destination: destination,
 		Reference:   reference,
 	}
 	receipt, err := p.rail.Charge(payReq)

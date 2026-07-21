@@ -11,6 +11,7 @@ import (
 
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/idempotency"
+	"github.com/beepbite/backend/internal/payments"
 )
 
 // Handler wires together the Store and HTTP routing.
@@ -24,6 +25,23 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{store: NewStore(pool), pool: pool}
 }
 
+// WithGateway wires the deployment-wide online payment gateway into the POS
+// store (see internal/payments/gateway.go). Call it only when
+// payments.NewOnlineGatewayProvider() returned a non-nil provider — an
+// unconfigured deployment must never call this, so CreateOrder's behaviour
+// stays exactly as it was before this feature existed.
+//
+// This also activates the staff-facing "recheck payment" backstop (POST
+// /pos/orders/{order_id}/recheck-payment): the rare case where a marketplace
+// customer paid online but closed the tab before the gateway's redirect back
+// to beepbite completed (see internal/handlers/marketplace/payreturn.go for
+// the primary, automatic settlement path). It is a single on-demand verify,
+// never a background poll loop.
+func (h *Handler) WithGateway(gateway payments.PaymentProvider) *Handler {
+	h.store.gateway = gateway
+	return h
+}
+
 // Mount registers all POS routes under the provided router.
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/pos", func(r chi.Router) {
@@ -34,6 +52,9 @@ func (h *Handler) Mount(r chi.Router) {
 		// rather than recording a second tender.
 		r.With(idempotency.Middleware(h.pool, "pos_charge")).
 			Post("/orders/{order_id}/charge", h.charge)
+		// Staff-facing backstop verify for an online-gateway order that never
+		// got its automatic verify-on-return hit — see recheck_payment.go.
+		r.Post("/orders/{order_id}/recheck-payment", h.recheckPayment)
 	})
 	// Mark-paid-on-delivery lives at /orders/:id/mark-paid-on-delivery so that
 	// it is accessible without the /pos prefix (shared with marketplace orders).

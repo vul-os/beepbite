@@ -12,6 +12,7 @@ import (
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
 	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/payments"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -94,6 +95,11 @@ const kdsTicketItemsInsertSQL = kdsItemRoutesCTE + `
 // Store holds the pgx pool for POS order operations.
 type Store struct {
 	pool *pgxpool.Pool
+
+	// gateway is the deployment-wide online payment provider, or nil when
+	// none is configured (the default). See CreateOrder's use of it below
+	// and Handler.WithGateway.
+	gateway payments.PaymentProvider
 }
 
 // NewStore creates a Store backed by pool.
@@ -249,17 +255,28 @@ func (s *Store) CreateOrder(
 	}
 
 	// --- 1b. Determine initial order status and payment method ---
-	// Check whether an active online payment credential exists for this location.
+	// Check whether an online payment gateway is configured for this
+	// deployment (see Handler.WithGateway / internal/payments/gateway.go).
+	//
+	// This used to query a location_payment_credentials table for a
+	// per-location online-payment credential. That table (and the whole
+	// payment-facilitator schema it belonged to — regions, subscriptions,
+	// wallets, payouts) was deliberately dropped by
+	// "migrations: remove payment-facilitator + cloud-billing schema" in
+	// favour of beepbite's current lean posture (see internal/payments/
+	// provider.go's package doc: no facilitator, no rake, no PCI scope).
+	// This one query site was missed by that cleanup and would fail closed
+	// with a Postgres "relation does not exist" error on EVERY call to
+	// CreateOrder (not just delivery orders — the query ran unconditionally
+	// before the orderType check below), since the table no longer exists.
+	// s.gateway (deployment-wide, env-configured, no DB row needed) is the
+	// current equivalent of "is there any way to take payment other than
+	// on-delivery" — see checkout.go's marketplace-side twin of this same
+	// check.
 	initialStatus := "confirmed"
 	initialPaymentMethod := "cash"
 
-	var hasActiveCredential bool
-	if err := tx.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM location_payment_credentials WHERE location_id = $1 AND is_active = true)`,
-		locationID,
-	).Scan(&hasActiveCredential); err != nil {
-		return nil, err
-	}
+	hasActiveCredential := s.gateway != nil
 
 	// In-store POS orders (dine_in / takeaway / counter) are settled at the till
 	// in cash or on the card machine — they never require an online payment

@@ -19,11 +19,14 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/beepbite/backend/internal/bizday"
 	"github.com/beepbite/backend/internal/locations"
 	"github.com/beepbite/backend/internal/money"
+	"github.com/beepbite/backend/internal/payments"
 	"github.com/beepbite/backend/internal/tax"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -63,6 +66,15 @@ type CheckoutResp struct {
 	Status        string  `json:"status"`
 	PaymentMethod string  `json:"payment_method"`
 	Total         float64 `json:"total"`
+
+	// PayURL is set only when an online gateway is configured for this
+	// deployment (see Handler.WithOnlinePayments): the hosted pay-page URL
+	// (or, if the specific patala-fiat rail's Charge response carried no
+	// redirect_url, a fallback reference string — see
+	// PatalaGatewayProvider.Charge's own doc comment) the customer's
+	// browser must be sent to next. Empty for the on-delivery path, exactly
+	// as before this field existed.
+	PayURL string `json:"pay_url,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -114,10 +126,41 @@ func (h *Handler) createCheckoutOrder(w http.ResponseWriter, r *http.Request) {
 // CheckoutStore handles marketplace order creation.
 type CheckoutStore struct {
 	pool *pgxpool.Pool
+
+	// gateway is the deployment-wide online payment provider, or nil when
+	// none is configured (the default — see Handler.WithOnlinePayments and
+	// internal/payments/gateway.go). When nil, CreateCheckoutOrder's
+	// behaviour is EXACTLY the pre-existing on-delivery-only flow.
+	gateway payments.PaymentProvider
+	// gatewayCode is gateway.Code() (e.g. "stripe", "yoco"), cached so the
+	// hot path does not call it repeatedly; also the payment_methods.code
+	// / order_payments.payment_method_code value online-gateway rows use
+	// (see EnsureOnlineTenderSeeded, called once at startup).
+	gatewayCode string
+	// returnSecret signs/verifies the ?ott= token on the gateway return URL
+	// (see payments.SignReturnToken). In practice cfg.JWTSecret.
+	returnSecret string
+	// apiPublicURL is this backend's own externally-reachable base URL
+	// (BEEPBITE_API_PUBLIC_URL) — where the gateway redirects the buyer's
+	// browser back to (see buildReturnURL). Required for the gateway to be
+	// wired in at all; see cmd/server/main.go.
+	apiPublicURL string
 }
 
 func newCheckoutStore(pool *pgxpool.Pool) *CheckoutStore {
 	return &CheckoutStore{pool: pool}
+}
+
+// buildReturnURL mints a signed, order-scoped return URL
+// (BEEPBITE_API_PUBLIC_URL + /stores/{slug}/orders/{orderID}/pay/return?ott=...)
+// for the gateway's hosted pay page to redirect the customer's browser back
+// to once they finish paying — see ChargeRequest.ReturnURL's doc comment for
+// why this replaces a poll loop, and payreturn.go for the endpoint itself.
+func (cs *CheckoutStore) buildReturnURL(slug, orderID string) string {
+	token := payments.SignReturnToken(cs.returnSecret, orderID)
+	base := strings.TrimRight(cs.apiPublicURL, "/")
+	return fmt.Sprintf("%s/stores/%s/orders/%s/pay/return?ott=%s",
+		base, url.PathEscape(slug), url.PathEscape(orderID), url.QueryEscape(token))
 }
 
 // CreateCheckoutOrder creates an order from the public checkout surface.
@@ -152,20 +195,34 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 	}
 
 	// --- 2. Resolve how this order will be paid ---
-	// There is no online gateway to check for: the customer pays a person.
-	initialStatus := "confirmed"
-	initialPaymentMethod := "cash"
+	onlineGateway := cs.gateway != nil
 
-	if len(onDeliveryMethods) == 0 {
-		return nil, ErrNoPaymentMethod
-	}
-	if req.FulfillmentType == "delivery" {
-		initialStatus = "pending_on_delivery"
-		switch req.OnDeliveryMethod {
-		case "card_machine":
-			initialPaymentMethod = "card_on_delivery"
-		default:
-			initialPaymentMethod = "cash_on_delivery"
+	var initialStatus, initialPaymentMethod string
+	if onlineGateway {
+		// Online-gateway path: the order awaits payment confirmation via the
+		// provider's hosted pay page + beepbite's own verify-on-return (see
+		// buildReturnURL / payreturn.go), not an on-delivery tender.
+		// 'pending' is orders.status's own schema DEFAULT — no new status
+		// value needed. on_delivery_payment_methods is irrelevant here: the
+		// customer is paying up front, for every fulfillment type.
+		initialStatus = "pending"
+		initialPaymentMethod = cs.gatewayCode
+	} else {
+		// EXACTLY the pre-existing on-delivery-only flow — unchanged.
+		initialStatus = "confirmed"
+		initialPaymentMethod = "cash"
+
+		if len(onDeliveryMethods) == 0 {
+			return nil, ErrNoPaymentMethod
+		}
+		if req.FulfillmentType == "delivery" {
+			initialStatus = "pending_on_delivery"
+			switch req.OnDeliveryMethod {
+			case "card_machine":
+				initialPaymentMethod = "card_on_delivery"
+			default:
+				initialPaymentMethod = "cash_on_delivery"
+			}
 		}
 	}
 
@@ -298,6 +355,48 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		}
 	}
 
+	// --- 8. Online-gateway path only: start the charge and record a pending
+	// tender ---
+	//
+	// This happens inside the same transaction as the order/order_items
+	// insert above, on purpose: either the order AND its pending-payment
+	// record both commit, or neither does. The tradeoff (an external HTTP
+	// call to the processor happens while the tx is open) is deliberate for
+	// this first wave — see docs/ONLINE-PAYMENTS.md — favouring "never leave
+	// an order with no payment attempt at all" over minimising lock hold
+	// time; a self-hoster with heavy online-order volume may want to move
+	// this outside the transaction in a future iteration.
+	var payURL string
+	if onlineGateway {
+		if cur.Code == "" {
+			return nil, fmt.Errorf("online payment requires a configured store currency")
+		}
+		returnURL := cs.buildReturnURL(slug, orderID)
+		receipt, err := cs.gateway.Charge(ctx, payments.ChargeRequest{
+			OrderID:   orderID,
+			Tender:    cs.gatewayCode,
+			Amount:    payments.Amount{Cents: totalCents, CurrencyCode: cur.Code},
+			Reference: orderNumber,
+			ReturnURL: returnURL,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("starting online payment: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO order_payments
+			    (order_id, payment_method_code, amount_paid_cents,
+			     payment_reference, external_transaction_id, payment_status)
+			VALUES ($1, $2, $3, NULLIF($4, ''), $5, 'pending')
+		`, orderID, cs.gatewayCode, totalCents, receipt.Reference, receipt.ID); err != nil {
+			return nil, err
+		}
+		// receipt.Reference is either the hosted-checkout redirect URL or,
+		// absent one, a fallback reference string — see
+		// PatalaGatewayProvider.Charge's own doc comment. Either way it is
+		// what the customer's browser goes to next.
+		payURL = receipt.Reference
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -308,6 +407,7 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		Status:        initialStatus,
 		PaymentMethod: initialPaymentMethod,
 		Total:         float64(totalCents) / 100,
+		PayURL:        payURL,
 	}, nil
 }
 

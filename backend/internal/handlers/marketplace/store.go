@@ -55,6 +55,16 @@ type StoreProfile struct {
 	AvgRating         *float64   `json:"avg_rating"`
 	ReviewCount       int        `json:"review_count"`
 	Categories        []Category `json:"categories"`
+
+	// OnlinePaymentAvailable is true when this deployment has an online
+	// payment gateway configured (BEEPBITE_ONLINE_PAYMENT_PROVIDER, built
+	// with `-tags patala` — see internal/payments/gateway.go). It is a
+	// deployment-wide flag, not a per-location setting: beepbite runs one
+	// gateway per instance, so every store profile reports the same value.
+	// When false, checkout falls back to on-delivery exactly as before this
+	// field existed. Additive field — omitted from no existing consumer's
+	// expectations, so this does not change on-delivery behaviour.
+	OnlinePaymentAvailable bool `json:"online_payment_available"`
 }
 
 // Category is a menu section returned in the store profile.
@@ -102,6 +112,12 @@ type ListParams struct {
 // Store holds the connection pool for marketplace queries.
 type Store struct {
 	pool *pgxpool.Pool
+
+	// onlineAvailable mirrors whether an online payment gateway is
+	// configured for this deployment (see Handler.WithOnlinePayments). It
+	// is reported verbatim on every StoreProfile as
+	// OnlinePaymentAvailable — see that field's doc comment.
+	onlineAvailable bool
 }
 
 // NewStore constructs a Store.
@@ -329,6 +345,7 @@ func (s *Store) GetStoreBySlug(ctx context.Context, tx pgx.Tx, slug string) (*St
 	if p.Categories == nil {
 		p.Categories = []Category{}
 	}
+	p.OnlinePaymentAvailable = s.onlineAvailable
 
 	return &p, nil
 }

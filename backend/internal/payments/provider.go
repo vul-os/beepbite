@@ -107,6 +107,34 @@ type ChargeRequest struct {
 	// shared idempotency middleware (internal/idempotency); providers receive
 	// the key so an external gateway can de-duplicate on its own side too.
 	IdempotencyKey string
+
+	// ReturnURL is where the customer's OWN browser should land after paying
+	// on a hosted/redirect gateway (Stripe Checkout, Yoco, Payfast, ...).
+	// ManualTender ignores it entirely (there is nothing to redirect from —
+	// the money already moved at the counter).
+	//
+	// This is beepbite's side of the "verify-on-return" settlement model:
+	// beepbite has no inbound webhook (see PaymentProvider's doc comment
+	// below), so instead of a poll loop it builds this URL itself (a
+	// signed, time-limited token binding it to one order — see
+	// SignReturnToken/VerifyReturnToken) and hands it to the gateway at
+	// Charge time. The processor's hosted page redirects the BUYER's
+	// browser back to it when they finish paying; that redirect is the one
+	// and only settlement signal beepbite acts on (see SettleOnlinePayment).
+	// The provider itself never calls beepbite — only the customer's
+	// browser does, and it already had to reach beepbite once already to
+	// place the order.
+	//
+	// Whether a given rail actually honours this is provider-specific and,
+	// for the generic patala adapter (patala_gateway.go), UNVERIFIED beyond
+	// what each patala-fiat rail's own source documents — see that file's
+	// Charge doc comment for the concrete gap (some rails reinterpret their
+	// one opaque "destination" field as a callback URL, at least one
+	// reinterprets it as the buyer's email instead, and there is no
+	// per-field slot in patala_core::PayRequest for "return URL" at all
+	// today). Leave empty for a rail/flow that has no meaningful return
+	// leg (e.g. a static QR/invoice-style rail with no redirect at all).
+	ReturnURL string
 }
 
 // RefundRequest describes money going back to the customer.
@@ -147,8 +175,19 @@ type Receipt struct {
 // Implementations must be safe for concurrent use by multiple goroutines.
 //
 // Deliberately absent: any webhook entry point. A POS charge is synchronous at
-// the counter, and outbound-only polling (GetStatus) works behind CGNAT with no
-// port forwarding, static IP, DNS or any box operated by anyone else.
+// the counter, and GetStatus (outbound-only, an ordinary API call FROM
+// beepbite) works behind CGNAT with no port forwarding, static IP, DNS or any
+// box operated by anyone else.
+//
+// GetStatus is not driven by a polling loop, though. The marketplace checkout
+// path (internal/handlers/marketplace) triggers it exactly once, on demand:
+// the customer's own browser, redirected back from the gateway's hosted pay
+// page to a beepbite return URL (ChargeRequest.ReturnURL), IS the settlement
+// event. See internal/handlers/marketplace/payreturn.go and
+// payments.SettleOnlinePayment. A single staff-triggered "recheck payment"
+// action (internal/handlers/pos) is the only other caller, as a backstop for
+// the rare case the buyer closes the tab before the redirect completes. There
+// is no background poll loop anywhere in this seam.
 type PaymentProvider interface {
 	// Code returns the stable, lowercase provider identifier.
 	Code() string
