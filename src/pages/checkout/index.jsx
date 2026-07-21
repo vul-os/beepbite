@@ -186,6 +186,20 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Online payment: when the store has a payment gateway configured, the
+    // backend creates the order as pending and returns a hosted pay-page URL
+    // instead of an on-delivery confirmation. Hand the customer off to it —
+    // they pay there, and the provider redirects their browser back to
+    // beepbite's /pay/return endpoint, which does one authoritative verify and
+    // renders the confirmation (see backend docs/ONLINE-PAYMENTS.md). Clear the
+    // cart first so a back-navigation can't re-submit; the order already exists
+    // server-side, pending, keyed to this pay link.
+    if (data?.pay_url) {
+      clearCart(slug);
+      window.location.assign(data.pay_url);
+      return;
+    }
+
     const ref = data?.order_number || data?.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
     clearCart(slug);
     setOrderRef(ref);
