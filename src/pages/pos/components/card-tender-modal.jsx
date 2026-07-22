@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState, useEffect } from "react"
 import { CreditCard, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import {
@@ -43,7 +44,7 @@ export function CardTenderModal({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-orange-500" />
+            <CreditCard className="h-5 w-5 text-primary" />
             Card Payment
           </DialogTitle>
         </DialogHeader>
@@ -54,12 +55,13 @@ export function CardTenderModal({
             Process the payment on the card terminal, then confirm below.
           </p>
 
-          {/* Amount due */}
-          <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-center">
-            <p className="text-xs font-medium uppercase tracking-wide text-orange-600">
+          {/* Amount due — the number a cashier reads back to the terminal /
+              customer, so it gets the biggest, boldest treatment on screen. */}
+          <div className="rounded-xl border-2 border-primary/25 bg-primary/10 px-4 py-4 text-center">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary/80">
               Amount due
             </p>
-            <p className="mt-1 text-3xl font-bold text-orange-500">
+            <p className="mt-1 font-ticket text-5xl text-primary tabular-nums">
               {format(amountDueCents)}
             </p>
           </div>
@@ -82,9 +84,9 @@ export function CardTenderModal({
           {/* Confirmation checkbox */}
           <label
             className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+              "flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition-colors",
               confirmed
-                ? "border-orange-300 bg-orange-50"
+                ? "border-primary bg-primary/10"
                 : "border-border bg-background hover:bg-muted/40",
               submitting && "pointer-events-none opacity-60"
             )}
@@ -103,7 +105,7 @@ export function CardTenderModal({
               className={cn(
                 "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
                 confirmed
-                  ? "border-orange-500 bg-orange-500 text-white"
+                  ? "border-primary bg-primary text-primary-foreground"
                   : "border-muted-foreground/40"
               )}
             >
@@ -126,23 +128,20 @@ export function CardTenderModal({
         <DialogFooter className="gap-2">
           <Button
             variant="outline"
+            size="touch"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
             aria-label="Cancel card payment"
-            className="h-12 focus-visible:ring-2 focus-visible:ring-gray-400"
           >
             Cancel
           </Button>
           <Button
+            size="touch"
             onClick={handleConfirm}
             disabled={!confirmed || submitting}
             aria-label={submitting ? 'Processing card payment' : 'Mark card payment as paid'}
             aria-busy={submitting}
-            className={cn(
-              "h-12 font-bold text-base bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white",
-              "focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1",
-              "disabled:opacity-50 disabled:cursor-not-allowed transition-all",
-            )}
+            className="font-bold"
           >
             {submitting ? (
               <span className="flex items-center gap-1.5">

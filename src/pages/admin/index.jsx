@@ -57,10 +57,10 @@ function formatDateTime(iso) {
 function StatusBadge({ status }) {
   const s = (status || '').toLowerCase();
   if (s === 'active') {
-    return <Badge className="bg-beepbite-success/15 text-beepbite-success border-beepbite-success/30 hover:bg-beepbite-success/15">{status}</Badge>;
+    return <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">{status}</Badge>;
   }
   if (s === 'paused') {
-    return <Badge variant="secondary" className="bg-beepbite-warning/15 text-beepbite-warning border-beepbite-warning/30 hover:bg-beepbite-warning/15">{status}</Badge>;
+    return <Badge variant="secondary" className="bg-warning/15 text-warning border-warning/30 hover:bg-warning/15">{status}</Badge>;
   }
   if (s === 'suspended' || s === 'banned') {
     return <Badge variant="destructive">{status}</Badge>;
@@ -189,7 +189,8 @@ function TenantDetail({ orgId, onBack }) {
           {isPaused ? (
             <Button
               size="sm"
-              className="gap-1 bg-beepbite-success hover:bg-beepbite-success/90 text-white"
+              variant="success"
+              className="gap-1"
               onClick={() => setUnpauseDialogOpen(true)}
             >
               <Play className="h-3.5 w-3.5" />

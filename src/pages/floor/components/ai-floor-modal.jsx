@@ -101,7 +101,7 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-orange-500" />
+            <Sparkles className="h-5 w-5 text-primary" />
             AI floor plan
           </DialogTitle>
           <DialogDescription>
@@ -122,18 +122,18 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
               disabled={busy}
               aria-describedby="ai-floor-hint"
             />
-            <p id="ai-floor-hint" className="mt-1 text-xs text-gray-500">
+            <p id="ai-floor-hint" className="mt-1 text-xs text-muted-foreground">
               Mention how many tables, their seat counts, and any areas like a bar or patio.
             </p>
           </div>
 
           {plan && totals && (
             <div
-              className="rounded-md border border-orange-200 bg-orange-50/60 p-3"
+              className="rounded-md border border-primary/25 bg-primary/5 p-3"
               aria-live="polite"
             >
-              <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-orange-500" />
+              <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
                 Preview — {totals.sectionCount} section{totals.sectionCount === 1 ? '' : 's'},{' '}
                 {totals.tables} table{totals.tables === 1 ? '' : 's'}, {totals.seats} seat
                 {totals.seats === 1 ? '' : 's'}
@@ -145,10 +145,10 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
                   return (
                     <li
                       key={`${s.name || 'section'}-${i}`}
-                      className="flex items-center justify-between text-sm text-gray-700"
+                      className="flex items-center justify-between text-sm text-foreground/80"
                     >
                       <span className="font-medium">{s.name || `Section ${i + 1}`}</span>
-                      <span className="text-gray-500">
+                      <span className="text-muted-foreground">
                         {ts.length} table{ts.length === 1 ? '' : 's'} · {seats} seat
                         {seats === 1 ? '' : 's'}
                       </span>
@@ -156,14 +156,14 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
                   );
                 })}
               </ul>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Review the layout above, then apply it. Existing tables stay put.
               </p>
             </div>
           )}
 
           {error && (
-            <p className="flex items-start gap-1.5 text-sm text-rose-600" role="alert">
+            <p className="flex items-start gap-1.5 text-sm text-destructive" role="alert">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </p>
@@ -178,7 +178,6 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
             <Button
               onClick={handleGenerate}
               disabled={busy || !description.trim()}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {generating ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -196,7 +195,6 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
               <Button
                 onClick={handleApply}
                 disabled={busy}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 {applying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Apply to floor

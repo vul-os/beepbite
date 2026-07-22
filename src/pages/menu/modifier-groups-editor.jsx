@@ -55,7 +55,7 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-orange-50 border border-orange-200">
+      <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-primary/10 border border-primary/20">
         <Input
           className="h-7 text-sm flex-1"
           value={form.name}
@@ -80,7 +80,7 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
           />
           <span>Default</span>
         </div>
-        <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" onClick={commit} disabled={saving || !form.name.trim()}>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-success hover:bg-success/10" onClick={commit} disabled={saving || !form.name.trim()}>
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
         </Button>
         <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:bg-muted" onClick={cancel}>
@@ -97,18 +97,18 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
     )}>
       <span className="flex-1 text-sm font-medium text-foreground truncate">{mod.name}</span>
       {mod.price_delta_cents !== 0 && (
-        <span className={cn('text-xs font-semibold tabular-nums', mod.price_delta_cents > 0 ? 'text-orange-600' : 'text-green-600')}>
+        <span className={cn('text-xs font-semibold tabular-nums', mod.price_delta_cents > 0 ? 'text-primary' : 'text-success')}>
           {fmtDelta(mod.price_delta_cents)}
         </span>
       )}
-      {mod.is_default && <Badge className="text-[10px] py-0 h-5 bg-orange-100 text-orange-700 border-orange-200">default</Badge>}
+      {mod.is_default && <Badge variant="outline" className="text-[10px] py-0 h-5 bg-primary/10 text-primary border-primary/25">default</Badge>}
       <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setEditing(true)} title="Edit">
         <Edit className="w-3 h-3" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-amber-600" onClick={() => onToggleActive(mod)} title={mod.is_active ? '86 this option' : 'Re-enable'}>
-        {mod.is_active ? <ToggleRight className="w-3.5 h-3.5 text-green-500" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-warning" onClick={() => onToggleActive(mod)} title={mod.is_active ? '86 this option' : 'Re-enable'}>
+        {mod.is_active ? <ToggleRight className="w-3.5 h-3.5 text-success" /> : <ToggleLeft className="w-3.5 h-3.5" />}
       </Button>
-      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-600" onClick={() => onDelete(mod)} title="Delete">
+      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(mod)} title="Delete">
         <Trash2 className="w-3 h-3" />
       </Button>
     </div>
@@ -282,7 +282,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
                 <Switch checked={groupForm.is_required} onCheckedChange={(v) => setGroupForm((f) => ({ ...f, is_required: v }))} />
                 <span className="text-muted-foreground">Required</span>
               </div>
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={saveGroup} disabled={savingGroup}>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-success" onClick={saveGroup} disabled={savingGroup}>
                 {savingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
               </Button>
               <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => { setGroupForm({ ...group }); setEditingGroup(false); }}>
@@ -294,11 +294,11 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
               <Badge variant="outline" className="text-[10px] py-0 h-5">
                 {group.min_select}–{group.max_select}
               </Badge>
-              {group.is_required && <Badge className="text-[10px] py-0 h-5 bg-red-100 text-red-700 border-red-200">required</Badge>}
+              {group.is_required && <Badge variant="outline" className="text-[10px] py-0 h-5 bg-primary/10 text-primary border-primary/25">required</Badge>}
               <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setEditingGroup(true)}>
                 <Edit className="w-3 h-3" />
               </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-600" onClick={() => onDeleteGroup(group)}>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => onDeleteGroup(group)}>
                 <Trash2 className="w-3 h-3" />
               </Button>
             </>
@@ -327,7 +327,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
 
           {/* Inline add-modifier row */}
           {addingMod ? (
-            <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-orange-50 border border-orange-200 mt-1">
+            <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-primary/10 border border-primary/20 mt-1">
               <Input
                 className="h-7 text-sm flex-1"
                 value={newMod.name}
@@ -349,7 +349,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
                 <Switch checked={newMod.is_default} onCheckedChange={(v) => setNewMod((f) => ({ ...f, is_default: v }))} />
                 <span>Default</span>
               </div>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={addNewMod} disabled={!newMod.name.trim()}>
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-success" onClick={addNewMod} disabled={!newMod.name.trim()}>
                 <Check className="w-3.5 h-3.5" />
               </Button>
               <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => { setAddingMod(false); setNewMod(emptyModifier()); }}>
@@ -358,7 +358,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
             </div>
           ) : (
             <Button size="sm" variant="ghost"
-              className="h-7 text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50 w-full justify-start pl-2 mt-0.5"
+              className="h-7 text-xs text-primary hover:text-primary hover:bg-primary/10 w-full justify-start pl-2 mt-0.5"
               onClick={() => setAddingMod(true)}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add option
             </Button>
@@ -451,8 +451,7 @@ export default function ModifierGroupsEditor({ itemId }) {
           <p className="text-xs text-muted-foreground">Define choices the cashier or customer must / can make (e.g. "Choose a size", "Extra toppings").</p>
         </div>
         {!addingGroup && (
-          <Button size="sm" onClick={() => setAddingGroup(true)}
-            className="bg-orange-500 hover:bg-orange-600 text-white h-8">
+          <Button size="sm" onClick={() => setAddingGroup(true)} className="h-8">
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Group
           </Button>
         )}
@@ -460,8 +459,8 @@ export default function ModifierGroupsEditor({ itemId }) {
 
       {/* New group form */}
       {addingGroup && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-3">
-          <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">New Modifier Group</p>
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
+          <p className="text-xs font-semibold text-primary uppercase tracking-wide">New Modifier Group</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs" htmlFor="ng-name">Group name *</Label>
@@ -504,8 +503,7 @@ export default function ModifierGroupsEditor({ itemId }) {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={addGroup} disabled={savingGroup || !newGroup.name.trim()}
-              className="bg-orange-500 hover:bg-orange-600 text-white h-8">
+            <Button size="sm" onClick={addGroup} disabled={savingGroup || !newGroup.name.trim()} className="h-8">
               {savingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
               Save Group
             </Button>

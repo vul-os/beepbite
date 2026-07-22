@@ -1,576 +1,672 @@
 # BeepBite — Product Roadmap
 
-> **One platform, two doors in.** A central WhatsApp + web marketplace where customers discover restaurants by slug and order in chat or browser, and a full Point-of-Sale + Kitchen Display system that runs the same restaurants from behind the counter. Restaurants bring their own payment provider keys (Paystack today; Stripe / PayFast next). The platform is priced in USD and settles in local currency via a live FX rate.
+> **One restaurant, one instance, one owner.** BeepBite is a self-hosted point-of-sale: front of
+> house, kitchen, inventory, delivery and however customers already order — a single Go binary and a
+> React app running on the operator's own hardware. There is no BeepBite service to sign up for, no
+> per-order fee, and no company between a shop and its customers. The only copy that exists is the
+> one you run.
 
-This roadmap is the source-of-truth for direction, sequencing, and what's shipped. It is also written to be quotable on the landing page — every "Now" line is a real customer-visible promise.
+This document is the source of truth for **direction and sequencing**. It is written to be quotable:
+every line under [Now](#now--committed) is a real, customer-visible promise, and nothing appears
+there that the code does not already make reachable.
+
+**Honesty conventions — these are load-bearing, not decoration.**
+
+| Category | Means |
+|---|---|
+| **Shipped** | In the tree, wired into the running server, exercised by a test or verified by hand. Named precisely: "Built" and "Not built" are different words and are used differently. |
+| **Broken / unverified** | Exists but does not work, or works but has never been run against the real thing. Stated with the defect, not softened. |
+| **Now** | Committed. In the active backlog. Not "all in flight simultaneously". |
+| **Later** | Deferred behind a named trigger. Not committed, not promised, not dated. |
+| **Won't** | A deliberate non-goal. Absence is a design decision, not a gap. |
+| **Open** | A founder decision that has not been made. Listed, never answered here, never invented. |
+
+Sources of truth this document reconciles against: `README.md` (public status), `docs/internal/PLAN.md`
+(architecture direction), `CHANGELOG.md`, `docs/internal/PROGRESS.md`, and — above all — the tree.
+Where an internal doc and the tree disagree, **the tree wins** and the disagreement is recorded under
+[Documentation drift](#documentation-drift).
 
 ---
 
 ## The product, in one screen
 
 ```
-              ┌────────────────────────────────────────────────────────┐
-              │                BeepBite Marketplace                    │
-              │  Central WhatsApp number  +  web at  app.beepbite.io   │
-              │   "find me restaurants in Durban that do biryani"      │
-              └─────────────────────┬──────────────────────────────────┘
-                                    │  slug-routed discovery
-                                    ▼
-       ┌────────────────────────────────────────────────────────────────┐
-       │   Tenant store   /s/myrestaurant-durban                        │
-       │                                                                │
-       │   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐ │
-       │   │   Full POS     │   │   Quick POS    │   │  Kitchen (KDS) │ │
-       │   │  (tables,      │   │ (counter-tap)  │   │ (station bump  │ │
-       │   │   modifiers,   │   │                │   │  + expo screen)│ │
-       │   │   splits)      │   │                │   │                │ │
-       │   └───────┬────────┘   └───────┬────────┘   └───────┬────────┘ │
-       │           │  staff PIN (4-6 digits) attributes every action    │
-       │           ▼          ▼          ▼                              │
-       │   ┌────────────────────────────────────────────────────────┐   │
-       │   │            Orders · Payments · Audit                   │   │
-       │   │   Paystack / Stripe / PayFast (BYO keys per store)     │   │
-       │   └────────────────────────────────────────────────────────┘   │
-       └────────────────────────────────────────────────────────────────┘
-              All surfaces are offline-resilient (Tier 1)
-              and progressing toward full offline (Tier 2).
+                       ┌───────────────────────────────────┐
+   Customer orders ──▶ │   WhatsApp (shop's own Meta keys) │
+   from wherever       │   QR at table / web storefront    │──┐
+   they already are    │   the till itself                 │  │
+                       └───────────────────────────────────┘  │
+                                                              ▼
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │  YOUR HARDWARE — laptop in the back office, machine in the cupboard,   │
+   │  a VM you rent. Nothing phones home.                                    │
+   │                                                                         │
+   │   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
+   │   │   POS    │  │   KDS    │  │  Floor   │  │Inventory │  │ Reports │ │
+   │   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬────┘ │
+   │        └─────────────┴─────────────┴─────────────┴─────────────┘      │
+   │                      one Go binary (chi · pgx · SSE)                   │
+   │                                    │                                   │
+   │                            ┌───────▼────────┐                          │
+   │                            │  your database  │  ← RLS on from creation │
+   │                            └────────────────┘                          │
+   └────────────────────────────────────────────────────────────────────────┘
+                                        │
+                        driver app  ◀───┴───▶  customer tracking link
+
+   Money never passes through BeepBite. Tenders are recorded; the card machine
+   on your counter is still your card machine.
 ```
 
 ---
 
-## Foundation reset — consolidated schema + Row-Level Security
+## Won't — the deliberate non-goals
 
-We treat this as a fresh system. Before any new feature lands, we **fold the existing 46 migrations into 13 clean migrations with RLS baked in from the first table**. The motivation is two-fold:
+These are not unbuilt. They are refused, and the refusal is the product.
 
-1. **Defense in depth.** Handlers trust JWTs for identity but rely on the frontend to pass `organization_id` in filter predicates. That's a single broken handler away from a cross-tenant data leak (see "What's broken"). RLS makes the database refuse the leak even if every handler above it is wrong.
-2. **Comprehensibility.** Forty-six chronological migrations are unreadable. Thirteen domain-scoped migrations — auth & tenancy, menu, inventory, orders & KDS, payments, cash & adjustments, engagement, delivery, shifts & payroll, compliance — let a new contributor learn the schema in an afternoon.
+- **No central marketplace.** BeepBite will not bring a shop customers. It stops a marketplace from
+  owning the ones the shop already has. There is no BeepBite directory, no discovery service, no
+  slug namespace anyone else administers.
+- **No payment facilitation.** BeepBite records tenders — cash, card, transfer, voucher — against
+  the order and reconciles them into the drawer at close. "Card" means the shop's own card machine.
+  No PCI scope, no settlement delay, no cut. The Paystack / Stripe / Yoco facilitator integrations,
+  merchant payouts, bank accounts and subscription billing were **removed**, not deferred
+  (`CHANGELOG.md`, Unreleased → Removed).
+- **No platform pricing.** No tiers, no wallet, no USD price list settled through an FX rate, no
+  metered quotas. A self-hosted binary has nobody to bill.
+- **No hosted service.** No signup, no dashboard anyone else operates, nobody to call.
+- **No mandatory outbound dependency.** A fresh install makes no outbound network calls at all.
+  WhatsApp, maps and any AI feature are each dark unless the operator supplies their own credentials.
 
-The session-variable contract: every authenticated request sets `app.current_user_id`, `app.current_org_id`, `app.current_capabilities` (jsonb) on the connection via `SET LOCAL`. Policies read those values and gate every row. A `service_role` bypass exists for the migration tool and explicitly-scoped admin scripts. Anonymous connections see nothing on tenant-scoped tables; public marketplace endpoints use a tightly-scoped `marketplace_role` that can SELECT only `is_marketplace_visible=true` rows from a whitelist of tables.
+---
 
-This work happens **first** (Wave 0 in [tasks.md](./docs/internal/tasks.md)) and is driven by **opus** agents in three phases:
-- Phase A — one opus designs the consolidation plan and writes the RLS helper functions.
-- Phase B — six opus agents in parallel implement the thirteen consolidated migrations with their RLS policies inline.
-- Phase C — one opus writes the RLS verification suite (anonymous, member-of-org-A, service-role) that becomes the Wave 0 acceptance gate.
+## Shipped
 
-After Wave 0, every subsequent wave's migrations layer on top of the consolidated base — and every new table is RLS-enabled at creation, never after.
+Verified against the tree, not against a plan. Where a claim is narrower than it sounds, it is
+narrowed here.
 
-## What's shipped (foundation)
-
-The schema is far ahead of the UI by design — get the data model right, layer surfaces on top. The consolidated set in Wave 0 absorbs everything below; the legacy 46-migration history will be archived under `backend/migrations/legacy/` for reference.
-
-| Domain | What's live |
+| Area | State |
 |---|---|
-| Tenants & members | Org/location model, org invites, refresh-token JWT, Google OAuth, manager-set-PIN |
-| Staff PIN | `staff` table with bcrypt-hashed PINs, 5-strike / 15-min lockout, staff JWT (audience `"staff"`) |
-| Menu | Categories (recursive), items, item variations, recipes (recursive cost), schedules / dayparts, happy-hour pricing, allergens, dietary tags, 86-list, auto-86 trigger |
-| Orders | Full lifecycle, dine-in via `table_sessions` + `seats`, course firing, split-check, transfer-check |
-| KDS | `kitchen_stations`, `item_station_routing`, `kds_tickets` + events log, fan-out queue + worker, SSE broker, expo view |
-| Cash | Drawer sessions, denomination counts, blind-close, EOD report view, paid-in/paid-out/no-sale movements |
-| Adjustments | Void / comp / price-override / refund with reason codes + manager approval trigger |
-| Payments | Region-scoped Paystack + Stripe managers, per-region webhook routes, bank-account encrypt + Paystack transfer-recipient, weekly payout worker, transfer-webhook reconciler |
-| Inventory | Suppliers, POs, GRNs, 3-way invoice match, ingredient price history, waste reasons, prep batches, recipe cost runner |
-| Reporting | `daily_sales_summary`, `hourly_sales_heatmap`, `menu_engineering`, `labor_hours_daily`, `labor_cost_daily`, `sales_per_labor_hour`, `theoretical_vs_actual_cogs`, `revenue_by_payment_method` |
-| Engagement | Promotions + coupons + line-level discounts, gift cards, store credit, house accounts + invoicing, loyalty config + ledger, reservations + waitlist |
-| Delivery | Delivery zones with polygon + ray-casting lookup, partner integration schema (Uber Eats / DoorDash / Grubhub / Postmates) — schema only; Go runner pending |
-| Compliance | Audit log (polymorphic actor), idempotency keys table, webhook event log, fiscal receipt sequencer (gap-free per location), PII access log, audit retention job |
-| Frontend shell | Shadcn/ui + Tailwind + orange brand, 35+ routes, manager dashboard, full menu editor, KDS station + expo, dedicated `/pos/workspace` ticket UI, cash drawer, promotions, payouts, settings |
+| POS, KDS, floor plan, order lifecycle | **Built.** Full POS workspace (modifiers, courses, splits by seat and amount, void/comp/discount, split tender), Quick POS kiosk, KDS station + expo with per-station routing and a fan-out queue, live floor plan. Covered by integration suites. |
+| Inventory, purchasing, recipes | **Built.** Suppliers, POs, goods receipts, 3-way invoice match, recursive recipe costing, waste, prep batches, the 86 list. |
+| Cash & adjustments | **Built.** Drawer sessions, denomination counts, blind close, paid-in/out, void/comp/price-override/refund with reason codes and manager approval. |
+| Engagement | **Built.** Promotions, coupons, gift cards, store credit, house accounts, loyalty (incl. stamps), reservations and waitlist. |
+| Staff | **Built.** PIN actor-overlay on top of a member session, 5-strike / 15-minute lockout, per-member capability flags, time clock, tip pools, payroll export. |
+| WhatsApp ordering | **Built** — direct Meta Cloud API integration using the **shop's own** credentials. Off entirely without them. |
+| QR-at-table / web storefront | **Built.** Public store page, cart, checkout, order status. |
+| Delivery, driver portal, tracking | **Built.** Zones with polygon lookup, driver assignments and shifts, location pings, public `/track/:token` page with a privacy-gated map. Less exercised than the POS. |
+| Payments | **Tender recording only.** `internal/payments/manual.go` is the only `PaymentProvider` wired into the POS and checkout paths. |
+| Currency, tax and locale neutrality | **Built.** Currency, tax convention, timezone, locale and dial code all resolve per location from configuration. No hardcoded ZAR/South-Africa defaults remain in application logic. |
+| Row-level security | **Built.** Every tenant-scoped table carries RLS from creation; policies read `app.current_org_id` / `app.current_user_id` / `app.current_capabilities` set per request via `SET LOCAL`, with an explicit `OR is_service_role()` escape rather than a `BYPASSRLS` role. A `marketplace_role` can read only `is_marketplace_visible` rows. |
+| Consolidated schema | **Built.** One forward-only `backend/migrations/001_baseline.sql` — 146 tables — folded from the 55-file history and verified byte-identical by a `pg_dump --schema-only` diff of "apply the old chain" against "apply the baseline". |
+| Audit & idempotency | **Built.** Polymorphic-actor audit log carrying `organization_id` (so the owning tenant can actually see its own rows), idempotency keys on mutating POS routes. |
+| Test bar | **Built.** ~20 Go suites under `backend/cmd/tests` including cross-tenant contamination, pen-test probes and RLS verification; CI runs build + vet + gofmt + `go test ./...` + the HTTP smoke suites against a real Postgres, plus the frontend build and Vitest. Playwright renders as a separate job. |
+| Single distributable binary | **Built (Postgres-backed).** The release workflow builds the frontend, embeds it via `site_embed.go`, and cross-compiles one `beepbite` binary for linux/darwin × amd64/arm64, gated on the tag matching `VERSION`. |
+| Screenshots | **Real.** Regenerated by `npm run screenshots` from a live seeded instance (`seedcopper`), never mocked. |
 
-A full migration index lives in `backend/migrations/`. All 46 migrations apply clean from scratch (`go run ./cmd/migrate --env=local --reset`).
+### Foundation reset — consolidated schema + RLS (done, and why it was worth it)
 
----
+This was the first thing done and it still holds. Two reasons, both unchanged:
 
-## What's broken right now
+1. **Defense in depth.** Handlers trust JWTs for identity; before this work, tenant isolation also
+   depended on the frontend passing the right `organization_id` into a generic CRUD endpoint. That is
+   not isolation. RLS makes the database refuse the leak even when the handler above it is wrong.
+2. **Comprehensibility.** A chronological migration history is unreadable. One baseline that a
+   contributor can read in an afternoon is worth more than an archaeological record of how it got
+   there.
 
-Surfaced by the May 2026 audit pass. These are the proximal causes of "kitchen backend is broken" and the cross-cutting risks ahead of the marketplace launch.
-
-1. **Cross-tenant exposure on POS/KDS/cash endpoints** — handlers trust client-supplied `location_id` / `station_id` and never cross-check the caller's org membership. Any valid JWT can read or mutate data across organizations if the IDs are guessed. This is the single most important fix before the marketplace exposes the directory publicly. **The Wave 0 RLS consolidation closes this hole at the database layer; Wave 6 closes it at the handler layer (defense in depth).**
-2. **KDS fan-out fallback is silent** — `pos/store.go` swallows `fanoutInsideTx` errors with `_ = err` and relies entirely on the `kds_fanout_queue` trigger. If the migration didn't deploy, kitchen sees nothing and no log fires.
-3. **Audit actor is always NULL** — auth middleware stores claims under `ctxKey(int)`; `data/audit.go` reads context key `"actor_id"` (string). No row records who.
-4. **Tax rate hard-coded at 15%** — `pos/store.go:150` `const taxRate = 15.0`. Zero-VAT regions overcharge.
-5. **Hard-coded provider in webhook log + payments columns** — `webhook_event_log.provider` CHECK includes `'paystack'`; `order_payments` still has `paystack_reference`/`paystack_status`/`paystack_gateway_response` columns. Multi-provider needs a generic `payment_attempts` table.
-6. **`staff.email UNIQUE NOT NULL` blocks one employee at multiple stores** and prevents the "shared staff account" pattern.
-7. **No store slug** — `/s/:slug` cannot resolve; `locations` has no slug column.
-8. **No frontend marketplace** — store discovery, customer cart, customer checkout do not exist client-side.
-9. **No offline plumbing** — zero service worker, zero IndexedDB, zero mutation queue. A 30-second WhatsApp outage in Durban drops orders.
-10. **Test coverage is thin** — two integration `_test.go` files + an HTTP runner that covers ~30% of critical paths. No CI runs Go tests. No pen-testing. No cross-tenant probing.
-
-Each of these has a corresponding task in [tasks.md](./docs/internal/tasks.md).
+The fold was safe **only because BeepBite has no production database** — the baseline's own header
+says so. That is a one-time licence. Every migration from here is forward-only and additive, and any
+future consolidation has to reconcile rather than replace.
 
 ---
 
-## Now — committed v1 scope
+## Broken / unverified
 
-The horizon line: launch the central marketplace, lock the platform against cross-tenant abuse, and ship the breadth of features that competes with Toast / Square / Loyverse on day one. Items are tracked as Now-0 through Now-22 below; each maps to one or more execution waves in [tasks.md](./docs/internal/tasks.md). "Now" doesn't mean "all simultaneously in flight" — it means "committed; in the active backlog." Wave 0 unblocks everything.
+A feature that silently does nothing is worse than one that says it isn't built.
 
-### Now-0 — Foundation reset (consolidated migrations + RLS)
-Folding the 46 chronological migrations into 13 domain-scoped migrations with Row-Level Security baked in from creation. Opus-driven, three phases (plan → parallel implement → verify). Acceptance gate: a verification suite proves anonymous = no access, member-of-org-A = only org-A rows visible, service-role = full access. Until this lands, every other wave is provisional.
+1. **Online payments have never been run against a live processor.** The optional gateway path
+   (verify-on-return, fail-closed) is unit- and integration-tested but **UNVERIFIED AGAINST LIVE** —
+   `docs/ONLINE-PAYMENTS.md` says so itself. A real `checkout → pay → return → verify → confirm` round
+   trip per processor is the outstanding work. Until then it cannot be promised to anyone.
+2. **Offline is scaffolding, not a feature.** `src/offline/` has ULID generation, an idempotency
+   helper, a mutation queue and an SSE cursor. Nothing in the app imports them — only the unit tests
+   do. A network blip today loses what it always lost.
+3. **No channel-adapter abstraction.** WhatsApp and web ordering are two direct integrations that
+   happen to converge on the same order stream. "Channel-agnostic" is the intent and not yet the
+   architecture; adding Discord, Slack or email today means writing a third bespoke integration. The
+   near-term fix is Now-3's in-house seam. The destination that seam is built to host is not a growing
+   pile of in-house per-platform plugins, though — it's Stage 3 of the DMTAP plan below, which deletes
+   the direct integration entirely rather than abstracting it. Gated; see there.
+4. **Postgres is required.** The single-binary property is real; the single-*file* property is not.
+   There is no SQLite driver in `go.mod`, and no store abstraction to put one behind.
+5. **Platform-era surfaces are still linked in.** `handlers/admin` (platform-admin gate),
+   `handlers/customdomains` (Fly.io certificate issuance), `handlers/wanumbers` (central WhatsApp
+   number pool) and the platform-issuer half of `handlers/invoicing` were built for a hosted product
+   that no longer exists. They compile, they are mounted, and nothing in the current direction wants
+   them. See [Open](#open--founder-decisions).
 
-### Now-1 — Billing model + wallet + quotas + multi-LLM provider abstraction
-**Priority workstream — everything customer-facing meters against this.**
+---
 
-Tuned model (final): **Free / Starter $39/loc / Growth $249/loc / Scale $799/loc**, with wallet as the universal overage backstop. 90-day inactivity auto-pause on free tier. Profitable at 100 tenants with as little as 10% paying conversion; pure-platform unit margins 53-95% across the paying band. Numbers are grounded in published rates (Meta WhatsApp BCAPI, Anthropic Sonnet 4.5, Twilio, Fly, R2) — see `pricing/` folder.
+## Documentation drift
 
-Implementation:
-- **Wallet** per org (USD-denominated balance, currency-converted on top-up via the tenant's payment provider). Append-only `wallet_transactions` ledger, idempotency-keyed.
-- **Wallet is the single funding mechanism.** Tier base fees + overages all debit the same wallet. No separate subscription billing — invoices are a *record* of debits, not the payment trigger.
-- **Auto-refill** (default ON for paid tiers): tenant saves a payment method (tokenized via their configured provider), sets `auto_refill_threshold` (default $5) and `auto_refill_target` (default $50). Nightly cron charges the saved card to top up when balance dips below threshold. Configurable per org; can be disabled by tenants who prefer manual top-ups.
-- **Quotas** per resource (`orders`, `whatsapp_outbound`, `llm_messages`, `email_outbound`, `bulk_imports`) per location per billing period. Free tier enforced as hard cap; paid tiers consume includes-then-overage debited in real-time.
-- **Metering middleware** stamps every metered handler call into `wallet_transactions` + `quota_usage`.
-- **Dunning ladder** on auto-refill failure: retry in 24h → if still fails, email + WhatsApp + dashboard banner → day 7 degrade (LLM/WhatsApp/SMS disabled, POS keeps working) → day 14 auto-pause → connects to the existing 90-day inactivity cleanup.
+Recorded rather than quietly fixed, because a stale doc that nobody flags is how a roadmap rots.
 
-**BYO email (SMTP / Resend / SendGrid / Mailgun / SES) — same pattern as BYO payment keys**:
-- Default: BeepBite's central Resend account; outbound emails metered against the org's `email_outbound` quota; overage drains wallet at the tier's email rate.
-- Optional: tenant pastes their own email-provider keys + sender domain in settings. When configured, their outbound emails go through their provider and DO NOT metric against our quota (they pay the provider directly).
-- One unified `email_providers` registry + per-store credentials table, mirroring the payment-provider abstraction from Now-4.
+- **`README.md` Status table understates `/track`.** It reports the flat-vs-nested payload mismatch as
+  a live bug. It was fixed in `7739452` by `normalizeTracking()` in `src/services/tracking.js`, which
+  also corrected the page's status vocabulary (`canceled` → `cancelled`) and replaced the hidden-div
+  map fallback with a real empty state. The README line needs updating; this document does not own it.
+- **`docs/internal/tasks.md` describes the platform era.** Its wave plan (central marketplace, wallet
+  and quotas, USD billing via FX, platform admin, custom domains) is the direction this document
+  replaces. It survives as a **domain spec for POS behaviour** and as the historical record of how the
+  shipped surfaces were built. It is not a plan any more, and no task in it should be picked up
+  without checking it against this file first.
+- **`docs/internal/PROGRESS.md` "Not Started" list is wrong.** It lists waves as unstarted that are
+  demonstrably in the tree and mounted in `cmd/server/main.go`. Its dated round-by-round log is
+  accurate and useful; its checklist is not.
+- **FX survived, but as something else.** `internal/fx` is an **off-by-default converter seam for
+  consolidated multi-location reporting** — a three-currency operator wanting one set of books. It is
+  not platform pricing, it makes no network call when disabled, and it never rewrites a stored amount.
 
-**Multi-LLM provider abstraction** — and this is critical for cost control:
-- We support **Anthropic Claude, OpenAI GPT, Google Gemini, Moonshot Kimi** out of the box. Routing per task: customer chat → cheapest capable model (Haiku / GPT-4o-mini / Gemini Flash); owner chat → mid-tier (Sonnet / GPT-4o / Gemini Pro); bulk vision imports → vision-capable best (Sonnet / GPT-4o / Gemini Pro).
-- **No provider configured (no API key in env) → that provider is silently disabled.** Models not in our pricing data → also disabled. No manual list maintenance.
-- **Dynamic model discovery**: at boot and every 6h, call each enabled provider's `GET /v1/models` (or equivalent) to enumerate currently-supported models. New models the provider releases become available the day they ship.
-- **Dynamic pricing sync**: nightly job fetches `model_prices_and_context_window.json` from [BerriAI/litellm on GitHub](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) — the community-maintained source-of-truth for LLM token costs across every major provider. Stored in `llm_model_pricing` table with `updated_at` and `source`. Pricing changes by Anthropic / OpenAI / Google flow through within 24h. Local fallback snapshot in the repo for offline / rate-limited cases.
-- **Cost-aware routing**: at request time, the router picks the cheapest model that has the capabilities the task needs (vision, tool-use, context-length). Tenants see the *same* customer-facing price — our margin compounds.
+---
 
-**Self-protection guardrails (non-negotiable — these stop us being abused):**
+## Now — committed
 
-| Risk | Defense |
+Ordered. Each item is a promise a shop owner would recognise, and each is reachable from the code
+that exists today.
+
+### Now-1 — Verify the optional online-payment path, or turn it off in the docs
+A remote order placed over WhatsApp or the web storefront has no counter to pay at. The verify-on-return
+seam solves that without the box being publicly reachable: the customer's browser carries the settlement
+event back, and BeepBite does exactly one authoritative verify, fail-closed. What is missing is proof.
+Run a live sandbox round trip per processor; until each one passes, the honest status stays UNVERIFIED
+and the default build — which links no gateway code at all — remains the shipped default.
+
+> *"Take payment for a delivery order without opening a port, and without us ever holding your money."*
+
+### Now-2 — Wire the offline scaffolding into the app (Tier 1)
+Client-generated ULIDs, an `Idempotency-Key` on every mutating POS call, an IndexedDB mutation queue
+that drains on reconnect, a service worker caching the app shell and the menu snapshot, and the KDS SSE
+`since_event_id` cursor so a reconnecting screen replays what it missed. The pieces exist; nothing uses
+them. Tier 1 buys **30 seconds to two minutes** of outage tolerance with no behavioural compromise —
+that is the whole claim, and it is not "offline POS".
+
+> *"A dropped connection at the till costs you nothing. The order is already yours."*
+
+### Now-3 — A real channel-adapter seam
+One interface behind which WhatsApp, the web storefront and anything after them are plugins: inbound
+message → order intent → the same order stream, outbound status → the channel that placed it. This is
+the prerequisite for every "and also Discord / Slack / email" sentence anyone has ever written about
+this product, including the DMTAP ones below. Until it exists, those sentences are marketing.
+
+**Design constraint, carried forward from the `store.Merger` precedent in Now-5/Stage 2.** The
+interface must stay generic enough to host more than one messaging mechanism behind it — today's
+direct Meta Cloud API calls, a DMTAP-gateway-backed implementation (Stage 3 below), or something else
+again — selected per deployment, never hard-coded. The seam owns the boundary between "an order
+arrived" and "how it arrived"; it does not get an opinion about what's on the other side of it. DMTAP
+is one possible implementation behind this seam, not the only shape the code is allowed to take.
+
+> *"Customers order from wherever they already are — and adding a new 'wherever' is a plugin, not a rewrite."*
+
+### Now-4 — SQLite behind a store seam, and the single-file install
+Pure-Go `modernc.org/sqlite`, no cgo, so the binary stays static and the install stays "copy one file
+and run it". Postgres remains supported and stays the tested path for anything multi-site. The work is
+the seam first, the driver second; RLS has no SQLite equivalent, so the tenant-scoping guarantee has to
+be re-proved above the database on that path — that is the hard part and it is not optional.
+
+> *"One file to copy, one process to run, one file to back up."*
+
+### Now-5 — Multi-branch sync: HLC oplog, manual peer enrollment
+The unit of authority is the **branch**, which is what makes this tractable at all: orders, order
+sequence numbers, the cash drawer, table state and shifts have exactly one writer, so money and
+sequencing have no conflicts to resolve. Menu, pricing and staff are group-owned and replicated down.
+Stock movements, sales events, audit rows, GPS trails and earnings are append-only and union-merged —
+quantities are `SUM(qty)` at read time, **never a stored counter**, which is the answer to "two tills
+sold the last steak": concurrent offline sales add rather than clobber and land correctly at −2.
+
+Transport is symmetric, stateless push/pull rounds with version vectors derived from the oplog;
+discovery is deliberately manual (an operator types the other branch's URL into Settings → Sync);
+auth is mutual Ed25519 over a canonical envelope with a nonce replay cache, TOFU only at pairing and
+fail-closed after. A shared folder — Dropbox, Syncthing, a NAS, a USB stick — is a supported transport,
+because each node appends only its own `ops-<node_id>.jsonl` and no write conflict is possible.
+
+> *"Two branches, one menu, no server in the middle — and a USB stick works when the line is down."*
+
+### Now-6 — Dispatch (Thuma v0): work orders, bids, assignment
+A generic work-order core with delivery as the only implemented profile. A courier is an Ed25519
+keypair from day one; staff drivers and independent couriers are the same object with a different trust
+source behind a `CourierTrust` seam, so shipping staff mode first does not require a rewrite later. Job
+posted is branch-owned, bids are insert-only union, assignment is the branch's decision, job status is
+last-writer-wins keyed to the assignee, GPS is append-only, earnings are a `SUM`. **The contended
+decision has a natural single authority: whoever cooked the food decides who carries it.** No consensus
+protocol, no leader election, no distributed lock.
+
+> *"Your drivers, your dispatch, your rules — no platform taking a cut of the delivery."*
+
+### Now-7 — `docs/THUMA.md` + `dispatch_vectors.json`
+An in-repo v0 spec with RFC rigour — numbered sections, MUST/SHOULD, explicit encodings, error codes —
+and **no compatibility guarantee**. Three format decisions make later expansion possible: a
+version/suite field in every object; CBOR with integer keys plus an explicit ignore-unknown-keys rule
+and *reserved* forbidden keys so mistakes are detected rather than tolerated; and an unknown-kind rule
+(unimplemented kinds are silently ignored, never acked, never rejected).
+
+The vectors matter more than the prose. A second implementor can build from vectors plus mediocre prose
+and never the reverse — which is exactly the lesson the DMTAP section below is built on.
+
+### Now-8 — Hold the security bar that already exists
+Not a feature; a standing commitment. Cross-tenant contamination, auth and session adversarial probes,
+injection and abuse suites stay green, and every new tenant-scoped table is RLS-enabled at creation,
+never after. The bar: every adversarial probe is 403, 404 or a hard 400 — never a 200 leak.
+
+> *"The database itself refuses to leak. Even a buggy handler cannot show one shop's data to another."*
+
+---
+
+## Later — deferred behind triggers
+
+Not committed. Each gets pulled into Now when its trigger fires.
+
+| Item | Trigger |
 |---|---|
-| Zombie free tenants compounding loss | **90-day inactivity auto-pause**. Day 30 warning email/WhatsApp, day 60 dashboard banner, day 75 pause scheduled, day 90 pause executed (read-only, store URL shows "temporarily closed"). Reactivate by upgrading or topping up wallet $5. Day 180 still paused → soft-delete (30-day recoverable) → hard-delete. |
-| Free-tier farming (one person creating many free orgs) | One free tier per verified identity. Signup fingerprinting (same IP + device + payment instrument cluster) limited; second free org from same cluster requires wallet top-up. |
-| Anonymous WhatsApp scraping our LLM | Hard rate-limit on unbound numbers (Wave 17 link flow): 5 LLM messages then the bot only sends the link-binding nudge. |
-| Runaway LLM loop (tool call cycles, prompt injection) | Max 50 turns per conversation; max 10 sequential tool calls without user input; hard token budget per turn (5k input / 1k output). Breach → conversation reset + audit row. |
-| Bulk-import cost blast | Vision-call rate limit per tenant per day; uploads above 100 items per single import require human review before committing. |
-| Wallet drain attack (compromised owner account spamming) | Daily wallet-drain ceiling (e.g. 50% of balance/24h or $200/24h whichever higher) — beyond that requires re-PIN. Owner gets push + email on every $20+ debit. |
-| WhatsApp marketing category abuse (10× cost of utility) | Marketing-category sending disabled by default; owner must explicitly opt in per location. Caps on broadcast size. |
-| Customer-side abuse (mass orders, no-shows) | Per-customer order rate limit; no-show tracking on `customers.no_show_count` with auto-block past N strikes. |
-
-Every guardrail is auditable (writes `audit_log`), reversible (manager unlock from `/manager` dashboard), and tested in Wave 15 pen-tests.
-
-### Now-2 — Safety: tenant isolation, audit attribution, KDS resilience
-- Shared middleware: `RequireOrgScope` resolves the caller's org from `organization_members`, injects into context, every handler cross-checks `location_id`/`station_id` against it.
-- Fix audit actor context key. Every financial mutation writes an `audit_log` row with non-null `actor_id`.
-- Explicit `INSERT INTO kds_fanout_queue` in the `pos.CreateOrder` fallback branch. Dead-letter cap on the fan-out runner.
-
-### Now-3 — Marketplace foundations
-- `locations.slug` + `city` + `country` (ships in Wave 0 / migration 008). Slug is URL-safe, unique.
-- Public endpoint: `GET /stores` (search by slug, name, city, geo radius) — no auth.
-- Public endpoint: `GET /stores/:slug` (store profile + menu snapshot).
-- Frontend marketplace surfaces: `app.beepbite.io/discover` (central directory), `app.beepbite.io/store/:slug` (menu + cart), `app.beepbite.io/checkout`.
-- **Per-store subdomain**: `mystore.beepbite.io` — wildcard DNS at Fly.io, wildcard TLS via `fly certs add '*.beepbite.io'`. Backend middleware extracts subdomain from `Host` header, resolves to `location_id` via slug. Frontend reads `window.location.hostname`, auto-routes the SPA to that store's customer page. Reserved subdomains: `app`, `api`, `www`, `admin`.
-- `app.beepbite.io/s/:slug` (or simply `mystore.beepbite.io/s`) is the staff PIN keypad for that store.
-
-### Now-4 — Generic multi-provider payments (BYO keys) + on-delivery fallback
-- `payment_providers` registry, `location_payment_credentials` (per-store encrypted keys + webhook secret per provider), `payment_attempts` keyed by provider txn id (ships in Wave 0 / migration 008).
-- Go `PaymentProvider` interface; thin adapters wrap Paystack and Stripe. New providers are one map entry.
-- Unified webhook: `POST /webhooks/:provider/:location_id` dispatches on provider string.
-- Frontend: settings → Payments tab to paste keys, see the auto-generated webhook URL, copy step-by-step provider-dashboard instructions.
-- **On-delivery payment fallback**: if a store has not configured any online provider, they must enable at least one of: **cash on delivery** or **card machine on delivery** (the merchant handles their own deliveries; the card machine sits with the driver). Stored as `locations.on_delivery_payment_methods text[]`. Customer checkout offers these options instead of an online-payment redirect; the order is created in `pending_on_delivery` status and marked paid by staff after the handover.
-
-### Now-5 — Staff PIN as actor-overlay (not a parallel session)
-- Member JWT logs the device in to a store; PIN identifies the actor for that action.
-- New endpoint: `POST /pos/pin-verify` returns a short-lived actor token layered on the member session.
-- Middleware `ActorFromContext` reads either the staff JWT (legacy) or the overlay actor.
-- Capability flags on `organization_members`: `can_pos`, `can_kitchen`, `can_void`, `can_comp`, `can_settle`, `can_view_reports`. `kitchen` and `pos` added to role CHECK.
-
-### Now-6 — Roles + capabilities, flexible by design
-- Generic `staff` role + distinct `kitchen` / `pos` roles + per-member capability overrides. Owners can mint "kitchen person who can also ring up takeout" without inventing new roles.
-- Capability check helper in Go; route guards in React.
-
-### Now-7 — Drivers, delivery portal, live tracking
-- **Stores opt in to delivery and/or collection.** A store can offer collection only, delivery only, or both. The marketplace surface shows only what's offered.
-- **`driver` role + `can_drive` capability.** A store owner invites a driver by email; the driver signs up (Google OAuth or email verify) and the invite auto-accepts on email match — they then have driver-role membership in that org.
-- **Central driver portal at `/driver`** — anyone can navigate to it. If signed-in user has no `driver` role anywhere, the page explains: "Ask the restaurant that hired you to invite the email you signed up with." Otherwise it shows the union of active deliveries across every org that has invited them. One driver, many restaurants.
-- **Uber Eats-style live updates.** Driver app pings location every 5–10 seconds while a delivery is active; pings stop when delivered or canceled. Driver toggles online/offline.
-- **Customer-facing live tracking** at `app.beepbite.io/track/:token` (or `mystore.beepbite.io/track/:token`). The token is order-scoped, short-lived, and tied to the customer's JWT. The page shows store location, customer address, and the driver's marker — but only if **(a)** the driver is currently within ~5 km of the delivery address, **(b)** the order is in `out_for_delivery`, and **(c)** the requestor matches the order's customer. Outside the radius the page shows ETA only, not exact location. Same privacy posture as Uber Eats.
-- **Driver privacy.** Location pings retained 7 days, then aggregated. Driver controls visibility per shift; emergency contact + "share trip" with a chosen contact.
-
-### Now-8 — WhatsApp number ↔ email account binding
-- Every WhatsApp number that talks to the bot is bound to exactly one BeepBite account (an `auth_users` row). Max **3 numbers per account** — covers personal + work + family lines.
-- **First-touch flow**: when the bot receives a message from an unknown number, it replies with a single message: "Welcome — sign in to start ordering: `app.beepbite.io/link-whatsapp/<short-token>`". The token expires in 15 minutes.
-- The link lands on a page that requires JWT (Google OAuth or email-verify); after auth, the page asks: "Do you want to add **+27 …** to your BeepBite account?" One tap → bound. The bot is notified and the next inbound message proceeds straight into the menu.
-- If the account already has 3 numbers, the page shows a "manage numbers" view first — replace one to add the new one.
-- **Why this matters**: orders are tied to real accounts, not anonymous phone numbers; we can show order history; live tracking links require the same JWT to view.
-
-### Now-9 — Customer chat assistant
-A general-purpose chat surface for marketplace customers that fronts the same flows the WhatsApp chatbot exposes — plus more. Implemented with Claude (Anthropic API, prompt caching enabled) using **tools**:
-- `get_user_location` — read from browser geolocation API or WhatsApp location share.
-- `search_stores(q, lat, lng, radius_km)` — public marketplace search.
-- `get_store_menu(slug)` — current menu snapshot for the store.
-- `get_item_details(item_id)` — pricing, modifiers, allergens.
-- `add_to_cart(item_id, qty, modifiers)` — adds to the current customer's cart for that store.
-- `view_cart()` / `confirm_order()` — submits.
-- `track_order(order_id_or_token)` — returns the same data the `/track/:token` page shows, in chat form.
-
-Surfaces:
-- **Web**: chat panel on `app.beepbite.io` + on per-store subdomains. The customer's JWT scopes tool calls.
-- **WhatsApp**: same agent, same tool registry, message-passing transport. The first inbound message still goes through the link-token flow (Wave 17) so the LLM has a real account to act on.
-
-Metering: every assistant message increments the org's `llm_messages` quota; tokens-in/tokens-out and total cost recorded in `llm_messages` + `llm_tool_executions` rows.
-
-### Now-10 — Manage your store from WhatsApp (owner assistant)
-Restaurant owners run their store from WhatsApp with a chat assistant. Same Claude-API backbone, different tool registry:
-
-**Direct commands** (shortcut path; no LLM needed for clarity):
-- `/86 jollof` — flips `is_86ed=true` on the matching item.
-- `/price jollof 75` — sets price.
-- `/sales today` — replies with `daily_sales_summary` for today.
-- `/help` — lists commands.
-
-**LLM tools** (free-form natural-language path):
-- `list_items({location_id?, category_id?})`, `create_item`, `update_item`, `delete_item`, `set_price`, `eighty_six_item`, `un_eighty_six_item`.
-- `list_categories`, `create_category`.
-- `import_menu_from_pdf({file_url, location_id})` — uses Claude vision to extract items + prices from a PDF menu; produces a draft for owner approval before commit.
-- `import_menu_from_image({file_url, location_id})` — same for images (photo of a printed menu).
-- `import_menu_from_csv({file_url, location_id})` — parses spreadsheet rows into items.
-- `import_menu_from_xlsx({file_url, location_id})` — same for Excel.
-- `bulk_update_prices({file_url, location_id})` — CSV with `sku, new_price` rows; flips prices in one transaction with audit attribution.
-- `view_today_sales({location_id})`, `view_kds_status({location_id})`, `view_low_stock({location_id})`.
-- `invite_driver({email})`, `invite_staff({email, role, capabilities})`.
-
-Every tool call is metered, audited, and scoped by RLS via the owner's actor session. Bulk imports go through a draft → review → commit flow (owner can edit before applying).
-
-### Now-11 — USD billing via FX
-- Platform prices subscriptions in **USD**; restaurants are charged in their local currency via Paystack using a fresh FX rate.
-- New schema: `exchange_rates` table (per currency pair, source, fetched_at) + `subscription_invoices` carry both USD amount and local-currency amount with the rate snapshot.
-- Hourly (or 2-hourly) FX fetch from a free-tier provider (selection task in [tasks.md](./docs/internal/tasks.md)).
-
-### Now-12 — Public API + scoped API keys + tenant webhooks
-Restaurants want to plug BeepBite into Xero, Quickbooks, Mailchimp, custom dashboards. Without an API we're a closed system.
-- `api_keys` table: `id, org_id, name, prefix_visible, key_hash (bcrypt), scopes text[], expires_at, last_used_at, created_by, revoked_at`.
-- Key format: `bb_live_<random32>` / `bb_test_<random32>` (Stripe shape). Plaintext shown once at create, never again.
-- **Scopes** (granular like GitHub's): `read:menu`, `write:menu`, `read:orders`, `write:orders`, `read:reports`, `read:customers`, `write:webhooks`, `write:items`, `read:staff`, `write:staff`, `read:inventory`, `write:inventory`, etc.
-- Authentication middleware: `Authorization: Bearer bb_live_…` → look up key → set `app.current_org_id` + `app.current_capabilities` via Wave 0 RLS contract. Same data layer, no parallel API surface.
-- **Rate limiting** per key (1000 req/min default, configurable per tier).
-- **Tenant webhook subscriptions**: `webhook_endpoints` (org_id, url, signing_secret, events[], active). Server emits signed POST on `order.created`, `order.paid`, `order.refunded`, `item.created`, `item.updated`, `staff.invited` with `X-BeepBite-Signature: t=…,v1=…` (Stripe-compatible).
-- **Audit** — every API call writes `audit_log` with actor_type=`api_key`.
-- Settings UI at `/settings/api-keys` — create / list / revoke. Last-used timestamp visible.
-
-### Now-13 — Custom domains (CNAME from `www.theirstore.com`)
-Tenants bring their own domain. Like Shopify, Substack, Webflow, Cal.com.
-- `custom_domains` table: `id, location_id, hostname, status (pending → verifying → verified → cert_issuing → live → failed), verification_token, verified_at, cert_issued_at, removed_at`.
-- **TXT-record verification before activation**: tenant adds `_beepbite-verify.www.theirstore.com TXT <token>` + `www.theirstore.com CNAME mystore.beepbite.io`; clicks "Verify"; we resolve both records.
-- **Auto-cert via Fly.io**: backend calls Fly's certs API (`fly certs add www.theirstore.com`); Let's Encrypt issues; we poll until live. 10s–2min typical.
-- **Host middleware** extended: `Host` header matches `custom_domains.hostname` → resolves to `location_id`. Reserved subdomains still skip lookup.
-- **HTTPS-only + HSTS** mandatory. Cookies are per-host (never `Domain=.beepbite.io`).
-- **Apex domains** (`theirstore.com` no www): supported only via DNS providers offering ALIAS/ANAME (Cloudflare, Route 53, Netlify, DNSimple). Documented in the verify UI.
-- **Auto-revoke** on tenant churn or custom domain removal.
-
-### Now-14 — Easy wins (10 POS quality-of-life features)
-Things competitors ship that we don't — each one ≤1 day of work, big customer-experience uplift:
-1. **Customer note on order** ("no onions") — free-text field on every order; visible on KDS ticket and printed receipt.
-2. **Auto-gratuity for parties ≥N** — config flag per location; adds 18% as a line item when seated party ≥6.
-3. **Receipt reprint** from order history — owner / cashier search past orders and re-emit receipt.
-4. **Quick re-order** ("the usual?") — last-3 orders per customer, one-tap to clone into cart.
-5. **Customer search by phone** — indexed lookup, opens customer detail with recent orders.
-6. **Cash-out report at shift close** — joins cash drawer + member shift; shows what staff member owes the till.
-7. **Pickup time slots** at checkout — time-slot capacity per location; smooths kitchen load.
-8. **Group order on WhatsApp** — multiple bound numbers contribute to one cart; one bill, split optional.
-9. **Loyalty stamps** ("buy 10 get 1 free") — lightweight overlay on `loyalty_transactions`; configurable per item.
-10. **Item daily countdown** ("5 left of jollof today") — `daily_quantity` + decrement on order; visible to chatbot and marketplace.
-11. (bonus) **Order modification before fire** — customer / cashier can edit order until KDS accepts it.
-
-### Now-15 — Observability + multi-region deploy
-Foundational. Without this, we're flying blind in production.
-- **Structured JSON logs** with request ID + tenant ID + actor ID stamped on every line. Shipped to a hosted log sink (Better Stack / Axiom / Logtail — pick cheapest with adequate retention).
-- **OpenTelemetry traces** on every HTTP request and DB query. Span attributes include tenant ID, actor ID, route. Hosted at Honeycomb free tier or Grafana Cloud free tier.
-- **Metrics** (Prometheus / OpenMetrics) — request rate by route, p50/p95/p99 latency, error rate, DB pool saturation, queue depth (KDS fanout, payouts, FX sync, LLM sync), wallet debit rate.
-- **Error tracking** (Sentry free tier or GlitchTip self-hosted) — every panic, every 5xx, every unhandled exception in the React frontend.
-- **Multi-region Fly deploy** — primary region in JNB (Johannesburg) for ZA latency; replica regions in IAD (US east), AMS (Europe), SIN (Asia). Fly auto-routes by user geo. Postgres replicated read-only with primary in JNB.
-- **Status page** at `status.beepbite.io` (Statuspage or self-hosted Cachet) — uptime + ongoing incidents per surface.
-
-### Now-16 — Platform admin tool (internal BeepBite ops)
-Internal dashboard at `admin.beepbite.io` (subdomain-gated to BeepBite team members only). Restaurant support, billing exceptions, abuse response.
-- **Tenant search**: by org id, slug, owner email, phone, custom domain.
-- **Tenant detail**: tier, wallet balance, recent transactions, active alarms (low wallet, inactivity warning, pen-test finding).
-- **Force actions**: pause / unpause org, refund stuck wallet topup, reissue API key, override quota for a billing period, send a system-wide announcement.
-- **Health views**: tenants in 60-day-warning state, free-tier graduation funnel, churn signals.
-- **Abuse response**: signup-fingerprint cluster view, suspicious LLM usage patterns, marketing-broadcast misuse.
-- Auth: only BeepBite team members with `is_platform_admin=true` on `auth_users` can access. Every action audited.
-
-### Now-17 — Receipts (PDF + email + WhatsApp + reprint)
-Tax-compliant in many regions; expected by customers everywhere.
-- Receipt generation as PDF (using a Go PDF library — gofpdf or jung-kurt/gofpdf) with the store's logo, fiscal receipt number (Wave 0 already supports), itemized lines, taxes, tip, total.
-- **Delivery channels**: email via Resend, WhatsApp as attachment via Cloud API, download link in customer chat.
-- **Customer receives** automatically on order completion (configurable per location: email yes/no, WA yes/no).
-- **Staff can re-emit** from order history (Easy Wins #3).
-- Receipts stored in R2 with 7-year retention default (configurable per location for legal compliance).
-
-### Now-18 — Customer marketplace reviews
-Customer rates and reviews after delivery. Different from current `/reviews` which is restaurant-internal CSAT.
-- `marketplace_reviews` table: `order_id, customer_profile_id, location_id, stars (1-5), text, photos[], verified_purchase=true (by definition), created_at`.
-- Customer is prompted via WhatsApp / email 1 hour after delivery: "How was your order? Rate 1-5 ★ at <link>".
-- Reviews appear on the store's marketplace page and per-store subdomain.
-- Aggregate `avg_rating` and `rating_count` materialized on `locations`; refreshed on each new review.
-- Owner can reply (already-shipped reply column from Wave 4 reused).
-- Abusive review detection via the LLM router (a small classifier prompt; flagged reviews queued for manual review).
-
-### Now-19 — Hardware integration (ESC/POS printers, scanner, customer display)
-Real-world POS expectation.
-- **ESC/POS receipt printer** driver: USB or network (port 9100). Drive Epson TM-T series, Star, generic ESC/POS. Hardware abstraction layer in Go; per-location configured printer endpoints.
-- **Kitchen printer** routing: per-station printer mapping (using the same ESC/POS driver). Item routes to the matching station's printer in addition to the KDS screen.
-- **Barcode scanner** support: keyboard-emulating USB scanners (work out of the box in browser); fire a "barcode scanned" event in POS, lookup `items.sku`.
-- **Customer-facing display** mode: a second tab opened in a second window shows the line items as the cashier rings them up. Real-time via shared state. Optional tip selector at end.
-- **Scale integration** (for weight-priced items): serial-port via WebSerial API in Chrome; price calculation = `weight_g × price_per_g`.
-
-### Now-20 — Internationalization (i18n) + accessibility
-Global product, English-only today.
-- **i18next** (frontend) — start with English, Afrikaans, Zulu, isiXhosa, Portuguese, French, Spanish, Arabic, Hindi. Per-tenant default language; per-user override.
-- **Customer chat assistant** auto-detects message language and replies in kind (passes through Claude system-prompt instruction).
-- **WhatsApp templates** translated per region. Multiple templates approved with Meta per language.
-- **Accessibility** (WCAG 2.1 AA): keyboard navigation, focus indicators, ARIA labels, screen-reader testing on POS workspace + KDS + customer marketplace.
-- **RTL** support for Arabic.
-
-### Now-21 — Backups + disaster recovery + GDPR/POPIA data deletion
-Compliance and reliability.
-- **Postgres backups** — Fly's managed snapshots (every 12h, 14-day retention) + an hourly logical dump via `pg_dump` to R2 for an additional 90-day retention. WAL-G if we need point-in-time recovery.
-- **Quarterly restore drill** — restore the latest backup to a staging instance, run a smoke suite, verify RPO ≤1h and RTO ≤2h. Document the runbook in `docs/internal/dr-runbook.md`.
-- **R2 object storage** — versioned + replicated to a second R2 bucket cross-region.
-- **GDPR / POPIA data deletion flow**:
-  - "Delete my account" button in `/settings/account`. 30-day soft-delete (recoverable), then hard-delete.
-  - Tenant data export: `POST /settings/data-export` produces a JSON archive of all org-scoped data (orders, customers, menu, staff, audit log) within 24h, available as a one-time R2 link.
-  - Per-customer right-to-be-forgotten: an owner can purge a customer's PII (name, phone, email, addresses) while preserving the anonymized order rows for accounting.
-- **Audit-log retention policy** — already partially shipped (Wave 4); confirm 7-year retention for financial mutations.
-
-### Now-22 — POS dual UI hardening (full + quick)
-Covered by Wave 11. The data model (modifier_groups, modifiers, courses, tax_rates) ships in Wave 0; this is the UX and handler work on top.
-- **Full POS workspace** at `/pos/workspace`: modifier picker on item tap; course assignment + "fire next course"; splits by seat + by custom amount; void / comp / discount inline (not in `/dev/adjustments`); seat assignment; tender split across cash / card / gift / house-account.
-- **Quick POS at `/q/:slug`**: chrome-less kiosk mode, counter-service quick-tap, one-tap tender with denomination calc. Same backend as full POS — only UX differs.
-- Modifiers and courses inherit the audit log + capability gating from elsewhere.
-
-### Now-23 — KDS hardening
-Covered by Wave 12. Two-track work: ship the missing features and fix the audit-surfaced quality problems.
-- **Category-level station routing** (currently item-level only); display-group config for which screens show which stations.
-- **Bump-bar keyboard hotkeys**: 1-9 to bump Nth ticket, `r` recall, space bump focused, `?` overlay.
-- **Fix the N+1 queries** in `GetTicketDetail` and `ListStationTickets` — Q1 audit flagged them at 1+3N and 1+N respectively.
-- **Owner station-config UI** at `/settings/kitchen` — drag categories → stations, configure display groups.
-
-### Now-24 — Offline Tier 1 (network resilience)
-Covered by Wave 13. Targeting loadshedding + global flaky-network resilience. **Tier 1 buys 30s–2min outage tolerance** without behavioral compromise.
-- Service worker (Vite PWA) caches app shell + per-store menu snapshot.
-- Client-generated ULID order IDs and line-item IDs (migrations in Wave 0 already accept client IDs).
-- `Idempotency-Key` header on every mutating POS endpoint; deduplicated server-side via the existing idempotency_keys table.
-- IndexedDB mutation queue with reconnect-and-retry; optimistic UI rolls back on conflict.
-- KDS SSE gains a `since_event_id` cursor — reconnecting client replays missed events.
-- Tier 2 (real offline POS) is in [Wave 33 / "Later"](./docs/internal/tasks.md).
-
-### Now-25 — Testing infrastructure + pen-test workstream
-Covered by Waves 14 and 15. Tests are a roadmap-level commitment, not a chore.
-- **Fixtures + ephemeral Postgres** for self-contained `go test`.
-- **Smoke suite** (~30s) on every push.
-- **E2E suite** (~5min) pre-deploy.
-- **Cross-tenant contamination** suite — every authenticated endpoint probed with org-B JWT against org-A resources.
-- **Opus-driven pen-tests** weekly: auth, IDOR, injection, brute force, webhook signature replay, refresh-token reuse, idempotency replay, currency manipulation, price tampering, driver-privacy bypass, WhatsApp account hijack.
-- CI wires `go test ./...` + `go run ./cmd/tests --all` + frontend Vitest.
-
-### Now-26 — Invoicing (BeepBite → stores, stores → their B2B customers, VAT-aware)
-Invoicing is a separate concern from the wallet/receipt path:
-- **BeepBite invoices stores** for their subscription / overage charges. Header pulled from env (`BEEPBITE_LEGAL_NAME`, `BEEPBITE_REGISTERED_ADDRESS`, `BEEPBITE_VAT_NUMBER?`, `BEEPBITE_REGISTERED_COUNTRY`, `BEEPBITE_COMPANY_NUMBER`).
-- **Stores invoice their B2B customers** (house accounts, corporate clients, catering bookings). Header pulled from the store's `tax_profile` (legal name, registered address, VAT number, contact details).
-- **VAT logic** is uniform in both directions: if the issuer has a `vat_number` populated → charge VAT at the issuer's rate, add the VAT line, show the VAT number on the invoice. If the issuer has **no** `vat_number` → no VAT line, no VAT charged. (Cross-border / EU-reverse-charge handling is a later refinement; the simple "have VAT number → charge VAT" rule works in ZA, NG, US sales-tax-exempt small business, India under composition scheme, etc.)
-- **One unified `invoices` schema** carries both BeepBite-issued and store-issued invoices (discriminated by `issuer` enum: `'platform' | 'tenant'`). PDF generation reuses the receipt generator's typography.
-- **Tenant onboarding** asks for business info up front: legal name, registered address, country, VAT number (optional), company registration number (optional), contact email, contact phone. Stored in `tax_profiles` (1:1 with org). Same form is on `/settings/business-info`.
-- **Default behavior when no `tax_profile` exists**: invoices issued without a VAT line; warning banner asks the owner to complete their business info.
-
-### Now-27 — Unified workspace: one app, role-aware views
-Replace the scattered `/pos/workspace` + `/home` + `/q/:slug` + `/kds/:stationId` + `/kds/expo` + `/floor` URLs with a single `/work` workspace that has **two top tabs: POS and Kitchen**. Each tab has a view picker:
-- **POS tab** views: Quick (counter-service quick-tap) · Full (table-service ticket workspace) · Floor (floor plan with table sessions) · Orders (combined queue, current `/home` orders list).
-- **Kitchen tab** views: Station (single station's tickets) · Expo (cross-station expedite screen) · Bump-bar (chrome-less hotkey-driven mode).
-
-Behavior:
-- **Role-aware visibility.** Members with only `can_kitchen` capability see only the Kitchen tab. Members with `can_pos` see both. Owners and managers see all.
-- **View remembered per user per device.** `user_preferences.last_view_pos` and `last_view_kds` columns (or localStorage with a server-side mirror). Returning to `/work` lands on the last-selected view.
-- **Chrome-less deep links survive**: `/kds/expo`, `/kds/:stationId`, `/q/:slug` still work for dedicated screens (kitchen TVs, customer-facing kiosks) — they just render the same view in chrome-less mode.
-- **Single navigation shell**, single search bar (customer search, item search), single global keyboard shortcuts. Much simpler than the current sprawl.
-
-### Now-28 — Help center + onboarding wizard
-Pairs with "open the till in 5 minutes" landing-page promise.
-- **`docs.beepbite.io`** — public help center. Markdown sourced from `docs/help/` in the repo, rendered with a simple SSG (Astro / VitePress). Search + table of contents. Sections: Getting Started, POS, KDS, Menu, Payments, Staff, Customers, Drivers, Bulk Imports, API, Custom Domains, FAQ.
-- **In-app onboarding wizard** (`/onboard`) — replaces the current minimal popup. Steps: 1) sign up + verify email, 2) create your first store (slug, city), 3) add 5 menu items (or import a PDF / CSV menu), 4) invite a staff member or driver, 5) connect a payment provider (or set on-delivery), 6) ship a test order to yourself. Progress saved per step; resumable.
-- **Interactive product tour** on first POS workspace visit — `react-joyride` or similar. Skippable, never auto-replays.
-- **Contextual help** — "?" button in every settings page links to the relevant docs.beepbite.io section.
-
-### Now-29 — WhatsApp multi-number support
-A single central number cannot scale globally. Meta allows up to **25 phone numbers per WhatsApp Business Account** (WABA) and up to 1,000 WABA numbers per Meta Business account.
-- `whatsapp_phone_numbers` table: `id, meta_phone_number_id (unique), display_phone, country, regions text[], active, configured_at`. Owned by platform — added by BeepBite ops in the admin tool.
-- **Inbound routing**: every inbound webhook from Meta includes the destination `phone_number_id`. Resolver looks up which BeepBite number it is and tags the conversation with the relevant `country` + `region`. Marketplace search returns only stores in compatible regions.
-- **Outbound choice**: when BeepBite (or a tenant assistant) sends to a customer, we pick the number that the customer most recently messaged us from. Falls back to the country-matching primary number.
-- **Templates**: each language × number must be pre-approved with Meta; the admin tool surfaces approval state per template per number.
-- **Testing** (Wave 14+15+36): cross-number isolation tests prove a message to the ZA number can't see NG-only stores; pen-tests prove no number-spoofing in webhook handlers.
-
-### Now-30 — Security gaps: 2FA + tenant audit-log access
-Hardening pass for owner-side security.
-- **TOTP 2FA** for member accounts (Google Authenticator / Authy / 1Password compatible). Mandatory for owners; opt-in for managers; not applicable to staff (PIN flow handles their re-auth).
-- **Tenant-facing audit log viewer**: every org sees their own `audit_log` rows in `/manager/audit` — filterable by actor, action, date range. Different from the platform-admin view (Now-16) which sees across orgs.
-- **Suspicious-activity alerts**: 10 voids in an hour, 3 failed PIN attempts on the same device, wallet drop >50% in 24h → push notification + dashboard banner to owner. Configurable thresholds.
-
-### Now-31 — Operational gaps from earlier audits
-Small but real productivity items.
-- **Item image upload UX**: `/menu` page gains drag-drop image upload to R2, with auto-crop preview, replacement, and removal. Single-item; complements Wave 21 bulk imports.
-- **Time-clock workflow completion**: staff clock-in/out via PIN keypad (`/s/:slug` adds "Clock in" mode), hours view on `/staff/manage`, manager edit on time entries with audit row. Backend `staff_time_entries` already exists from Wave 0.
-- **WhatsApp template pre-approval setup**: ops task — submit our launch template set (order confirmation, kitchen-ready, on-the-way, delivered, password reset, link-binding nudge, marketing-broadcast opt-in) for Meta approval per language, per market. Tracked in admin tool from Now-16.
-- **End-of-day owner email**: daily summary emailed to the owner (gross / net / tax / tips / orders / new customers). Configurable on/off.
-
-### Now-32 — Easy wins extended (additional POS features)
-Promoting the rest of the easy-wins list. Each is a ≤1-day sonnet task.
-- **Held tickets** — pause without firing kitchen (distinct from table_sessions).
-- **Tab / open check** — start a tab, add items over time, settle later.
-- **Daily specials pinned banner** at top of POS grid + customer marketplace.
-- **Bar quick-pour mode** — preset drink button with no modifier picker.
-- **Wait time estimation** — system-computed from current kitchen load (active tickets × avg prep time).
-- **Quick category 86** — 86 entire category at once (e.g. "no breakfast today").
-- **Dual cash drawer** — two cashiers sharing one POS terminal with separate drawers.
-- **Print queue retry** — buffer-and-retry when ESC/POS printer offline (resilience for Now-19).
-- **Quick coupon generation** — "send 20% off to this customer" from the customer detail page.
-- **Customer favorites** — customer-marked re-order items; surfaced in chatbot and marketplace store page.
-
-### Now-33 — Legal foundation: ToS / Privacy / Cookie consent / Compliance pack
-Pre-launch legal scaffolding.
-- **Platform ToS + Privacy Policy** at `/legal/terms` and `/legal/privacy` — versioned, audit-logged on acceptance (every new signup records the version they accepted).
-- **Per-tenant Privacy Policy** generator: from the tenant's business info (Now-26), generate a per-store privacy policy that's linked on their marketplace store page and customer-facing checkout. Editable template.
-- **Cookie consent banner** on `app.beepbite.io` and per-tenant marketplace pages — Klaro or similar OSS, EU-compliant, granular consent (necessary / analytics / marketing).
-- **GDPR + POPIA compliance pack**: Data Processing Agreement (DPA) template auto-generated for each tenant, DPO contact in env (`BEEPBITE_DPO_EMAIL`), breach-notification flow runbook, data-residency policy doc, sub-processor list (Meta, Anthropic, OpenAI, etc.) maintained in `docs/sub-processors.md`.
-- **Records of Processing Activities (RoPA)** auto-generated from the data model — what data we hold, where it lives, who can access it.
-
-### Now-34 — Responsiveness sweep (end-of-roadmap pass)
-Final pre-launch pass. Every page we've built tested against:
-- **iPhone SE 375×667** (smallest realistic phone) — content readable, taps land, no horizontal scroll.
-- **iPhone 13 / Pixel 7 390×844** (standard phone) — POS, customer chat, marketplace optimized.
-- **iPad 768×1024 portrait + 1024×768 landscape** — POS workspace + KDS station view shine in this form factor; this is the realistic restaurant POS device.
-- **Desktop 1280, 1440, 1920** — manager dashboards, reports, settings.
-Touch targets ≥44px; no hover-only affordances on touch surfaces; gestures (swipe-to-bump on KDS); virtual-keyboard handling on the staff PIN keypad.
-A page is "done" when it passes axe-core (from Wave 30) **and** the responsiveness checklist on all four form factors. Pages with form-factor-specific overrides (POS workspace tablet vs desktop) document the breakpoint logic in code comments.
-
-### Now-35 — Native shell (Tauri / Capacitor) — final v1 wave
-**The very last item before v2.** Everything else must be stable and responsive first. Wraps the React app in a Tauri (desktop / tablet) and Capacitor (iOS / Android) shell with:
-- Native printing (avoids the WebSerial / browser-permissions dance).
-- Native receipt scanner and camera access (cleaner UX for menu-photo bulk imports).
-- Guaranteed local persistence — unlocks **Offline Tier 2** (true offline POS) once Tier 1 is solid.
-- Distributable via Mac App Store, Microsoft Store, F-Droid, side-loaded `.deb` / `.apk` for self-managed devices.
-- Same React codebase, so feature parity is automatic.
+| **Offline Tier 2** — true offline POS with conflict resolution on reconnect | Tier 1 is solid in production and an operator hits a multi-hour outage |
+| **Geo matching** — MapLibre + Protomaps offline tiles, delivery polygons, proximity dispatch | Dispatch (Now-6) is in real use with more than a handful of couriers |
+| **Independent-courier marketplace** behind the `CourierTrust` seam from Now-6 | A shop asks to dispatch to couriers it does not employ |
+| **Additional ordering channels** (Discord, Slack, email) | The channel seam (Now-3) exists **and** a real operator asks for a specific one |
+| **DMTAP adoption** | See the staged plan below — each stage carries its own precondition |
+| **Native shell** (Tauri / Capacitor) for guaranteed local persistence and native printing | An operator needs a tablet build that will not sleep, or Tier 2 needs the persistence guarantee |
+| **Promoting `docs/THUMA.md` to a DMTAP substrate profile** | A real external implementor appears. Not before. |
 
 ---
 
-## Later (v2 — deferred behind triggers, not committed)
+## DMTAP — a staged, gated adoption plan
 
-Items below are tracked in [tasks.md Wave 33](./docs/internal/tasks.md). Each gets pulled into a real wave when a specific trigger fires.
+[DMTAP](https://github.com/vul-os/dmtap) is a decentralized message-transfer and identity protocol
+whose five general capabilities form a **narrow waist** that non-mail products may adopt à la carte:
+**① Identity**, **② Feeds & Blobs**, **③ Sync**, **④ Infrastructure Roles**, **⑤ Wake**. Two of its
+adoption rules govern everything below:
 
-| Item | Trigger to pull in |
+> *A product MAY adopt any subset of the five capabilities* — there is no prerequisite bundle.
+>
+> *If a product implements a capability's function, it MUST speak that capability's spec.* A product
+> that syncs structured state MUST use the Sync op algebra and wire protocol; it MUST NOT invent a
+> parallel CRDT format and call it DMTAP-sync.
+
+### What DMTAP does not buy us
+
+Say this plainly, because the opposite is easy to imply and would be false.
+
+**A point-of-sale has no consensus problem.** The trust model of the core POS is one business running
+its own database in its own building. There is exactly one authority over an order, a drawer, a table
+and a shift — the branch that owns it. Decentralization cannot improve a problem that does not exist,
+and adopting a protocol to solve it would add a signing discipline, a wire format and a conformance
+obligation in exchange for nothing.
+
+DMTAP earns its keep on **inter-party** concerns, where two businesses that do not trust each other
+need a shared fact:
+
+- **Courier reputation across shops** — genuinely multi-party, genuinely unsolvable inside one
+  database, and the one place a signed, append-only, hash-chained feed is the right primitive.
+- **Ordering channels that route around Meta and Google** — a real dependency the product would rather
+  not have.
+- **A shared home for legacy-channel credentials, reached over a location-transparent protocol** — this
+  one is not a trust problem between two parties (a co-located gateway is the same operator, the same
+  box, the same trust domain as BeepBite itself) but a *code-reuse* problem: the Meta/Telegram/Slack/SIM
+  glue gets written and maintained once, in one gateway role, instead of once per vulos product. DMTAP's
+  contribution here is narrow and specific — the wire protocol between BeepBite and the gateway is what
+  makes *where the gateway process runs* a deployment choice instead of an architecture decision. See
+  Stage 3 below.
+
+Of the three, only the first two are inter-party in the strict "two businesses that don't fully trust
+each other" sense — the third exists to end code duplication, not to solve a multi-party trust problem,
+and it stays sovereign specifically because the default keeps it out of any third party's hands at all.
+Nothing else in BeepBite is inter-party. The roadmap will not promise decentralization value where there
+is none.
+
+### Verified status of the waist (checked, not assumed)
+
+| Fact | Source |
 |---|---|
-| **Offline Tier 2** — true offline POS (cash mode while network out + conflict resolution on reconnect) | 3+ paying tenants ask, or first major outage incident |
-| **Offline Tier 3** — native shell (Tauri / Capacitor) | Tenant requests a tablet build |
-| **In-house delivery dispatch** — separate driver-app binary + map view in manager dashboard | 10+ tenants using the in-house driver flow |
-| **Partner delivery integration** — Uber Eats / DoorDash / Grubhub handlers atop the existing schema | A tenant requests partner integration |
-| **QR-order-at-table** | After dine-in flows are battle-tested |
-| **Self-serve kiosk mode** | After Quick POS kiosk hardens |
-| **Franchise + multi-location consolidation reporting** | Multi-loc tenant requests |
-| **Marketing engine** — broadcasts, segments, suppression list | After 50+ tenants reach 1k+ customer lists |
-| **Scheduled / recurring orders** (office lunches) | When demand surfaces |
-| **Accounting integrations** (Xero, Quickbooks via the public API from Now-12) | When 5+ tenants ask — one mapping wave per integration |
+| The conformance catalog has **352 numbered cases**, of which **62 are byte-runnable today** (56 vectored + 6 self-contained); 271 are construction recipes and 19 are manual attestations. | `dmtap/README.md`, `dmtap/conformance/README.md` |
+| **No implementation has been run against the suite.** The conformance README says so in its own limits section: it "counts cases that exist, not cases that pass". | `dmtap/conformance/README.md` |
+| **The `SYNC` family has 5 catalogued cases and *zero* are byte-runnable** — all five are `construction-todo`. | `conformance/suite.json` |
+| `substrate/SYNC.md` is described by DMTAP's own README as **"the one new spec"** — the only waist capability that is not a profile of an existing RFC. | `dmtap/README.md`, `substrate/README.md` §1 |
+| `sync_vectors.json` (24 frozen vectors) is an **informative companion**, generated by the spec repo's own script — explicitly *not* by the reference core crate, which does not implement Sync. A vector corpus agreeing with its own generator proves they match each other, not that the spec is right. | `conformance/README.md`, `sync_vectors.json` header |
+| `SYNC.md` has taken **14 numbered normative corrections (C-01…C-14)**, several of them widening MUST-retain sets and one (C-10) added because a natural modelling choice caused *silent converged data loss*. Most were found by the first implementation and the first product adoption — i.e. by people building on it, not by review. | `substrate/SYNC.md` §14 |
+| By contrast, the **`PUB` family (Feeds & Blobs, §22) has 12 vectored cases** — the largest vectored family in the suite — and a reference implementation (`kerf-pub`) that serves the `/.well-known/dmtap-pub/…` surface as static files behind an ordinary web server, proving it works over plain HTTPS with no mesh. | `conformance/suite.json`, `substrate/README.md` §4.2 |
 
----
+**The conclusion this forces:** a pre-1.0 point-of-sale — the thing that decides whether a shop can
+take money tonight — must not depend on the least-proven capability of the waist. Feeds are the
+best-proven one and are additive. That ordering is the plan.
 
-## How we test — the security & reliability bar
+### Stage 0 (current, indefinite) — adopt nothing at runtime
 
-Testing is a roadmap-level commitment, not a chore. Three layers:
+**Scope.** BeepBite's default sync engine is the hand-rolled HLC oplog (Now-5). No DMTAP code is in
+the tree today and none is required to be. Per `VULOS-PRODUCT-STANDARD.md`, no hard runtime dependency
+on relay, control plane or DMTAP is permitted, and this stage honours that by having no dependency at all.
 
-### Layer 0 — Feature parity audit (one-off, opus-driven)
-Before the testing pyramid runs, we inventory every feature that Toast, Square for Restaurants, Lightspeed K-Series, TouchBistro and Lavu ship — and decide, feature-by-feature, whether to include in v1, defer to v2, or explicitly skip. Output: `docs/feature-parity.md` with a recommendation per feature. The accept-list becomes a checklist on the test pyramid: every accepted feature must have a smoke or e2e scenario.
+**The rule this stage must not break:** because BeepBite's oplog is *not* the Sync capability, it MUST
+NOT be described as DMTAP-sync, in code, docs or landing copy. Adopting zero capabilities is
+explicitly allowed by the waist ("a product that adopts zero waist capabilities is simply not a DMTAP
+product"). Claiming a capability we do not speak is what is forbidden.
 
-### Layer 1 — Smoke (fast, on every push)
-~30 seconds, hits a live local server. Proves the system boots and the golden paths are alive.
+**Rollback path.** None needed — this is the baseline every later stage rolls back to.
 
-```
-Tenant signup → JWT issued
-Org + location created by trigger
-Create category + item
-Create staff + set PIN
-Staff PIN login (audience="staff")
-POS CreateOrder → KDS ticket created
-Idempotent retry → same order, no duplicate
-Cash drawer open + close
-Unauthed call → 401
-```
+### Stage 1 — Courier reputation over DMTAP-PUB (② Feeds & Blobs, + ① Identity floor)
 
-### Layer 2 — E2E (scenario-based, pre-deploy)
-~5 minutes, seeded multi-tenant fixtures. Proves real flows.
+The one adoption whose value is real, whose risk is contained, and which nothing existing depends on.
 
-```
-Onboard tenant: signup → org → location with slug → menu → publish
-POS flow:      staff PIN-login → dine-in order → KDS bump → settle cash
-Payment flow:  hosted checkout → webhook → order paid → audit row → void → refund row
-Chatbot flow:  WhatsApp inbound → store search by slug → cart → order → KDS ticket
-Marketplace:   two locations, same city → search returns both → order via slug
-Delivery:      polygon zone → in-zone address → fee applied → status to out-for-delivery
-```
+**Why this and not sync.** Reputation is **inverted** on purpose: couriers do not publish their own
+reputation, because they control the feed and would omit the bad jobs. **Shops** publish job outcomes
+on the shop's own signed append-only feed (`seq`/`prev` hash-chained, so history cannot be rewritten
+and a rollback is detectable), and a courier's reputation is an *aggregate over shop attestations*.
+Neither side can rewrite the record. That is a genuinely multi-party problem, and the primitive that
+solves it is exactly what §22 specifies.
 
-### Layer 3 — Pen-test + cross-tenant (opus-driven, weekly)
-Opus agents target the platform as adversaries. The bar: every probe is either 403, 404, or a hard 400 — never a 200 leak.
+**Precondition.**
+- Dispatch (Now-6) is in real use, so there are real job outcomes to attest to. Publishing an empty
+  feed proves nothing.
+- The feed is served over plain HTTPS at `/.well-known/dmtap-pub/*` — no mesh, no relay, no libp2p.
+  This is already proven possible (`kerf-pub`), and if it stops being possible, the stage stops.
+- A Go implementation exists to lift rather than invent: `vulos-relay/tunnel/pubcache/` already
+  carries the content-addressing, Merkle and proof code.
 
-```
-Cross-tenant contamination:
-  org-A bearer → GET org-B location, station, order, staff, drawer, payout, audit row
-  org-A bearer → POST order against org-B location_id
-  org-A bearer → bump org-B KDS ticket
-  org-A bearer → close org-B cash drawer
+**Scope.**
+- A shop publishes a signed `FeedHead` / `FeedEntry` chain of job outcomes, using **§22's bytes** —
+  `PubAnnounce`/`FeedHead`/`FeedEntry`, not a bespoke JSON feed. Rule 2 of the waist is not optional:
+  implementing the function means speaking the spec.
+- Courier identity is the Ed25519 keypair BeepBite already gives every courier, with the 8-word
+  key-name floor as the zero-authority name. This is the ① Identity capability at its minimum, and it
+  is a prerequisite: an attestation has to name a courier by key for it to be portable.
+- Reading is opt-in per shop: a shop chooses whose attestations it weighs. **No global reputation
+  score, no scoring service, no registry.**
 
-Auth & session:
-  Refresh-token reuse after rotation → all sessions revoked
-  Staff JWT used against member-only endpoints
-  Member JWT used against staff-only endpoints
-  Audience-claim stripping
-  Lockout bypass via parallel requests
+**Abandon if.**
+- §22's wire format changes under us in a way that breaks a published feed, or the `PUB` family's
+  vectored coverage regresses.
+- No second shop ever reads another shop's feed. A single-shop attestation feed is a private table
+  with extra ceremony, and the plain table is better.
+- Serving it starts to require the mesh. The HTTP test failing is the signal to stop.
 
-Payments:
-  Webhook signature replay
-  Forged webhook from disabled provider
-  Currency manipulation in checkout
-  Price-tampering by sending lower price in body
-  Idempotency-key replay across orders
+**Rollback path.** Delete the feed publisher and the reader. Dispatch, assignment and payment are
+untouched — the feed is additive by construction, and no POS path ever reads from it. Reputation
+degrades to what it was before: whatever the shop recorded about its own couriers, in its own database.
 
-Marketplace:
-  Slug enumeration → store directory leak
-  Webhook URL guessing for another store
-  IDOR on /stores/:slug/menu by guessing IDs
+### Stage 2 — DMTAP-SYNC as an opt-in alternative engine (③ Sync)
 
-Injection & abuse:
-  SQL injection in filter values (already covered by --pentest, extend)
-  XSS in store description / item name (rendered on landing)
-  Brute force on 4-digit PIN within a single store
-  Rate-limit bypass via header spoofing
-```
+**Not a cutover. Not a default. Gated on evidence that does not exist yet.**
 
-Pen-test findings file an issue and a fix-task in tasks.md. The bar holds before any marketplace launch.
+**Precondition — all of the following, testably:**
+
+1. The `SYNC` conformance family is **byte-runnable**: its cases carry vectors rather than construction
+   recipes, and those vectors are generated by something other than the document's own script.
+2. **At least one implementation has actually been run against the suite and passed** — the suite's own
+   limits section stops saying "no implementation has been run against the suite".
+3. `SYNC.md`'s correction log has been **quiet for a full release cycle**. Fourteen normative
+   corrections, several found only by first adopters and at least one guarding against *silent
+   converged data loss*, is a spec still discovering itself. A POS is a bad place to discover the
+   fifteenth.
+4. **BeepBite's own multi-branch merge suite passes against the DMTAP engine under induced partition**,
+   with byte-identical converged state versus the HLC oplog on the same op sequence — specifically:
+   concurrent offline sales of the last unit converge to −2 (not −1); concurrent menu edits resolve
+   identically on both engines; an order sequence never collides across branches; and a partition
+   healed after N minutes produces the same drawer total as one that never partitioned.
+5. Adopting it costs **no cgo**: `envoir/bindings/go` embeds the Rust core as WASM under wazero
+   (verified: its `go.mod` requires `github.com/tetratelabs/wazero` and nothing else). The moment
+   reaching DMTAP-SYNC requires cgo, the single static binary is gone and the price is too high.
+
+**Scope.** A second implementation behind the `store.Merger` seam introduced with Now-5, chosen at boot.
+The seam is a Now-5 deliverable, not something that exists today.
+
+**The two engines are never mixed in one deployment.** They do not share a total order — the
+hand-rolled engine breaks ties on node id, the substrate on author public key — so a deployment that
+ran both would converge to two different states and call it success. One engine per deployment,
+selected at startup, with the choice recorded in the oplog header so a peer speaking the other one is
+refused rather than silently mis-merged.
+
+**Abandon if.** Any precondition regresses; or the WASM path costs more than the correctness buys
+(binary size, cold-start latency on a R3,000 tablet, memory on a Pi); or the merge suite diverges even
+once in a way that is not a BeepBite bug.
+
+**Rollback path.** The seam is the rollback: flip the boot flag back to the HLC engine and re-sync from
+the oplog, which never stopped being the default and never stopped being written. This only works if
+DMTAP-SYNC stays opt-in — which is precisely why it does.
+
+### Stage 3 — Channel gateway: BeepBite becomes a DMTAP client, WhatsApp moves to the standard legacy gateway (④ Infrastructure Roles + ① Identity)
+
+**The decision.** README's own honesty admission is the starting point: *"No channel-adapter
+abstraction exists yet — WhatsApp and web ordering are each their own direct integration, not plugins
+behind a common interface."* Stage 3 does not fix that by building a plugin system inside BeepBite. It
+deletes the direct integration. BeepBite stops implementing legacy messaging channels at all and
+becomes a **DMTAP client** speaking to a **gateway** — a separate DMTAP role that owns the platform
+credentials (a WhatsApp WABA token, a SIM, Slack/Telegram bot tokens) and carries messages. Reached over
+the DMTAP protocol, *where that gateway process runs is a deployment choice, not an architecture
+decision*.
+
+**BeepBite is never asked to build a gateway.** There is exactly **one standard DMTAP legacy gateway** —
+envoir's implementation of the §7 gateway role. BeepBite's job is to *deploy* that standard binary, not
+to write one, fork one, or host a BeepBite-specific plugin system in its place. Every other vulos
+product that reaches a legacy channel deploys the same binary. The code is written once and shared,
+which is the entire economic case for doing this at all.
+
+**Two ways to run it, one deployment choice:**
+
+- **Co-located gateway (default, sovereign).** The gateway process runs on the same box, or the same
+  LAN, as BeepBite, configured with the restaurant's own credentials. Nothing leaves the premises that
+  doesn't leave it today; BeepBite's own WhatsApp integration code — the Meta HMAC webhook receiver, the
+  Cloud API client, the phone-number-id config — is *removed from BeepBite's tree*, not hidden behind an
+  interface. It is maintained once, in the gateway, shared across the whole vulos family.
+- **Public gateway (opt-in).** For a shop that will not stand up its own WABA (Meta's business
+  verification is real friction for a small operator). Content-visible by construction — the gateway
+  terminates the legacy leg in plaintext to bridge it at all, exactly as §7 says of itself: *"the legacy
+  leg is unavoidably plaintext... the only part of DMTAP not content-blind."* Priced, and honestly
+  labelled as what it is. The restaurant chooses this per deployment; BeepBite's own code is identical
+  either way — it only ever speaks DMTAP to *a* gateway, never Meta directly.
+
+**What comes out of BeepBite, and what does not.** Not everything with "whatsapp" in its name is
+deleted — most of the value is the order-taking conversation logic, which is already close to
+channel-agnostic in substance if not in wiring:
+
+| Removed (transport-specific, Meta-only) | ~LOC | Stays (channel-agnostic once behind Now-3's seam) | ~LOC |
+|---|---:|---|---:|
+| `internal/integrations/whatsapp/` — the Meta Cloud API client | 899 | `internal/chatbot/` — conversation state, ordering, address/profile management, review system, message formatting | ~4,800 |
+| `internal/handlers/whatsappwebhook/` — the webhook receiver **and its `X-Hub-Signature-256` HMAC verification** | 225 | `internal/handlers/whatsapplink/` — customer WhatsApp-number ↔ loyalty-profile binding | ~850 |
+| `internal/handlers/whatsappsend/` | 117 | | |
+| `internal/warouting/` — the `meta_phone_number_id` registry/resolver | 156 | | |
+| `cmd/tests/suite_whatsapp.go` | 38 | | |
+| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` config keys | — | | |
+| **Total removed from BeepBite's own tree** | **~1,435** | | |
+
+`chatbot.Service` currently holds a `*whatsapp.Client` field directly and calls `s.wa.SendText(...)` to
+reply (`internal/chatbot/service.go`, `internal/chatbot/main_handler.go:401`) — that field is exactly
+what Now-3's seam generalizes. The ~4,800 lines of conversation logic behind it do not move to the
+gateway and do not get deleted; they stop being wired to a Meta-specific client and start being wired to
+the seam.
+
+**The new dependency, and its shape.**
+
+- BeepBite holds one DMTAP identity — an Ed25519 keypair, the same primitive already planned for
+  courier identity in Stage 1 — and exchanges **MOTEs** with the gateway rather than Meta webhook JSON.
+- **Inbound.** The gateway bridges a WhatsApp (or, once adapted, SMS/Slack/Telegram) message into a
+  MOTE and delivers it to BeepBite's address. The customer's legacy identifier — their WhatsApp number
+  today — rides in `provenance` as `legacy_from`.
+- **Outbound.** BeepBite addresses a reply MOTE back through the same gateway; the gateway un-bridges it
+  to a WhatsApp/SMS/Slack message using the credentials it holds.
+- **Resolution barely changes.** BeepBite already keys customer identity on
+  `(organization_id, whatsapp_number)` — `customers_organization_id_whatsapp_number_key`
+  (`backend/migrations/001_baseline.sql`) — and tags every order with its channel via
+  `orders.order_type`, where `whatsapp` is already one of the four values `orders_order_type_check`
+  admits. In DMTAP's own vocabulary that pairing is *(rail, identifier)*: `order_type` is the rail,
+  `whatsapp_number` is the identifier. The only thing that changes is where the identifier is read
+  from — `provenance.legacy_from` inside a MOTE, instead of `message.from` inside a Meta webhook POST.
+  `warouting.Resolve`'s registry lookup and `whatsapplink`'s number-to-profile bind flow key on the same
+  identifier either way and need no redesign, only a new source for it.
+
+**The seam stays generic — a design constraint, not a suggestion.** This mirrors Now-5/Stage 2's
+`store.Merger` on purpose: DMTAP is *one* implementation behind Now-3's channel seam, never the only one
+the code is allowed to express. BeepBite must be able to keep the direct Meta path forever, drop DMTAP
+for a hand-rolled bridge, or run both side by side for different channels — all without touching
+`chatbot/*`. A rewrite to adopt this stage would mean the seam was built wrong in Now-3.
+
+**Why co-located preserves every privacy promise in the README, and why public is a conscious trade.**
+"Nothing phones home," "a fresh install makes no outbound network calls at all," and "no company between
+a shop and its customers" are the promises at stake. Co-located changes *where the WhatsApp-calling code
+runs* — from inside BeepBite's own process to a second process the shop still owns, on hardware the shop
+still owns — and changes nothing about who else sees the traffic. Meta still sees WhatsApp content
+because Meta is the WhatsApp network, exactly as it does today; no new third party is introduced. A
+public gateway is different in kind: a shop that chooses it is deliberately routing its customer
+messages through an operator it does not run, in exchange for not needing its own WABA. That is a real
+trade the operator makes with eyes open, not a default anyone falls into, and it must be priced and
+labelled as such.
+
+**Failure-domain note.** A co-located gateway going down is "my own box is down" — the same failure
+domain BeepBite's Postgres or its till already are, and an outage the shop already tolerates for
+everything else. A remote or public gateway going down widens that failure domain to a network path and
+a third party's uptime BeepBite has never depended on for anything. Order-taking is real-time revenue —
+a missed WhatsApp order is a missed sale, not a delayed report — which is the concrete reason co-located
+is the *default*, not merely the sovereign-sounding option.
+
+**Precondition — this is a gated future stage, not current work.** None of the following exist yet:
+
+1. **The legacy-adapter profile does not exist in the DMTAP spec.** `07-gateway.md` §7 today specifies
+   the gateway role for legacy **mail** only — SMTP MX/relay, IMAP/POP3/SMTP-submission, CalDAV/CardDAV
+   — and says so explicitly: *"the node is native-only... runs no legacy protocol server"* beyond that
+   list. `GatewayAttestation.disc` (`18-wire-format.md` §18.3.11) is hard-coded to `1 = legacy-inbound
+   bridge attestation`, and its `legacy_from` field is typed and described as *"the SMTP `MAIL FROM`"* —
+   not a phone number, not a Slack user id. A profile that bridges WhatsApp/SMS/Slack/Telegram is not a
+   stub in the spec tree; it has not been started.
+2. **No implementation of that profile exists.** `envoir/gateway` is a real, tested implementation of §7
+   for mail (`envoir/gateway/tests/gateway.rs`, `envoir/integration/tests/gateway_provenance.rs`,
+   `gateway_authz_antispam.rs`, `gateway_alias_roundtrip.rs`) — SMTP relay, aliasing, provenance
+   attestation, antispam. It implements none of the legacy-messaging-adapter profile above.
+3. **MOTE messaging itself is not yet something BeepBite can lean on.** `docs/internal/PLAN.md` §8 lists
+   "MOTE messaging (pre-alpha, simulated network)" and "mailbox role (unconfirmed)" among the DMTAP
+   capabilities BeepBite deliberately does not depend on today. This stage is the first place BeepBite
+   would depend on both, so both have to mature past that description — this precondition is in addition
+   to, not instead of, the legacy-adapter profile above.
+4. **Now-3 has to ship first.** There is nowhere to plug a second implementation behind the channel seam
+   until the seam exists.
+
+**Until all four hold, WhatsApp ordering stays exactly what it is today: a direct Meta Cloud API
+integration, shipped, in the default build.** This section records the destination, not a change to
+what ships next.
+
+**Abandon if.** The legacy-adapter profile, once drafted, turns out to need so much per-platform
+special-casing that "one gateway role" is a fiction — Slack's socket-mode auth and WhatsApp's webhook
+model may simply not unify cleanly. If so, direct per-channel integrations behind Now-3's seam (no
+gateway, no DMTAP) is the honest architecture, and this stage is abandoned in favour of that.
+
+**Rollback path.** The seam is the rollback, exactly as in Stage 2: point the channel seam back at the
+direct-Meta implementation. Nothing about the order stream, `orders.order_type`, or customer resolution
+changes either way — which is the entire reason the resolution logic was designed to key on
+`(rail, identifier)` rather than on anything WhatsApp-specific.
+
+**Relationship to Stage 4, below.** Stage 4 is a different problem solved by the *same* §7 role: this
+stage bridges legacy *messaging platforms* behind credentials the gateway holds; Stage 4 bridges the
+*open email network* behind a domain BeepBite itself would need to control. A gateway that later grows
+the legacy-adapter profile does not shrink Stage 4's blocker — mail still needs a public IP, PTR and
+port 25 from somewhere — but it is the same binary, so an operator who stands one up for this stage has
+already paid down part of the cost of standing one up for the other, if they ever want both.
+
+### Stage 4 — Ordering over DMTAP mail — blocked, and honestly so
+
+Email ordering, including over DMTAP, is the channel with no Meta and no Google in the middle. It is
+also **not built, and doubly blocked**:
+
+1. **There is no channel-adapter abstraction** (see Broken #3 and Now-3). WhatsApp and web ordering are
+   each their own direct integration. Adding DMTAP ordering today means writing a third bespoke
+   integration and then rewriting it when the seam lands. Now-3 is a hard prerequisite, not a nicety.
+2. **Mail is a profile, not a waist capability.** Reaching a legacy inbox needs the mail spine (§2
+   MOTE, §5 MLS, §7 gateway) plus a gateway role, which needs the only scarce resource in the whole
+   design — a public IP with reverse DNS, unblocked outbound port 25 and a domain. A restaurant does
+   not have that, and BeepBite must never require one it operates.
+
+**Precondition.** Now-3 has shipped; Stage 1 has been running long enough to know what adopting DMTAP
+bytes actually costs; and a DMTAP address is reachable by a real correspondent without BeepBite
+running any infrastructure.
+
+**Abandon if.** The channel seam shows that DMTAP ordering is a plugin nobody installs — this is a
+channel of last resort by design, and no traffic is a legitimate answer, not a failure to fix.
+
+**Rollback path.** Remove the adapter. Every other channel is unaffected, which is the entire point of
+doing Now-3 first.
+
+### Rules that hold across every stage
+
+- **No capability is adopted silently.** Each is capability-negotiated and advertised; a peer that has
+  not advertised one is never expected to serve it, and its silence is never a fault.
+- **No silent degradation.** A security-relevant failure is refused or surfaced as an explicit choice —
+  never a quiet fallback to an unauthenticated path.
+- **DMTAP is never required at runtime.** Every stage above is off by default and removable, and a
+  BeepBite that has never heard of DMTAP is a fully working BeepBite.
 
 ---
 
 ## How we sequence work
 
-- Each **wave** in [tasks.md](./docs/internal/tasks.md) is a parallel-safe batch. Tasks within a wave do not edit the same files.
-- Each **task** specifies its target agent: most are **sonnet** (fast, cheap, executes well-scoped change). **Pen-testing tasks are opus** (deeper adversarial reasoning).
-- Each task names the files it can edit and the acceptance criteria.
-- Migrations are numbered sequentially; a wave that ships migrations declares which numbers it owns to avoid collisions.
+- Work lands in **parallel-safe batches**: tasks within a batch do not edit the same files.
+- Each task names the files it may touch and the acceptance criteria a reviewer can check in under a
+  minute.
+- Migrations are forward-only and additive on top of `001_baseline.sql`. A batch that ships migrations
+  declares its numbers up front.
+- Adversarial testing is a roadmap-level commitment, not a chore: cross-tenant, auth/session,
+  injection and abuse suites run in CI and gate merges.
+- Nothing is described as shipped until it is mounted in `cmd/server/main.go` and something exercises
+  it. "The package exists" is not shipped.
 
 ---
 
 ## What we promise — landing-page copy points
 
-1. **Open the till and the kitchen in five minutes.** Sign up, type your menu, hand a tablet to your cashier and another to your line cook.
-2. **Get your own URL.** `mystore.beepbite.io` is yours. Hand it to customers, put it on the receipt, paint it on the window.
-3. **Customers find you on WhatsApp.** Search a slug, place an order, pay in chat. Your kitchen sees it instantly.
-4. **Bring your own payment keys — or take payment at the door.** Your money lands in your account, not ours. Paystack today, Stripe and PayFast next. No payment account yet? Accept cash or card-machine on delivery and start trading anyway.
-5. **Built for loadshedding.** The POS keeps taking orders during network blips. The kitchen keeps cooking. You sync when you're back.
-6. **Priced in dollars, charged in your currency.** We price in USD, your local provider converts at a live rate, your invoice shows both. No FX guessing.
-7. **Audit every action.** Every void, every comp, every refund records who did it and when. Tied to the staff member by PIN.
-8. **The database itself refuses to leak.** Row-Level Security is on by default. Even a buggy handler cannot show one tenant's data to another.
-9. **Hire your drivers, not Uber's.** Your drivers sign in to one portal, see every order across every restaurant that invited them. Customers get an Uber-style live link — with the privacy guardrails Uber forgot.
-10. **One account, every restaurant, every chat.** Link up to three WhatsApp numbers to your BeepBite account. Order from any restaurant on the marketplace, see your history, track your delivery — all signed in once.
-11. **Run the place from WhatsApp.** 86 the jollof, drop the burger price, snap a photo of your handwritten menu and let the assistant import it. Approve the draft, commit. Audit log catches everything.
-12. **Free to start, pay as you grow.** Every restaurant gets a free tier. Top up the wallet to handle peak weekends or unlock more assistant minutes. No surprise invoices.
+Each maps to a Shipped line or a Now item above. Nothing here is aspirational.
+
+1. **You own it.** No signup, no account, no subscription, no per-order fee. The only copy that exists
+   is the one you run.
+2. **Nothing phones home.** A fresh install makes no outbound network calls at all. WhatsApp, maps and
+   AI are each dark until you supply your own credentials.
+3. **Your money stays yours.** BeepBite records what was tendered and never touches the money. Your
+   card machine is still your card machine.
+4. **Customers order from wherever they already are.** WhatsApp with your own Meta credentials, a QR
+   code on the table, or your own web storefront — all into one order stream.
+5. **The kitchen sees it instantly.** Per-station routing, an expo screen, fire timers, live over
+   server-sent events — no message broker to operate.
+6. **The database itself refuses to leak.** Row-level security is on from the first table, scoped
+   server-side from the authenticated identity — never from a filter the client supplies.
+7. **Every action has a name on it.** Every void, comp, refund and price override records who did it,
+   tied to the staff member by PIN.
+8. **It speaks your currency, your tax, your language.** Currency, tax convention, timezone and locale
+   resolve per location from configuration.
+9. **Your drivers, not a platform's.** Dispatch, a driver portal and a customer tracking link, with
+   the privacy guardrails the big platforms forgot.
+10. **One binary.** Build it, copy it, run it. The whole app is inside.
 
 ---
 
-## Open questions (tracked, not blockers)
+## Open — founder decisions
 
-- Will the central WhatsApp number scale to multi-country? May need per-region inbound numbers + a `whatsapp_number_routing` table (already proposed in migration backlog).
-- Do we need PostGIS for delivery zones at v1, or is the Go ray-casting enough? (Decision: stay with Go until polygon count > 50 per location.)
-- Subscription billing surface: monthly fee collection workflow (separate from per-payment fees) needs design.
-- When does the staff PIN UI go native (Tauri/Capacitor)? Trigger: when a tenant asks for a tablet that won't sleep.
+Listed, not answered. Nothing below is direction; each needs a decision before it can enter Now.
+
+1. **Is one instance one business, or many?** The schema, RLS and every handler are multi-org.
+   `docs/ONLINE-PAYMENTS.md` describes the deployment as "single-tenant-per-process". Both cannot be
+   the shipped story, and the answer changes onboarding, the storefront and the whole isolation
+   argument.
+2. **What happens to the public store-directory endpoints?** `GET /stores` still supports search by
+   name, city, country and geo radius across visible locations. On a single-shop instance that is a
+   one-row directory; for a multi-branch operator it is a useful storefront index. It is not a
+   marketplace, but its shape is left over from one.
+3. **What happens to the platform-era surfaces?** `handlers/admin`, `handlers/customdomains` (Fly.io
+   cert issuance), `handlers/wanumbers` (central WhatsApp number pool), and the platform-issuer half
+   of `handlers/invoicing`. Keep, repurpose or delete — all three are defensible; leaving them mounted
+   and undecided is not.
+4. **Are the AI features v1 scope?** A four-provider LLM router, an owner assistant and menu import
+   are in the tree, off without keys. They are compatible with "nothing phones home" only because they
+   are dark by default. Whether they are part of the product or a research branch is undecided.
+5. **Is optional online payment a supported feature or an experiment?** It is off by default and not
+   even linked into the default build. Promoting it needs the live verification in Now-1 and a
+   decision about whether shipped images ever link a gateway.
+6. **WhatsApp's Meta dependency.** It is the product's strongest differentiator and an unavoidable
+   dependency on a company the rest of this design routes around. There is no decentralized substitute
+   that reaches the same customers. Keeping it is the working assumption; it has never been ratified.
+7. **The courier model.** Everything above assumes staff-first, keypair from day one, marketplace
+   behind the `CourierTrust` seam. That assumption has not been confirmed.
+8. **Does `site/` ship now or after the sync work?** The landing and docs viewer embed into the binary
+   today; whether they are part of the next tag is undecided.

@@ -7,7 +7,11 @@
       "reviews": "Reseñas",
       "selectLocation": "Seleccionar ubicación",
       "switchLocation": "Cambiar ubicación",
-      "noLocations": "No hay ubicaciones disponibles"
+      "noLocations": "No hay ubicaciones disponibles",
+      "homeDesc": "Página de inicio principal",
+      "posDesc": "Área de trabajo del cajero",
+      "kitchenDesc": "Panel de cocina a pantalla completa",
+      "reviewsDesc": "Comentarios de clientes"
     },
     "sideBar": {
       "frontOfHouse": "Sala",
@@ -27,7 +31,22 @@
       "members": "Miembros",
       "staff": "Personal",
       "orgSettings": "Configuración de la organización",
-      "account": "Cuenta"
+      "account": "Cuenta",
+      "posWorkspaceDesc": "Toma pedidos y abre la caja",
+      "kitchenWorkspace": "Área de Trabajo de Cocina",
+      "kitchenWorkspaceDesc": "Pestañas de TPV + Cocina con barra superior",
+      "kitchenDisplayDesc": "Vista de tickets a pantalla completa para pared",
+      "reportsDesc": "Análisis de ventas",
+      "menuDesc": "Gestión del menú",
+      "categoriesDesc": "Administrar categorías del menú",
+      "membersDesc": "Miembros del programa de fidelización",
+      "staffDesc": "Gestión de personal y PINs",
+      "driverPortal": "Portal del Repartidor",
+      "driverPortalDesc": "Entregas activas y alternancia en línea",
+      "orgSettingsDesc": "Organización, facturación, tienda, sistema",
+      "accountDesc": "Tu cuenta personal",
+      "staffLogin": "Inicio de Sesión del Personal",
+      "staffLoginHint": "Cambiar de empleado / ingresar PIN"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "Sin resultados",
     "required": "Requerido",
     "optional": "Opcional",
-    "language": "Idioma"
+    "language": "Idioma",
+    "dismiss": "Descartar",
+    "refresh": "Actualizar"
+  },
+  "sync": {
+    "offline": "Trabajando sin conexión",
+    "offlineDetail": "Sin conexión — los cambios se guardan en este dispositivo y se enviarán cuando vuelvas a estar en línea.",
+    "queued_one": "{{count}} cambio en cola",
+    "queued_other": "{{count}} cambios en cola",
+    "syncing": "Sincronizando…",
+    "synced": "Todos los cambios guardados",
+    "error": "Algunos cambios no se pudieron enviar — reintentando"
   }
 }

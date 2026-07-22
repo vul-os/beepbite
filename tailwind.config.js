@@ -5,8 +5,14 @@ module.exports = {
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: ['Inter Variable', 'Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
-  			display: ['Inter Variable', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			// Archivo Variable at normal width — body copy, forms, back-office tables.
+  			sans: ['Archivo Variable', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
+  			// Same family, condensed + heavy via the width axis (see .font-display /
+  			// .font-ticket utilities in index.css) — ticket headers, KDS numerals,
+  			// POS category tabs. One download, two very different jobs.
+  			display: ['Archivo Variable', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			// Order numbers, timers, prices, receipt lines — tabular figures.
+  			mono: ['JetBrains Mono Variable', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
   		},
   		maxWidth: {
   			content: '1600px',
@@ -15,8 +21,9 @@ module.exports = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)',
-  			'2xl': 'calc(var(--radius) + 8px)',
-  			'3xl': 'calc(var(--radius) + 16px)'
+  			xl: 'calc(var(--radius) + 4px)',
+  			'2xl': 'calc(var(--radius) + 6px)',
+  			'3xl': 'calc(var(--radius) + 10px)'
   		},
   		boxShadow: {
   			'card': '0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06)',
@@ -54,6 +61,14 @@ module.exports = {
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
   				foreground: 'hsl(var(--destructive-foreground))'
+  			},
+  			warning: {
+  				DEFAULT: 'hsl(var(--warning))',
+  				foreground: 'hsl(var(--warning-foreground))'
+  			},
+  			success: {
+  				DEFAULT: 'hsl(var(--success))',
+  				foreground: 'hsl(var(--success-foreground))'
   			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

@@ -77,9 +77,10 @@ function humaniseMethod(code) {
 // ---------------------------------------------------------------------------
 
 function Divider() {
-  return (
-    <div className="border-t border-dashed border-gray-300 my-2 print:border-gray-500" />
-  );
+  // The dashed rule between receipt sections is the same "torn ticket"
+  // motif used between sent rounds on the POS ticket — see .ticket-perforation
+  // in index.css. Decorative only, never load-bearing for meaning.
+  return <hr className="ticket-perforation my-2 print:border-muted-foreground" />;
 }
 
 function Row({ label, value, bold = false, indent = false, accent = false }) {
@@ -89,13 +90,15 @@ function Row({ label, value, bold = false, indent = false, accent = false }) {
         'flex justify-between text-sm gap-2',
         indent && 'pl-4',
         bold && 'font-semibold',
-        accent && 'text-orange-600',
+        // accent marks the grand total only — the one place on a calm,
+        // customer-facing receipt worth a touch of brand kitchen-orange.
+        accent && 'text-primary',
       )}
     >
-      <span className={cn('text-gray-600 print:text-black', bold && 'text-gray-900')}>
+      <span className={cn('text-muted-foreground print:text-foreground', bold && 'text-foreground')}>
         {label}
       </span>
-      <span className="tabular-nums text-gray-900 print:text-black">{value}</span>
+      <span className="tabular-nums text-foreground print:text-foreground">{value}</span>
     </div>
   );
 }
@@ -124,22 +127,23 @@ function ReceiptPaper({ receipt, printId }) {
       id={printId}
       className={cn(
         'mx-auto w-full max-w-sm',
-        'bg-white rounded-xl border border-gray-200 shadow-sm',
+        'bg-card rounded-xl border border-border shadow-sm',
         'p-5 font-mono text-xs leading-relaxed',
         // print overrides
         'print:shadow-none print:border-none print:rounded-none print:max-w-full print:p-4',
       )}
     >
-      {/* Store header */}
+      {/* Store header — condensed-black display face reads like a letterhead
+          without shouting; everything below it stays quiet and monospaced. */}
       <div className="text-center mb-3">
         <div className="flex items-center justify-center gap-1.5 mb-1">
-          <ReceiptText className="w-4 h-4 text-orange-500 print:hidden" />
-          <p className="text-sm font-bold text-gray-900 print:text-black">
+          <ReceiptText className="w-4 h-4 text-primary print:hidden" />
+          <p className="font-display text-sm text-foreground print:text-foreground">
             {receipt.store_name}
           </p>
         </div>
         {receipt.store_address && (
-          <p className="text-gray-500 print:text-gray-700 text-xs">
+          <p className="text-muted-foreground print:text-foreground text-xs">
             {receipt.store_address}
           </p>
         )}
@@ -162,10 +166,10 @@ function ReceiptPaper({ receipt, printId }) {
       <div className="mb-2 space-y-1.5">
         {(receipt.line_items || []).map((item) => (
           <div key={item.order_item_id}>
-            <div className="flex justify-between font-medium text-gray-900 print:text-black">
+            <div className="flex justify-between font-medium text-foreground print:text-foreground">
               <span className="flex-1 pr-2">
                 {item.quantity > 1 && (
-                  <span className="text-gray-400 print:text-gray-600 mr-1">
+                  <span className="text-muted-foreground print:text-foreground mr-1 tabular-nums">
                     {item.quantity}&times;
                   </span>
                 )}
@@ -177,7 +181,7 @@ function ReceiptPaper({ receipt, printId }) {
             {(item.modifiers || []).map((mod, mi) => (
               <div
                 key={mi}
-                className="flex justify-between pl-4 text-gray-400 print:text-gray-600"
+                className="flex justify-between pl-4 text-muted-foreground print:text-foreground"
               >
                 <span>{mod.name}</span>
                 {mod.price_cents_snapshot !== 0 && (
@@ -212,7 +216,7 @@ function ReceiptPaper({ receipt, printId }) {
       {/* Payments */}
       {(receipt.payments || []).length > 0 && (
         <div className="mb-2 space-y-1">
-          <p className="font-semibold text-gray-700 print:text-black mb-0.5">Payment</p>
+          <p className="font-semibold text-foreground print:text-foreground mb-0.5">Payment</p>
           {receipt.payments.map((p) => (
             <div key={p.payment_id}>
               <Row
@@ -224,7 +228,7 @@ function ReceiptPaper({ receipt, printId }) {
                 <Row label="Change" value={fmt(p.change_given_cents)} indent />
               )}
               {p.payment_reference && (
-                <div className="pl-4 text-gray-400 print:text-gray-600">
+                <div className="pl-4 text-muted-foreground print:text-foreground">
                   Ref: {p.payment_reference}
                 </div>
               )}
@@ -235,7 +239,7 @@ function ReceiptPaper({ receipt, printId }) {
 
       {/* Footer */}
       <Divider />
-      <p className="text-center text-gray-400 print:text-gray-600 text-xs">
+      <p className="text-center text-muted-foreground print:text-foreground text-xs">
         Thank you for your business
       </p>
     </div>
@@ -336,7 +340,10 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
           {/* ---- Header ---- */}
           <DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2 text-base font-semibold">
-              <CheckCircle2 className="w-5 h-5 text-orange-500 shrink-0" />
+              {/* Confirms a completed, paid transaction — the --success signal,
+                  not brand orange. This screen is the calm "it's done" moment,
+                  not a till action, so it earns the paid/confirmed colour. */}
+              <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
               Payment Complete
             </DialogTitle>
             <DialogDescription className="sr-only">
@@ -349,14 +356,14 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
             {/* Loading */}
             {loading && (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 <p className="text-sm">Loading receipt&hellip;</p>
               </div>
             )}
 
             {/* Error */}
             {!loading && error && (
-              <div className="flex flex-col items-center justify-center py-12 gap-3 text-red-600">
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-destructive">
                 <ReceiptText className="w-8 h-8 opacity-60" />
                 <p className="text-sm font-medium text-center">{error}</p>
                 <Button variant="outline" size="sm" onClick={handleRetry}>
@@ -433,15 +440,11 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
             {/* Spacer pushes primary action to the right */}
             <span className="flex-1" />
 
-            {/* Done / New Order */}
-            <Button
-              size="sm"
-              onClick={handleNewOrder}
-              className={cn(
-                'gap-1.5 bg-orange-500 hover:bg-orange-600 text-white',
-                'focus-visible:ring-orange-400',
-              )}
-            >
+            {/* Done / New Order — default Button variant already carries
+                primary/kitchen-orange + its own focus ring; the previous
+                literal orange classes here were a redundant hand-rolled copy
+                of that (and could drift out of sync with it). */}
+            <Button size="sm" onClick={handleNewOrder} className="gap-1.5">
               <RotateCcw className="w-4 h-4" />
               {onNewOrder ? 'New Order' : 'Done'}
             </Button>

@@ -1117,11 +1117,11 @@ const Members = () => {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actionLoading === removeConfirmMember?.id}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={confirmRemoveMember}
               disabled={actionLoading === removeConfirmMember?.id}
             >
-              Remove Member
+              Remove member
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

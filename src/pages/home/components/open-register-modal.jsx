@@ -31,7 +31,7 @@ function DenomRow({ denom, count, onChange }) {
   const setSafe = (val) => onChange(Math.max(0, val | 0));
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-orange-200/80 bg-card p-3 shadow-sm">
+    <div className="flex flex-col gap-1 rounded-lg border border-primary/20 bg-card p-3 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-foreground">{label}</span>
         <span className="text-xs text-muted-foreground tabular-nums">
@@ -44,7 +44,7 @@ function DenomRow({ denom, count, onChange }) {
           size="sm"
           variant="outline"
           onClick={() => setSafe((count || 0) - 1)}
-          className="h-7 w-7 p-0 rounded-full border-orange-200 text-orange-600 hover:bg-orange-50 shrink-0"
+          className="h-7 w-7 p-0 rounded-full border-primary/20 text-primary hover:bg-primary/10 shrink-0"
           aria-label={`Decrease ${label}`}
         >
           <Minus className="w-3 h-3" />
@@ -61,7 +61,7 @@ function DenomRow({ denom, count, onChange }) {
           type="button"
           size="sm"
           onClick={() => setSafe((count || 0) + 1)}
-          className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+          className="h-7 w-7 p-0 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
           aria-label={`Increase ${label}`}
         >
           <Plus className="w-3 h-3" />
@@ -163,7 +163,7 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
       <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Unlock className="w-5 h-5 text-orange-500" />
+            <Unlock className="w-5 h-5 text-primary" />
             Open Register
           </DialogTitle>
           <DialogDescription>
@@ -232,14 +232,14 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
         <div
           className={cn(
             'flex justify-between items-center rounded-lg px-4 py-3 border',
-            'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
+            'bg-primary/10 border-primary/25',
           )}
         >
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Wallet className="w-4 h-4 text-orange-500" />
+            <Wallet className="w-4 h-4 text-primary" />
             Opening Float Total
           </div>
-          <span className="text-xl font-bold text-orange-600 tabular-nums">
+          <span className="text-xl font-bold text-primary tabular-nums">
             {format(totalCents)}
           </span>
         </div>
@@ -264,7 +264,7 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
             type="button"
             onClick={handleSubmit}
             disabled={submitting || !drawerId || drawers.length === 0}
-            className="bg-orange-500 hover:bg-orange-600 text-white min-w-[140px]"
+            className="min-w-[140px]"
           >
             {submitting ? (
               <>

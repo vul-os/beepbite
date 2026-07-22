@@ -127,21 +127,26 @@ export default function CustomerDisplay() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground px-6 py-4 flex items-center gap-3">
-        <Receipt className="h-6 w-6" />
-        <span className="text-xl font-semibold">
+      {/* Header — a calm, receipt-like letterhead. This screen is read by the
+          customer while the cashier rings up, not operated under pressure, so
+          it stays on the paper surface rather than the solid-orange banner
+          the staff-facing till chrome uses; the primary colour appears only
+          as a restrained accent (icon + rule), not a wall of colour. */}
+      <header className="bg-card border-b-2 border-primary/25 text-foreground px-6 py-4 flex items-center gap-3">
+        <Receipt className="h-6 w-6 text-primary" />
+        <span className="text-xl font-display">
           {state.storeName || 'Your Order'}
         </span>
       </header>
 
       <main className="flex-1 flex flex-col gap-6 p-6 max-w-xl mx-auto w-full">
-        {/* Line items */}
+        {/* Line items — a torn-ticket dashed rule between lines, like an
+            actual receipt, rather than a solid divider. */}
         <section>
           <h2 className="text-lg font-semibold mb-3">Order Summary</h2>
-          <div className="space-y-2">
+          <div className="divide-y divide-dashed divide-border">
             {state.items.map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b last:border-b-0">
+              <div key={i} className="flex items-center justify-between py-2">
                 <div>
                   <p className="font-medium">{item.name}</p>
                   <p className="text-sm text-muted-foreground">× {item.qty}</p>
@@ -167,14 +172,17 @@ export default function CustomerDisplay() {
             </div>
           )}
           {state.selectedTip > 0 && (
-            <div className="flex justify-between text-sm text-green-600">
+            <div className="flex justify-between text-sm text-success">
               <span>Tip</span>
               <span className="tabular-nums">{money(state.selectedTip)}</span>
             </div>
           )}
-          <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
-            <span>Total</span>
-            <span className="tabular-nums">
+          {/* Grand total — the one figure a customer reads from across the
+              counter, so it gets the condensed-black ticket face and real
+              size, not just a bold label. */}
+          <div className="flex items-baseline justify-between border-t border-dashed border-border pt-2 mt-2">
+            <span className="font-semibold">Total</span>
+            <span className="font-ticket text-3xl tabular-nums tracking-tight">
               {money((state.total ?? 0) + (state.selectedTip ?? 0))}
             </span>
           </div>
@@ -220,7 +228,7 @@ function TipSelector({ options, selected, format, onSelect }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-        <TrendingUp className="h-5 w-5 text-green-500" />
+        <TrendingUp className="h-5 w-5 text-success" />
         Add a tip?
       </h2>
       <div className="grid grid-cols-3 gap-2">

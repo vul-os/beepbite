@@ -42,7 +42,6 @@ export function Category86Button({ category, allItems = [], onComplete, disabled
     return allItems.every((item) => item.is_86ed);
   }, [allItems]);
 
-  const action = is86ed ? 'un-86' : '86';
   const actionLabel = is86ed ? 'Un-86 Category' : '86 This Category';
 
   async function handleConfirm() {
@@ -97,7 +96,7 @@ export function Category86Button({ category, allItems = [], onComplete, disabled
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {is86ed ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
+                <CheckCircle className="h-5 w-5 text-success" />
               ) : (
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               )}
@@ -112,7 +111,7 @@ export function Category86Button({ category, allItems = [], onComplete, disabled
                       <span className="font-semibold text-foreground">
                         {category.name}
                       </span>{' '}
-                      as <span className="font-semibold text-green-600">available</span> again?
+                      as <span className="font-semibold text-success">available</span> again?
                     </>
                   ) : (
                     <>
@@ -152,13 +151,13 @@ export function Category86Button({ category, allItems = [], onComplete, disabled
               Cancel
             </Button>
             <Button
-              variant={is86ed ? 'default' : 'destructive'}
+              variant={is86ed ? 'success' : 'warning'}
               onClick={handleConfirm}
               disabled={busy}
               className="gap-1.5"
             >
               {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Confirm {action === 'un-86' ? 'Un-86' : '86'}
+              {is86ed ? 'Un-86 category' : '86 category'}
             </Button>
           </DialogFooter>
         </DialogContent>

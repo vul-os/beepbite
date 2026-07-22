@@ -123,21 +123,21 @@ const Reviews = () => {
     // Convert 10-point scale to 5-star display
     const starRating = Math.round(rating / 2);
     return [...Array(5)].map((_, i) => (
-      <Star 
-        key={i} 
+      <Star
+        key={i}
         className={`w-4 h-4 ${
-          i < starRating 
-            ? 'text-yellow-400 fill-current' 
+          i < starRating
+            ? 'text-warning fill-current'
             : 'text-muted-foreground/40'
-        }`} 
+        }`}
       />
     ));
   };
 
   const getRatingColor = (rating) => {
-    if (rating >= 8) return 'text-green-600 bg-green-50 border-green-200';
-    if (rating >= 6) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-    return 'text-red-600 bg-red-50 border-red-200';
+    if (rating >= 8) return 'text-success bg-success/10 border-success/25';
+    if (rating >= 6) return 'text-warning bg-warning/10 border-warning/25';
+    return 'text-destructive bg-destructive/10 border-destructive/25';
   };
 
   const filteredReviews = reviews.filter(review => {
@@ -252,7 +252,7 @@ const Reviews = () => {
       />
 
       {error && (
-        <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md">
+        <div className="text-sm text-warning bg-warning/10 px-3 py-2 rounded-md">
           ⚠️ Using limited data: {error}
         </div>
       )}
@@ -263,7 +263,7 @@ const Reviews = () => {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Star className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-500" />
+                <Star className="w-4 sm:w-5 h-4 sm:h-5 text-warning" />
                 Rating Overview
               </CardTitle>
             </CardHeader>
@@ -287,8 +287,8 @@ const Reviews = () => {
                       <span className="text-xs sm:text-sm font-medium w-6 text-center">{stat.rating}</span>
                     </div>
                     <div className="flex-1 bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                      <div
+                        className="bg-warning h-2 rounded-full transition-all duration-300"
                         style={{ width: `${stat.percentage}%` }}
                       ></div>
                     </div>
@@ -328,7 +328,7 @@ const Reviews = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-xs sm:text-sm text-muted-foreground">10/10 Rate</span>
-                <span className="font-semibold text-sm sm:text-base text-green-600">
+                <span className="font-semibold text-sm sm:text-base text-success">
                   {ratingStats.distribution[0]?.percentage ?? '0'}%
                 </span>
               </div>
@@ -432,14 +432,14 @@ const Reviews = () => {
 
                       {/* Reply */}
                       {review.owner_reply != null && (
-                        <div className="bg-blue-50 border-l-4 border-blue-200 p-3 sm:p-4 rounded-r-lg">
+                        <div className="bg-primary/10 border-l-4 border-primary/30 p-3 sm:p-4 rounded-r-lg">
                           <div className="flex items-center gap-2 mb-2">
-                            <Reply className="w-3 sm:w-4 h-3 sm:h-4 text-blue-600" />
-                            <span className="text-xs sm:text-sm font-medium text-blue-800">
+                            <Reply className="w-3 sm:w-4 h-3 sm:h-4 text-primary" />
+                            <span className="text-xs sm:text-sm font-medium text-primary">
                               Restaurant Response
                             </span>
                           </div>
-                          <p className="text-blue-700 text-xs sm:text-sm">
+                          <p className="text-primary/90 text-xs sm:text-sm">
                             {review.owner_reply}
                           </p>
                         </div>
@@ -510,7 +510,7 @@ const Reviews = () => {
 
               {/* Error */}
               {replyError && (
-                <p className="text-sm text-red-600">{replyError}</p>
+                <p className="text-sm text-destructive">{replyError}</p>
               )}
 
               {/* Actions */}
@@ -526,7 +526,7 @@ const Reviews = () => {
                 <Button
                   onClick={() => handleReply(selectedReview.id)}
                   disabled={!replyText.trim() || replySaving}
-                  className="flex-1 beepbite-gradient text-white"
+                  className="flex-1 beepbite-gradient text-primary-foreground"
                 >
                   {replySaving ? 'Saving...' : 'Send Reply'}
                 </Button>

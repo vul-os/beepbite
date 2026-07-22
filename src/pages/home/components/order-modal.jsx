@@ -95,7 +95,7 @@ const OrderModals = ({
           <div className="space-y-4 mt-4">
             <div>
               <label className="text-sm font-medium text-foreground block mb-2">
-                Order Number <span className="text-red-500">*</span>
+                Order Number <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder="e.g., ORD123"
@@ -107,7 +107,7 @@ const OrderModals = ({
 
             <div>
               <label className="text-sm font-medium text-foreground block mb-2">
-                Customer Phone <span className="text-red-500">*</span>
+                Customer Phone <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder="Enter phone number"
@@ -191,7 +191,7 @@ const OrderModals = ({
               {selectedItem.item_variations?.map((variation) => (
                 <div key={variation.id} className="space-y-2">
                   <label className="text-sm font-medium text-foreground block">
-                    {variation.name} {variation.is_required && <span className="text-red-500">*</span>}
+                    {variation.name} {variation.is_required && <span className="text-destructive">*</span>}
                   </label>
                   <div className="grid grid-cols-1 gap-2">
                     {variation.item_variation_options?.map((option) => (
@@ -316,12 +316,12 @@ const OrderModals = ({
                 />
               </div>
 
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  <strong>Created:</strong> {formatDistanceToNow(new Date(editingOrder.created_at), { addSuffix: true })}
+              <div className="bg-muted p-3 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  <strong className="text-foreground">Created:</strong> {formatDistanceToNow(new Date(editingOrder.created_at), { addSuffix: true })}
                 </p>
-                <p className="text-sm text-blue-700">
-                  <strong>Type:</strong> {editingOrder.order_type}
+                <p className="text-sm text-muted-foreground">
+                  <strong className="text-foreground">Type:</strong> {editingOrder.order_type}
                 </p>
               </div>
             </div>
@@ -525,10 +525,10 @@ const OrderModals = ({
                               {orderItem.order_item_modifiers.map((modifier, index) => {
                                 const priceDelta = modifier.price_cents_snapshot || 0;
                                 return (
-                                  <span key={index} className="inline-block bg-blue-100 rounded-full px-2 py-1 text-xs text-blue-700">
+                                  <span key={index} className="inline-block bg-primary/10 rounded-full px-2 py-1 text-xs text-primary">
                                     <span className="font-medium">{modifier.name_snapshot}</span>
                                     {priceDelta !== 0 && (
-                                      <span className="text-blue-600 ml-1">
+                                      <span className="ml-1">
                                         {priceDelta > 0 ? '+' : ''}{format(priceDelta)}
                                       </span>
                                     )}

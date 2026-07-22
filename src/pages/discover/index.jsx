@@ -96,12 +96,12 @@ export default function DiscoverPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero / search bar */}
-      <div className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 px-4 pt-10 pb-8 sm:pt-14 sm:pb-10">
+      <div className="bg-primary px-4 pt-10 pb-8 sm:pt-14 sm:pb-10">
         <div className="max-w-2xl mx-auto text-center space-y-4">
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight drop-shadow-sm">
+          <h1 className="text-2xl sm:text-4xl font-display text-primary-foreground tracking-tight drop-shadow-sm">
             Find food near you
           </h1>
-          <p className="text-orange-100 text-sm sm:text-base max-w-sm mx-auto">
+          <p className="text-primary-foreground/80 text-sm sm:text-base max-w-sm mx-auto">
             Discover local restaurants — order online for delivery or collection.
           </p>
 
@@ -113,7 +113,7 @@ export default function DiscoverPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search restaurants, cuisine, dish…"
               aria-label="Search restaurants"
-              className="pl-10 pr-10 h-12 bg-card border-0 text-sm shadow-xl rounded-xl focus-visible:ring-orange-400"
+              className="pl-10 pr-10 h-12 bg-card border-0 text-sm shadow-xl rounded-xl focus-visible:ring-ring"
             />
             {query && (
               <Button
@@ -134,12 +134,12 @@ export default function DiscoverPage() {
             size="sm"
             onClick={() => setShowFilters((p) => !p)}
             aria-expanded={showFilters}
-            className="bg-white/15 text-white border-white/50 hover:bg-white/25 hover:text-white gap-2 rounded-full px-5"
+            className="bg-primary-foreground/15 text-primary-foreground border-primary-foreground/50 hover:bg-primary-foreground/25 hover:text-primary-foreground gap-2 rounded-full px-5"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Filters
             {hasFilters && (
-              <span className="ml-0.5 bg-white text-orange-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+              <span className="ml-0.5 bg-primary-foreground text-primary rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold tabular-nums">
                 {[query, city, distance].filter(Boolean).length}
               </span>
             )}
@@ -176,7 +176,7 @@ export default function DiscoverPage() {
                 variant="ghost"
                 size="sm"
                 onClick={clearSearch}
-                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 shrink-0"
+                className="text-primary hover:text-primary/80 hover:bg-primary/10 shrink-0"
               >
                 Clear all
               </Button>
@@ -246,7 +246,7 @@ export default function DiscoverPage() {
                 variant="outline"
                 size="sm"
                 onClick={clearSearch}
-                className="border-orange-300 text-orange-600 hover:bg-orange-50 rounded-full px-5"
+                className="border-primary/30 text-primary hover:bg-primary/10 rounded-full px-5"
               >
                 Clear filters
               </Button>

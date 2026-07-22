@@ -8,8 +8,32 @@ import { useDateTime, useLocale } from '@/context/locale-context';
 import { formatMoney } from '@/lib/currency';
 import { api } from '@/lib/api-client';
 import { MatchModal } from './components/match-modal';
-import { INVOICE_STATUS_COLORS as STATUS_COLORS, MATCH_STATUS_COLORS as MATCH_COLORS } from '@/lib/status-colors';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
+
+// Badge variant per supplier-invoice status. "disputed" is the one genuinely
+// blocking outcome (destructive); matched/paid are the healthy end states;
+// approved is an in-flight positive step; pending/cancelled are neutral.
+function invoiceStatusVariant(status) {
+  switch (status) {
+    case 'matched':
+    case 'paid': return 'success';
+    case 'disputed': return 'destructive';
+    case 'approved': return 'default';
+    default: return 'secondary';
+  }
+}
+
+// Badge variant per 3-way match status — a variance is "needs a second
+// look, not yet lost anything" (warning), matched is the success state,
+// unmatched is just the neutral not-yet-attempted state.
+function matchStatusVariant(status) {
+  switch (status) {
+    case 'matched': return 'success';
+    case 'price_variance':
+    case 'qty_variance': return 'warning';
+    default: return 'secondary';
+  }
+}
 
 export default function InvoiceMatchPage() {
   const { activeLocation } = useAuth();
@@ -89,14 +113,14 @@ export default function InvoiceMatchPage() {
       )}
 
       {!loading && error && (
-        <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded p-3">
+        <div className="flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
           <AlertCircle className="w-4 h-4" />
           <span>{error}</span>
         </div>
       )}
 
       {!loading && !error && invoices.length === 0 && (
-        <Card className="border-orange-100">
+        <Card>
           <CardContent className="p-10 text-center">
             <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">No supplier invoices found for this location.</p>
@@ -109,17 +133,18 @@ export default function InvoiceMatchPage() {
           {invoices.map((inv) => (
             <Card
               key={inv.id}
-              className="border-orange-100 hover:border-orange-300 cursor-pointer transition-colors"
+              variant="interactive"
+              className="cursor-pointer"
               onClick={() => setSelectedInvoice(inv)}
             >
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground">{inv.invoice_number}</span>
-                    <Badge className={STATUS_COLORS[inv.status] || 'bg-muted text-foreground'}>
+                    <Badge variant={invoiceStatusVariant(inv.status)}>
                       {inv.status}
                     </Badge>
-                    <Badge className={MATCH_COLORS[inv.match_status] || 'bg-muted text-muted-foreground'}>
+                    <Badge variant={matchStatusVariant(inv.match_status)}>
                       {inv.match_status?.replace('_', ' ') || 'unmatched'}
                     </Badge>
                   </div>
@@ -129,14 +154,14 @@ export default function InvoiceMatchPage() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-foreground">{fmtCents(inv.total_cents, inv.currency)}</p>
+                  <p className="font-semibold text-foreground tabular-nums">{fmtCents(inv.total_cents, inv.currency)}</p>
                   <p className="text-xs text-muted-foreground">{inv.currency}</p>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={(e) => { e.stopPropagation(); setSelectedInvoice(inv); }}
-                  className="border-orange-200 text-orange-700 hover:bg-orange-50 shrink-0"
+                  className="border-primary/25 text-primary hover:bg-primary/10 shrink-0"
                 >
                   Review
                 </Button>

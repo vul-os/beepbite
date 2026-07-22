@@ -54,10 +54,10 @@ function ErrorView({ status, message }) {
   const notFound = status === 404;
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 py-12">
-      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-orange-50 border-2 border-orange-100">
-        <AlertCircle className="h-9 w-9 text-orange-500" aria-hidden="true" />
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
+        <AlertCircle className="h-9 w-9 text-primary" aria-hidden="true" />
       </div>
-      <h1 className="text-xl font-bold mb-2">
+      <h1 className="text-xl font-display mb-2">
         {notFound ? 'Tracking link not found' : 'Could not load tracking'}
       </h1>
       <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
@@ -232,10 +232,10 @@ export default function TrackOrderPage() {
 
         {/* Delivered celebration */}
         {(status === 'delivered' || status === 'completed') && (
-          <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 px-5 py-5 text-center shadow-sm">
+          <div className="rounded-2xl border border-success/30 bg-success/10 px-5 py-5 text-center shadow-sm">
             <p className="text-2xl mb-2" role="img" aria-label="Celebration">🎉</p>
-            <p className="text-base font-bold text-green-700">Your order has arrived!</p>
-            <p className="text-sm text-green-600 mt-1">Enjoy your meal.</p>
+            <p className="text-base font-display text-success">Your order has arrived!</p>
+            <p className="text-sm text-success/80 mt-1">Enjoy your meal.</p>
           </div>
         )}
       </main>
@@ -249,15 +249,15 @@ function Header({ storeName }) {
   return (
     <header className="sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto max-w-lg px-4 h-14 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 shadow-sm shadow-orange-200">
-          <Package className="h-4.5 w-4.5 text-white" aria-hidden="true" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary shadow-sm shadow-primary/20">
+          <Package className="h-4.5 w-4.5 text-primary-foreground" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-bold leading-tight truncate">
+          <p className="text-sm font-display leading-tight truncate">
             {storeName ? `Order from ${storeName}` : 'Order tracking'}
           </p>
           <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
             Live updates
           </p>
         </div>
@@ -276,7 +276,7 @@ function AddressSummary({ store, deliveryAddress, status }) {
       )}
       {deliveryAddress?.label && (
         <>
-          {store?.address && <div className="border-l-2 border-orange-200 ml-3 h-3" />}
+          {store?.address && <div className="border-l-2 border-primary/25 ml-3 h-3" />}
           <AddressRow icon="📍" label="Delivering to" value={deliveryAddress.label} />
         </>
       )}

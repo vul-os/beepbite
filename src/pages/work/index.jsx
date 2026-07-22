@@ -42,6 +42,7 @@ import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { fetchPrefs, savePOSView, saveKDSView } from '@/services/userprefs';
 import { Button } from '@/components/ui/button';
+import { SyncStatusBadge } from '@/components/ui/sync-status';
 
 // ---------------------------------------------------------------------------
 // Lazy view imports — read-only; do NOT modify these files.
@@ -211,7 +212,9 @@ function TabButton({ active, onClick, children }) {
       aria-selected={active}
       role="tab"
       className={cn(
-        'h-auto rounded-none px-5 py-2.5 text-sm font-medium border-b-2 hover:bg-transparent',
+        // font-display: this is the "which screen am I on" label — read at a
+        // glance while reaching for the tab, same job as a KDS ticket header.
+        'h-auto rounded-none px-5 py-3 font-display text-sm tracking-wide border-b-2 hover:bg-transparent',
         active
           ? 'border-primary text-primary'
           : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted',
@@ -233,7 +236,7 @@ function ViewPill({ active, onClick, children }) {
       variant={active ? 'default' : 'outline'}
       onClick={onClick}
       aria-pressed={active}
-      className="h-auto rounded-full px-3 py-1 text-xs"
+      className="h-auto rounded-full px-3.5 py-1.5 text-xs font-semibold"
     >
       {children}
     </Button>
@@ -291,50 +294,63 @@ function KitchenPanel({ kdsView, onKdsView }) {
     }
   }, [stations, selectedStation]);
 
-  if (stationsLoading) return <ViewLoader />;
-
   const needsStation = kdsView === 'station' || kdsView === 'bumpbar';
 
+  // The whole Kitchen tab is scoped `dark` — station.jsx/expo.jsx (owned
+  // elsewhere) render their own permanently-charcoal chrome (bg-gray-950/900,
+  // no light-mode variant; it's a wall-mounted kitchen screen, not something
+  // that follows the app's light/dark toggle). Scoping the *tokens* dark here
+  // — rather than hardcoding gray-9xx of our own — means our station picker,
+  // empty-state and loading fallback pick up the same charcoal/orange
+  // pairing (bg-card/border-border/bg-primary resolve to the .dark values in
+  // index.css, which were tuned to sit next to those literal grays) instead
+  // of flashing light before the KDS view mounts.
   return (
-    <div className="flex flex-col h-full">
-      {/* Station picker (shown when view needs a station) */}
-      {needsStation && stations.length > 1 && (
-        <div className="flex gap-2 px-4 py-2 border-b bg-muted/30 overflow-x-auto">
-          {stations.map((s) => (
-            <ViewPill
-              key={s.id}
-              active={selectedStation === s.id}
-              onClick={() => setSelectedStation(s.id)}
-            >
-              {s.name}
-            </ViewPill>
-          ))}
-        </div>
-      )}
+    <div className="dark flex flex-col h-full bg-background">
+      {stationsLoading ? (
+        <ViewLoader />
+      ) : (
+        <>
+          {/* Station picker (shown when view needs a station) */}
+          {needsStation && stations.length > 1 && (
+            <div className="flex gap-2 px-4 py-2 border-b border-border bg-card/60 overflow-x-auto">
+              {stations.map((s) => (
+                <ViewPill
+                  key={s.id}
+                  active={selectedStation === s.id}
+                  onClick={() => setSelectedStation(s.id)}
+                >
+                  {s.name}
+                </ViewPill>
+              ))}
+            </div>
+          )}
 
-      {/* No stations configured */}
-      {needsStation && stations.length === 0 && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
-          <ChefHat className="h-10 w-10" />
-          <p className="text-sm">No KDS stations configured for this location.</p>
-          <p className="text-xs">Add stations under Settings → Kitchen.</p>
-        </div>
-      )}
+          {/* No stations configured */}
+          {needsStation && stations.length === 0 && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
+              <ChefHat className="h-10 w-10" />
+              <p className="text-sm">No KDS stations configured for this location.</p>
+              <p className="text-xs">Add stations under Settings → Kitchen.</p>
+            </div>
+          )}
 
-      {/* View content */}
-      <div className="flex-1 overflow-auto">
-        {kdsView === 'station' && selectedStation && (
-          <StationView stationId={selectedStation} />
-        )}
-        {kdsView === 'expo' && (
-          <Suspense fallback={<ViewLoader />}>
-            <ExpoPage />
-          </Suspense>
-        )}
-        {kdsView === 'bumpbar' && selectedStation && (
-          <BumpBarView stationId={selectedStation} />
-        )}
-      </div>
+          {/* View content */}
+          <div className="flex-1 overflow-auto">
+            {kdsView === 'station' && selectedStation && (
+              <StationView stationId={selectedStation} />
+            )}
+            {kdsView === 'expo' && (
+              <Suspense fallback={<ViewLoader />}>
+                <ExpoPage />
+              </Suspense>
+            )}
+            {kdsView === 'bumpbar' && selectedStation && (
+              <BumpBarView stationId={selectedStation} />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -435,11 +451,24 @@ export default function WorkspacePage() {
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       {/* ----------------------------------------------------------------- */}
       {/* Top bar: tab switcher + view picker                               */}
+      {/*                                                                   */}
+      {/* Scoped `dark` on purpose, independent of the app's own light/dark */}
+      {/* toggle: this bar is the one piece of chrome that's ALWAYS on      */}
+      {/* screen no matter which half a small operation is looking at, and  */}
+      {/* the Kitchen half underneath it (station.jsx/expo.jsx) is a        */}
+      {/* permanently-charcoal kitchen display that never goes light. A     */}
+      {/* light bar sitting over a black KDS board every time staff tap     */}
+      {/* over to Kitchen would read as two products bolted together; a     */}
+      {/* charcoal bar that also sits fine over the (light, "warm paper")   */}
+      {/* POS half reads as one deliberate till bezel instead. index.css's  */}
+      {/* .dark tokens were tuned to match the KDS's literal grays/orange   */}
+      {/* for exactly this reason.                                         */}
       {/* ----------------------------------------------------------------- */}
-      <div className="flex items-center gap-0 border-b bg-background shrink-0">
+      <div className="dark flex items-center gap-0 border-b border-border bg-card shrink-0 shadow-sm">
         {/* Tab buttons */}
-        <div className="flex items-center border-r pr-4">
-          <div className="flex items-center gap-1 px-2">
+        <div className="flex items-center border-r border-border pr-4">
+          <div className="flex items-center gap-2.5 pl-4 pr-3" aria-hidden="true">
+            <span className="h-6 w-1 rounded-full bg-primary" />
             <Monitor className="h-4 w-4 text-muted-foreground" />
           </div>
           {showPOS && (
@@ -482,6 +511,14 @@ export default function WorkspacePage() {
                 {v.label}
               </ViewPill>
             ))}
+        </div>
+
+        {/* Sync status — this is the one chrome-bearing screen in the app
+            (unlike the chrome-less POS/KDS, which use the full-width
+            OfflineBanner instead), so the compact top-bar badge belongs here
+            rather than a banner. */}
+        <div className="ml-auto flex items-center px-4 shrink-0">
+          <SyncStatusBadge className="hidden sm:inline-flex" />
         </div>
       </div>
 

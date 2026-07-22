@@ -18,6 +18,7 @@ import KioskCartStrip from './components/kiosk-cart-strip';
 import KioskTenderModal from './components/kiosk-tender-modal';
 import KioskModifierPrompt from './components/kiosk-modifier-prompt';
 import ReceiptModal from '@/pages/pos/components/receipt-modal';
+import { OfflineBanner } from '@/components/ui/sync-status';
 
 // ---- cart helpers -------------------------------------------------------
 
@@ -318,12 +319,12 @@ const QuickPOS = () => {
 
   if (storeLoading) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-orange-500" role="status" aria-label="Loading menu">
-          <div className="w-20 h-20 rounded-full bg-orange-500/10 flex items-center justify-center">
-            <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+      <div className="fixed inset-0 bg-primary/5 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-primary" role="status" aria-label="Loading menu">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
           </div>
-          <p className="text-lg font-semibold text-gray-600">Loading menu…</p>
+          <p className="text-lg font-semibold text-muted-foreground">Loading menu…</p>
         </div>
       </div>
     );
@@ -331,13 +332,13 @@ const QuickPOS = () => {
 
   if (storeError || !store) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-6">
+      <div className="fixed inset-0 bg-primary/5 flex items-center justify-center p-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-sm" role="alert">
-          <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
-            <AlertCircle className="w-10 h-10 text-red-400" />
+          <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center">
+            <AlertCircle className="w-10 h-10 text-destructive" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Store not found</h1>
-          <p className="text-gray-500 text-sm">{storeError || `No store found at "${slug}"`}</p>
+          <h1 className="text-2xl font-bold text-foreground">Store not found</h1>
+          <p className="text-muted-foreground text-sm">{storeError || `No store found at "${slug}"`}</p>
         </div>
       </div>
     );
@@ -347,11 +348,16 @@ const QuickPOS = () => {
 
   return (
     // Full-screen, no scrollbars, kiosk-friendly
-    <div className="fixed inset-0 bg-gradient-to-br from-orange-50 to-amber-50 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-primary/5 flex flex-col overflow-hidden">
       {/* Minimal header strip — store name only, no nav */}
-      <header className="shrink-0 bg-orange-500 px-5 py-3.5 flex items-center gap-3 shadow-md">
-        <h1 className="text-white text-xl font-bold tracking-tight truncate">{storeName}</h1>
+      <header className="shrink-0 bg-primary px-5 py-3.5 flex items-center gap-3 shadow-md">
+        <h1 className="font-display text-primary-foreground text-xl tracking-tight truncate">{storeName}</h1>
       </header>
+
+      {/* This screen POSTs orders directly (submitPosOrder) with no top bar
+          to host a status badge — a dropped connection here is invisible
+          otherwise. Renders nothing once synced. */}
+      <OfflineBanner />
 
       {/* Menu grid — fills remaining space above cart strip */}
       <div className="flex-1 min-h-0 overflow-hidden">

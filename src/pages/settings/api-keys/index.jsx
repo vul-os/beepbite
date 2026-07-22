@@ -122,13 +122,13 @@ function scopeColor(scope) {
 }
 
 function eventColor() {
-  return 'bg-blue-50 text-blue-700 border-blue-200';
+  return 'bg-muted text-muted-foreground border-border';
 }
 
 function statusColor(status) {
-  if (status === 'success') return 'bg-green-50 text-green-700 border-green-200';
-  if (status === 'failed') return 'bg-red-50 text-red-700 border-red-200';
-  return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+  if (status === 'success') return 'bg-success/10 text-success border-success/20';
+  if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/20';
+  return 'bg-warning/10 text-warning border-warning/20';
 }
 
 // ── Copy-to-clipboard button ──────────────────────────────────────────────────
@@ -161,7 +161,7 @@ function CopyButton({ text, className }) {
       className={cn(
         'inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors',
         copied
-          ? 'bg-green-100 text-green-700'
+          ? 'bg-success/10 text-success'
           : 'bg-muted text-muted-foreground hover:bg-muted',
         className,
       )}
@@ -312,7 +312,7 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
                   className={cn(
                     'text-xs',
                     createdKey.environment === 'live'
-                      ? 'bg-green-100 text-green-700 border-green-200'
+                      ? 'bg-success/10 text-success border-success/20'
                       : 'bg-muted text-muted-foreground',
                   )}
                   variant="outline"
@@ -348,7 +348,7 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
                 />
                 <span className="text-sm">
                   {environment === 'live' ? (
-                    <span className="font-medium text-beepbite-success">Live</span>
+                    <span className="font-medium text-success">Live</span>
                   ) : (
                     <span className="font-medium text-muted-foreground">Test</span>
                   )}
@@ -437,7 +437,7 @@ function RevokeKeyDialog({ apiKey, open, onClose, onRevoked }) {
           <AlertDialogAction
             onClick={handleRevoke}
             disabled={loading}
-            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            variant="destructive"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Revoke key
@@ -470,7 +470,7 @@ function ApiKeyRow({ apiKey, onRevoked }) {
               className={cn(
                 'text-xs',
                 apiKey.environment === 'live'
-                  ? 'bg-green-50 text-green-700 border-green-200'
+                  ? 'bg-success/10 text-success border-success/20'
                   : 'bg-muted text-muted-foreground border-border',
               )}
             >
@@ -1021,9 +1021,9 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              variant="destructive"
             >
-              Delete
+              Delete endpoint
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

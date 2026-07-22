@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -416,7 +417,7 @@ const LocationSettings = () => {
             className={cn(
               'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium',
               isSuccess
-                ? 'bg-green-50 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800'
+                ? 'bg-success/10 text-success border-success/20'
                 : 'bg-destructive/10 text-destructive border-destructive/20'
             )}
           >
@@ -837,12 +838,12 @@ const LocationSettings = () => {
                         they read.
                       </p>
                     </div>
-                    <input
-                      type="checkbox"
+                    <Switch
                       id="tax_inclusive"
                       checked={formData.tax_inclusive}
-                      onChange={(e) => handleInputChange('tax_inclusive', e.target.checked)}
-                      className="w-4 h-4 shrink-0 accent-primary border-border rounded"
+                      onCheckedChange={(checked) => handleInputChange('tax_inclusive', checked)}
+                      aria-label="Prices include tax"
+                      className="shrink-0"
                     />
                   </div>
                 </CardContent>
@@ -994,12 +995,11 @@ const LocationSettings = () => {
                         <p className="text-sm font-medium text-foreground">Accept delivery</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Receive delivery orders</p>
                       </div>
-                      <input
-                        type="checkbox"
+                      <Switch
                         id="accepts_delivery"
                         checked={formData.accepts_delivery}
-                        onChange={(e) => handleInputChange('accepts_delivery', e.target.checked)}
-                        className="w-4 h-4 accent-primary border-border rounded"
+                        onCheckedChange={(checked) => handleInputChange('accepts_delivery', checked)}
+                        aria-label="Accept delivery"
                       />
                     </div>
 
@@ -1008,12 +1008,11 @@ const LocationSettings = () => {
                         <p className="text-sm font-medium text-foreground">Accept pickup</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Receive collection orders</p>
                       </div>
-                      <input
-                        type="checkbox"
+                      <Switch
                         id="accepts_pickup"
                         checked={formData.accepts_pickup}
-                        onChange={(e) => handleInputChange('accepts_pickup', e.target.checked)}
-                        className="w-4 h-4 accent-primary border-border rounded"
+                        onCheckedChange={(checked) => handleInputChange('accepts_pickup', checked)}
+                        aria-label="Accept pickup"
                       />
                     </div>
                   </div>
@@ -1130,18 +1129,13 @@ const LocationSettings = () => {
                         Inactive locations won't appear in customer searches
                       </p>
                     </div>
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      <input
-                        type="checkbox"
-                        id="is_active"
-                        checked={formData.is_active}
-                        onChange={(e) => handleInputChange('is_active', e.target.checked)}
-                        className="w-4 h-4 accent-primary border-border rounded"
-                      />
-                      <label htmlFor="is_active" className="text-sm font-medium text-foreground cursor-pointer">
-                        Active
-                      </label>
-                    </div>
+                    <Switch
+                      id="is_active"
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) => handleInputChange('is_active', checked)}
+                      aria-label="Location active"
+                      className="shrink-0"
+                    />
                   </div>
 
                   {/* Live summary */}

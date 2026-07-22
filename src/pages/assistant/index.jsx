@@ -114,19 +114,19 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
   };
 
   return (
-    <Card className="border-amber-200 bg-amber-50">
+    <Card className="border-warning/30 bg-warning/10">
       <CardHeader className="py-3 px-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-amber-600" />
-            <CardTitle className="text-sm text-amber-800">
+            <FileText className="w-4 h-4 text-warning" />
+            <CardTitle className="text-sm text-warning">
               Menu import draft — {decisions.length} items
             </CardTitle>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-amber-600 hover:text-amber-800 hover:bg-amber-100"
+            className="h-7 w-7 text-warning hover:text-warning hover:bg-warning/15"
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? 'Collapse draft' : 'Expand draft'}
           >
@@ -146,8 +146,8 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
               className={cn(
                 'rounded-lg px-4 py-3 text-sm flex items-center gap-2',
                 result.ok
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800',
+                  ? 'bg-success/10 text-success'
+                  : 'bg-destructive/10 text-destructive',
               )}
             >
               {result.ok ? (
@@ -159,7 +159,7 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
             </div>
           ) : (
             <>
-              <p className="text-xs text-amber-700">
+              <p className="text-xs text-warning/90">
                 Review each item and choose an action before committing.
               </p>
 

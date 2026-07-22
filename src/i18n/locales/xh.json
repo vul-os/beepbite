@@ -7,7 +7,11 @@
       "reviews": "Iimbono",
       "selectLocation": "Khetha Indawo",
       "switchLocation": "Tshintsha Indawo",
-      "noLocations": "Akukho ndawo ifumanekayo"
+      "noLocations": "Akukho ndawo ifumanekayo",
+      "homeDesc": "Iphepha eliphambili",
+      "posDesc": "Indawo yokusebenza yomthengisi",
+      "kitchenDesc": "Udonga lwekhitshi olugcwele iskrini",
+      "reviewsDesc": "Impendulo yabathengi"
     },
     "sideBar": {
       "frontOfHouse": "Phambili Kwendlu",
@@ -27,7 +31,22 @@
       "members": "Amalungu",
       "staff": "Abasebenzi",
       "orgSettings": "Izicwangciso zombutho",
-      "account": "I-akhawunti"
+      "account": "I-akhawunti",
+      "posWorkspaceDesc": "Thatha ii-oda & vula irejista",
+      "kitchenWorkspace": "Indawo yokusebenza yekhitshi",
+      "kitchenWorkspaceDesc": "Amathebhu e-POS + Ikhitshi kunye nebha engentla",
+      "kitchenDisplayDesc": "Umboniso wamatikiti esikrini esizele",
+      "reportsDesc": "Uhlalutyo lwentengiso",
+      "menuDesc": "Ulawulo lwemenyu",
+      "categoriesDesc": "Lawula iindidi zemenyu",
+      "membersDesc": "Amalungu enkqubo yokunyaniseka",
+      "staffDesc": "Ulawulo lwabasebenzi & ii-PIN",
+      "driverPortal": "Isango lomqhubi",
+      "driverPortalDesc": "Ukuhanjiswa okusebenzayo & itshintshi le-intanethi",
+      "orgSettingsDesc": "Umbutho, ukubhilishwa, ivenkile, inkqubo",
+      "accountDesc": "Iakhawunti yakho yobuqu",
+      "staffLogin": "Ukungena kwabasebenzi",
+      "staffLoginHint": "Tshintsha umsebenzi / faka i-PIN"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "Akukho ziphumo ezifunyenweyo",
     "required": "Iyafuneka",
     "optional": "Nokhetho",
-    "language": "Ulwimi"
+    "language": "Ulwimi",
+    "dismiss": "Vala",
+    "refresh": "Hlaziya"
+  },
+  "sync": {
+    "offline": "Isebenza ngaphandle kombane",
+    "offlineDetail": "Akukho luqhagamshelwano — utshintsho lugcinwe kule divayisi kwaye luya kuthunyelwa xa ubuyela kwi-intanethi.",
+    "queued_one": "Utshintsho olu-{{count}} lulindile",
+    "queued_other": "Iinguqu ezili-{{count}} zilindile",
+    "syncing": "Iyavumelanisa…",
+    "synced": "Zonke iinguqu zigciniwe",
+    "error": "Ezinye iinguqu azikwazanga ukuthunyelwa — kusaqhutywa ukuzama"
   }
 }

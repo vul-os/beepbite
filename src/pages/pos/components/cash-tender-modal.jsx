@@ -124,9 +124,9 @@ export default function CashTenderModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm w-full p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Banknote className="text-orange-500 shrink-0" size={22} />
+            <Banknote className="text-primary shrink-0" size={22} />
             Cash Payment
           </DialogTitle>
           <DialogDescription className="sr-only">
@@ -136,11 +136,11 @@ export default function CashTenderModal({
 
         <div className="px-6 py-4 space-y-4">
           {/* Amount due */}
-          <div className="text-center">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-0.5">
+          <div className="text-center rounded-xl border-2 border-primary/20 bg-primary/10 py-3">
+            <p className="text-xs uppercase tracking-widest font-bold text-primary/80 mb-0.5">
               Amount due
             </p>
-            <p className="text-4xl font-bold tabular-nums tracking-tight">
+            <p className="font-ticket text-4xl text-primary tabular-nums">
               {format(Math.abs(amountDueCents))}
             </p>
           </div>
@@ -165,18 +165,19 @@ export default function CashTenderModal({
             </div>
           </div>
 
-          {/* Quick-cash chips */}
-          <div className="flex flex-wrap gap-1.5">
+          {/* Quick-cash chips — the currency's own note values, tapped fast */}
+          <div className="flex flex-wrap gap-2">
             {chips.map((chip) => (
               <button
                 key={chip.label}
                 type="button"
                 onClick={() => handleChip(chip)}
                 className={cn(
-                  'px-3 py-1 rounded-full text-sm font-medium border transition-colors',
-                  'border-orange-300 text-orange-700 bg-orange-50',
-                  'hover:bg-orange-500 hover:text-white hover:border-orange-500',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                  'h-10 px-4 rounded-full text-sm font-semibold border-2 transition-colors',
+                  'border-primary/30 text-primary bg-primary/10',
+                  'hover:bg-primary hover:text-primary-foreground hover:border-primary',
+                  'active:bg-primary/90',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 )}
               >
                 {chip.label}
@@ -184,15 +185,25 @@ export default function CashTenderModal({
             ))}
           </div>
 
-          {/* Change due */}
-          <div className="text-center py-2 rounded-lg bg-muted/40">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-0.5">
+          {/* Change due — the number a cashier reads at a glance while
+              physically counting change back to a customer, so it gets the
+              biggest, boldest treatment on screen (bigger than amount due). */}
+          <div
+            className={cn(
+              'text-center py-3 rounded-xl border-2 transition-colors',
+              changeCents >= 0 ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30',
+            )}
+          >
+            <p className={cn(
+              'text-xs uppercase tracking-widest font-bold mb-0.5',
+              changeCents >= 0 ? 'text-success/80' : 'text-destructive/80',
+            )}>
               Change due
             </p>
             <p
               className={cn(
-                'text-3xl font-bold tabular-nums tracking-tight',
-                changeCents >= 0 ? 'text-green-600' : 'text-red-500',
+                'font-ticket text-5xl tabular-nums',
+                changeCents >= 0 ? 'text-success' : 'text-destructive',
               )}
             >
               {changeCents >= 0
@@ -201,7 +212,8 @@ export default function CashTenderModal({
             </p>
           </div>
 
-          {/* Numpad — 3×4, thumb-friendly (≥52px rows on mobile) */}
+          {/* Numpad — 3×4, thumb-friendly (h-14 clears the touch-target floor
+              for wet/gloved hands mid-rush) */}
           <div className="grid grid-cols-3 gap-2">
             {NUMPAD_KEYS.map((key) => (
               <button
@@ -210,9 +222,9 @@ export default function CashTenderModal({
                 onClick={() => handleNumpad(key)}
                 aria-label={key === '⌫' ? 'backspace' : key}
                 className={cn(
-                  'h-14 rounded-xl text-xl font-semibold border-2 transition-colors select-none',
-                  'bg-white border-gray-200 hover:bg-orange-50 hover:border-orange-300 active:bg-orange-100 active:scale-95',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                  'h-14 rounded-xl text-xl font-bold border-2 border-border transition-colors select-none',
+                  'bg-card hover:bg-primary/10 hover:border-primary/40 active:bg-primary/15 active:scale-95',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   key === '⌫' && 'text-muted-foreground',
                 )}
               >
@@ -234,7 +246,7 @@ export default function CashTenderModal({
         {/* Success flash — parent controls the actual close via onOpenChange */}
         {confirmed && !submitting && !errorMessage && (
           <div className="px-6 pb-2">
-            <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+            <div className="flex items-center gap-2 text-success text-sm font-medium">
               <CheckCircle2 size={16} />
               Payment recorded — drawer opening…
             </div>
@@ -244,24 +256,21 @@ export default function CashTenderModal({
         <DialogFooter className="px-6 pb-6 pt-2 gap-2 sm:gap-2">
           <Button
             variant="outline"
+            size="touch"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
             aria-label="Cancel cash payment"
-            className="flex-1 h-12 focus-visible:ring-2 focus-visible:ring-gray-400"
+            className="flex-1"
           >
             Cancel
           </Button>
           <Button
+            size="xl"
             onClick={handleConfirm}
             disabled={!canConfirm}
             aria-label={submitting ? 'Processing payment' : 'Confirm cash payment'}
             aria-busy={submitting}
-            className={cn(
-              'flex-1 h-12 font-bold text-base bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white',
-              'focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
-              'disabled:bg-orange-200 disabled:text-orange-400 disabled:cursor-not-allowed',
-              'transition-all',
-            )}
+            className="flex-1 font-bold"
           >
             {submitting ? (
               <span className="flex items-center gap-1.5">

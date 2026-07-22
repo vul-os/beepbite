@@ -56,7 +56,7 @@ function RateCard({ rate }) {
       className={cn(
         'border transition-colors',
         rate.is_current
-          ? 'border-orange-200 bg-orange-50/30'
+          ? 'border-success/30 bg-success/10'
           : 'border-border bg-card opacity-70',
       )}
     >
@@ -65,12 +65,12 @@ function RateCard({ rate }) {
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">{label}</span>
             {rate.is_current && (
-              <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 px-1.5 py-0">
+              <Badge variant="success" className="text-[10px] px-1.5 py-0">
                 Current
               </Badge>
             )}
           </div>
-          <p className="text-lg font-bold text-foreground">{amount}</p>
+          <p className="text-lg font-bold text-foreground tabular-nums">{amount}</p>
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {effectiveRange}
@@ -142,7 +142,7 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-orange-500" />
+            <TrendingUp className="w-4 h-4 text-primary" />
             Add Pay Rate
           </DialogTitle>
           <DialogDescription>
@@ -211,13 +211,13 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
-              className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+              className="flex-1 border-primary/20 text-primary hover:bg-primary/10"
               onClick={() => onOpenChange(false)}
               disabled={saving}
             >
@@ -226,7 +226,7 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
             <Button
               type="submit"
               disabled={saving}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="flex-1"
             >
               {saving ? 'Saving…' : 'Add rate'}
             </Button>
@@ -254,7 +254,6 @@ export function PayRatesTab({ staff, rates, loading, error, createRate }) {
         </div>
         <Button
           size="sm"
-          className="bg-orange-500 hover:bg-orange-600 text-white"
           onClick={() => setDialogOpen(true)}
         >
           <Plus className="w-3.5 h-3.5 mr-1" />
@@ -269,7 +268,7 @@ export function PayRatesTab({ staff, rates, loading, error, createRate }) {
       )}
 
       {!loading && error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       )}
 
       {!loading && !error && rates.length === 0 && (

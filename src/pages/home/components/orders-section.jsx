@@ -169,7 +169,7 @@ function OrderDetailsView({
                               {item.order_item_modifiers.map((mod, vIndex) => (
                                 <span
                                   key={vIndex}
-                                  className="inline-block bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 text-xs"
+                                  className="inline-block bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs"
                                 >
                                   {mod.name_snapshot}
                                 </span>
@@ -215,7 +215,7 @@ function OrderDetailsView({
                   {selectedOrderDetails.customers?.first_name} {selectedOrderDetails.customers?.last_name || 'N/A'}
                 </InfoRow>
                 <InfoRow label="Phone">
-                  <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium">
                     <PhoneCall className="w-3 h-3" aria-hidden="true" />
                     {selectedOrderDetails.customers?.whatsapp_number || 'No phone'}
                   </span>
@@ -271,7 +271,7 @@ function OrderDetailsView({
                   <InfoRow label="Address">{selectedOrderDetails.delivery_address}</InfoRow>
                   {selectedOrderDetails.delivery_instructions && (
                     <InfoRow label="Instructions">
-                      <span className="bg-yellow-50 text-yellow-800 px-2 py-0.5 rounded text-xs">
+                      <span className="bg-warning/10 text-warning px-2 py-0.5 rounded text-xs">
                         {selectedOrderDetails.delivery_instructions}
                       </span>
                     </InfoRow>
@@ -572,12 +572,12 @@ function OrderCard({
               disabled={!!markingPaid[order.id]}
               onClick={() => onMarkPaid(order.id, 'cash')}
               aria-label="Mark as paid with cash"
-              className="flex-1 border-green-200 text-green-700 hover:bg-green-50 h-9 rounded-lg text-xs gap-1 font-medium"
+              className="flex-1 border-success/30 text-success hover:bg-success/10 h-9 rounded-lg text-xs gap-1 font-medium"
             >
               {markingPaid[order.id] === 'cash' ? (
                 <>
                   <span
-                    className="inline-block h-3 w-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin"
+                    className="inline-block h-3 w-3 border-2 border-success border-t-transparent rounded-full animate-spin"
                     aria-hidden="true"
                   />
                   Marking…
@@ -595,12 +595,12 @@ function OrderCard({
               disabled={!!markingPaid[order.id]}
               onClick={() => onMarkPaid(order.id, 'card_machine')}
               aria-label="Mark as paid with card"
-              className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50 h-9 rounded-lg text-xs gap-1 font-medium"
+              className="flex-1 border-success/30 text-success hover:bg-success/10 h-9 rounded-lg text-xs gap-1 font-medium"
             >
               {markingPaid[order.id] === 'card_machine' ? (
                 <>
                   <span
-                    className="inline-block h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"
+                    className="inline-block h-3 w-3 border-2 border-success border-t-transparent rounded-full animate-spin"
                     aria-hidden="true"
                   />
                   Marking…
@@ -803,7 +803,7 @@ const OrdersSection = ({
         >
           <div className="bg-card rounded-2xl shadow-2xl max-w-sm w-full p-5 space-y-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <p id="perm-error-title" className="font-semibold text-foreground text-sm">Permission required</p>
                 <p className="text-sm text-muted-foreground mt-1">{markPaidError}</p>

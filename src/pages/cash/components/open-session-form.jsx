@@ -76,7 +76,7 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Unlock className="h-5 w-5 text-orange-500" />
+          <Unlock className="h-5 w-5 text-primary" />
           Open Cash Drawer Session
         </CardTitle>
       </CardHeader>
@@ -135,7 +135,7 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
               type="checkbox"
               checked={isBlindClose}
               onChange={(e) => setIsBlindClose(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
             />
             <Label htmlFor="blind-close" className="cursor-pointer">
               Blind close — staff won&apos;t see the expected balance at closing
@@ -144,7 +144,7 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
 
           <div className="flex items-center gap-3 pt-1">
             <span className="text-sm text-muted-foreground">Opening float:</span>
-            <span className="font-semibold">{format(openingFloatCents)}</span>
+            <span className="font-semibold tabular-nums">{format(openingFloatCents)}</span>
           </div>
 
           {error && (
@@ -154,7 +154,6 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
           <Button
             type="submit"
             disabled={submitting}
-            className="bg-orange-500 hover:bg-orange-600 text-white"
           >
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Open Session

@@ -9,7 +9,11 @@
       "reviews": "Reviews",
       "selectLocation": "Select Location",
       "switchLocation": "Switch Location",
-      "noLocations": "No locations available"
+      "noLocations": "No locations available",
+      "homeDesc": "Main home",
+      "posDesc": "Cashier workspace",
+      "kitchenDesc": "Full-screen kitchen wall",
+      "reviewsDesc": "Customer feedback"
     },
     "sideBar": {
       "frontOfHouse": "Front of House",
@@ -22,15 +26,39 @@
       "noOrganizationsHint": "Create an organization to get started",
       "currentOrganization": "Current organization",
       "posWorkspace": "POS Workspace",
+      "posWorkspaceDesc": "Take orders & open the register",
+      "kitchenWorkspace": "Kitchen Workspace",
+      "kitchenWorkspaceDesc": "POS + Kitchen tabs with top bar",
       "kitchenDisplay": "Kitchen Display",
+      "kitchenDisplayDesc": "Wall-mount full-screen ticket view",
       "reports": "Reports",
+      "reportsDesc": "Sales analytics",
       "menu": "Menu",
+      "menuDesc": "Menu management",
       "categories": "Categories",
+      "categoriesDesc": "Manage menu categories",
       "members": "Members",
+      "membersDesc": "Loyalty program members",
       "staff": "Staff",
-      "orgSettings": "Organization Settings",
-      "account": "Account"
+      "staffDesc": "Staff management & PINs",
+      "driverPortal": "Driver Portal",
+      "driverPortalDesc": "Active deliveries & online toggle",
+      "orgSettings": "Settings",
+      "orgSettingsDesc": "Organization, billing, storefront, system",
+      "account": "Account",
+      "accountDesc": "Your personal account",
+      "staffLogin": "Staff Login",
+      "staffLoginHint": "Switch employee / enter PIN"
     }
+  },
+  "sync": {
+    "offline": "Working offline",
+    "offlineDetail": "No connection — changes are saved on this device and will send once you're back online.",
+    "queued_one": "{{count}} change queued",
+    "queued_other": "{{count}} changes queued",
+    "syncing": "Syncing…",
+    "synced": "All changes saved",
+    "error": "Some changes couldn't be sent — will keep retrying"
   },
   "auth": {
     "signIn": {
@@ -84,6 +112,8 @@
     "noResults": "No results found",
     "required": "Required",
     "optional": "Optional",
-    "language": "Language"
+    "language": "Language",
+    "dismiss": "Dismiss",
+    "refresh": "Refresh"
   }
 }

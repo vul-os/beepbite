@@ -28,83 +28,136 @@
     scrollbar-color: hsl(var(--border) / 0.7) transparent;
   }
 
+  /*
+   * ─── "Ticket Rail" design system ──────────────────────────────────────
+   * A restaurant POS is read under kitchen-window glare, tapped with wet
+   * hands mid-rush, and trusted with the day's cash. The palette below is
+   * built around that, not around a marketing dashboard:
+   *   - Warm "order-pad paper" light theme instead of clinical white — a
+   *     tenant staring at a counter screen for a 10-hour shift.
+   *   - A charcoal chrome (matches the kitchen-display dark theme, so the
+   *     KDS and the rest of the app read as one product, not two).
+   *   - A darker, more assertive "safety orange" than the old soft peach —
+   *     it needs to carry white text at AA contrast on a button, not just
+   *     look nice as a gradient.
+   *   - Destructive red is a genuinely different hue+shape story (see the
+   *     .hazard-stripe utility and Button's destructive variant), not a
+   *     recolour of the same pill.
+   */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 10%; /* Primary Text: Rich black for readability */
+    --background: 32 28% 97%;       /* warm paper, not clinical white */
+    --foreground: 20 16% 11%;       /* warm ink */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%; /* Primary Text: Rich black */
+    --card-foreground: 20 16% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%; /* Primary Text: Rich black */
-    
-    /* Restaurant Owner Optimized Color Scheme */
-    --primary: 25 95% 53%; /* Primary Orange: #F97316 - bright vibrant orange */
+    --popover-foreground: 20 16% 11%;
+
+    /* Primary: "kitchen orange" — deeper and more saturated than a soft
+       peach, so it clears 4.5:1 with white text on a filled button. */
+    --primary: 18 88% 40%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 29%; /* Secondary Text: #4A4A4A - readable gray */
+    --secondary: 20 10% 24%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 98%; /* Background Light: #FAFAFA - clean sections */
-    --muted-foreground: 220 13% 46%; /* Tertiary Text: #6B7280 - subtle text */
-    --accent: 32 91% 72%; /* Accent Orange: #FDBA74 - light warm orange */
-    --accent-foreground: 0 0% 10%;
-    --destructive: 0 84% 60%; /* Error Red: #EF4444 */
+    --muted: 30 20% 93%;
+    --muted-foreground: 20 9% 38%;
+    --accent: 30 90% 92%;
+    --accent-foreground: 18 70% 24%;
+
+    /* Destructive is a different hue *and* gets a different shape via the
+       Button component and .hazard-stripe — colour alone is never the only
+       signal for void/refund/delete. */
+    --destructive: 353 74% 36%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%; /* Border Light: #E5E7EB */
-    --input: 220 13% 91%; /* Border Light for inputs */
-    --ring: 25 95% 53%; /* Primary Orange focus ring */
-    
-    /* Updated chart colors using vibrant orange palette */
-    --chart-1: 25 95% 53%; /* Primary Orange */
-    --chart-2: 24 95% 61%; /* Secondary Orange */
-    --chart-3: 32 91% 72%; /* Accent Orange */
-    --chart-4: 158 84% 39%; /* Success Green */
-    --chart-5: 43 96% 50%; /* Warning Amber */
-    --radius: 0.75rem;
-    
-    /* Custom BeepBite variables with vibrant orange palette */
-    --beepbite-orange: 25 95% 53%; /* Primary Orange: #F97316 */
-    --beepbite-orange-soft: 24 95% 61%; /* Secondary Orange: #FB923C */
-    --beepbite-accent: 32 91% 72%; /* Accent Orange: #FDBA74 */
-    --beepbite-text-primary: 0 0% 10%; /* Primary Text: #1A1A1A */
-    --beepbite-text-secondary: 0 0% 29%; /* Secondary Text: #4A4A4A */
-    --beepbite-text-tertiary: 220 13% 46%; /* Tertiary Text: #6B7280 */
-    --beepbite-background: 0 0% 100%; /* Background White */
-    --beepbite-background-light: 0 0% 98%; /* Background Light: #FAFAFA */
-    --beepbite-background-cream: 33 100% 97%; /* Background Cream: #FFF7ED */
-    --beepbite-success: 158 84% 39%; /* Success Green: #10B981 */
-    --beepbite-warning: 43 96% 50%; /* Warning Amber: #F59E0B */
-    --beepbite-error: 0 84% 60%; /* Error Red: #EF4444 */
-    --beepbite-border-light: 220 13% 91%; /* Border Light: #E5E7EB */
-    --beepbite-border-medium: 220 13% 83%; /* Border Medium: #D1D5DB */
-    --beepbite-gradient-start: 25 95% 53%; /* Primary Orange */
-    --beepbite-gradient-end: 24 95% 61%; /* Secondary Orange */
+
+    /* Caution — manager-approval-required, aging tickets, low stock. A
+       third, distinct signal so "needs attention" never gets confused with
+       "irreversible". */
+    --warning: 32 90% 34%;
+    --warning-foreground: 0 0% 100%;
+    --success: 152 62% 26%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 26 16% 83%;
+    --input: 26 16% 80%;
+    --ring: 18 88% 40%;
+
+    --chart-1: 18 88% 40%;
+    --chart-2: 32 90% 45%;
+    --chart-3: 152 55% 34%;
+    --chart-4: 205 70% 42%;
+    --chart-5: 280 40% 48%;
+    --radius: 0.5rem;
+
+    /* Legacy BeepBite aliases — kept so existing call sites (.beepbite-*
+       utility classes) don't need touching; values now point at the
+       Ticket Rail palette above instead of the old soft-orange scheme. */
+    --beepbite-orange: 18 88% 40%;
+    --beepbite-orange-soft: 24 88% 48%;
+    --beepbite-accent: 30 90% 92%;
+    --beepbite-text-primary: 20 16% 11%;
+    --beepbite-text-secondary: 20 10% 30%;
+    --beepbite-text-tertiary: 20 9% 42%;
+    --beepbite-background: 32 28% 97%;
+    --beepbite-background-light: 30 20% 95%;
+    --beepbite-background-cream: 30 90% 95%;
+    --beepbite-success: 152 62% 26%;
+    --beepbite-warning: 32 90% 34%;
+    --beepbite-error: 353 74% 36%;
+    --beepbite-border-light: 26 16% 83%;
+    --beepbite-border-medium: 26 14% 72%;
+    --beepbite-gradient-start: 18 88% 40%;
+    --beepbite-gradient-end: 30 88% 48%;
   }
 
+  /* Dark chrome doubles as the KDS palette (bg-gray-950/900 in the kitchen
+     display components sit right alongside these values), so switching a
+     back-office screen to dark mode and walking into the kitchen reads as
+     one continuous product instead of two different apps. */
   .dark {
-    --background: 0 0% 10%; /* Primary Text as dark background */
-    --foreground: 0 0% 98%; /* Background Light as light text */
-    --card: 0 0% 10%; /* Primary Text as dark card */
-    --card-foreground: 0 0% 98%; /* Background Light as light text */
-    --popover: 0 0% 10%; /* Primary Text as dark popover */
-    --popover-foreground: 0 0% 98%; /* Background Light as light text */
-    --primary: 25 95% 53%; /* Keep bright Primary Orange in dark mode */
-    --primary-foreground: 0 0% 10%; /* Primary Text as contrast */
-    --secondary: 0 0% 29%; /* Secondary Text */
-    --secondary-foreground: 0 0% 98%; /* Background Light */
-    --muted: 0 0% 29%; /* Secondary Text as muted background */
-    --muted-foreground: 220 13% 46%; /* Tertiary Text */
-    --accent: 32 91% 72%; /* Accent Orange */
-    --accent-foreground: 0 0% 10%; /* Primary Text */
-    --destructive: 0 84% 60%; /* Error Red */
-    --destructive-foreground: 0 0% 98%; /* Background Light */
-    --border: 0 0% 29%; /* Secondary Text as border */
-    --input: 0 0% 29%; /* Secondary Text as input border */
-    --ring: 25 95% 53%; /* Primary Orange */
-    
-    /* Updated dark mode chart colors */
-    --chart-1: 25 95% 53%; /* Primary Orange */
-    --chart-2: 24 95% 61%; /* Secondary Orange */
-    --chart-3: 32 91% 72%; /* Accent Orange */
-    --chart-4: 158 84% 39%; /* Success Green */
-    --chart-5: 43 96% 50%; /* Warning Amber */
+    --background: 222 22% 8%;
+    --foreground: 210 20% 96%;
+    --card: 222 18% 12%;
+    --card-foreground: 210 20% 96%;
+    --popover: 222 18% 12%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 22 92% 52%;
+    --primary-foreground: 20 30% 10%;
+    --secondary: 217 14% 26%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 217 16% 18%;
+    --muted-foreground: 216 12% 65%;
+    --accent: 217 16% 20%;
+    --accent-foreground: 30 90% 80%;
+    --destructive: 355 78% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 20 30% 10%;
+    --success: 152 55% 40%;
+    --success-foreground: 0 0% 100%;
+    --border: 217 15% 26%;
+    --input: 217 15% 26%;
+    --ring: 22 92% 58%;
+
+    --chart-1: 22 92% 55%;
+    --chart-2: 38 92% 55%;
+    --chart-3: 152 55% 45%;
+    --chart-4: 205 80% 55%;
+    --chart-5: 280 55% 62%;
+
+    --beepbite-orange: 22 92% 52%;
+    --beepbite-orange-soft: 28 92% 56%;
+    --beepbite-accent: 217 16% 20%;
+    --beepbite-text-primary: 210 20% 96%;
+    --beepbite-text-secondary: 216 12% 78%;
+    --beepbite-text-tertiary: 216 12% 65%;
+    --beepbite-background: 222 22% 8%;
+    --beepbite-background-light: 217 16% 18%;
+    --beepbite-background-cream: 217 16% 18%;
+    --beepbite-success: 152 55% 40%;
+    --beepbite-warning: 38 92% 50%;
+    --beepbite-error: 355 78% 52%;
+    --beepbite-border-light: 217 15% 26%;
+    --beepbite-border-medium: 217 14% 34%;
   }
 
   /* Apply border and background styles */
@@ -114,7 +167,8 @@
   
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter Variable', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Archivo Variable', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-variation-settings: 'wdth' 100;
     line-height: 1.5;
     font-weight: 400;
     font-synthesis: none;
@@ -130,30 +184,44 @@
     touch-action: manipulation;
   }
   
-  /* One typeface across the whole product: Inter. Headings differ from body by
-     weight and tighter tracking, not by family — a single family reads as one
-     coherent system and avoids the serif/sans clash the app used to have. */
+  /* One family across the whole product — Archivo Variable — used two ways:
+     normal width for reading (body copy, forms, tables) and condensed+black
+     for anything that has to be read at a glance or at distance (headings,
+     KDS tickets, order numbers, POS category tabs). Same download, both
+     jobs, so nothing serif/sans clashes and nothing extra ships. */
   h1, h2, h3 {
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    font-variation-settings: 'wdth' 92;
   }
 
   h1 { line-height: 1.05; }
   h2 { line-height: 1.12; }
-  h3 { line-height: 1.2; letter-spacing: -0.015em; }
+  h3 { line-height: 1.2; }
 
   /* .font-display is kept as an alias so existing call sites need no change;
-     it now selects the same Inter as everything else, at display weight. */
+     it now selects condensed-black Archivo instead of Inter at 700. */
   .font-display {
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    font-variation-settings: 'wdth' 92;
   }
   .font-display-italic {
-    font-weight: 600;
+    font-weight: 700;
     font-style: italic;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.005em;
+    font-variation-settings: 'wdth' 92;
   }
-  
+
+  /* .font-ticket — the condensed-black extreme of the same family. Reserved
+     for things that must be read across a kitchen or at a glance during a
+     rush: KDS ticket numbers, POS order totals, big countdown timers. */
+  .font-ticket {
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    font-variation-settings: 'wdth' 70;
+  }
+
   /* Link styles */
   a {
     font-weight: 500;
@@ -392,15 +460,15 @@
   /* Subtle grid background */
   .bg-grid-orange {
     background-image:
-      linear-gradient(to right, rgba(249, 115, 22, 0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(249, 115, 22, 0.08) 1px, transparent 1px);
+      linear-gradient(to right, rgba(192, 66, 12, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(192, 66, 12, 0.08) 1px, transparent 1px);
     background-size: 48px 48px;
   }
   /* Dark-mode variant — slightly more visible grid lines */
   .bg-grid-orange-dark {
     background-image:
-      linear-gradient(to right, rgba(249, 115, 22, 0.12) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(249, 115, 22, 0.12) 1px, transparent 1px);
+      linear-gradient(to right, rgba(192, 66, 12, 0.12) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(192, 66, 12, 0.12) 1px, transparent 1px);
     background-size: 48px 48px;
   }
 
@@ -432,6 +500,57 @@
   .delay-225 { animation-delay: 225ms; }
   .delay-300 { animation-delay: 300ms; }
 
+  /* ─── Destructive-action motifs ──────────────────────────────────────────
+     "Errors are money": void, refund, delete and drawer-open actions must
+     never be a same-shape button one accidental tap from the safe one. The
+     hazard stripe is a second, colour-blind-safe signal (diagonal texture,
+     not just red) reserved for the most irreversible actions — full void,
+     delete menu item, delete category, hard-refund. Ordinary destructive
+     buttons (Button variant="destructive") already differ by colour, icon
+     and (slightly) shape; reach for .hazard-stripe on the ones that cannot
+     be undone at all. */
+  .hazard-stripe {
+    background-image: repeating-linear-gradient(
+      135deg,
+      hsl(var(--destructive)) 0px,
+      hsl(var(--destructive)) 10px,
+      hsl(var(--destructive-foreground) / 0.16) 10px,
+      hsl(var(--destructive-foreground) / 0.16) 20px
+    );
+  }
+
+  /* A torn-ticket perforation rule — used between "sent" rounds on a POS
+     ticket, or between line items on a receipt. Decorative but on-theme;
+     never load-bearing for meaning. */
+  .ticket-perforation {
+    border: none;
+    height: 0;
+    border-top: 2px dashed hsl(var(--border));
+  }
+
+  /* Strong, unmissable focus treatment for counter staff running the till
+     from a keyboard/scanner rather than touch. Shadcn's default
+     `ring-1` is too subtle under kitchen-window glare; this is opt-in on
+     custom (non-Button) interactive elements such as ticket rows and table
+     tiles — Button/Input/Select etc. already carry an equivalent ring. */
+  .focus-ring-strong {
+    outline: none;
+  }
+  .focus-ring-strong:focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 2px);
+  }
+
+  /* Offline / sync status — see src/components/ui/sync-status.jsx. Kept as a
+     handful of small utilities rather than one-off inline styles so every
+     surface (top bar badge, chrome-less POS/KDS strip) agrees on the same
+     three states. */
+  .sync-pill-offline { @apply bg-warning text-warning-foreground; }
+  .sync-pill-syncing { @apply bg-muted text-muted-foreground; }
+  .sync-pill-ok      { @apply bg-success/10 text-success; }
+  .sync-pill-error   { @apply bg-destructive text-destructive-foreground; }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-blob,
     .animate-float-slow,
@@ -452,7 +571,10 @@
 }
 
 @layer components {
+  /* Retained alias — nothing in the app references this class today, but it
+     shipped as public-ish API in previous waves. Now points at the current
+     body family instead of Inter. */
   .font-inter {
-    font-family: 'Inter Variable', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Archivo Variable', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
 }

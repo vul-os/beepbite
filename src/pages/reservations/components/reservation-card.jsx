@@ -2,14 +2,34 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, Users, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Users, Phone, Mail, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api-client';
-import { RESERVATION_STATUS_COLORS as STATUS_COLORS } from '@/lib/status-colors';
 
 function formatTime(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+// Status → Ticket Rail token map, local to this card rather than the shared
+// lib/status-colors.js (that file is consumed by several other in-flight
+// pages outside this slice). "Confirmed" and "seated" are deliberately both
+// success-family so a host reads "this guest will/does have a table" at a
+// glance, but seated is the solid/definitive form ("they're here now") while
+// confirmed is a soft tint ("booked, not arrived yet") so the two states
+// stay visually distinguishable next to each other.
+const STATUS_STYLES = {
+  pending:   'bg-warning/15 text-warning border-warning/30',
+  confirmed: 'bg-primary/10 text-primary border-primary/25',
+  seated:    'bg-success text-success-foreground border-transparent',
+  completed: 'bg-muted text-muted-foreground border-transparent',
+  cancelled: 'bg-destructive/10 text-destructive border-destructive/30',
+  no_show:   'bg-destructive/10 text-destructive border-destructive/30',
+};
+
+// A confirmed/pending reservation whose time has passed is a no-show risk —
+// reversible (they may still walk in), so it gets the warning signal, never
+// the destructive one.
+const LATE_THRESHOLD_MIN = 15;
 
 export default function ReservationCard({ reservation, onRefresh }) {
   const [busy, setBusy] = useState(false);
@@ -31,6 +51,14 @@ export default function ReservationCard({ reservation, onRefresh }) {
   const canSeat    = status === 'confirmed' || status === 'pending';
   const canCancel  = status !== 'cancelled' && status !== 'completed' && status !== 'seated';
 
+  const minutesPast = reservation.reservation_at
+    ? Math.floor((Date.now() - new Date(reservation.reservation_at).getTime()) / 60000)
+    : null;
+  const isRunningLate =
+    (status === 'pending' || status === 'confirmed') &&
+    minutesPast !== null &&
+    minutesPast > LATE_THRESHOLD_MIN;
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4 space-y-3">
@@ -41,20 +69,28 @@ export default function ReservationCard({ reservation, onRefresh }) {
             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
-                {formatTime(reservation.reservation_at)}
+                <span className="tabular-nums">{formatTime(reservation.reservation_at)}</span>
               </span>
               <span className="flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" />
-                {reservation.party_size} guests
+                <span className="tabular-nums">{reservation.party_size}</span> guests
               </span>
               {reservation.duration_minutes && (
-                <span>{reservation.duration_minutes} min</span>
+                <span className="tabular-nums">{reservation.duration_minutes} min</span>
               )}
             </div>
           </div>
-          <Badge className={STATUS_COLORS[status] || 'bg-muted text-foreground'}>
-            {status.replace('_', ' ')}
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge className={STATUS_STYLES[status] || 'bg-muted text-muted-foreground border-transparent'}>
+              {status.replace('_', ' ')}
+            </Badge>
+            {isRunningLate && (
+              <Badge className="bg-warning/15 text-warning border-warning/30">
+                <AlertTriangle className="h-3 w-3" />
+                Running late
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Contact info */}
@@ -102,7 +138,7 @@ export default function ReservationCard({ reservation, onRefresh }) {
             </Button>
           )}
           {canSeat && (
-            <Button size="sm" disabled={busy} onClick={() => act('seat')}>
+            <Button size="sm" variant="success" disabled={busy} onClick={() => act('seat')}>
               Seat
             </Button>
           )}

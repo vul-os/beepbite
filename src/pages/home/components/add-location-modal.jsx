@@ -144,8 +144,8 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-100">
-              <MapPin className="w-4 h-4 text-orange-500" />
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+              <MapPin className="w-4 h-4 text-primary" />
             </div>
             <DialogTitle>Add your first location</DialogTitle>
           </div>
@@ -159,7 +159,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
           {/* Location name */}
           <div className="space-y-1.5">
             <Label htmlFor="loc-name">
-              Location name <span className="text-red-500">*</span>
+              Location name <span className="text-destructive">*</span>
             </Label>
             <Input
               id="loc-name"
@@ -176,7 +176,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
           {/* Region */}
           <div className="space-y-1.5">
             <Label htmlFor="loc-region">
-              Region <span className="text-red-500">*</span>
+              Region <span className="text-destructive">*</span>
             </Label>
             {loadingRegions ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground h-10 px-3 border rounded-md">
@@ -268,7 +268,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="flex-1"
               disabled={!isValid || submitting}
             >
               {submitting ? (

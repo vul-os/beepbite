@@ -30,7 +30,7 @@ function KioskCountdownPill({ remaining }) {
   if (remaining === null || remaining === undefined) return null;
   if (remaining === 0) {
     return (
-      <span className="absolute top-2 left-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white leading-none shadow">
+      <span className="absolute top-2 left-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground leading-none shadow">
         Sold out
       </span>
     );
@@ -106,22 +106,22 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Search bar */}
-      <div className="px-4 pt-4 pb-3 bg-white border-b border-orange-100 shrink-0">
+      <div className="px-4 pt-4 pb-3 bg-card border-b border-border shrink-0">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" aria-hidden="true" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 pointer-events-none" aria-hidden="true" />
           <input
             type="search"
             placeholder="Search items…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             aria-label="Search menu items"
-            className="w-full pl-11 pr-10 h-12 text-lg rounded-xl border-2 border-orange-200 focus:border-orange-500 focus:ring-0 focus:outline-none bg-white"
+            className="w-full pl-11 pr-10 h-12 text-lg rounded-xl border-2 border-border focus:border-primary focus:ring-0 focus:outline-none bg-card"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -133,7 +133,7 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
       <div
         role="group"
         aria-label="Filter by category"
-        className="px-4 py-2 bg-white border-b border-orange-100 shrink-0 overflow-x-auto scrollbar-none"
+        className="px-4 py-2 bg-card border-b border-border shrink-0 overflow-x-auto scrollbar-none"
         style={{ scrollbarWidth: 'none' }}
       >
         <div className="flex gap-2 min-w-max">
@@ -142,10 +142,10 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
             aria-pressed={activeCat === 'all'}
             className={cn(
               'h-11 px-5 rounded-full text-base font-semibold transition-colors whitespace-nowrap',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               activeCat === 'all'
-                ? 'bg-orange-500 text-white shadow-sm'
-                : 'bg-orange-50 text-gray-700 border border-orange-200 hover:bg-orange-100 active:bg-orange-200'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-primary/5 text-foreground border border-primary/20 hover:bg-primary/10 active:bg-primary/15'
             )}
           >
             All
@@ -157,10 +157,10 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
               aria-pressed={activeCat === cat.id}
               className={cn(
                 'h-11 px-5 rounded-full text-base font-semibold transition-colors whitespace-nowrap',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 activeCat === cat.id
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'bg-orange-50 text-gray-700 border border-orange-200 hover:bg-orange-100 active:bg-orange-200'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-primary/5 text-foreground border border-primary/20 hover:bg-primary/10 active:bg-primary/15'
               )}
             >
               {cat.name}
@@ -174,19 +174,19 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="h-44 bg-gray-100 rounded-2xl animate-pulse" />
+              <div key={i} className="h-44 bg-muted rounded-xl animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-20 h-20 rounded-full bg-orange-50 flex items-center justify-center mb-4">
-              <Utensils className="w-10 h-10 text-orange-300" />
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <Utensils className="w-10 h-10 text-primary/40" />
             </div>
-            <p className="text-xl font-semibold text-gray-600">No items found</p>
+            <p className="text-xl font-semibold text-muted-foreground">No items found</p>
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="mt-3 text-sm text-orange-500 hover:text-orange-600 underline focus-visible:outline-none"
+                className="mt-3 text-sm text-primary hover:text-primary/80 underline focus-visible:outline-none"
               >
                 Clear search
               </button>
@@ -204,15 +204,15 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
                   disabled={soldOutToday}
                   aria-label={`Add ${item.name} — ${formatPrice(parseFloat(item.price || 0) * 100, currency)}${soldOutToday ? ' — sold out' : ''}`}
                   className={cn(
-                    'group relative flex flex-col overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-all duration-150 text-left',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2',
+                    'group relative flex flex-col overflow-hidden rounded-2xl border-2 bg-card shadow-sm transition-all duration-150 text-left',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     soldOutToday
-                      ? 'border-gray-200 opacity-50 cursor-not-allowed'
-                      : 'border-gray-200 hover:border-orange-400 hover:shadow-lg active:scale-95 active:shadow-sm',
+                      ? 'border-border opacity-50 cursor-not-allowed'
+                      : 'border-border hover:border-primary/60 hover:shadow-card-hover active:scale-95 active:shadow-sm',
                   )}
                 >
                   {/* Emoji tile */}
-                  <div className="relative flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 h-28 sm:h-32">
+                  <div className="relative flex items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-primary/15 h-28 sm:h-32">
                     <span
                       className="text-5xl leading-none select-none group-hover:scale-110 transition-transform duration-200"
                       aria-hidden="true"
@@ -223,17 +223,17 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
                   </div>
                   {/* Details */}
                   <div className="flex flex-col flex-1 p-3 sm:p-4">
-                    <p className="font-semibold text-gray-900 text-base line-clamp-2 leading-tight">
+                    <p className="font-semibold text-foreground text-base line-clamp-2 leading-tight">
                       {item.name}
                     </p>
                     <div className="mt-auto pt-2.5 flex items-center justify-between">
-                      <span className="text-lg font-bold text-gray-900 tabular-nums">
+                      <span className="text-lg font-bold text-foreground tabular-nums">
                         {formatPrice(parseFloat(item.price || 0) * 100, currency)}
                       </span>
                       {!soldOutToday && (
                         <span
                           aria-hidden="true"
-                          className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white shrink-0 group-hover:scale-110 group-hover:bg-orange-600 transition-all"
+                          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white shrink-0 group-hover:scale-110 group-hover:bg-primary/90 transition-all"
                         >
                           <Plus className="w-5 h-5" strokeWidth={2.5} />
                         </span>

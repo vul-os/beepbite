@@ -142,9 +142,9 @@ export default function FloorEditor() {
   if (!activeLocation) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
-        <AlertCircle className="w-12 h-12 text-gray-400 mb-3" />
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-3" />
         <h2 className="text-xl font-semibold">No location selected</h2>
-        <p className="text-gray-600 mt-1">Pick a location to edit its floor layout.</p>
+        <p className="text-muted-foreground mt-1">Pick a location to edit its floor layout.</p>
       </div>
     );
   }
@@ -159,11 +159,11 @@ export default function FloorEditor() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <LayoutGrid className="w-7 h-7 text-orange-500" />
+            <h1 className="font-display text-3xl font-extrabold flex items-center gap-2">
+              <LayoutGrid className="w-7 h-7 text-primary" />
               Floor Editor
             </h1>
-            <p className="text-gray-600 mt-1 text-sm">
+            <p className="text-muted-foreground mt-1 text-sm">
               Drag to reposition; changes save automatically. Snap is 16px.
             </p>
           </div>
@@ -177,7 +177,7 @@ export default function FloorEditor() {
             variant="outline"
             size="sm"
             onClick={() => setAiOpen(true)}
-            className="border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+            className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 hover:text-primary"
           >
             <Sparkles className="h-4 w-4 mr-2" />
             AI floor plan
@@ -204,8 +204,8 @@ export default function FloorEditor() {
         <div
           className={`rounded-md border px-3 py-2 text-sm ${
             flash.type === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-rose-200 bg-rose-50 text-rose-800'
+              ? 'border-success/30 bg-success/10 text-success'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
           }`}
         >
           {flash.message}
@@ -215,9 +215,9 @@ export default function FloorEditor() {
       {error && !loading ? (
         <Card>
           <CardContent className="p-6 text-center">
-            <AlertCircle className="h-8 w-8 text-rose-500 mx-auto mb-2" />
-            <h3 className="font-medium text-gray-900 mb-1">Couldn&apos;t load floor</h3>
-            <p className="text-sm text-gray-600 mb-4">{error}</p>
+            <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+            <h3 className="font-medium text-foreground mb-1">Couldn&apos;t load floor</h3>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
             <Button size="sm" variant="outline" onClick={refresh}>Try again</Button>
           </CardContent>
         </Card>
@@ -232,7 +232,7 @@ export default function FloorEditor() {
 
           {loading && tables.length === 0 ? (
             <Card>
-              <CardContent className="p-12 text-center text-gray-500">
+              <CardContent className="p-12 text-center text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                 Loading…
               </CardContent>
@@ -240,9 +240,9 @@ export default function FloorEditor() {
           ) : sections.length === 0 ? (
             <Card>
               <CardContent className="p-10 text-center">
-                <LayoutGrid className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 mb-1">No sections yet</h3>
-                <p className="text-sm text-gray-600">
+                <LayoutGrid className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="font-medium text-foreground mb-1">No sections yet</h3>
+                <p className="text-sm text-muted-foreground">
                   Create a floor section (e.g. &quot;Main Room&quot;, &quot;Patio&quot;) before adding tables.
                   Section management lives in Settings.
                 </p>
@@ -250,7 +250,7 @@ export default function FloorEditor() {
             </Card>
           ) : visibleTables.length === 0 ? (
             <Card>
-              <CardContent className="p-8 text-center text-gray-600 text-sm">
+              <CardContent className="p-8 text-center text-muted-foreground text-sm">
                 No tables in this section yet. Click &quot;Add Table&quot; to drop one in.
               </CardContent>
             </Card>
@@ -340,7 +340,7 @@ function AddTableDialog({ open, onOpenChange, sections, defaultSectionId, locati
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5 text-orange-500" />
+            <Plus className="h-5 w-5 text-primary" />
             Add Table
           </DialogTitle>
           <DialogDescription>
@@ -381,7 +381,7 @@ function AddTableDialog({ open, onOpenChange, sections, defaultSectionId, locati
               </SelectContent>
             </Select>
           </div>
-          {err && <p className="text-sm text-rose-600">{err}</p>}
+          {err && <p className="text-sm text-destructive">{err}</p>}
         </div>
 
         <DialogFooter>

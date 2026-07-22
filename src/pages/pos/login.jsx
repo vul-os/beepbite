@@ -39,7 +39,7 @@ function PinDots({ length, maxLength }) {
           className={`w-3 h-3 rounded-full border-2 transition-all duration-150 ${
             i < length
               ? 'bg-primary border-primary scale-110'
-              : 'bg-transparent border-gray-300'
+              : 'bg-transparent border-border'
           }`}
         />
       ))}
@@ -219,7 +219,7 @@ const PosLoginPage = () => {
   // ---- render ----
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4 py-8 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted/60 px-4 py-8 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute top-10 left-10 w-20 h-20 bg-primary/5 rounded-full opacity-50 pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-16 h-16 bg-primary/5 rounded-full opacity-50 pointer-events-none" />
@@ -229,7 +229,7 @@ const PosLoginPage = () => {
         <div className="flex justify-center">
           <div className="text-center">
             <div className="flex justify-center items-center mb-2">
-              <div className="relative w-14 h-14 beepbite-gradient rounded-2xl flex items-center justify-center shadow-lg border-4 border-white">
+              <div className="relative w-14 h-14 beepbite-gradient rounded-2xl flex items-center justify-center shadow-lg border-4 border-background">
                 <img
                   src="/icon.svg"
                   alt="BeepBite"
@@ -240,16 +240,16 @@ const PosLoginPage = () => {
             </div>
             <h1 className="text-3xl font-bold tracking-tight">
               <span className="beepbite-gradient-text">Beep</span>
-              <span className="text-gray-900">Bite</span>
+              <span className="text-foreground">Bite</span>
             </h1>
-            <p className="text-sm text-gray-600 font-medium">Staff Login</p>
+            <p className="text-sm text-muted-foreground font-medium">Staff Login</p>
           </div>
         </div>
 
-        <Card className="border border-gray-200 shadow-xl bg-white/95 backdrop-blur-sm">
+        <Card className="border-2 border-border shadow-xl bg-card/95 backdrop-blur-sm">
           <CardHeader className="space-y-1 pb-3 text-center px-5 pt-5">
-            <CardTitle className="text-xl font-bold text-gray-900">Welcome</CardTitle>
-            <CardDescription className="text-sm text-gray-500">
+            <CardTitle className="text-xl font-bold">Welcome</CardTitle>
+            <CardDescription>
               Sign in to your POS terminal
             </CardDescription>
           </CardHeader>
@@ -278,11 +278,11 @@ const PosLoginPage = () => {
 
                 <form onSubmit={handlePwSubmit} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="pw-username" className="text-sm font-medium text-gray-700">
+                    <Label htmlFor="pw-username" className="text-sm font-medium text-foreground">
                       Username
                     </Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                      <User className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="pw-username"
                         name="username"
@@ -298,7 +298,7 @@ const PosLoginPage = () => {
                           }
                         }}
                         disabled={pwLoading}
-                        className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pwErrors.username ? 'border-destructive' : ''}`}
+                        className={`pl-10 h-11 focus:border-primary transition-all text-base ${pwErrors.username ? 'border-destructive' : ''}`}
                       />
                     </div>
                     {pwErrors.username && (
@@ -307,11 +307,11 @@ const PosLoginPage = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="pw-password" className="text-sm font-medium text-gray-700">
+                    <Label htmlFor="pw-password" className="text-sm font-medium text-foreground">
                       Password
                     </Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                      <Lock className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="pw-password"
                         name="password"
@@ -322,7 +322,7 @@ const PosLoginPage = () => {
                         value={pwForm.password}
                         onChange={handlePwChange}
                         disabled={pwLoading}
-                        className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pwErrors.password ? 'border-destructive' : ''}`}
+                        className={`pl-10 h-11 focus:border-primary transition-all text-base ${pwErrors.password ? 'border-destructive' : ''}`}
                       />
                     </div>
                     {pwErrors.password && (
@@ -332,7 +332,7 @@ const PosLoginPage = () => {
 
                   <Button
                     type="submit"
-                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg transition-all duration-200 text-base"
+                    className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-lg transition-all duration-200 text-base"
                     disabled={pwLoading}
                   >
                     {pwLoading ? (
@@ -357,11 +357,11 @@ const PosLoginPage = () => {
                 )}
 
                 <div className="space-y-1.5 mb-4">
-                  <Label htmlFor="pin-username" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="pin-username" className="text-sm font-medium text-foreground">
                     Username
                   </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="pin-username"
                       name="pin-username"
@@ -372,7 +372,7 @@ const PosLoginPage = () => {
                       onChange={handlePinUsernameChange}
                       onKeyDown={handlePinUsernameKeyDown}
                       disabled={pinLoading}
-                      className={`pl-10 h-11 bg-white border-gray-300 focus:border-primary transition-all text-base ${pinErrors.username ? 'border-destructive' : ''}`}
+                      className={`pl-10 h-11 focus:border-primary transition-all text-base ${pinErrors.username ? 'border-destructive' : ''}`}
                     />
                   </div>
                   {pinErrors.username && (
@@ -399,7 +399,7 @@ const PosLoginPage = () => {
                   ))}
                   <div className="flex gap-2">
                     <PinButton onClick={clearPin} disabled={pinLoading}>
-                      <span className="text-sm text-gray-500">CLR</span>
+                      <span className="text-sm text-muted-foreground">CLR</span>
                     </PinButton>
                     <PinButton onClick={() => appendDigit('0')} disabled={pinLoading}>
                       0
@@ -412,7 +412,7 @@ const PosLoginPage = () => {
 
                 <Button
                   type="button"
-                  className="w-full h-11 mt-4 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg transition-all duration-200 text-base"
+                  className="w-full h-11 mt-4 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-lg transition-all duration-200 text-base"
                   disabled={pinLoading || pinForm.pin.length < 4}
                   onClick={handlePinSubmit}
                 >
@@ -432,19 +432,19 @@ const PosLoginPage = () => {
 
         {/* Owner / admin escape hatch — Supabase email/password login. */}
         <div className="text-center">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Owner or admin?{' '}
             <button
               type="button"
               onClick={() => navigate('/signin?next=/pos/workspace')}
-              className="font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+              className="font-semibold text-primary hover:text-primary/80 hover:underline"
             >
               Sign in with email &amp; password →
             </button>
           </p>
         </div>
 
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-muted-foreground">
           &copy; {new Date().getFullYear()} BeepBite &mdash; POS Terminal
         </p>
       </div>

@@ -71,12 +71,12 @@ const CartSection = ({
   const totalMinor = taxInclusive ? subtotalMinor : subtotalMinor + taxMinor;
   // Reusable header strip showing the register-open badge for the POS flow.
   const registerBadge = hasPosCheckout && registerSession ? (
-    <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-primary/15 bg-gradient-to-r from-green-50 to-emerald-50">
-      <div className="flex items-center gap-2 text-xs font-medium text-green-700">
+    <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-primary/15 bg-success/10">
+      <div className="flex items-center gap-2 text-xs font-medium text-success">
         <Unlock className="w-3.5 h-3.5" />
         Register open
         {registerOpenedAt && (
-          <span className="text-green-600/80">· since {fmtOpenedTime(registerOpenedAt)}</span>
+          <span className="text-success/80">· since {fmtOpenedTime(registerOpenedAt)}</span>
         )}
       </div>
       {onProcessReturn && (
@@ -102,7 +102,7 @@ const CartSection = ({
             <h3 className="text-lg font-medium text-foreground mb-2">Cart is empty</h3>
             <p className="text-muted-foreground">Add items from the menu to get started.</p>
             {lastPlacedOrderNumber && (
-              <div className="mt-6 inline-flex items-center gap-2 px-3 py-2 rounded-full bg-green-50 text-green-700 border border-green-200 text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="mt-6 inline-flex items-center gap-2 px-3 py-2 rounded-full bg-success/10 text-success border border-success/30 text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <CheckCircle2 className="w-4 h-4" />
                 Order #{lastPlacedOrderNumber} sent to kitchen
               </div>
@@ -166,7 +166,7 @@ const CartSection = ({
                       {originalItem.item_variations.map((variation) => (
                         <div key={variation.id} className="space-y-2">
                           <label className="text-xs font-medium text-muted-foreground block">
-                            {variation.name} {variation.is_required && <span className="text-red-500">*</span>}
+                            {variation.name} {variation.is_required && <span className="text-destructive">*</span>}
                           </label>
                           <div className="grid grid-cols-1 gap-1">
                             {variation.item_variation_options?.map((option) => (

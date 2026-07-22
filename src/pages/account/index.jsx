@@ -190,7 +190,7 @@ const Account = () => {
       <Button
         onClick={saveAccount}
         disabled={saving}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full beepbite-gradient text-white shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full beepbite-gradient text-primary-foreground shadow-xl hover:shadow-2xl transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
         size="lg"
       >
         {saving ? (
@@ -205,7 +205,7 @@ const Account = () => {
         <Button 
           onClick={saveAccount}
           disabled={saving}
-          className="beepbite-gradient text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
+          className="beepbite-gradient text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
         >
           {saving ? (
             <>

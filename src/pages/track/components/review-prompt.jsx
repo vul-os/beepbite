@@ -38,7 +38,7 @@ function StarPicker({ value, onChange, disabled }) {
           aria-label={`${n} star${n > 1 ? 's' : ''}`}
           disabled={disabled}
           className={cn(
-            'transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded',
+            'transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded',
             !disabled && 'hover:scale-110 cursor-pointer',
             disabled && 'cursor-default',
           )}
@@ -49,7 +49,7 @@ function StarPicker({ value, onChange, disabled }) {
             viewBox="0 0 20 20"
             className={cn(
               'h-8 w-8 transition-colors',
-              n <= active ? 'text-orange-500' : 'text-gray-200',
+              n <= active ? 'text-primary' : 'text-muted/70',
             )}
             fill="currentColor"
             aria-hidden="true"
@@ -77,9 +77,9 @@ const STAR_LABELS = {
 function ThankYouView() {
   return (
     <div className="flex flex-col items-center text-center gap-2 py-2">
-      {/* Orange checkmark circle */}
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 border border-orange-200">
-        <svg viewBox="0 0 20 20" className="h-6 w-6 text-orange-500" fill="currentColor" aria-hidden="true">
+      {/* Success checkmark circle */}
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15 border border-success/25">
+        <svg viewBox="0 0 20 20" className="h-6 w-6 text-success" fill="currentColor" aria-hidden="true">
           <path
             fillRule="evenodd"
             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -161,7 +161,7 @@ export default function ReviewPrompt({ orderId, onSuccess }) {
         <div className="flex flex-col items-center gap-1">
           <StarPicker value={stars} onChange={setStars} disabled={submitting} />
           {stars > 0 && (
-            <p className="text-xs font-medium text-orange-600 h-4">
+            <p className="text-xs font-medium text-primary h-4">
               {STAR_LABELS[stars]}
             </p>
           )}
@@ -184,17 +184,14 @@ export default function ReviewPrompt({ orderId, onSuccess }) {
 
         {/* Error */}
         {error && (
-          <p className="text-xs text-red-600 text-center">{error}</p>
+          <p className="text-xs text-destructive text-center">{error}</p>
         )}
 
         {/* Submit */}
         <Button
           type="submit"
           disabled={!canSubmit}
-          className={cn(
-            'w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold',
-            (!canSubmit) && 'opacity-50 cursor-not-allowed',
-          )}
+          className="w-full font-semibold"
         >
           {submitting ? 'Submitting…' : 'Submit review'}
         </Button>

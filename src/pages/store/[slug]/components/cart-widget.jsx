@@ -50,12 +50,12 @@ export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear,
 
   return (
     <Card className="shadow-lg border-border/60 overflow-hidden">
-      <CardHeader className="pb-2 pt-4 px-4 bg-orange-50/50">
+      <CardHeader className="pb-2 pt-4 px-4 bg-primary/5">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4 text-orange-500" aria-hidden="true" />
+            <ShoppingCart className="h-4 w-4 text-primary" aria-hidden="true" />
             Your order
-            <span className="ml-0.5 bg-orange-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center font-bold">
+            <span className="ml-0.5 bg-primary text-primary-foreground rounded-full text-xs w-5 h-5 flex items-center justify-center font-bold tabular-nums">
               {totalQty}
             </span>
           </CardTitle>
@@ -80,7 +80,7 @@ export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear,
               <Button
                 size="icon"
                 variant="outline"
-                className="h-6 w-6 border-orange-200 hover:bg-orange-50 hover:border-orange-400"
+                className="h-6 w-6 border-primary/25 hover:bg-primary/10 hover:border-primary/50"
                 onClick={() => onRemove(item)}
                 aria-label={`Remove one ${item.name}`}
               >
@@ -91,7 +91,7 @@ export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear,
               </span>
               <Button
                 size="icon"
-                className="h-6 w-6 bg-orange-500 hover:bg-orange-600"
+                className="h-6 w-6"
                 onClick={() => onAdd(item)}
                 aria-label={`Add one more ${item.name}`}
               >
@@ -113,10 +113,10 @@ export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear,
       <CardFooter className="flex-col gap-3 px-4 pt-3 pb-4">
         <div className="w-full flex justify-between text-sm">
           <span className="text-muted-foreground">Subtotal</span>
-          <span className="font-bold text-orange-600 tabular-nums">{formatPrice(subtotal * 100, currency)}</span>
+          <span className="font-bold text-primary tabular-nums">{formatPrice(subtotal * 100, currency)}</span>
         </div>
         <Button
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold h-11 rounded-xl shadow-sm shadow-orange-200 text-sm"
+          className="w-full font-semibold h-11 rounded-xl shadow-sm shadow-primary/20 text-sm"
           onClick={handleCheckout}
         >
           Checkout · {formatPrice(subtotal * 100, currency)}

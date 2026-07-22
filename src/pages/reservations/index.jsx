@@ -100,7 +100,7 @@ export default function ReservationsPage() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 text-sm text-rose-600">
+        <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>
@@ -127,9 +127,9 @@ export default function ReservationsPage() {
       {!error && reservations.length > 0 && (
         <div className="space-y-6">
           {[
-            { label: 'Pending', key: 'pending', color: 'text-amber-700' },
-            { label: 'Confirmed', key: 'confirmed', color: 'text-blue-700' },
-            { label: 'Seated', key: 'seated', color: 'text-emerald-700' },
+            { label: 'Pending', key: 'pending', color: 'text-warning' },
+            { label: 'Confirmed', key: 'confirmed', color: 'text-primary' },
+            { label: 'Seated', key: 'seated', color: 'text-success' },
             { label: 'Past / Cancelled', key: 'other', color: 'text-muted-foreground' },
           ].map(({ label, key, color }) =>
             grouped[key].length > 0 ? (

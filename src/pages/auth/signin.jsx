@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import AuthLayout from './auth-layout';
 
 const SignInPage = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { signIn } = useAuth();
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +83,7 @@ const SignInPage = () => {
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="signin-email" className="text-sm font-medium text-foreground">
-                Email address
+                {t('auth.signIn.emailLabel')}
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
@@ -113,7 +115,7 @@ const SignInPage = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="signin-password" className="text-sm font-medium text-foreground">
-                  Password
+                  {t('auth.signIn.passwordLabel')}
                 </Label>
                 <button
                   type="button"
@@ -121,7 +123,7 @@ const SignInPage = () => {
                   onClick={() => navigate('/forgot-password')}
                   disabled={isLoading}
                 >
-                  Forgot password?
+                  {t('auth.signIn.forgotPassword')}
                 </button>
               </div>
               <div className="relative">
@@ -172,7 +174,7 @@ const SignInPage = () => {
 
           {/* Switch to sign-up */}
           <p className="text-center text-sm text-muted-foreground">
-            Don't have an account?{' '}
+            {t('auth.signIn.noAccount')}{' '}
             <button
               type="button"
               className="text-primary hover:text-primary/80 font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"

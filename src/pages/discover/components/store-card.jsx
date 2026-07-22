@@ -30,10 +30,10 @@ export default function StoreCard({ store }) {
       aria-label={`View ${store.name}`}
       onClick={handleClick}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick()}
-      className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+      className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       {/* Cover image */}
-      <div className="relative h-40 sm:h-48 bg-orange-50 overflow-hidden">
+      <div className="relative h-40 sm:h-48 bg-primary/5 overflow-hidden">
         {store.cover_image_url ? (
           <img
             src={store.cover_image_url}
@@ -42,7 +42,7 @@ export default function StoreCard({ store }) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-100">
+          <div className="w-full h-full flex items-center justify-center bg-primary/10">
             <span className="text-5xl" role="img" aria-hidden="true">🍽️</span>
           </div>
         )}
@@ -54,11 +54,11 @@ export default function StoreCard({ store }) {
         <span
           className={`absolute bottom-2 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold shadow ${
             store.is_open
-              ? 'bg-green-500 text-white'
+              ? 'bg-success text-success-foreground'
               : 'bg-black/60 text-white/80'
           }`}
         >
-          <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-white' : 'bg-muted-foreground'}`} />
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-success-foreground' : 'bg-muted-foreground'}`} />
           {store.is_open ? 'Open' : 'Closed'}
         </span>
 
@@ -66,7 +66,7 @@ export default function StoreCard({ store }) {
         {store.cuisine_type && (
           <Badge
             variant="secondary"
-            className="absolute top-2 right-2 text-[11px] bg-white/90 text-orange-700 border-0 shadow-sm"
+            className="absolute top-2 right-2 text-[11px] bg-card/90 text-primary border-0 shadow-sm"
           >
             {store.cuisine_type}
           </Badge>
@@ -75,7 +75,7 @@ export default function StoreCard({ store }) {
 
       <div className="p-3 sm:p-4 space-y-2">
         {/* Name */}
-        <h3 className="font-bold text-sm sm:text-base leading-tight line-clamp-1 text-foreground">
+        <h3 className="font-display text-sm sm:text-base leading-tight line-clamp-1 text-foreground">
           {store.name}
         </h3>
 
@@ -89,8 +89,8 @@ export default function StoreCard({ store }) {
         {/* Meta chips row */}
         <div className="flex items-center gap-2.5 pt-0.5 flex-wrap">
           {ratingDisplay && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
-              <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning bg-warning/10 border border-warning/25 px-1.5 py-0.5 rounded-md tabular-nums">
+              <Star className="h-3 w-3 fill-warning text-warning" aria-hidden="true" />
               {ratingDisplay}
               {store.review_count ? (
                 <span className="text-muted-foreground font-normal">({store.review_count})</span>
@@ -99,7 +99,7 @@ export default function StoreCard({ store }) {
           )}
           {store.distance_km != null && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Navigation className="h-3 w-3 text-orange-400" aria-hidden="true" />
+              <Navigation className="h-3 w-3 text-primary/60" aria-hidden="true" />
               {store.distance_km < 1
                 ? `${Math.round(store.distance_km * 1000)} m`
                 : `${Number(store.distance_km).toFixed(1)} km`}
@@ -107,13 +107,13 @@ export default function StoreCard({ store }) {
           )}
           {store.city && !store.distance_km && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3 text-orange-400" aria-hidden="true" />
+              <MapPin className="h-3 w-3 text-primary/60" aria-hidden="true" />
               {store.city}
             </span>
           )}
           {store.delivery_time_min && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3 text-orange-400" aria-hidden="true" />
+              <Clock className="h-3 w-3 text-primary/60" aria-hidden="true" />
               {store.delivery_time_min}–{store.delivery_time_max ?? store.delivery_time_min + 10} min
             </span>
           )}

@@ -69,7 +69,7 @@ function ReportRow({ label, value, sub, highlight }) {
  * currency of its own, so the provider must be scoped to that same location.
  */
 export function CashOutReport({ sessionId }) {
-  const { format } = useMoney();
+  const { format, scale } = useMoney();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState(null);
@@ -132,20 +132,35 @@ export function CashOutReport({ sessionId }) {
   const isOver       = variance !== null && variance > 0;
   const isShort      = variance !== null && variance < 0;
   const isBalanced   = variance !== null && variance === 0;
+  const absVariance  = variance == null ? 0 : Math.abs(variance);
 
-  const varianceColor = isUncounted
-    ? 'text-muted-foreground'
-    : isShort
-    ? 'text-red-600'
-    : 'text-green-600';
+  // Severity is driven by MAGNITUDE, not just direction: a few units of local
+  // currency (5 dollars / 5 yen / 5 rand, via `scale`) is a rounding slip
+  // either way; anything bigger needs an explanation before the day closes.
+  // Direction (over/short) only changes the label, not how alarming it reads.
+  const smallVarianceCents = scale * 5;
+  const varianceSeverity = isUncounted
+    ? 'muted'
+    : isBalanced
+    ? 'success'
+    : absVariance <= smallVarianceCents
+    ? 'warning'
+    : 'destructive';
+
+  const varianceColor = {
+    muted: 'text-muted-foreground',
+    success: 'text-success',
+    warning: 'text-warning',
+    destructive: 'text-destructive',
+  }[varianceSeverity];
 
   const varianceBadge = isUncounted
     ? <Badge variant="outline">Not counted yet</Badge>
-    : isBalanced
-    ? <Badge className="bg-green-100 text-green-700 border-green-200">Balanced</Badge>
-    : isOver
-    ? <Badge className="bg-green-50 text-green-700 border-green-200">Over</Badge>
-    : <Badge className="bg-red-50 text-red-700 border-red-200">Short</Badge>;
+    : (
+      <Badge variant={varianceSeverity === 'muted' ? 'outline' : varianceSeverity}>
+        {isBalanced ? 'Balanced' : isOver ? 'Over' : 'Short'}
+      </Badge>
+    );
 
   // Movements breakdown: split positives from negatives
   const paidIn  = report.movements.filter((m) => m.amount_cents > 0);
@@ -161,16 +176,13 @@ export function CashOutReport({ sessionId }) {
             <CardTitle className="text-lg">Cash-Out Report</CardTitle>
             <div className="flex items-center gap-2">
               {varianceBadge}
-              <Badge
-                variant="outline"
-                className={
-                  report.status === 'open'
-                    ? 'text-orange-700 border-orange-300 bg-orange-50'
-                    : 'text-slate-600 border-slate-300 bg-slate-50'
-                }
-              >
-                {report.status}
-              </Badge>
+              {report.status === 'open' ? (
+                <Badge variant="success">{report.status}</Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground border-border bg-muted/50">
+                  {report.status}
+                </Badge>
+              )}
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -187,7 +199,7 @@ export function CashOutReport({ sessionId }) {
               <span className="text-muted-foreground">Staff shift ID:</span>
               <span className="font-mono text-xs">{report.staff.staff_id}</span>
               {report.staff.closed_at == null && (
-                <Badge variant="outline" className="ml-auto text-orange-600 border-orange-300 bg-orange-50">
+                <Badge variant="warning" className="ml-auto">
                   Shift open
                 </Badge>
               )}
@@ -238,21 +250,26 @@ export function CashOutReport({ sessionId }) {
         </CardContent>
       </Card>
 
-      {/* Variance hero card */}
+      {/* Variance hero card — the single most important number in this
+          report. Border + text colour follow magnitude (severity), so a
+          $2 rounding slip reads calm (warning) and a real gap reads
+          alarming (destructive) rather than every non-zero variance
+          looking equally urgent. */}
       <Card
         className={
-          isUncounted
-            ? 'border-muted'
-            : isShort
-            ? 'border-red-300'
-            : 'border-green-300'
+          {
+            muted: 'border-muted',
+            success: 'border-success/30',
+            warning: 'border-warning/30',
+            destructive: 'border-destructive/30',
+          }[varianceSeverity]
         }
       >
         <CardContent className="py-6 flex flex-col items-center gap-1">
           <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">
             {isUncounted ? 'Variance' : isShort ? 'Short' : isBalanced ? 'Balanced' : 'Over'}
           </p>
-          <div className={`text-4xl font-bold tabular-nums ${varianceColor}`}>
+          <div className={`font-display text-4xl font-bold tabular-nums ${varianceColor}`}>
             {isUncounted
               ? '—'
               : isBalanced
@@ -261,9 +278,9 @@ export function CashOutReport({ sessionId }) {
           </div>
           {!isUncounted && (
             <div className="flex items-center gap-1 mt-1">
-              {isShort && <TrendingDown className="h-4 w-4 text-red-500" />}
-              {isOver   && <TrendingUp  className="h-4 w-4 text-green-500" />}
-              {isBalanced && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+              {isShort && <TrendingDown className={`h-4 w-4 ${varianceColor}`} />}
+              {isOver   && <TrendingUp  className={`h-4 w-4 ${varianceColor}`} />}
+              {isBalanced && <CheckCircle2 className="h-4 w-4 text-success" />}
               <span className={`text-sm ${varianceColor}`}>
                 {isShort
                   ? `Drawer is ${fmt(Math.abs(variance))} short of expected`
@@ -310,9 +327,9 @@ export function CashOutReport({ sessionId }) {
                 <span
                   className={`tabular-nums font-medium ${
                     m.amount_cents > 0
-                      ? 'text-green-600'
+                      ? 'text-success'
                       : m.amount_cents < 0
-                      ? 'text-red-600'
+                      ? 'text-warning'
                       : 'text-muted-foreground'
                   }`}
                 >

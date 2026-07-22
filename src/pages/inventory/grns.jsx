@@ -13,7 +13,6 @@ import { Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
-import { TONE } from '@/lib/status-colors';
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -122,14 +121,14 @@ export default function GRNsPage() {
       )}
 
       {!loading && error && (
-        <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded p-3">
+        <div className="flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
           <AlertCircle className="w-4 h-4" />
           <span>{error}</span>
         </div>
       )}
 
       {!loading && !error && grns.length === 0 && (
-        <Card className="border-orange-100">
+        <Card>
           <CardContent className="p-10 text-center">
             <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">No goods receipts found.</p>
@@ -142,16 +141,16 @@ export default function GRNsPage() {
           {grns.map((grn) => {
             const received = isReceived(grn);
             return (
-              <Card key={grn.id} className="border-orange-100 hover:border-orange-200 transition-colors">
+              <Card key={grn.id} variant="interactive">
                 <CardContent className="p-4 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-foreground">
                         {grn.receipt_number || grn.id.slice(0, 8)}
                       </span>
-                      <Badge
-                        className={received ? TONE.success : TONE.warning}
-                      >
+                      {/* Pending is reversible/awaiting action (warning);
+                          Received is the confirmed, healthy end state. */}
+                      <Badge variant={received ? 'success' : 'warning'}>
                         {received ? 'Received' : 'Pending'}
                       </Badge>
                     </div>
@@ -168,13 +167,13 @@ export default function GRNsPage() {
                     <Button
                       size="sm"
                       onClick={() => openConfirm(grn)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+                      className="shrink-0"
                     >
                       Receive
                     </Button>
                   )}
                   {received && (
-                    <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+                    <CheckCircle className="w-5 h-5 text-success shrink-0" />
                   )}
                 </CardContent>
               </Card>
@@ -201,13 +200,13 @@ export default function GRNsPage() {
           )}
 
           {receiveResult && (
-            <div className="flex items-center gap-2 text-green-700 bg-green-50 rounded p-3 text-sm">
+            <div className="flex items-center gap-2 text-success bg-success/10 rounded p-3 text-sm">
               <CheckCircle className="w-4 h-4" />
               <span>Received {receiveResult.lines_processed} line{receiveResult.lines_processed !== 1 ? 's' : ''}. Stock updated.</span>
             </div>
           )}
 
-          {receiveErr && <p className="text-sm text-red-600">{receiveErr}</p>}
+          {receiveErr && <p className="text-sm text-destructive">{receiveErr}</p>}
 
           <div className="flex gap-3 pt-2">
             <Button variant="outline" onClick={closeConfirm} className="flex-1">
@@ -217,7 +216,7 @@ export default function GRNsPage() {
               <Button
                 onClick={handleReceive}
                 disabled={receiving}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                className="flex-1"
               >
                 {receiving ? 'Receiving…' : 'Confirm Receive'}
               </Button>

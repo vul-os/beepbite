@@ -81,28 +81,28 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md flex flex-col max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+      <div className="bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md flex flex-col max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="min-w-0 mr-3">
-            <h2 className="text-xl font-bold text-gray-900 truncate">{item.name}</h2>
-            <p className="text-orange-500 font-semibold tabular-nums">
+            <h2 className="text-xl font-bold text-foreground truncate">{item.name}</h2>
+            <p className="text-primary font-semibold tabular-nums">
               {formatPrice(linePriceCents, currency)}
             </p>
           </div>
           <button
             onClick={onCancel}
             aria-label="Close customisation options"
-            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 transition-colors shrink-0"
+            className="w-11 h-11 rounded-full bg-muted flex items-center justify-center hover:bg-muted/70 active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors shrink-0"
           >
-            <X className="w-5 h-5 text-gray-600" aria-hidden="true" />
+            <X className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
 
         {/* Groups */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
           {groups.length === 0 ? (
-            <p className="text-center text-gray-400 py-6 text-sm">No customisation options.</p>
+            <p className="text-center text-muted-foreground py-6 text-sm">No customisation options.</p>
           ) : (
             groups.map(group => {
               const sel = selections[group.id] || new Set();
@@ -110,13 +110,13 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
               return (
                 <div key={group.id}>
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-base font-semibold text-gray-900">{group.name}</h3>
+                    <h3 className="text-base font-semibold text-foreground">{group.name}</h3>
                     {group.is_required && (
-                      <span className="text-xs font-medium text-white bg-red-500 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-medium text-destructive-foreground bg-destructive px-2 py-0.5 rounded-full">
                         Required
                       </span>
                     )}
-                    <span className="ml-auto text-xs text-gray-400">
+                    <span className="ml-auto text-xs text-muted-foreground">
                       {maxSelect === 1 ? 'Choose 1' : `Up to ${maxSelect}`}
                     </span>
                   </div>
@@ -132,22 +132,22 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
                           className={cn(
                             'flex items-center justify-between h-14 px-4 rounded-2xl border-2 text-left transition-colors',
                             selected
-                              ? 'border-orange-500 bg-orange-50 text-orange-700'
+                              ? 'border-primary bg-primary/10 text-primary'
                               : atMax
-                                ? 'border-gray-200 text-gray-400 opacity-50 cursor-not-allowed'
-                                : 'border-gray-200 text-gray-900 hover:border-orange-300 hover:bg-orange-50'
+                                ? 'border-border text-muted-foreground opacity-50 cursor-not-allowed'
+                                : 'border-border text-foreground hover:border-primary/40 hover:bg-primary/5'
                           )}
                         >
                           <span className="text-base font-medium">{modifier.name}</span>
                           <div className="flex items-center gap-2">
                             {modifier.price_delta_cents !== 0 && (
-                              <span className="text-sm text-orange-600 font-medium">
+                              <span className="text-sm text-primary font-medium">
                                 {modifier.price_delta_cents > 0 ? '+' : ''}
                                 {formatPrice(modifier.price_delta_cents, currency)}
                               </span>
                             )}
                             {selected && (
-                              <span className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
+                              <span className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                                 <Check className="w-4 h-4 text-white" strokeWidth={3} />
                               </span>
                             )}
@@ -163,9 +163,9 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
         </div>
 
         {/* CTA */}
-        <div className="px-6 pb-6 pt-3 shrink-0 border-t border-gray-100">
+        <div className="px-6 pb-6 pt-3 shrink-0 border-t border-border">
           {requiredUnmet && (
-            <p className="text-xs text-center text-red-500 font-medium mb-2" role="alert">
+            <p className="text-xs text-center text-destructive font-medium mb-2" role="alert">
               Please select all required options above
             </p>
           )}
@@ -176,10 +176,10 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
             aria-disabled={requiredUnmet}
             className={cn(
               'w-full h-14 rounded-2xl text-lg font-bold transition-all',
-              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-400 focus-visible:ring-offset-2',
+              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-2',
               !requiredUnmet
-                ? 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 active:scale-[0.98] text-white shadow-md'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed',
+                ? 'bg-primary hover:bg-primary/90 active:bg-primary/95 active:scale-[0.98] text-primary-foreground shadow-md'
+                : 'bg-muted text-muted-foreground cursor-not-allowed',
             )}
           >
             Add to Order — {formatPrice(linePriceCents, currency)}

@@ -278,7 +278,7 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
         <DialogHeader className="px-6 pt-6 pb-4 space-y-1.5">
           <div className="flex items-center gap-2">
             {isManagerOverride ? (
-              <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0" />
+              <ShieldCheck className="w-5 h-5 text-warning shrink-0" />
             ) : (
               <User className="w-5 h-5 text-primary shrink-0" />
             )}

@@ -36,7 +36,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Ban, ChevronRight, Gift, Loader2, Tag, X } from 'lucide-react';
+import { Ban, ChevronRight, Gift, Loader2, MoreVertical, Tag, X } from 'lucide-react';
 
 import {
   Popover,
@@ -44,6 +44,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -386,11 +387,18 @@ function AdjustmentFlow({
                 </p>
               )}
 
+              {/* The submit button's colour must match what it actually does:
+                  Void is irreversible → destructive red. Comp/discount are
+                  reversible business decisions, not disasters → the normal
+                  primary colour is enough. Reusing one orange "Apply" button
+                  for both is exactly the "same shape as the safe action"
+                  problem the rest of the app now avoids. */}
               <Button
                 size="sm"
+                variant={adjType === 'void' ? 'destructive' : 'default'}
                 onClick={handleNext}
                 disabled={!step1Valid || submitting}
-                className="w-full h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                className="w-full h-8 text-xs"
               >
                 {submitting ? (
                   <Loader2 className="w-3 h-3 animate-spin mr-1" />
@@ -398,6 +406,8 @@ function AdjustmentFlow({
                   <>
                     {reasonObj?.requires_manager_approval ? (
                       <>Next <ChevronRight className="w-3 h-3 ml-0.5" /></>
+                    ) : adjType === 'void' ? (
+                      'Void order'
                     ) : (
                       'Apply'
                     )}
@@ -471,11 +481,12 @@ function AdjustmentFlow({
             </Button>
             <Button
               size="sm"
+              variant={adjType === 'void' ? 'destructive' : 'default'}
               onClick={() => handleSubmit(true)}
               disabled={!step2Valid || submitting}
-              className="flex-1 h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+              className="flex-1 h-8 text-xs"
             >
-              {submitting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Authorise'}
+              {submitting ? <Loader2 className="w-3 h-3 animate-spin" /> : adjType === 'void' ? 'Authorise void' : 'Authorise'}
             </Button>
           </div>
         </>
@@ -502,7 +513,18 @@ function AdjustmentFlow({
  *   locationId        string          — scopes reason list + manager list
  *   onSuccess         (data) => void  — called after successful adjustment
  *   disabled          boolean         — skip context menu entirely
+ *   label             string          — accessible name for the visible
+ *                                       trigger button, e.g. "order #1042" or
+ *                                       "Cheeseburger". Falls back to a
+ *                                       generic label if omitted.
  *   children          ReactNode
+ *
+ * Right-click / long-press remain as power-user shortcuts, but neither is
+ * discoverable or keyboard-operable on its own — a manager voiding an order
+ * from a keyboard/scanner terminal, or a first-shift cashier who has never
+ * been told to long-press a ticket row, would otherwise have no way to reach
+ * this at all. The small "more actions" button below is the primary,
+ * always-visible, tab-reachable entry point; the gestures are additive.
  */
 export default function AdjustmentMenu({
   orderId,
@@ -511,6 +533,7 @@ export default function AdjustmentMenu({
   locationId = '',
   onSuccess,
   disabled = false,
+  label = '',
   children,
 }) {
   const [open, setOpen] = useState(false);
@@ -550,20 +573,42 @@ export default function AdjustmentMenu({
 
   if (!hasAny || disabled) return <>{children}</>;
 
+  const actionWord = itemId ? 'Comp or discount' : 'Void';
+  const triggerLabel = label ? `${actionWord} ${label}` : `${actionWord} — more actions`;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <div
-          onContextMenu={handleContextMenu}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className="select-none"
-          role="presentation"
+      <div className="group/adjust relative">
+        <PopoverTrigger asChild>
+          <div
+            onContextMenu={handleContextMenu}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="select-none"
+          >
+            {children}
+          </div>
+        </PopoverTrigger>
+        {/* Always-visible, keyboard-reachable trigger — the long-press/
+            right-click above are shortcuts on top of this, not a
+            replacement for it. */}
+        <button
+          type="button"
+          onClick={openMenu}
+          aria-label={triggerLabel}
+          aria-haspopup="dialog"
+          title={triggerLabel}
+          className={cn(
+            'absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-md',
+            'text-muted-foreground hover:bg-muted hover:text-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+            'opacity-60 group-hover/adjust:opacity-100 focus-visible:opacity-100',
+          )}
         >
-          {children}
-        </div>
-      </PopoverTrigger>
+          <MoreVertical className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
       <PopoverContent
         className="p-3 w-auto"
         align="start"

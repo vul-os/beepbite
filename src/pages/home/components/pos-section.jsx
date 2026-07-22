@@ -213,7 +213,7 @@ const POSSection = ({
                   {/* Emoji "image" tile — soft warm gradient backdrop */}
                   <div
                     className={cn(
-                      "relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-amber-50 to-primary/10",
+                      "relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-accent/60 to-primary/10",
                       isOrdersExpanded ? "h-32" : "h-20"
                     )}
                   >

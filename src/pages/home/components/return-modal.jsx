@@ -229,7 +229,7 @@ export default function ReturnModal({
       <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <RotateCcw className="w-5 h-5 text-orange-500" />
+            <RotateCcw className="w-5 h-5 text-primary" />
             Process Return
           </DialogTitle>
           <DialogDescription>
@@ -270,7 +270,7 @@ export default function ReturnModal({
 
         {/* ---- Order summary + items ---- */}
         {order && (
-          <Card className="border-orange-200">
+          <Card className="border-primary/20">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -278,7 +278,7 @@ export default function ReturnModal({
                   <p className="font-semibold text-foreground">#{order.order_number}</p>
                 </div>
                 {order.status && (
-                  <span className="text-xs px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                  <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
                     {order.status}
                   </span>
                 )}
@@ -306,7 +306,7 @@ export default function ReturnModal({
                             size="sm"
                             variant="outline"
                             onClick={() => updateQty(oi.id, qty - 1)}
-                            className="h-7 w-7 p-0 rounded-full border-orange-200"
+                            className="h-7 w-7 p-0 rounded-full border-primary/20"
                             aria-label="Decrease return quantity"
                           >
                             <Minus className="w-3 h-3" />
@@ -318,7 +318,7 @@ export default function ReturnModal({
                             type="button"
                             size="sm"
                             onClick={() => updateQty(oi.id, qty + 1)}
-                            className="h-7 w-7 p-0 rounded-full bg-orange-500 hover:bg-orange-600"
+                            className="h-7 w-7 p-0 rounded-full bg-primary hover:bg-primary/90"
                             aria-label="Increase return quantity"
                           >
                             <Plus className="w-3 h-3" />
@@ -361,11 +361,11 @@ export default function ReturnModal({
         {/* ---- Manager PIN ---- */}
         <div
           className={cn(
-            'rounded-lg border bg-gradient-to-r from-amber-50 to-orange-50 border-orange-200 p-4 space-y-3',
+            'rounded-lg border bg-warning/10 border-warning/30 p-4 space-y-3',
           )}
         >
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <ShieldCheck className="w-4 h-4 text-orange-500" />
+            <ShieldCheck className="w-4 h-4 text-warning" />
             Manager Authorization Required
           </div>
 
@@ -417,8 +417,8 @@ export default function ReturnModal({
           </Alert>
         )}
         {success && (
-          <Alert className="bg-green-50 border-green-200 text-green-800">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <Alert className="bg-success/10 border-success/30 text-success">
+            <CheckCircle2 className="h-4 w-4 text-success" />
             <AlertDescription>Adjustment applied successfully.</AlertDescription>
           </Alert>
         )}
@@ -436,7 +436,8 @@ export default function ReturnModal({
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || submitting || success}
-            className="bg-orange-500 hover:bg-orange-600 text-white min-w-[160px]"
+            variant="warning"
+            className="min-w-[160px]"
           >
             {submitting ? (
               <>

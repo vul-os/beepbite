@@ -10,7 +10,7 @@
 // attached automatically when a staff PIN overlay is active.
 
 import { useEffect, useState, useCallback } from 'react';
-import { Clock, LogIn, LogOut, Coffee, RefreshCw, Edit2, Check, AlertCircle } from 'lucide-react';
+import { Clock, LogIn, LogOut, Coffee, RefreshCw, Edit2, Check, AlertCircle, Circle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 import { useAuth } from '@/context/auth-context';
 import {
@@ -41,11 +42,26 @@ import { supabase } from '@/services/supabase-client';
 // ---------------------------------------------------------------------------
 
 function badgeVariant(type) {
-  return type === 'clock_in'
-    ? 'default'
-    : type === 'clock_out'
-    ? 'secondary'
-    : 'outline';
+  if (type === 'clock_in') return 'success';
+  if (type === 'break_start' || type === 'break_end') return 'warning';
+  return 'outline';
+}
+
+// Derive "is this person currently clocked in, out, or on break" from their
+// most recent entry. Entries are appended newest-first by the page (both the
+// initial manager load and each fresh clock action), but this re-sorts by
+// timestamp defensively rather than trusting array order.
+function deriveClockStatus(entries, staffId) {
+  if (!staffId) return null;
+  const forStaff = entries.filter((e) => e.staff_id === staffId);
+  if (forStaff.length === 0) return null;
+  const [last] = [...forStaff].sort(
+    (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+  );
+  if (last.entry_type === 'clock_in' || last.entry_type === 'break_end') return 'in';
+  if (last.entry_type === 'break_start') return 'break';
+  if (last.entry_type === 'clock_out') return 'out';
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +141,7 @@ function EditEntryDialog({ entry, onClose, onSaved }) {
             />
           </div>
           {error && (
-            <div className="flex items-center gap-2 text-red-600 text-sm">
+            <div className="flex items-center gap-2 text-destructive text-sm">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {error}
             </div>
@@ -147,11 +163,17 @@ function EditEntryDialog({ entry, onClose, onSaved }) {
 // ---------------------------------------------------------------------------
 // Clock action panel
 // ---------------------------------------------------------------------------
-function ClockPanel({ staff, onAction }) {
+function ClockPanel({ staff, onAction, entries = [] }) {
   const [selectedId, setSelectedId] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(null); // 'in' | 'out' | null
   const [message, setMessage] = useState(null); // { ok, text }
+
+  const selectedMember = staff.find((s) => s.id === selectedId);
+  const selectedName = selectedMember
+    ? `${selectedMember.first_name} ${selectedMember.last_name}`
+    : '';
+  const clockStatus = deriveClockStatus(entries, selectedId);
 
   const doAction = async (action) => {
     if (!selectedId) return;
@@ -198,6 +220,38 @@ function ClockPanel({ staff, onAction }) {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Current status — unmistakable, persistent (not a toast that fades):
+            a staff member picking themselves from this list must never be
+            left guessing whether they're already clocked in. */}
+        {selectedId && (
+          <div
+            role="status"
+            aria-live="polite"
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold',
+              clockStatus === 'in' && 'bg-success/10 text-success',
+              clockStatus === 'break' && 'bg-warning/10 text-warning',
+              clockStatus === 'out' && 'bg-muted text-muted-foreground',
+              !clockStatus && 'bg-muted text-muted-foreground'
+            )}
+          >
+            <Circle
+              className={cn(
+                'h-2.5 w-2.5 flex-shrink-0',
+                clockStatus === 'in' && 'fill-success text-success',
+                clockStatus === 'break' && 'fill-warning text-warning',
+                (clockStatus === 'out' || !clockStatus) && 'fill-muted-foreground/40 text-muted-foreground/40'
+              )}
+              aria-hidden="true"
+            />
+            {clockStatus === 'in' && `${selectedName} is currently clocked in`}
+            {clockStatus === 'break' && `${selectedName} is currently on break`}
+            {clockStatus === 'out' && `${selectedName} is currently clocked out`}
+            {!clockStatus && `No clock history for ${selectedName} yet`}
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium mb-1">Notes (optional)</label>
           <Input
@@ -229,8 +283,8 @@ function ClockPanel({ staff, onAction }) {
           <div
             className={`flex items-center gap-2 text-sm rounded-md p-2 ${
               message.ok
-                ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
-                : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'
+                ? 'bg-success/10 text-success'
+                : 'bg-destructive/10 text-destructive'
             }`}
           >
             {message.ok ? (
@@ -300,7 +354,7 @@ function EntriesPanel({ entries, isManager, onRefresh, onEntryEdited }) {
                     <Badge variant={badgeVariant(entry.entry_type)} className="text-xs shrink-0">
                       {entryTypeLabel(entry.entry_type)}
                     </Badge>
-                    <span className="text-xs text-muted-foreground truncate">
+                    <span className="text-xs text-muted-foreground truncate tabular-nums">
                       {formatTimestamp(entry.timestamp)}
                     </span>
                   </div>
@@ -422,7 +476,7 @@ export default function TimeClockPage() {
               </CardContent>
             </Card>
           ) : (
-            <ClockPanel staff={staff} onAction={handleAction} />
+            <ClockPanel staff={staff} onAction={handleAction} entries={entries} />
           )}
         </div>
         {/* Time entries are manager-only; non-managers never see this panel. */}

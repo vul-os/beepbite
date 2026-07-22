@@ -1,594 +1,259 @@
-# API Documentation
+# API
 
-BeepBite provides a RESTful API for integrating with external systems, building custom applications, and automating workflows.
+There is no BeepBite API to call — there is only the one running on whatever
+you deployed. This documents the HTTP surface of **your own instance**: what
+you can reach with a browser session, what you can reach with an API key you
+mint yourself, and — in README's tradition of saying what's actually true —
+what the surface promises that the code doesn't yet keep.
+
+> [!NOTE]
+> This is the newest and least-exercised part of the backend (Wave 22). It has
+> no dedicated Go test suite yet. Treat everything below as accurate-as-read,
+> not load-tested.
 
 ## Base URL
 
-```
-Production: https://api.beepbite.com/v1
-Staging: https://staging-api.beepbite.com/v1
-```
+Whatever you set it to. There is no `api.beepbite.com` — that would imply a
+service BeepBite operates, and it doesn't. In development the Go server
+listens on `http://localhost:8080` by default (`PORT` in `.env`); in
+production it's wherever you point a reverse proxy at your own binary.
 
-## Authentication
+## Two different credentials, two different surfaces
 
-### API Key Authentication
+BeepBite has one HTTP server with two ways to authenticate against it, and
+they don't reach the same routes.
 
-All API requests require authentication using an API key in the request header:
+### 1. Session JWT — the app itself
+
+`POST /auth/signin` (and `/auth/signup`, `/auth/refresh`, `/auth/signout`)
+issue a short-lived access token + refresh token, the same credential the
+bundled React frontend uses. Send it as `Authorization: Bearer <jwt>`. This is
+what reaches almost everything: POS, KDS, inventory, staff, cash drawer, and
+the rest of the routes mounted under the org-scoped group in
+`backend/cmd/server/main.go`. It requires org membership
+(`auth.RequireOrgScope`) and is not meant for third-party integrations — it's
+how the product's own UI talks to its own backend, and it's large enough that
+this document doesn't attempt to enumerate it route-by-route. Read
+`backend/cmd/server/main.go` if you need the full list; every mount line is
+commented with what it adds.
+
+Staff PIN/username logins are a separate, parallel credential
+(`POST /staff/login`, `/staff/pin-login`) sharing the same JWT signing secret,
+disambiguated by an `aud` claim — see `backend/internal/staffauth`.
+
+### 2. API keys — external integrations
+
+This is the closest thing to a stable "public API," and it is intentionally
+narrow: **one generic data endpoint and one RPC endpoint**, both scoped to
+your own organization.
+
+**Getting a key.** Log in to your own instance as an owner or manager, then:
 
 ```http
-Authorization: Bearer YOUR_API_KEY
+POST /api-keys
+Authorization: Bearer <your JWT>
 Content-Type: application/json
+
+{"name": "till-export", "scopes": ["read:orders"], "environment": "live"}
 ```
 
-### Getting Your API Key
-
-1. Log in to your BeepBite dashboard
-2. Navigate to Settings > API Access
-3. Generate or retrieve your API key
-4. Store securely and never expose in client-side code
-
-### Rate Limiting
-
-- **Starter Plan**: 1,000 requests/hour
-- **Professional Plan**: 10,000 requests/hour  
-- **Enterprise Plan**: 100,000 requests/hour
-
-Rate limit headers included in responses:
-```http
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 999
-X-RateLimit-Reset: 1640995200
-```
-
-## Orders API
-
-### Get Orders
-
-Retrieve orders with filtering and pagination.
-
-```http
-GET /orders
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description | Default |
-|-----------|------|-------------|---------|
-| `status` | string | Filter by order status | all |
-| `date_from` | string | Start date (YYYY-MM-DD) | today |
-| `date_to` | string | End date (YYYY-MM-DD) | today |
-| `limit` | integer | Number of orders per page (max 100) | 20 |
-| `offset` | integer | Number of orders to skip | 0 |
-| `customer_id` | string | Filter by customer ID | - |
-| `payment_status` | string | Filter by payment status | all |
-
-**Example Request:**
-
-```bash
-curl -X GET "https://api.beepbite.com/v1/orders?status=pending&limit=10" \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-**Example Response:**
+Returns the key **once**, in plaintext:
 
 ```json
 {
-  "success": true,
-  "data": {
-    "orders": [
-      {
-        "id": "ord_abc123",
-        "customer": {
-          "id": "cust_xyz789",
-          "name": "John Doe",
-          "phone": "+1234567890",
-          "email": "john@example.com"
-        },
-        "items": [
-          {
-            "id": "item_001",
-            "name": "Margherita Pizza",
-            "quantity": 2,
-            "price": 15.99,
-            "modifications": ["Extra cheese", "No olives"]
-          }
-        ],
-        "status": "pending",
-        "total_amount": 31.98,
-        "payment_status": "paid",
-        "payment_method": "card",
-        "created_at": "2024-01-15T14:30:00Z",
-        "estimated_ready_time": "2024-01-15T15:00:00Z",
-        "special_instructions": "Please ring doorbell twice",
-        "delivery_type": "delivery",
-        "delivery_address": {
-          "street": "123 Main St",
-          "city": "New York",
-          "state": "NY",
-          "zip": "10001"
-        }
-      }
-    ],
-    "total_count": 156,
-    "has_more": true
-  }
+  "id": "...",
+  "name": "till-export",
+  "prefix_visible": "bb_live_aB3kQr7m",
+  "environment": "live",
+  "scopes": ["read:orders"],
+  "key": "bb_live_aB3kQr7mPxN2vY9wTd4sUcFoZeHiLj1R"
 }
 ```
 
-### Get Single Order
+Store it yourself — there is no dashboard hosted by anyone else, and BeepBite
+never sees the plaintext again after this response. `GET /api-keys` lists your
+org's keys (name, prefix, scopes, timestamps — never the secret).
+`POST /api-keys/{id}/revoke` disables one. All three routes require a JWT
+session with owner/manager role — an API key cannot manage other API keys.
+
+Allowed scopes at creation time: `read:menu`, `write:menu`, `read:orders`,
+`write:orders`, `read:reports`, `read:customers`, `write:webhooks`,
+`write:items`, `read:staff`, `write:staff`, `read:inventory`,
+`write:inventory`. Anything else is rejected with 400
+(`backend/internal/handlers/apikeys/handler.go`).
+
+**Using a key:**
 
 ```http
-GET /orders/{order_id}
+GET /api/v1/data/orders?eq=status,pending&limit=10
+Authorization: Bearer bb_live_aB3kQr7mPxN2vY9wTd4sUcFoZeHiLj1R
 ```
 
-**Example Request:**
+A missing, malformed, revoked, or expired key gets a plain-text `401
+unauthorized` (not a JSON body — `apiauth.RequireAPIKey` uses `http.Error`,
+inconsistent with every other error path in this API, which returns
+`{"error": "..."}`).
 
-```bash
-curl -X GET "https://api.beepbite.com/v1/orders/ord_abc123" \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
+> [!IMPORTANT]
+> **Scopes are not fully enforced yet.** The scope list above maps to
+> capability flags (`backend/internal/apiauth/middleware.go`,
+> `scopeCapabilities`), but the generic data endpoint below only checks a
+> capability for the six reporting views (`can_view_reports`). Every other
+> table's access control comes from row-level security — i.e. from which
+> **organization** the key belongs to, not from which scopes you picked at
+> creation time. In practice, today, any valid unrevoked key for your org can
+> read and write any allowlisted table in that org, regardless of its declared
+> scopes. Pick scopes for the audit trail and for future-proofing; don't rely
+> on them as an access boundary yet.
 
-### Update Order Status
+### Rate limiting
+
+Flat and identical for every key — there is no tier to buy your way out of it:
+**1000 requests/minute, burst 3000**, a token bucket per key
+(`backend/internal/ratelimit`). Response headers:
 
 ```http
-PATCH /orders/{order_id}/status
+X-RateLimit-Limit: 3000
+X-RateLimit-Remaining: 2999
 ```
 
-**Request Body:**
+A 429 additionally carries `Retry-After: <seconds>` and a JSON body
+`{"error": "rate limit exceeded"}`.
+
+## The external data API
+
+`/api/v1/*` is mounted once, in `backend/cmd/server/main.go`, wrapped only by
+`apiauth.RequireAPIKey` and the rate limiter — it is the same generic
+"PostgREST-like" layer the frontend itself uses internally
+(`backend/internal/handlers/data`), not a set of bespoke `/orders`,
+`/customers`, `/menu`, `/analytics`, `/reviews` or `/notifications` resources.
+There are exactly two route shapes:
+
+```http
+GET    /api/v1/data/{table}
+POST   /api/v1/data/{table}
+PATCH  /api/v1/data/{table}
+DELETE /api/v1/data/{table}
+POST   /api/v1/rpc/{fn}
+```
+
+`{table}` and `{fn}` are checked against fixed allowlists
+(`backend/internal/handlers/data/allowlist.go`); anything not on the list
+returns `404 {"error": "table not exposed"}` (or `"insert not allowed"` /
+`"update not allowed"` for an operation a listed table doesn't permit).
+Relevant tables for integrations today include `orders`, `order_items`,
+`order_payments`, `customers`, `items`, `categories`, `inventory_items`,
+`suppliers`, `purchase_orders`, `gift_cards`, `reviews`, `staff`, and the six
+read-only reporting views (`daily_sales_summary`, `hourly_sales_heatmap`,
+`menu_engineering`, `labor_hours_daily`, `theoretical_vs_actual_cogs`,
+`revenue_by_payment_method`). The allowlist file is the source of truth —
+read it before assuming a table is reachable.
+
+### Querying (`GET`)
+
+Query parameters mirror the supabase-js shape the frontend was written
+against:
+
+| Param | Meaning |
+|---|---|
+| `select=col1,col2` | Columns to return. Default `*`. |
+| `eq=col,val` / `neq=` / `gt=` / `gte=` / `lt=` / `lte=` / `like=` / `ilike=` | Repeat per filter. |
+| `in=col,v1,v2,...` | `col IN (...)` |
+| `is=col,null` \| `true` \| `false` | `IS` filter |
+| `order=col.asc` \| `col.desc` | Repeat for multi-sort |
+| `limit=N` | Row cap |
+| `single=true` | Return one object, `404` if no rows, instead of an array |
+
+A raw query string containing a semicolon is rejected outright (`400 invalid
+query string`) — a deliberate guard against filter-injection payloads, not a
+bug.
+
+Responses are the bare row data — a JSON array (or, with `single=true`, one
+object). There is no `{"success": true, "data": {...}}` envelope, no
+`total_count`/`has_more` pagination metadata, and no `count=exact` header
+support despite what an older draft of this document claimed.
+
+### Writing (`POST` / `PATCH` / `DELETE`)
+
+`POST` accepts one object or an array of objects and returns the inserted
+row(s) with `201`. Tables with an `organization_id` column
+(`allTables`/`tablesWithOrgID` in the allowlist file) get it auto-injected
+from your key's organization if you omit it. `PATCH` and `DELETE` require at
+least one `eq=`/filter query parameter — an unfiltered mass update or delete
+is rejected with `400`, not silently scoped to "everything."
+
+**Idempotency.** Send `Idempotency-Key: <uuid>` on `POST` to `orders` or
+`order_payments` and a retried request with the same key returns the original
+response instead of re-inserting — this is the one place idempotency is wired
+into the API layer today. No other table gets this treatment.
+
+### RPC
+
+`POST /api/v1/rpc/{fn}` invokes one of a fixed set of Postgres functions —
+nothing else, and there is no way to add one without a code change:
+
+`check_invites`, `respond_invitation`, `send_invitation`, `cancel_invitation`,
+`list_organization_invitations`, `calculate_recipe_cost`,
+`update_recipe_metadata`, `lookup_customer_details`.
+
+## Webhooks — registered, delivered, never triggered
+
+`POST /webhook-endpoints` (JWT session only, owner/manager — **not** reachable
+with an API key; there is no route for it under `/api/v1`) registers a URL and
+a set of event types, and returns a signing secret in plaintext, every time
+you `GET` it back:
 
 ```json
-{
-  "status": "preparing",
-  "estimated_ready_time": "2024-01-15T15:15:00Z",
-  "notes": "Starting preparation now"
-}
+{"url": "https://example.com/hook", "events": ["order.created", "order.paid"]}
 ```
 
-**Available Statuses:**
-- `pending` - Order received, awaiting confirmation
-- `confirmed` - Order accepted and queued
-- `preparing` - Order being prepared
-- `almost_ready` - Order nearly complete
-- `ready` - Order ready for pickup/delivery
-- `completed` - Order successfully delivered
-- `cancelled` - Order cancelled
+Known event types: `order.created`, `order.paid`, `order.refunded`,
+`item.created`, `item.updated`, `staff.invited`.
 
-### Create Order
+There's a real delivery pipeline behind this: a background runner
+(`backend/internal/webhookdelivery`) polls a `webhook_deliveries` table every
+10 seconds, POSTs the payload with an `X-BeepBite-Signature` header —
 
-```http
-POST /orders
+```
+X-BeepBite-Signature: t=<unix-seconds>,v1=<hex hmac-sha256 of "<t>.<body>">
 ```
 
-**Request Body:**
+— and retries up to 5 times with backoff on failure.
+
+> [!WARNING]
+> **Not built, despite the plumbing existing.** The only function that
+> actually queues a delivery is `webhookdelivery.Emit(ctx, pool, orgID,
+> eventType, payload)`. As of this writing, nothing in the codebase calls it —
+> no order creation, no payment, no item change, no staff invite anywhere in
+> `backend/internal/handlers` triggers an `Emit`. You can register an endpoint,
+> the signing secret will be real, the delivery worker will run, and it will
+> have nothing to deliver. This is a genuine gap, not a documented limitation
+> someone chose — found while writing this doc, the same way README's `/track`
+> bug was found while writing the screenshot tooling.
+
+## Errors
 
 ```json
-{
-  "customer": {
-    "name": "Jane Smith",
-    "phone": "+1987654321",
-    "email": "jane@example.com"
-  },
-  "items": [
-    {
-      "menu_item_id": "menu_001",
-      "quantity": 1,
-      "modifications": ["Medium spice level"]
-    }
-  ],
-  "delivery_type": "pickup",
-  "payment_method": "cash",
-  "special_instructions": "Call when ready"
-}
+{"error": "human-readable message"}
 ```
 
-## Customers API
-
-### Get Customers
-
-```http
-GET /customers
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `search` | string | Search by name, phone, or email |
-| `limit` | integer | Results per page (max 100) |
-| `offset` | integer | Number to skip |
-
-### Create Customer
-
-```http
-POST /customers
-```
-
-**Request Body:**
-
-```json
-{
-  "name": "Alice Johnson",
-  "phone": "+1555123456",
-  "email": "alice@example.com",
-  "address": {
-    "street": "456 Oak Ave",
-    "city": "Boston",
-    "state": "MA",
-    "zip": "02101"
-  },
-  "preferences": {
-    "dietary_restrictions": ["vegetarian"],
-    "preferred_contact": "sms"
-  }
-}
-```
-
-### Update Customer
-
-```http
-PUT /customers/{customer_id}
-```
-
-## Menu API
-
-### Get Menu Items
-
-```http
-GET /menu
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `category` | string | Filter by category |
-| `available` | boolean | Filter by availability |
-| `search` | string | Search by name or description |
-
-**Example Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "categories": [
-      {
-        "id": "cat_pizza",
-        "name": "Pizzas",
-        "items": [
-          {
-            "id": "menu_001",
-            "name": "Margherita Pizza",
-            "description": "Fresh tomatoes, mozzarella, basil",
-            "price": 15.99,
-            "available": true,
-            "prep_time_minutes": 20,
-            "allergens": ["gluten", "dairy"],
-            "image_url": "https://cdn.beepbite.com/pizza1.jpg"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Update Menu Item
-
-```http
-PUT /menu/{item_id}
-```
-
-**Request Body:**
-
-```json
-{
-  "name": "Margherita Pizza",
-  "price": 16.99,
-  "available": true,
-  "prep_time_minutes": 18
-}
-```
-
-## Analytics API
-
-### Get Order Analytics
-
-```http
-GET /analytics/orders
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `period` | string | `day`, `week`, `month`, `year` |
-| `date_from` | string | Start date |
-| `date_to` | string | End date |
-| `group_by` | string | `hour`, `day`, `week`, `month` |
-
-**Example Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "summary": {
-      "total_orders": 1250,
-      "total_revenue": 18750.50,
-      "average_order_value": 15.00,
-      "average_prep_time": "18 minutes"
-    },
-    "trends": [
-      {
-        "date": "2024-01-15",
-        "orders": 45,
-        "revenue": 675.50
-      }
-    ]
-  }
-}
-```
-
-### Get Customer Analytics
-
-```http
-GET /analytics/customers
-```
-
-### Get Revenue Analytics
-
-```http
-GET /analytics/revenue
-```
-
-## Reviews API
-
-### Get Reviews
-
-```http
-GET /reviews
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `rating` | integer | Filter by star rating (1-5) |
-| `date_from` | string | Start date |
-| `date_to` | string | End date |
-| `responded` | boolean | Filter by response status |
-
-### Respond to Review
-
-```http
-POST /reviews/{review_id}/response
-```
-
-**Request Body:**
-
-```json
-{
-  "message": "Thank you for your feedback! We're glad you enjoyed your meal.",
-  "public": true
-}
-```
-
-## Notifications API
-
-### Send Custom Notification
-
-```http
-POST /notifications/send
-```
-
-**Request Body:**
-
-```json
-{
-  "type": "whatsapp",
-  "recipient": "+1234567890",
-  "message": "Your order is ready for pickup!",
-  "template": "order_ready",
-  "variables": {
-    "order_number": "ORD123",
-    "customer_name": "John"
-  }
-}
-```
-
-### Get Notification Templates
-
-```http
-GET /notifications/templates
-```
-
-## Webhooks
-
-BeepBite can send real-time notifications to your endpoints when events occur.
-
-### Setting Up Webhooks
-
-1. Configure webhook URL in Settings > API > Webhooks
-2. Select events to subscribe to
-3. Verify endpoint with test payload
-
-### Webhook Events
-
-**Order Events:**
-- `order.created`
-- `order.updated`
-- `order.completed`
-- `order.cancelled`
-
-**Customer Events:**
-- `customer.created`
-- `customer.updated`
-
-**Review Events:**
-- `review.created`
-- `review.updated`
-
-### Webhook Payload Example
-
-```json
-{
-  "event": "order.created",
-  "timestamp": "2024-01-15T14:30:00Z",
-  "data": {
-    "order": {
-      "id": "ord_abc123",
-      "status": "pending",
-      "customer": {
-        "name": "John Doe",
-        "phone": "+1234567890"
-      },
-      "total_amount": 31.98
-    }
-  },
-  "restaurant_id": "rest_xyz789"
-}
-```
-
-### Webhook Security
-
-Verify webhook authenticity using the signature header:
-
-```python
-import hmac
-import hashlib
-
-def verify_webhook(payload, signature, secret):
-    expected = hmac.new(
-        secret.encode('utf-8'),
-        payload.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(f"sha256={expected}", signature)
-```
-
-## Error Handling
-
-### HTTP Status Codes
-
-- `200` - Success
-- `201` - Created
-- `400` - Bad Request
-- `401` - Unauthorized
-- `403` - Forbidden
-- `404` - Not Found
-- `422` - Validation Error
-- `429` - Rate Limited
-- `500` - Internal Server Error
-
-### Error Response Format
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid request parameters",
-    "details": {
-      "field": "email",
-      "issue": "Invalid email format"
-    }
-  }
-}
-```
-
-### Common Error Codes
-
-- `INVALID_API_KEY` - API key missing or invalid
-- `RATE_LIMITED` - Too many requests
-- `VALIDATION_ERROR` - Invalid request data
-- `RESOURCE_NOT_FOUND` - Requested resource doesn't exist
-- `PERMISSION_DENIED` - Insufficient permissions
-
-## SDKs and Libraries
-
-### JavaScript/Node.js
-
-```bash
-npm install @beepbite/api-client
-```
-
-```javascript
-const BeepBite = require('@beepbite/api-client');
-
-const client = new BeepBite({
-  apiKey: 'your-api-key',
-  environment: 'production' // or 'staging'
-});
-
-// Get orders
-const orders = await client.orders.list({
-  status: 'pending',
-  limit: 10
-});
-```
-
-### Python
-
-```bash
-pip install beepbite-python
-```
-
-```python
-from beepbite import BeepBiteClient
-
-client = BeepBiteClient(api_key='your-api-key')
-
-# Get orders
-orders = client.orders.list(status='pending', limit=10)
-```
-
-### PHP
-
-```bash
-composer require beepbite/php-sdk
-```
-
-```php
-use BeepBite\Client;
-
-$client = new Client('your-api-key');
-
-// Get orders
-$orders = $client->orders()->list([
-    'status' => 'pending',
-    'limit' => 10
-]);
-```
-
-## Testing
-
-### Sandbox Environment
-
-Use the staging environment for testing:
-
-```
-https://staging-api.beepbite.com/v1
-```
-
-### Test Data
-
-- Test API keys are available in staging
-- Sample data is pre-populated
-- No charges for staging requests
-
-### Postman Collection
-
-Download our Postman collection for easy API testing:
-[BeepBite API Collection](https://api.beepbite.com/postman/collection.json)
-
-## Support
-
-- **API Documentation**: [api.beepbite.com](https://api.beepbite.com)
-- **Status Page**: [status.beepbite.com](https://status.beepbite.com)
-- **Developer Support**: developers@beepbite.com
-- **Community Forum**: [community.beepbite.com](https://community.beepbite.com)
-
----
-
-For more examples and detailed integration guides, visit our [Developer Portal](https://developers.beepbite.com). 
+That's it — no `{"success": false, "error": {"code": ..., "details": ...}}`
+envelope, no catalog of machine-readable error codes. HTTP status carries the
+meaning: `400` bad input, `401` bad/missing credential, `403` capability or
+role denied, `404` unknown resource or table not on the allowlist, `429` rate
+limited, `500` something broke server-side. The one exception is the 401 from
+`apiauth.RequireAPIKey` itself, which is plain text (see above).
+
+## What is not here
+
+- No hosted dashboard, no signup flow, no `api.beepbite.com`, no staging
+  environment, no sandbox with pre-loaded test data, no Postman collection.
+- No official SDKs. There is no `@beepbite/api-client` on npm, no
+  `beepbite-python` on PyPI, no `beepbite/php-sdk` on Packagist. If you want a
+  client library, write one against the routes above, or generate one — there
+  is no OpenAPI spec published yet either.
+- No support channel, status page, or community forum operated by anyone,
+  because there is no service behind this API to run one for.
+- No "Starter / Professional / Enterprise" plans. One instance, one flat rate
+  limit, one set of routes. Every deployment of BeepBite has the same API,
+  because it's the same binary.

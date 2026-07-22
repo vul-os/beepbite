@@ -86,8 +86,8 @@ function CartResult({ data }) {
 function OrderConfirmationResult({ data }) {
   const money = moneyRenderer(useMoney());
   return (
-    <div className="tool-confirm mt-1 border rounded p-3 bg-green-50">
-      <div className="font-semibold text-green-700">Order Confirmed!</div>
+    <div className="tool-confirm mt-1 border border-success/25 rounded p-3 bg-success/10">
+      <div className="font-semibold text-success">Order Confirmed!</div>
       <div className="text-sm text-muted-foreground mt-1">Order #{data.order_number}</div>
       <div className="text-sm text-muted-foreground">Total: {money(data.total_amount)}</div>
     </div>
@@ -96,8 +96,8 @@ function OrderConfirmationResult({ data }) {
 
 function TrackResult({ data }) {
   return (
-    <div className="tool-track mt-1 border rounded p-2 bg-blue-50 text-sm">
-      <span className="font-medium text-blue-700">Order #{data.order_number}</span>
+    <div className="tool-track mt-1 border border-primary/20 rounded p-2 bg-primary/10 text-sm">
+      <span className="font-medium text-primary">Order #{data.order_number}</span>
       <span className="ml-2 text-muted-foreground capitalize">{data.status?.replace(/_/g, ' ')}</span>
     </div>
   );
@@ -125,8 +125,8 @@ function ItemDetailResult({ data }) {
 }
 
 function AddToCartResult({ data }) {
-  if (data?.error) return <p className="text-sm text-red-500">{data.error}</p>;
-  return <p className="text-sm text-green-600">{data?.message || 'Added to cart'}</p>;
+  if (data?.error) return <p className="text-sm text-destructive">{data.error}</p>;
+  return <p className="text-sm text-success">{data?.message || 'Added to cart'}</p>;
 }
 
 function ToolResultCard({ tool, data }) {

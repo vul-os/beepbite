@@ -60,7 +60,7 @@ export default function PickupSlotPicker({ locationId, date, selected, onSelect 
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
-        <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
         Loading available time slots…
       </div>
     );
@@ -77,7 +77,7 @@ export default function PickupSlotPicker({ locationId, date, selected, onSelect 
   if (slots.length === 0) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
-        <Clock className="h-4 w-4 text-orange-400" />
+        <Clock className="h-4 w-4 text-primary/60" />
         No pickup slots available for this date.
       </div>
     );
@@ -103,10 +103,10 @@ export default function PickupSlotPicker({ locationId, date, selected, onSelect 
               className={[
                 'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
                 isFull
-                  ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed line-through'
+                  ? 'border-border bg-muted text-muted-foreground cursor-not-allowed line-through'
                   : isSelected
-                    ? 'border-orange-500 bg-orange-500 text-white shadow-sm'
-                    : 'border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-400 cursor-pointer',
+                    ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-primary/25 text-primary hover:bg-primary/10 hover:border-primary/50 cursor-pointer',
               ].join(' ')}
               aria-label={
                 isFull
@@ -117,7 +117,7 @@ export default function PickupSlotPicker({ locationId, date, selected, onSelect 
             >
               {formatSlotLabel(slot.slot_time)}
               {isFull && (
-                <span className="ml-1 text-xs text-gray-400">(full)</span>
+                <span className="ml-1 text-xs text-muted-foreground">(full)</span>
               )}
               {!isFull && slot.capacity > 0 && slot.scheduled > 0 && (
                 <span className="ml-1 text-xs opacity-60">
@@ -131,7 +131,7 @@ export default function PickupSlotPicker({ locationId, date, selected, onSelect 
 
       {selected && (
         <p className="text-xs text-muted-foreground pt-1">
-          Selected: <span className="font-medium text-orange-600">{formatSlotLabel(selected)}</span>
+          Selected: <span className="font-medium text-primary tabular-nums">{formatSlotLabel(selected)}</span>
         </p>
       )}
     </div>

@@ -72,7 +72,7 @@ const PinKeypad = ({ pin = '', maxLength = 6, minLength = 4, onDigit, onDelete, 
       <PinDots length={pin.length} maxLength={maxLength} />
 
       {error && (
-        <p role="alert" className="text-xs text-red-500 text-center mb-2 px-2">
+        <p role="alert" className="text-xs text-destructive text-center mb-2 px-2">
           {error}
         </p>
       )}
@@ -106,7 +106,7 @@ const PinKeypad = ({ pin = '', maxLength = 6, minLength = 4, onDigit, onDelete, 
       {/* Submit button */}
       <Button
         type="button"
-        className="w-full max-w-[244px] sm:max-w-[268px] h-12 mt-5 bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg transition-all duration-200 text-base"
+        className="w-full max-w-[244px] sm:max-w-[268px] h-12 mt-5 font-semibold shadow-lg transition-all duration-200 text-base"
         disabled={!canSubmit}
         onClick={onSubmit}
       >

@@ -60,6 +60,7 @@ import {
 } from '@/services/tables';
 import { chargeOrdersWithLegs } from '@/services/payment';
 
+import { OfflineBanner } from '@/components/ui/sync-status';
 import OpenRegisterModal from '@/pages/home/components/open-register-modal';
 import ReturnModal from '@/pages/home/components/return-modal';
 import { TablesStrip } from './components/tables-strip';
@@ -136,8 +137,11 @@ function ItemCountdownPill({ remaining }) {
       </span>
     );
   }
+  // "Running low" is a caution signal (a reversible, needs-attention state,
+  // not sold out yet) — the warning token, never the destructive one, which
+  // is reserved for the actual "Sold out" case above.
   return (
-    <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white leading-none">
+    <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-warning text-warning-foreground leading-none tabular-nums">
       {remaining} left
     </span>
   );
@@ -991,7 +995,7 @@ export default function PosWorkspacePage() {
   if (!isAuthed) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -1004,34 +1008,36 @@ export default function PosWorkspacePage() {
     : 0;
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-orange-50/40 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-background to-primary/5 dark:to-primary/10 overflow-hidden">
       {/* ============================== TOP BAR ============================== */}
-      <header className="bg-card border-b border-orange-200 dark:border-orange-900/50 shadow-sm shrink-0">
+      <header className="bg-card border-b border-border shadow-sm shrink-0">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-md">
-              <Receipt className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+              <Receipt className="w-5 h-5 text-primary-foreground" />
             </div>
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="text-sm font-bold text-gray-900 dark:text-white truncate">POS Workspace</span>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
+              <span className="text-sm font-bold text-foreground truncate">POS Workspace</span>
+              <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
                 <UserIcon className="w-3 h-3" />
                 {displayName}
-                {/* Actor overlay chip — shown when staff logged in via /s/:slug PIN */}
+                {/* Actor overlay chip — shown when staff logged in via /s/:slug PIN.
+                    Primary-tinted (identity/role info), not success-green — success
+                    is reserved for paid/ready states, not "who is signed in". */}
                 {actor && (
-                  <span className="ml-0.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-semibold uppercase tracking-wide">
+                  <span className="ml-0.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-[9px] font-semibold uppercase tracking-wide">
                     <UserCheck className="w-2.5 h-2.5" />
                     {actor.role || 'Staff'}
                   </span>
                 )}
                 {!actor && !staff && (
-                  <span className="ml-0.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 text-[9px] font-semibold uppercase tracking-wide">
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[9px] font-semibold uppercase tracking-wide">
                     Owner
                   </span>
                 )}
                 {activeLocation?.name && (
                   <>
-                    <span className="text-gray-300 dark:text-gray-600">·</span>
+                    <span className="text-border">·</span>
                     <span className="truncate">{activeLocation.name}</span>
                   </>
                 )}
@@ -1039,21 +1045,28 @@ export default function PosWorkspacePage() {
             </div>
           </div>
 
-          {/* Register pill — only relevant for staff PIN sessions. */}
+          {/* Register pill — only relevant for staff PIN sessions.
+              "Open Register" was styled with destructive/red-alert colours,
+              which overstates the situation: an unopened drawer is a routine,
+              reversible prerequisite (tap it, open it, carry on) — not an
+              error. That's exactly the "needs a second look but not
+              irreversible" case the warning token exists for, so it now reads
+              amber instead of alarm-red. "Register Open" is a completed,
+              good-to-go state, which success correctly represents. */}
           {isStaffSession && (
             <div className="hidden sm:flex items-center gap-2">
               {registerLoading ? (
-                <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" /> Checking register…
                 </span>
               ) : registerSession ? (
                 <button type="button" onClick={() => setIsOpenRegisterOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-950/70 text-xs font-semibold transition">
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/30 text-success hover:bg-success/15 text-xs font-semibold transition">
                   <Unlock className="w-3 h-3" /> Register Open
                 </button>
               ) : (
                 <button type="button" onClick={() => setIsOpenRegisterOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/70 text-xs font-semibold transition animate-pulse">
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/10 border border-warning/30 text-warning hover:bg-warning/15 text-xs font-semibold transition animate-pulse">
                   <Lock className="w-3 h-3" /> Open Register
                 </button>
               )}
@@ -1061,10 +1074,15 @@ export default function PosWorkspacePage() {
           )}
 
           <div className="flex items-center gap-1.5">
+            {/* Move/Assign Table + Split act directly on the active ticket, so
+                they get the primary tint — same visual family as the ticket
+                panel's own guest-count pill. Return/Kitchen/End shift are
+                chrome navigation, not ticket actions, so they stay neutral
+                outline rather than competing for the same accent colour. */}
             {activeTicket && isDineInMode && (
               <Button size="sm" variant="outline" onClick={handleStartEatIn}
                 aria-label={activeTicket.kind === 'walkin' ? 'Assign this ticket to a table' : 'Move to a different table'}
-                className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+                className="border-primary/30 text-primary hover:bg-primary/10 h-9 focus-visible:ring-2 focus-visible:ring-primary">
                 <MapPin className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">
                   {activeTicket.kind === 'walkin' ? 'Assign Table' : 'Move Table'}
@@ -1074,20 +1092,20 @@ export default function PosWorkspacePage() {
             {activeTicket?.kind === 'table' && activeTicket?.sentOrders?.length > 0 && (
               <Button size="sm" variant="outline" onClick={() => setShowSplitBySeat(true)}
                 aria-label="Split check by seat"
-                className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+                className="border-primary/30 text-primary hover:bg-primary/10 h-9 focus-visible:ring-2 focus-visible:ring-primary">
                 <Scissors className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">Split</span>
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={() => setIsReturnOpen(true)} disabled={isStaffSession && !registerSession}
               aria-label="Process a return"
-              className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+              className="h-9 focus-visible:ring-2 focus-visible:ring-ring">
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Return</span>
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate('/kds/expo')}
               aria-label="Open Kitchen Display System"
-              className="border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-9 focus-visible:ring-2 focus-visible:ring-orange-400">
+              className="h-9 focus-visible:ring-2 focus-visible:ring-ring">
               <ChefHat className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Kitchen</span>
             </Button>
@@ -1095,14 +1113,14 @@ export default function PosWorkspacePage() {
             {actor && (
               <Button size="sm" variant="outline" onClick={handleEndShift}
                 aria-label="End shift and return to PIN screen"
-                className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 h-9 focus-visible:ring-2 focus-visible:ring-emerald-400">
+                className="h-9 focus-visible:ring-2 focus-visible:ring-ring">
                 <UserCheck className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
                 <span className="hidden md:inline">End shift</span>
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={handleSignOut}
               aria-label="Sign out"
-              className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white h-9 focus-visible:ring-2 focus-visible:ring-gray-400">
+              className="text-muted-foreground hover:text-foreground h-9 focus-visible:ring-2 focus-visible:ring-ring">
               <LogOut className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               <span className="hidden md:inline">Sign Out</span>
             </Button>
@@ -1110,7 +1128,7 @@ export default function PosWorkspacePage() {
         </div>
 
         {/* Tables strip */}
-        <div className="px-3 py-2 border-t border-orange-100 dark:border-orange-900/40 bg-orange-50/30 dark:bg-orange-950/20">
+        <div className="px-3 py-2 border-t border-border bg-muted/30">
           <TablesStrip
             tables={tableTiles}
             walkIns={walkInTiles}
@@ -1125,28 +1143,36 @@ export default function PosWorkspacePage() {
         </div>
       </header>
 
+      {/* Offline / sync strip — this is a chrome-less kiosk screen (no global
+          app nav), exactly the surface OfflineBanner was built for. Renders
+          nothing when fully synced; a cashier whose connection blips mid-send
+          needs this to be impossible to miss, not a subtle top-bar pill. */}
+      <OfflineBanner />
+
       {/* ============================== MAIN ============================== */}
       <main className="flex-1 flex overflow-hidden">
         {/* Menu */}
         <section className="flex-1 flex flex-col min-w-0 bg-card">
-          <div className="px-4 py-3 border-b border-orange-100 dark:border-orange-900/40">
+          <div className="px-4 py-3 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Search menu…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search menu items"
-                className="pl-10 h-11 border-orange-200 focus:border-orange-400 focus-visible:ring-1 focus-visible:ring-orange-400 rounded-xl text-sm"
+                className="pl-10 h-11 rounded-xl text-sm"
               />
             </div>
           </div>
 
-          {/* Category filter — horizontally scrollable pill row */}
+          {/* Category filter — horizontally scrollable pill row. font-display
+              (condensed-black) so a rushed glance across the row lands on the
+              active category without needing to read at normal weight. */}
           <div
             role="group"
             aria-label="Filter by category"
-            className="px-3 py-2 border-b border-orange-100 dark:border-orange-900/40 overflow-x-auto scrollbar-none"
+            className="px-3 py-2 border-b border-border overflow-x-auto scrollbar-none"
             style={{ scrollbarWidth: 'none' }}
           >
             <div className="flex gap-1.5 min-w-max">
@@ -1155,10 +1181,10 @@ export default function PosWorkspacePage() {
                 onClick={() => setCategoryId('all')}
                 aria-pressed={categoryId === 'all'}
                 className={cn(
-                  'inline-flex items-center gap-1 h-9 rounded-full px-3.5 text-xs font-semibold whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                  'font-display inline-flex items-center gap-1 h-9 rounded-full px-3.5 text-xs whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   categoryId === 'all'
-                    ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                    : 'border-orange-200 dark:border-orange-800 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-300 dark:hover:border-orange-700',
+                    ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                    : 'border-border text-foreground bg-card hover:bg-accent hover:border-primary/40',
                 )}
               >
                 <Filter className="w-3 h-3" /> All
@@ -1170,10 +1196,10 @@ export default function PosWorkspacePage() {
                   onClick={() => setCategoryId(c.id)}
                   aria-pressed={categoryId === c.id}
                   className={cn(
-                    'h-9 rounded-full px-3.5 text-xs font-semibold whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400',
+                    'font-display h-9 rounded-full px-3.5 text-xs whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     categoryId === c.id
-                      ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                      : 'border-orange-200 dark:border-orange-800 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-300 dark:hover:border-orange-700',
+                      ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                      : 'border-border text-foreground bg-card hover:bg-accent hover:border-primary/40',
                   )}
                 >
                   {c.name}
@@ -1184,22 +1210,25 @@ export default function PosWorkspacePage() {
 
           <div className="flex-1 overflow-y-auto p-3">
             {!activeTicket && (
-              <div className="mb-4 rounded-2xl border border-orange-100 dark:border-orange-900/40 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20 p-4 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-3 text-center">
+              <div className="mb-4 rounded-2xl border border-border bg-gradient-to-br from-primary/5 to-accent/50 dark:from-primary/10 dark:to-accent/15 p-4 shadow-sm">
+                <p className="font-display text-xs uppercase tracking-widest text-primary mb-3 text-center">
                   How will the customer be ordering?
                 </p>
                 {isDineInMode ? (
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Eat-in — only visible in dine-in mode */}
+                    {/* Eat-in and Takeaway are two equal, non-hierarchical
+                        starting points — neither is a "success" or "warning"
+                        state, so they're differentiated with primary vs
+                        secondary tints rather than reusing status colours. */}
                     <button
                       type="button"
                       onClick={handleStartEatIn}
                       aria-label="Start eat-in order — select a table"
-                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 dark:border-green-800 bg-white dark:bg-gray-900 hover:bg-green-50 dark:hover:bg-green-950/40 hover:border-green-400 dark:hover:border-green-600 active:bg-green-100 dark:active:bg-green-950/70 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-primary/30 bg-card hover:bg-primary/10 hover:border-primary/50 active:bg-primary/15 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                      <Utensils className="w-10 h-10 text-green-600 dark:text-green-500" />
-                      <span className="text-base font-bold text-gray-900 dark:text-white">Eat-in</span>
-                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      <Utensils className="w-10 h-10 text-primary" />
+                      <span className="text-base font-bold text-foreground">Eat-in</span>
+                      <span className="text-[11px] text-muted-foreground">
                         {hasFloorPlan ? 'Select a table' : 'Set up tables first'}
                       </span>
                     </button>
@@ -1208,11 +1237,11 @@ export default function PosWorkspacePage() {
                       type="button"
                       onClick={handleAddWalkIn}
                       aria-label="Start takeaway / walk-in order"
-                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-orange-200 dark:border-orange-800 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-400 dark:hover:border-orange-600 active:bg-orange-100 dark:active:bg-orange-950/70 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                      className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-border bg-card hover:bg-accent hover:border-secondary/40 active:bg-accent/70 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <ShoppingBag className="w-10 h-10 text-orange-500" />
-                      <span className="text-base font-bold text-gray-900 dark:text-white">Takeaway</span>
-                      <span className="text-[11px] text-gray-400 dark:text-gray-500">Walk-in / counter</span>
+                      <ShoppingBag className="w-10 h-10 text-secondary dark:text-foreground/80" />
+                      <span className="text-base font-bold text-foreground">Takeaway</span>
+                      <span className="text-[11px] text-muted-foreground">Walk-in / counter</span>
                     </button>
                   </div>
                 ) : (
@@ -1221,11 +1250,11 @@ export default function PosWorkspacePage() {
                     type="button"
                     onClick={handleAddWalkIn}
                     aria-label="Start a new order"
-                    className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-orange-200 dark:border-orange-800 bg-white dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-400 dark:hover:border-orange-600 active:bg-orange-100 dark:active:bg-orange-950/70 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-primary/30 bg-card hover:bg-primary/10 hover:border-primary/50 active:bg-primary/15 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    <ShoppingBag className="w-10 h-10 text-orange-500" />
-                    <span className="text-base font-bold text-gray-900 dark:text-white">New order</span>
-                    <span className="text-[11px] text-gray-400 dark:text-gray-500">Tap to start serving</span>
+                    <ShoppingBag className="w-10 h-10 text-primary" />
+                    <span className="text-base font-bold text-foreground">New order</span>
+                    <span className="text-[11px] text-muted-foreground">Tap to start serving</span>
                   </button>
                 )}
               </div>
@@ -1233,20 +1262,20 @@ export default function PosWorkspacePage() {
             {loadingMenu ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="h-40 rounded-2xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                  <div key={i} className="h-40 rounded-2xl bg-muted animate-pulse" />
                 ))}
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
-                  <Search className="w-7 h-7 text-gray-300 dark:text-gray-600" />
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-3">
+                  <Search className="w-7 h-7 text-muted-foreground/50" />
                 </div>
-                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">No items match</p>
+                <p className="text-sm font-semibold text-muted-foreground">No items match</p>
                 {search && (
                   <button
                     type="button"
                     onClick={() => setSearch('')}
-                    className="mt-2 text-xs text-orange-500 hover:text-orange-600 underline"
+                    className="mt-2 text-xs text-primary hover:text-primary/80 underline"
                   >
                     Clear search
                   </button>
@@ -1269,18 +1298,18 @@ export default function PosWorkspacePage() {
                         disabled={isDisabled}
                         aria-label={`Add ${it.name} — ${format(Math.round(parseFloat(it.price || 0) * scale))}${is86 ? ' (86 — sold out)' : soldOutToday ? ' (sold out)' : ''}`}
                         className={cn(
-                          'flex w-full flex-col rounded-2xl bg-white dark:bg-gray-900 border-2 overflow-hidden text-left',
+                          'flex w-full flex-col rounded-2xl bg-card border-2 overflow-hidden text-left',
                           'transition-all duration-150',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                           isDisabled
-                            ? 'border-gray-100 dark:border-gray-800 opacity-50 cursor-not-allowed shadow-none'
-                            : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg hover:border-orange-400 dark:hover:border-orange-600 hover:-translate-y-0.5 active:scale-95 active:shadow-sm',
+                            ? 'border-border/50 opacity-50 cursor-not-allowed shadow-none'
+                            : 'border-border shadow-sm hover:shadow-lg hover:border-primary/50 hover:-translate-y-0.5 active:scale-95 active:shadow-sm',
                         )}
                       >
-                        <div className="h-24 sm:h-28 flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100/60 dark:from-orange-950/40 dark:via-amber-950/30 dark:to-orange-900/30 relative">
+                        <div className="h-24 sm:h-28 flex items-center justify-center bg-gradient-to-br from-primary/5 via-accent/40 to-primary/10 dark:from-primary/10 dark:via-accent/10 dark:to-primary/15 relative">
                           <span className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform duration-200 select-none">{emojiFor(it)}</span>
                           {is86 ? (
-                            <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-600 text-white leading-none tracking-wide">
+                            <span className="absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-destructive text-destructive-foreground leading-none tracking-wide">
                               86&apos;d
                             </span>
                           ) : (
@@ -1288,15 +1317,15 @@ export default function PosWorkspacePage() {
                           )}
                         </div>
                         <div className="flex-1 flex flex-col justify-between px-3 py-2.5">
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 leading-tight">{it.name}</h3>
+                          <h3 className="text-sm font-semibold text-foreground line-clamp-2 leading-tight">{it.name}</h3>
                           <div className="flex items-end justify-between mt-2">
-                            <span className="text-base font-bold text-gray-900 dark:text-white tabular-nums">
+                            <span className="text-base font-bold text-foreground tabular-nums">
                               {format(Math.round(parseFloat(it.price || 0) * scale))}
                             </span>
                             {!isDisabled && (
                               <span
                                 aria-hidden="true"
-                                className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:bg-orange-600 transition-all"
+                                className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:bg-primary/90 transition-all"
                               >
                                 <Plus className="w-4 h-4" strokeWidth={2.5} />
                               </span>
@@ -1305,8 +1334,12 @@ export default function PosWorkspacePage() {
                         </div>
                       </button>
                       {/* One-tap 86 toggle — sibling overlay (avoids nested buttons).
-                          Hidden until hover/focus on pointer devices; the red "86'd"
-                          badge already communicates state when active. */}
+                          Hidden until hover/focus on pointer devices; the "86'd"
+                          badge already communicates state when active. Restoring an
+                          item to the menu is a "ready/good to sell" state (success);
+                          86-ing it live is destructive-adjacent (removes a whole
+                          menu item from ordering) so it borrows the destructive
+                          hover treatment already used elsewhere in this file. */}
                       <button
                         type="button"
                         onClick={() => handleToggle86(it)}
@@ -1317,7 +1350,7 @@ export default function PosWorkspacePage() {
                           'absolute top-1.5 right-1.5 z-10 inline-flex items-center justify-center rounded-full w-7 h-7 text-[10px] font-bold shadow-sm transition-all',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
                           is86
-                            ? 'bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-400'
+                            ? 'bg-success text-success-foreground hover:bg-success/90 focus-visible:ring-success'
                             : 'bg-card/90 text-muted-foreground border border-border opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive focus-visible:ring-destructive',
                           busy86 && 'opacity-60 cursor-wait',
                         )}
@@ -1371,13 +1404,17 @@ export default function PosWorkspacePage() {
         onSuccess={() => toast({ title: 'Return processed' })}
       />
 
-      {/* Charge — method picker */}
+      {/* Charge — method picker. Cash/Card are two equal payment rails, not a
+          good/bad pair — success is reserved for a completed "paid" state
+          reached after this choice, and there's no "info-blue" token in the
+          palette, so they're told apart with primary vs a neutral card/accent
+          tint rather than inventing an off-system colour. */}
       <Dialog open={showMethodPicker} onOpenChange={setShowMethodPicker}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>How is the customer paying?</DialogTitle>
             <DialogDescription>
-              Total due: <span className="font-bold tabular-nums text-gray-900 dark:text-white">{format(activeUnpaidCents)}</span>
+              Total due: <span className="font-bold tabular-nums text-foreground">{format(activeUnpaidCents)}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 mt-3">
@@ -1385,21 +1422,21 @@ export default function PosWorkspacePage() {
               type="button"
               onClick={() => handlePickMethod('cash')}
               aria-label="Pay with cash — numpad and change calculator"
-              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/60 hover:border-green-400 dark:hover:border-green-600 active:bg-green-200 dark:active:bg-green-950 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-primary/30 bg-primary/10 hover:bg-primary/15 hover:border-primary/50 active:bg-primary/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <Banknote className="w-9 h-9 text-green-600 dark:text-green-500" />
-              <span className="text-base font-bold text-gray-900 dark:text-white">Cash</span>
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">Numpad + change calc</span>
+              <Banknote className="w-9 h-9 text-primary" />
+              <span className="text-base font-bold text-foreground">Cash</span>
+              <span className="text-[11px] text-muted-foreground">Numpad + change calc</span>
             </button>
             <button
               type="button"
               onClick={() => handlePickMethod('card_in_person')}
               aria-label="Pay with card — external terminal"
-              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/60 hover:border-blue-400 dark:hover:border-blue-600 active:bg-blue-200 dark:active:bg-blue-950 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="flex flex-col items-center justify-center gap-2 py-7 rounded-2xl border-2 border-border bg-accent/40 hover:bg-accent/70 hover:border-secondary/40 active:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <CreditCard className="w-9 h-9 text-blue-600 dark:text-blue-500" />
-              <span className="text-base font-bold text-gray-900 dark:text-white">Card</span>
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">External terminal</span>
+              <CreditCard className="w-9 h-9 text-accent-foreground" />
+              <span className="text-base font-bold text-foreground">Card</span>
+              <span className="text-[11px] text-muted-foreground">External terminal</span>
             </button>
           </div>
         </DialogContent>

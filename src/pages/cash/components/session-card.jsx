@@ -105,11 +105,9 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
           <div className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-orange-500" />
+            <Wallet className="h-5 w-5 text-primary" />
             <CardTitle>Current Session</CardTitle>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              Open
-            </Badge>
+            <Badge variant="success">Open</Badge>
           </div>
           {canSettle && (
             <Button
@@ -133,13 +131,13 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
             </div>
             <div>
               <p className="text-muted-foreground">Opening float</p>
-              <p className="font-medium">
+              <p className="font-medium tabular-nums">
                 {format(session.opening_float_cents || 0)}
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Expected balance</p>
-              <p className="font-semibold text-orange-600">
+              <p className="font-semibold text-primary tabular-nums">
                 {format(expectedCents)}
               </p>
             </div>
@@ -154,7 +152,7 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
           {/* Record movement inline form */}
           <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <PlusCircle className="h-4 w-4 text-orange-500" />
+              <PlusCircle className="h-4 w-4 text-primary" />
               Record Movement
             </h3>
             <form onSubmit={handleAddMovement} className="space-y-4">
@@ -218,7 +216,6 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
                 type="submit"
                 size="sm"
                 disabled={movLoading}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 {movLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
                 Add Movement

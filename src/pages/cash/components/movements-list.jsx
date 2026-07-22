@@ -4,14 +4,19 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMoney } from '@/context/locale-context';
 
+// Colour follows cash direction, not seven arbitrary hues: money coming into
+// the drawer (paid_in, petty_cash, drop) reads success; money leaving
+// (paid_out, tip_out, pickup) reads warning — worth a glance, not alarming,
+// since outflows are routine till operations, not errors. `no_sale` moves no
+// cash at all, so it stays neutral.
 const TYPE_LABELS = {
-  paid_in:    { label: 'Paid In',    color: 'bg-green-100 text-green-800 border-green-200' },
-  paid_out:   { label: 'Paid Out',   color: 'bg-red-100 text-red-800 border-red-200' },
-  petty_cash: { label: 'Petty Cash', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  tip_out:    { label: 'Tip Out',    color: 'bg-purple-100 text-purple-800 border-purple-200' },
-  no_sale:    { label: 'No Sale',    color: 'bg-gray-100 text-gray-700 border-gray-200' },
-  drop:       { label: 'Drop',       color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  pickup:     { label: 'Pickup',     color: 'bg-orange-100 text-orange-800 border-orange-200' },
+  paid_in:    { label: 'Paid In',    color: 'bg-success/15 text-success border-success/30' },
+  paid_out:   { label: 'Paid Out',   color: 'bg-warning/15 text-warning border-warning/30' },
+  petty_cash: { label: 'Petty Cash', color: 'bg-success/15 text-success border-success/30' },
+  tip_out:    { label: 'Tip Out',    color: 'bg-warning/15 text-warning border-warning/30' },
+  no_sale:    { label: 'No Sale',    color: 'bg-muted text-muted-foreground border-border' },
+  drop:       { label: 'Drop',       color: 'bg-success/15 text-success border-success/30' },
+  pickup:     { label: 'Pickup',     color: 'bg-warning/15 text-warning border-warning/30' },
 };
 
 const PAGE_SIZE = 10;
@@ -57,7 +62,7 @@ export function MovementsList({ movements = [] }) {
   return (
     <div className="space-y-2">
       {slice.map((m) => {
-        const meta = TYPE_LABELS[m.movement_type] || { label: m.movement_type, color: 'bg-gray-100 text-gray-700' };
+        const meta = TYPE_LABELS[m.movement_type] || { label: m.movement_type, color: 'bg-muted text-muted-foreground' };
         const positive = m.amount_cents >= 0;
         return (
           <div
@@ -71,7 +76,7 @@ export function MovementsList({ movements = [] }) {
               <span className="truncate text-muted-foreground">{m.reason || '—'}</span>
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-2">
-              <span className={`font-mono font-medium ${positive ? 'text-green-700' : 'text-red-700'}`}>
+              <span className={`font-mono font-medium tabular-nums ${positive ? 'text-success' : 'text-warning'}`}>
                 {fmtSigned(m.amount_cents)}
               </span>
               <span className="text-xs text-muted-foreground">{fmtDate(m.created_at)}</span>

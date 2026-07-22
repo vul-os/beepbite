@@ -1,18 +1,17 @@
-
+// Logo — two lockups: `minimal` (top bar, small) and `default` (auth pages,
+// empty states). The old "default" mark carried a pulsing red notification
+// dot on the icon tile — a leftover from BeepBite's earlier life as a table-
+// ready notifier. That's gone: this is a point-of-sale now, and a badge that
+// reads "something needs your attention" has no business sitting on the
+// wordmark of every screen.
 const Logo = ({ className = "", variant = "default" }) => {
   if (variant === "minimal") {
     return (
       <div className={`flex items-center ${className}`}>
-        <div className="relative">
-          <div className="w-10 h-10 bg-card rounded-xl shadow-md flex items-center justify-center border border-border">
-            <img
-              src="/icon.svg"
-              alt="BeepBite"
-              className="w-6 h-6"
-            />
-          </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-md border-2 border-border bg-card shadow-card">
+          <img src="/icon.svg" alt="" className="h-6 w-6" />
         </div>
-        <span className="ml-3 text-2xl font-bold">
+        <span className="font-display ml-3 text-2xl leading-none">
           <span className="text-foreground">Beep</span>
           <span className="text-primary">Bite</span>
         </span>
@@ -22,32 +21,23 @@ const Logo = ({ className = "", variant = "default" }) => {
 
   return (
     <div className={`text-center ${className}`}>
-      <div className="flex justify-center items-center mb-4">
-        <div className="relative">
-          {/* Main logo with icon.svg */}
-          <div className="w-20 h-20 beepbite-gradient rounded-2xl flex items-center justify-center shadow-xl transform hover:scale-105 transition-transform duration-300 border-4 border-background">
-            <img
-              src="/icon.svg"
-              alt="BeepBite Bell Icon"
-              className="w-12 h-12 filter brightness-0 invert"
-            />
-            {/* Small notification dot */}
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full animate-pulse shadow-lg"></div>
-          </div>
+      <div className="mb-4 flex items-center justify-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-lg border-2 border-background bg-primary shadow-elevated">
+          <img src="/icon.svg" alt="BeepBite" className="h-11 w-11 brightness-0 invert" />
         </div>
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-          <span className="beepbite-gradient-text">Beep</span>
+        <h1 className="font-display text-4xl leading-none sm:text-5xl">
+          <span className="text-primary">Beep</span>
           <span className="text-foreground">Bite</span>
         </h1>
-        <p className="text-sm sm:text-base text-muted-foreground font-semibold tracking-wide uppercase">
-          Restaurant Order Management
+        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground sm:text-base">
+          Restaurant point-of-sale
         </p>
       </div>
     </div>
   );
 };
 
-export default Logo; 
+export default Logo;

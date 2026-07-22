@@ -25,20 +25,20 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
   /**
    * Render the daily-countdown pill for an item.
    * remaining_today === null  → unlimited, show nothing.
-   * remaining_today === 0     → sold out today (red).
-   * remaining_today > 0       → "N left today" (amber/orange).
+   * remaining_today === 0     → sold out today (destructive: nothing left to do about it today).
+   * remaining_today > 0       → "N left today" (warning: still gettable, but going fast).
    */
   function CountdownBadge({ remaining }) {
     if (remaining === null || remaining === undefined) return null;
     if (remaining === 0) {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/25">
           Sold out today
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-warning/10 text-warning border border-warning/25 tabular-nums">
         {remaining} left today
       </span>
     );
@@ -75,7 +75,7 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
               <TabsTrigger
                 key={cat}
                 value={cat}
-                className="text-xs sm:text-sm px-3 py-1.5 rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white shrink-0 transition-colors"
+                className="text-xs sm:text-sm px-3 py-1.5 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 transition-colors"
               >
                 {cat}
               </TabsTrigger>
@@ -124,7 +124,7 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
                   <p className="font-semibold text-sm leading-snug line-clamp-2">
                     {item.name}
                   </p>
-                  <span className="text-sm font-bold text-orange-600 shrink-0 tabular-nums">
+                  <span className="text-sm font-bold text-primary shrink-0 tabular-nums">
                     {formatPrice(Number(item.price ?? 0) * 100, currency)}
                   </span>
                 </div>
@@ -151,7 +151,7 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 hover:bg-orange-100 hover:text-orange-600"
+                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
                         onClick={() => onRemoveItem(item)}
                         aria-label={`Remove one ${item.name}`}
                       >
@@ -162,7 +162,7 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
                       </span>
                       <Button
                         size="icon"
-                        className="h-7 w-7 bg-orange-500 hover:bg-orange-600 shadow-sm"
+                        className="h-7 w-7 shadow-sm"
                         onClick={() => onAddItem(item)}
                         aria-label={`Add one more ${item.name}`}
                       >
@@ -172,7 +172,7 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
                   ) : (
                     <Button
                       size="icon"
-                      className="h-8 w-8 bg-orange-500 hover:bg-orange-600 rounded-xl shadow-sm"
+                      className="h-8 w-8 rounded-xl shadow-sm"
                       onClick={() => onAddItem(item)}
                       aria-label={`Add ${item.name} to cart`}
                     >

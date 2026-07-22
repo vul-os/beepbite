@@ -51,7 +51,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { emojiFor } from '@/lib/item-emoji';
-import { COMPLEXITY_COLORS } from '@/lib/status-colors';
 // Import recipe components
 import RecipeBuilder from './recipe-builder';
 import RecipeBreakdown from './recipe-breakdown';
@@ -524,9 +523,13 @@ const Menu = () => {
     }
   };
 
-  // Shared with recipe-breakdown.jsx and recipe-builder.jsx so complexity
-  // reads with the same colour everywhere it appears.
-  const getComplexityColor = (complexity) => COMPLEXITY_COLORS[complexity] || 'bg-muted text-muted-foreground';
+  // Recipe complexity maps 1:1 onto the three status tokens (simple = healthy,
+  // moderate = needs a look, complex = the kitchen's biggest risk) — kept as a
+  // local map (duplicated in recipe-breakdown.jsx / recipe-builder.jsx) rather
+  // than pulling from the shared lib/status-colors.js, whose PO/invoice/reservation
+  // tones still predate the Ticket Rail token system and are out of this pass's scope.
+  const COMPLEXITY_BADGE_VARIANT = { simple: 'success', moderate: 'warning', complex: 'destructive' };
+  const getComplexityBadgeVariant = (complexity) => COMPLEXITY_BADGE_VARIANT[complexity] || 'outline';
 
   // Item prices are stored as major-unit floats (rands/dollars, not cents), so
   // they are scaled up to the currency's minor unit before going through the
@@ -639,13 +642,13 @@ const Menu = () => {
               size="sm"
               onClick={createCategoryInline}
               disabled={creatingCategory || !newCategoryName.trim()}
-              className="border-orange-200 text-orange-600 hover:bg-orange-50 whitespace-nowrap"
+              className="border-primary/25 text-primary hover:bg-primary/10 whitespace-nowrap"
             >
               {creatingCategory ? '…' : '+ Add'}
             </Button>
           </div>
           {categories.length === 0 && (
-            <p className="mt-1 text-xs text-amber-600">No categories yet — add one above to enable creating your first item.</p>
+            <p className="mt-1 text-xs text-warning">No categories yet — add one above to enable creating your first item.</p>
           )}
         </div>
 
@@ -939,7 +942,7 @@ const Menu = () => {
                           setIsAddModalOpen(true);
                         }}
                         variant="outline"
-                        className="border-orange-200 text-orange-600 hover:bg-orange-50"
+                        className="border-primary/25 text-primary hover:bg-primary/10"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Items Manually
@@ -967,13 +970,16 @@ const Menu = () => {
                     >
                       <CardContent className="p-5 sm:p-6">
                         <div className="flex items-start gap-4">
-                          {/* Type icon chip — emoji matches POS workspace via shared emojiFor helper */}
+                          {/* Type icon chip — emoji matches POS workspace via shared emojiFor helper.
+                              This is a categorical (not status) distinction, so it stays off the
+                              warning/success/destructive vocabulary and uses neutral vs. brand tints
+                              instead — recipe_type isn't "good" or "bad", it's just a kind. */}
                           <span className={cn(
                             "mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ring-1",
                             item.recipe_type === 'recipe'
-                              ? "bg-violet-50 ring-violet-100"
+                              ? "bg-secondary/10 ring-secondary/20"
                               : item.recipe_type === 'component'
-                              ? "bg-amber-50 ring-amber-100"
+                              ? "bg-muted ring-border"
                               : "bg-primary/10 ring-primary/15"
                           )}>
                             <span className="text-xl leading-none select-none">{emojiFor(item)}</span>
@@ -991,8 +997,8 @@ const Menu = () => {
                               )}
 
                               <Badge
-                                variant="outline"
-                                className={cn("text-xs font-medium", getComplexityColor(item.recipe_complexity))}
+                                variant={getComplexityBadgeVariant(item.recipe_complexity)}
+                                className="text-xs font-medium"
                               >
                                 {item.recipe_complexity || 'simple'}
                               </Badge>
@@ -1012,14 +1018,14 @@ const Menu = () => {
                               )}
 
                               {(item.recipe_type === 'recipe' || item.recipe_type === 'simple') && (
-                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                <Badge variant="outline" className="text-xs">
                                   <Utensils className="h-3 w-3 mr-1" />
                                   Menu Item
                                 </Badge>
                               )}
 
                               {item.is_recipe_ingredient && (
-                                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <Badge variant="outline" className="text-xs">
                                   <FlaskConical className="h-3 w-3 mr-1" />
                                   Ingredient
                                 </Badge>
@@ -1035,18 +1041,18 @@ const Menu = () => {
 
                             {/* Meta row */}
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                              <span className="font-semibold text-foreground text-base">
+                              <span className="font-semibold text-foreground text-base tabular-nums">
                                 {formatCurrency(item.price)}
                               </span>
 
                               {item.cost_price > 0 && (
-                                <span className="flex items-center gap-1 text-muted-foreground">
+                                <span className="flex items-center gap-1 text-muted-foreground tabular-nums">
                                   <Calculator className="h-3.5 w-3.5" />
                                   Cost: {formatCurrency(item.cost_price)}
                                   {profitMargin && (
                                     <span className={cn(
                                       "ml-1 text-xs font-medium",
-                                      parseFloat(profitMargin) >= 50 ? "text-emerald-600" : "text-amber-600"
+                                      parseFloat(profitMargin) >= 50 ? "text-success" : "text-warning"
                                     )}>
                                       ({profitMargin}% margin)
                                     </span>
@@ -1069,9 +1075,9 @@ const Menu = () => {
                               )}
 
                               {isLowStock && (
-                                <span className="flex items-center gap-1 text-rose-600 text-xs font-medium">
+                                <span className="flex items-center gap-1 text-warning text-xs font-medium">
                                   <AlertCircle className="h-3.5 w-3.5" />
-                                  Low stock ({item.current_stock})
+                                  Low stock (<span className="tabular-nums">{item.current_stock}</span>)
                                 </span>
                               )}
                             </div>

@@ -57,7 +57,6 @@ import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
-import { TONE } from '@/lib/status-colors';
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -213,7 +212,6 @@ function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }) {
             <Button
               type="submit"
               disabled={submitting || !form.name.trim()}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {submitting ? (
                 <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Saving…</>
@@ -302,14 +300,14 @@ export default function CoursesPage() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {error}
         </div>
       )}
 
       {!locationId && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="rounded-lg border border-warning/20 bg-warning/10 px-4 py-3 text-sm text-warning">
           Select a location first.
         </div>
       )}
@@ -325,7 +323,7 @@ export default function CoursesPage() {
           <ChefHat className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">No courses yet</p>
           <p className="text-xs mt-1">Add Starter, Main and Dessert to enable staged kitchen firing.</p>
-          <Button onClick={openCreate} variant="outline" className="mt-4 border-orange-200 text-orange-700">
+          <Button onClick={openCreate} variant="outline" className="mt-4 border-primary/25 text-primary">
             <Plus className="w-4 h-4 mr-1.5" /> Add first course
           </Button>
         </div>
@@ -343,7 +341,7 @@ export default function CoursesPage() {
             </TableHeader>
             <TableBody>
               {courses.map((c) => (
-                <TableRow key={c.id} className="hover:bg-orange-50/30">
+                <TableRow key={c.id} className="hover:bg-primary/5">
                   <TableCell className="text-center text-sm text-muted-foreground tabular-nums font-medium">
                     {c.sort_order}
                   </TableCell>
@@ -352,7 +350,7 @@ export default function CoursesPage() {
                   </TableCell>
                   <TableCell className="text-center">
                     {c.fire_on_previous_course_bumped ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
                         <ToggleRight className="w-3.5 h-3.5" /> Yes
                       </span>
                     ) : (
@@ -369,7 +367,7 @@ export default function CoursesPage() {
                       title={c.is_active ? 'Click to deactivate' : 'Click to activate'}
                     >
                       {c.is_active ? (
-                        <Badge className={`${TONE.success} cursor-pointer hover:bg-green-200`} variant="outline">
+                        <Badge variant="outline" className="bg-success/10 text-success border-success/25 cursor-pointer hover:bg-success/20">
                           Active
                         </Badge>
                       ) : (
@@ -385,7 +383,7 @@ export default function CoursesPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => openEdit(c)}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-orange-600"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
                         title="Edit"
                       >
                         <Pencil className="w-3.5 h-3.5" />
@@ -394,7 +392,7 @@ export default function CoursesPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => setDeleteTarget(c)}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -431,9 +429,9 @@ export default function CoursesPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              variant="destructive"
             >
-              Delete
+              Delete course
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

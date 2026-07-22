@@ -7,7 +7,11 @@
       "reviews": "समीक्षाएँ",
       "selectLocation": "स्थान चुनें",
       "switchLocation": "स्थान बदलें",
-      "noLocations": "कोई स्थान उपलब्ध नहीं"
+      "noLocations": "कोई स्थान उपलब्ध नहीं",
+      "homeDesc": "मुख्य होम",
+      "posDesc": "कैशियर कार्यक्षेत्र",
+      "kitchenDesc": "पूर्ण-स्क्रीन रसोई दीवार",
+      "reviewsDesc": "ग्राहक प्रतिक्रिया"
     },
     "sideBar": {
       "frontOfHouse": "हॉल क्षेत्र",
@@ -27,7 +31,22 @@
       "members": "सदस्य",
       "staff": "स्टाफ",
       "orgSettings": "संगठन सेटिंग्स",
-      "account": "खाता"
+      "account": "खाता",
+      "posWorkspaceDesc": "ऑर्डर लें और रजिस्टर खोलें",
+      "kitchenWorkspace": "रसोई कार्यक्षेत्र",
+      "kitchenWorkspaceDesc": "ऊपरी बार के साथ पीओएस + रसोई टैब",
+      "kitchenDisplayDesc": "दीवार-माउंट पूर्ण-स्क्रीन टिकट दृश्य",
+      "reportsDesc": "बिक्री विश्लेषण",
+      "menuDesc": "मेनू प्रबंधन",
+      "categoriesDesc": "मेनू श्रेणियाँ प्रबंधित करें",
+      "membersDesc": "लॉयल्टी प्रोग्राम सदस्य",
+      "staffDesc": "स्टाफ प्रबंधन और पिन",
+      "driverPortal": "ड्राइवर पोर्टल",
+      "driverPortalDesc": "सक्रिय डिलीवरी और ऑनलाइन टॉगल",
+      "orgSettingsDesc": "संगठन, बिलिंग, स्टोरफ्रंट, सिस्टम",
+      "accountDesc": "आपका व्यक्तिगत खाता",
+      "staffLogin": "स्टाफ लॉगिन",
+      "staffLoginHint": "कर्मचारी बदलें / पिन दर्ज करें"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "कोई परिणाम नहीं मिला",
     "required": "आवश्यक",
     "optional": "वैकल्पिक",
-    "language": "भाषा"
+    "language": "भाषा",
+    "dismiss": "खारिज करें",
+    "refresh": "ताज़ा करें"
+  },
+  "sync": {
+    "offline": "ऑफ़लाइन कार्य कर रहा है",
+    "offlineDetail": "कोई कनेक्शन नहीं — परिवर्तन इस डिवाइस पर सहेजे जाते हैं और ऑनलाइन होते ही भेजे जाएँगे।",
+    "queued_one": "{{count}} परिवर्तन कतार में",
+    "queued_other": "{{count}} परिवर्तन कतार में",
+    "syncing": "सिंक हो रहा है…",
+    "synced": "सभी परिवर्तन सहेजे गए",
+    "error": "कुछ परिवर्तन नहीं भेजे जा सके — पुनः प्रयास जारी है"
   }
 }

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Calculator, DollarSign, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Search, BarChart3, PieChart, Target, Package, ChefHat, Utensils, ArrowUpRight, ArrowDownRight, Minus, Info, RefreshCw } from 'lucide-react';
 import {
   Select,
@@ -161,47 +162,51 @@ const CostAnalysis = ({ activeLocation }) => {
     return 'good_profit';
   };
 
+  // Maps the 5 analysis buckets onto the 3 status tokens an owner actually needs
+  // to triage at a glance: destructive = losing money, warning = worth a second
+  // look (thin margin, or manual/calculated cost disagree), success = healthy.
+  // Thresholds themselves are untouched — this only retargets the colour.
   const getStatusInfo = (status) => {
     switch (status) {
       case 'cost_mismatch':
         return {
           label: 'Cost Mismatch',
-          color: 'bg-red-100 text-red-800',
+          variant: 'warning',
           icon: AlertTriangle,
           description: 'Manual and calculated costs differ significantly'
         };
       case 'low_profit':
         return {
           label: 'Low Profit',
-          color: 'bg-orange-100 text-orange-800',
+          variant: 'destructive',
           icon: TrendingDown,
           description: 'Profit margin below 10%'
         };
       case 'moderate_profit':
         return {
           label: 'Moderate Profit',
-          color: 'bg-yellow-100 text-yellow-800',
+          variant: 'warning',
           icon: Minus,
           description: 'Profit margin 10-25%'
         };
       case 'good_profit':
         return {
           label: 'Good Profit',
-          color: 'bg-green-100 text-green-800',
+          variant: 'success',
           icon: CheckCircle,
           description: 'Profit margin 25-50%'
         };
       case 'high_profit':
         return {
           label: 'High Profit',
-          color: 'bg-blue-100 text-blue-800',
+          variant: 'success',
           icon: TrendingUp,
           description: 'Profit margin above 50%'
         };
       default:
         return {
           label: 'Unknown',
-          color: 'bg-muted text-foreground',
+          variant: 'outline',
           icon: Info,
           description: 'Status unknown'
         };
@@ -271,59 +276,32 @@ const CostAnalysis = ({ activeLocation }) => {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
+      {/* Summary Cards — shared StatCard building block instead of hand-rolled
+          Card+icon markup, so this page's KPIs match every other stat row in
+          the app. "Needs Attention" gets a warning-tinted icon chip (via
+          iconClassName) since it's a count of problems, not a positive metric. */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Avg Profit Margin</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatPercentage(avgProfitMargin)}
-                </p>
-              </div>
-              <Target className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Profit</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(totalProfit)}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Items Analyzed</p>
-                <p className="text-2xl font-bold text-foreground">{totalItems}</p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Needs Attention</p>
-                <p className="text-2xl font-bold text-foreground">{problematicItems}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Avg Profit Margin"
+          value={<span className="tabular-nums">{formatPercentage(avgProfitMargin)}</span>}
+          icon={Target}
+        />
+        <StatCard
+          label="Total Profit"
+          value={<span className="tabular-nums">{formatCurrency(totalProfit)}</span>}
+          icon={DollarSign}
+        />
+        <StatCard
+          label="Items Analyzed"
+          value={<span className="tabular-nums">{totalItems}</span>}
+          icon={BarChart3}
+        />
+        <StatCard
+          label="Needs Attention"
+          value={<span className="tabular-nums">{problematicItems}</span>}
+          icon={AlertTriangle}
+          iconClassName="bg-warning/10 text-warning ring-warning/20"
+        />
       </div>
 
       {/* Filters and Controls */}
@@ -398,7 +376,7 @@ const CostAnalysis = ({ activeLocation }) => {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-3"></div>
               <span className="text-muted-foreground">Analyzing costs...</span>
             </div>
           ) : filteredData.length === 0 ? (
@@ -432,7 +410,7 @@ const CostAnalysis = ({ activeLocation }) => {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge variant="secondary" className={statusInfo.color}>
+                                <Badge variant={statusInfo.variant}>
                                   <StatusIcon className="h-3 w-3 mr-1" />
                                   {statusInfo.label}
                                 </Badge>
@@ -447,47 +425,47 @@ const CostAnalysis = ({ activeLocation }) => {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                           <div>
                             <p className="text-muted-foreground">Selling Price</p>
-                            <p className="font-semibold">{formatCurrency(item.price)}</p>
+                            <p className="font-semibold tabular-nums">{formatCurrency(item.price)}</p>
                           </div>
-                          
+
                           <div>
                             <p className="text-muted-foreground">Cost (Manual)</p>
-                            <p className="font-semibold">{formatCurrency(item.listed_cost)}</p>
+                            <p className="font-semibold tabular-nums">{formatCurrency(item.listed_cost)}</p>
                           </div>
-                          
+
                           <div>
                             <p className="text-muted-foreground">Cost (Calculated)</p>
-                            <p className="font-semibold">{formatCurrency(item.calculated_cost)}</p>
+                            <p className="font-semibold tabular-nums">{formatCurrency(item.calculated_cost)}</p>
                           </div>
-                          
+
                           <div>
                             <p className="text-muted-foreground">Profit Margin</p>
                             <div className="flex items-center gap-2">
                               <p className={cn(
-                                "font-semibold",
-                                item.profit_margin < 10 ? "text-red-600" :
-                                item.profit_margin < 25 ? "text-yellow-600" :
-                                "text-green-600"
+                                "font-semibold tabular-nums",
+                                item.profit_margin < 10 ? "text-destructive" :
+                                item.profit_margin < 25 ? "text-warning" :
+                                "text-success"
                               )}>
                                 {formatPercentage(item.profit_margin)}
                               </p>
                               {item.profit_margin >= 0 ? (
-                                <ArrowUpRight className="h-3 w-3 text-green-600" />
+                                <ArrowUpRight className="h-3 w-3 text-success" />
                               ) : (
-                                <ArrowDownRight className="h-3 w-3 text-red-600" />
+                                <ArrowDownRight className="h-3 w-3 text-destructive" />
                               )}
                             </div>
                           </div>
                         </div>
-                        
+
                         {item.cost_variance > costThreshold && (
-                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
-                            <div className="flex items-center gap-2 text-red-800">
+                          <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded-lg text-sm">
+                            <div className="flex items-center gap-2 text-warning">
                               <AlertTriangle className="h-4 w-4" />
                               <span className="font-medium">Cost Variance Alert</span>
                             </div>
-                            <p className="text-red-700 mt-1">
-                              Manual cost ({formatCurrency(item.listed_cost)}) differs from calculated cost 
+                            <p className="text-warning mt-1 tabular-nums">
+                              Manual cost ({formatCurrency(item.listed_cost)}) differs from calculated cost
                               ({formatCurrency(item.calculated_cost)}) by {formatCurrency(item.cost_variance)}
                             </p>
                           </div>
@@ -496,7 +474,10 @@ const CostAnalysis = ({ activeLocation }) => {
                     </div>
                     
                     <div className="text-right">
-                      <div className="text-lg font-bold text-foreground">
+                      <div className={cn(
+                        "text-lg font-bold tabular-nums",
+                        item.profit_amount < 0 ? "text-destructive" : "text-foreground"
+                      )}>
                         {formatCurrency(item.profit_amount)}
                       </div>
                       <div className="text-sm text-muted-foreground">profit</div>
@@ -538,9 +519,9 @@ const CostAnalysis = ({ activeLocation }) => {
                       <StatusIcon className="h-4 w-4" />
                       <span className="text-sm font-medium">{statusInfo.label}</span>
                     </div>
-                    <div className="text-2xl font-bold mb-1">{count}</div>
+                    <div className="text-2xl font-bold mb-1 tabular-nums">{count}</div>
                     <Progress value={percentage} className="h-2 mb-1" />
-                    <div className="text-xs text-muted-foreground">{formatPercentage(percentage)}</div>
+                    <div className="text-xs text-muted-foreground tabular-nums">{formatPercentage(percentage)}</div>
                   </div>
                 );
               })}

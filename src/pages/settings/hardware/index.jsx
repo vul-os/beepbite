@@ -92,8 +92,8 @@ export default function HardwareSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Printer className="h-6 w-6 text-blue-500" />
+        <h1 className="font-display text-2xl flex items-center gap-2">
+          <Printer className="h-6 w-6 text-primary" />
           Hardware
         </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
@@ -271,9 +271,9 @@ function PrintersTab({ locationId }) {
                     <TableCell>
                       <span className="flex items-center gap-1 text-sm">
                         {p.connection === 'network' ? (
-                          <Wifi className="h-3.5 w-3.5 text-blue-500" />
+                          <Wifi className="h-3.5 w-3.5 text-muted-foreground" />
                         ) : (
-                          <Usb className="h-3.5 w-3.5 text-green-500" />
+                          <Usb className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
                         {p.connection}
                       </span>
@@ -301,7 +301,7 @@ function PrintersTab({ locationId }) {
                           {tr?.loading ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : tr?.ok ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                           ) : tr?.error ? (
                             <XCircle className="h-3.5 w-3.5 text-destructive" title={tr.error} />
                           ) : (
@@ -359,10 +359,10 @@ function PrintersTab({ locationId }) {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Delete
+              Delete printer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

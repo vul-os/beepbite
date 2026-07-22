@@ -151,7 +151,7 @@ export default function ReservationForm({ open, onClose, onCreated, organization
             />
           </div>
 
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>

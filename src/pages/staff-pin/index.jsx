@@ -54,7 +54,7 @@ function StoreNotFound() {
           type="button"
           variant="link"
           onClick={() => navigate('/pos/login')}
-          className="text-sm font-semibold text-orange-600 hover:text-orange-700 h-auto p-0"
+          className="text-sm font-semibold text-primary hover:text-primary/80 h-auto p-0"
         >
           Go to staff login &rarr;
         </Button>
@@ -235,7 +235,7 @@ const StaffPinPage = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 px-4 py-8">
         <div className="w-full max-w-sm mx-auto text-center space-y-4">
-          <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
+          <AlertCircle className="w-10 h-10 text-destructive/70 mx-auto" />
           <h1 className="text-xl font-bold text-foreground">Something went wrong</h1>
           <p className="text-sm text-muted-foreground">
             We couldn&apos;t reach the server. Check your connection and refresh the page.
@@ -244,7 +244,7 @@ const StaffPinPage = () => {
             type="button"
             variant="link"
             onClick={() => window.location.reload()}
-            className="text-sm font-semibold text-orange-600 hover:text-orange-700 h-auto p-0"
+            className="text-sm font-semibold text-primary hover:text-primary/80 h-auto p-0"
           >
             Retry
           </Button>
@@ -270,7 +270,7 @@ const StaffPinPage = () => {
                 alt="BeepBite"
                 className="w-8 h-8 filter brightness-0 invert"
               />
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-lg" />
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full animate-pulse shadow-lg" />
             </div>
           </div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -295,7 +295,7 @@ const StaffPinPage = () => {
           <CardContent className="px-5 pb-6 space-y-4">
             {/* Global submit error */}
             {submitError && (
-              <Alert variant="destructive" className="border-l-4 border-red-500 bg-red-50/80">
+              <Alert variant="destructive" className="border-l-4 border-destructive bg-destructive/10">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">{submitError}</AlertDescription>
               </Alert>
@@ -325,11 +325,11 @@ const StaffPinPage = () => {
                     if (e.key === 'Enter') e.preventDefault();
                   }}
                   disabled={loading}
-                  className={`pl-10 h-11 bg-background border-border focus:border-primary transition-all text-base ${usernameError ? 'border-red-400' : ''}`}
+                  className={`pl-10 h-11 bg-background border-border focus:border-primary transition-all text-base ${usernameError ? 'border-destructive' : ''}`}
                 />
               </div>
               {usernameError && (
-                <p className="text-xs text-red-500">{usernameError}</p>
+                <p className="text-xs text-destructive">{usernameError}</p>
               )}
             </div>
 
@@ -356,7 +356,7 @@ const StaffPinPage = () => {
               type="button"
               variant="link"
               onClick={() => navigate('/signin?next=/pos/workspace')}
-              className="font-semibold text-orange-600 hover:text-orange-700 h-auto p-0 text-xs"
+              className="font-semibold text-primary hover:text-primary/80 h-auto p-0 text-xs"
             >
               Sign in with email &rarr;
             </Button>

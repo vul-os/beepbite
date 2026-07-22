@@ -54,11 +54,32 @@ const METHODS = [
   { code: 'house_account', label: 'House Account', icon: Building2,  color: 'amber' },
 ];
 
+// Categorical palette for telling the 4 payment methods apart at a glance —
+// this is a *category* signal (which method is this row?), not a state
+// signal, so it deliberately borrows the chart-1..5 tokens rather than
+// success/destructive/warning (those are reserved for paid/void/caution).
+// Classes are written out in full (not built with template literals) so
+// Tailwind's static class scanner can actually see and ship them — the
+// previous `hover:${colors.active}` construction here never worked, since a
+// JIT scanner can't see through string interpolation, so the hover state on
+// the "add a method" chips silently did nothing.
 const COLOR_MAP = {
-  green:  { bg: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-700',  active: 'bg-green-500' },
-  blue:   { bg: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700',   active: 'bg-blue-500' },
-  purple: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', active: 'bg-purple-500' },
-  amber:  { bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700',  active: 'bg-amber-500' },
+  green:  {
+    bg: 'bg-chart-3/10', border: 'border-chart-3/30', text: 'text-chart-3',
+    hover: 'hover:bg-chart-3 hover:text-white hover:border-chart-3',
+  },
+  blue:   {
+    bg: 'bg-chart-4/10', border: 'border-chart-4/30', text: 'text-chart-4',
+    hover: 'hover:bg-chart-4 hover:text-white hover:border-chart-4',
+  },
+  purple: {
+    bg: 'bg-chart-5/10', border: 'border-chart-5/30', text: 'text-chart-5',
+    hover: 'hover:bg-chart-5 hover:text-white hover:border-chart-5',
+  },
+  amber:  {
+    bg: 'bg-chart-2/10', border: 'border-chart-2/30', text: 'text-chart-2',
+    hover: 'hover:bg-chart-2 hover:text-white hover:border-chart-2',
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -79,7 +100,7 @@ function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }) {
   const step = String(1 / scale);
 
   return (
-    <div className={cn('flex items-center gap-2 p-2 rounded-lg border', colors.border, colors.bg)}>
+    <div className={cn('flex items-center gap-2 p-2 rounded-lg border-2', colors.border, colors.bg)}>
       <Icon className={cn('w-5 h-5 shrink-0', colors.text)} />
       <span className={cn('text-xs font-semibold w-20 shrink-0', colors.text)}>{method.label}</span>
       <div className="relative flex-1">
@@ -143,9 +164,9 @@ function MethodPicker({ usedCodes, onAdd }) {
             type="button"
             onClick={() => onAdd(m.code)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition',
-              colors.border, colors.text, colors.bg,
-              `hover:${colors.active} hover:text-white`,
+              'flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold border-2 transition-colors',
+              colors.border, colors.text, colors.bg, colors.hover,
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
             )}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -267,9 +288,9 @@ export default function TenderModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md w-full p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <CreditCard className="text-orange-500 shrink-0" size={22} />
+            <CreditCard className="text-primary shrink-0" size={22} />
             Split Tender
           </DialogTitle>
           <DialogDescription className="sr-only">
@@ -279,9 +300,9 @@ export default function TenderModal({
 
         <div className="px-6 py-4 space-y-4">
           {/* Total due */}
-          <div className="text-center">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-0.5">Total due</p>
-            <p className="text-4xl font-bold tabular-nums">{format(Math.abs(totalCents))}</p>
+          <div className="text-center rounded-xl border-2 border-primary/20 bg-primary/10 py-3">
+            <p className="text-xs uppercase tracking-widest font-bold text-primary/80 mb-0.5">Total due</p>
+            <p className="font-ticket text-4xl text-primary tabular-nums">{format(Math.abs(totalCents))}</p>
           </div>
 
           {/* Payment legs */}
@@ -310,27 +331,31 @@ export default function TenderModal({
           {/* Running balance */}
           <div
             className={cn(
-              'rounded-lg px-4 py-3 text-center border transition-colors',
+              'rounded-xl px-4 py-3 text-center border-2 transition-colors',
               isFullyTendered
-                ? 'bg-green-50 border-green-200'
+                ? 'bg-success/10 border-success/30'
                 : 'bg-destructive/10 border-destructive/30',
             )}
           >
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-0.5">
+            <p className={cn(
+              'text-xs uppercase tracking-widest font-bold mb-0.5',
+              isFullyTendered ? 'text-success/80' : 'text-destructive/80',
+            )}>
               {isFullyTendered ? 'Remaining' : 'Still needed'}
             </p>
             <p
               className={cn(
-                'text-3xl font-bold tabular-nums',
-                isFullyTendered ? 'text-green-600' : 'text-destructive',
+                'font-ticket text-4xl tabular-nums',
+                isFullyTendered ? 'text-success' : 'text-destructive',
               )}
             >
               {format(Math.abs(remainingCents))}
             </p>
             {isFullyTendered && changeCents > 0 && (
-              <p className="text-xs text-green-600 mt-1">
-                Cash change: <span className="font-semibold">{format(Math.abs(changeCents))}</span>
-              </p>
+              <div className="mt-2 pt-2 border-t border-success/20">
+                <p className="text-[11px] uppercase tracking-wide text-success/70 font-semibold">Cash change</p>
+                <p className="font-ticket text-2xl text-success tabular-nums">{format(Math.abs(changeCents))}</p>
+              </div>
             )}
           </div>
 
@@ -344,24 +369,21 @@ export default function TenderModal({
         <DialogFooter className="px-6 pb-6 pt-2 gap-2 sm:gap-2">
           <Button
             variant="outline"
+            size="touch"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
             aria-label="Cancel payment"
-            className="flex-1 h-12 focus-visible:ring-2 focus-visible:ring-gray-400"
+            className="flex-1"
           >
             <X className="w-4 h-4 mr-1" aria-hidden="true" /> Cancel
           </Button>
           <Button
+            size="xl"
             onClick={handleConfirm}
             disabled={!canConfirm}
             aria-label={submitting ? 'Processing payment' : isFullyTendered ? 'Confirm payment' : 'Enter full amount to confirm'}
             aria-busy={submitting}
-            className={cn(
-              'flex-1 h-12 font-bold text-base bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white',
-              'focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
-              'disabled:bg-orange-200 disabled:text-orange-400 disabled:cursor-not-allowed',
-              'transition-all',
-            )}
+            className="flex-1 font-bold"
           >
             {submitting ? (
               <span className="flex items-center gap-1.5">

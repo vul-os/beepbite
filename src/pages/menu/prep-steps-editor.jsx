@@ -161,13 +161,13 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-orange-600 transition-colors"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
         >
-          <ListOrdered className="h-4 w-4 text-orange-500" />
+          <ListOrdered className="h-4 w-4 text-primary" />
           Prep Steps
           <Badge
             variant="outline"
-            className="ml-1 border-orange-200 bg-orange-50 text-orange-700 text-xs"
+            className="ml-1 border-primary/25 bg-primary/10 text-primary text-xs"
           >
             {steps.length}
           </Badge>
@@ -178,7 +178,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
             size="sm"
             onClick={handleSave}
             disabled={saving || loading}
-            className="gap-1.5 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-60"
+            className="gap-1.5"
           >
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -194,9 +194,9 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
         <div className="p-4 space-y-3">
           {/* Feedback banners */}
           {savedFlash && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Saved</AlertTitle>
+            <Alert className="border-success/30 bg-success/10 text-success">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              <AlertTitle className="text-success">Saved</AlertTitle>
               <AlertDescription>Prep steps updated successfully.</AlertDescription>
             </Alert>
           )}
@@ -212,7 +212,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
           {/* Loading skeleton */}
           {loading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
               Loading steps…
             </div>
           )}
@@ -236,16 +236,16 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                 key={step._localId}
                 className={cn(
                   'group flex gap-2 rounded-lg border border-border bg-muted p-3 transition-colors',
-                  'hover:border-orange-200 hover:bg-orange-50/30'
+                  'hover:border-primary/25 hover:bg-primary/5'
                 )}
               >
                 {/* Drag handle — decorative; v2 will wire up dnd-kit */}
-                <div className="mt-2.5 cursor-grab text-muted-foreground group-hover:text-orange-300">
+                <div className="mt-2.5 cursor-grab text-muted-foreground group-hover:text-primary">
                   <GripVertical className="h-4 w-4" />
                 </div>
 
                 {/* Step number badge */}
-                <div className="mt-2.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
+                <div className="mt-2.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                   {idx + 1}
                 </div>
 
@@ -256,12 +256,12 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                     onChange={(e) => updateInstruction(step._localId, e.target.value)}
                     placeholder={`Describe step ${idx + 1}…`}
                     rows={2}
-                    className="resize-none text-sm focus:border-orange-400 focus:ring-orange-400"
+                    className="resize-none text-sm focus:border-primary focus:ring-primary"
                   />
                   <p
                     className={cn(
-                      'text-right text-[11px]',
-                      charCount > 450 ? 'text-orange-500' : 'text-muted-foreground'
+                      'text-right text-[11px] tabular-nums',
+                      charCount > 450 ? 'text-warning' : 'text-muted-foreground'
                     )}
                   >
                     {charCount}/500
@@ -274,7 +274,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-orange-600"
+                    className="h-7 w-7 text-muted-foreground hover:text-primary"
                     disabled={isFirst}
                     onClick={() => moveStep(step._localId, 'up')}
                     title="Move up"
@@ -285,7 +285,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-orange-600"
+                    className="h-7 w-7 text-muted-foreground hover:text-primary"
                     disabled={isLast}
                     onClick={() => moveStep(step._localId, 'down')}
                     title="Move down"
@@ -296,7 +296,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={() => removeStep(step._localId)}
                     title="Remove step"
                   >
@@ -314,7 +314,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
               variant="outline"
               size="sm"
               onClick={addStep}
-              className="w-full gap-1.5 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+              className="w-full gap-1.5 border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
             >
               <Plus className="h-4 w-4" />
               Add step

@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import { Printer, Loader2, AlertCircle } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { fetchReceipt } from '@/services/receipts';
 import { formatPrice } from '@/lib/currency';
 import { useLocale } from '@/context/locale-context';
@@ -46,20 +47,33 @@ function humaniseMethod(code) {
 // ---------------------------------------------------------------------------
 
 function Divider() {
-  return (
-    <div className="border-t border-dashed border-gray-400 my-2 print:border-gray-600" />
-  );
+  // Same "torn ticket" dashed rule used elsewhere between sent rounds /
+  // receipt sections — see .ticket-perforation in index.css.
+  return <hr className="ticket-perforation my-2 print:border-muted-foreground" />;
 }
 
-function Row({ label, value, bold = false, indent = false }) {
+function Row({ label, value, bold = false, indent = false, accent = false }) {
   return (
     <div
       className={`flex justify-between text-sm gap-2 ${indent ? 'pl-4' : ''} ${
         bold ? 'font-semibold' : ''
       }`}
     >
-      <span className="text-gray-700 print:text-black">{label}</span>
-      <span className="text-gray-900 print:text-black tabular-nums">{value}</span>
+      <span
+        className={`text-muted-foreground print:text-foreground ${
+          bold ? 'text-foreground' : ''
+        }`}
+      >
+        {label}
+      </span>
+      {/* accent marks the grand total — the one spot on this calm reprint
+          view that earns a touch of brand kitchen-orange (matches the same
+          TOTAL treatment in receipt-modal.jsx). */}
+      <span
+        className={`tabular-nums print:text-foreground ${accent ? 'text-primary' : 'text-foreground'}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -107,7 +121,7 @@ export default function ReceiptView({ orderId, onClose }) {
   // --- Loading state ---
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
         <Loader2 className="w-8 h-8 animate-spin" />
         <p className="text-sm">Loading receipt…</p>
       </div>
@@ -117,7 +131,7 @@ export default function ReceiptView({ orderId, onClose }) {
   // --- Error state ---
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-red-600">
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-destructive">
         <AlertCircle className="w-8 h-8" />
         <p className="text-sm font-medium">{error}</p>
       </div>
@@ -134,23 +148,21 @@ export default function ReceiptView({ orderId, onClose }) {
   return (
     <div className="receipt-view-root">
       {/* ---- Toolbar (hidden when printing) ---- */}
+      {/* This is a calm reprint/reference view, not till chrome: normal-scale
+          Button component (no touch/xl sizing) rather than the hand-rolled
+          gray-900 "pseudo-primary" button this used to carry — Print is the
+          real primary action here, Close is secondary. */}
       <div className="flex items-center justify-between mb-4 print:hidden">
-        <h2 className="text-lg font-semibold text-gray-900">Receipt Reprint</h2>
+        <h2 className="text-lg text-foreground">Receipt Reprint</h2>
         <div className="flex gap-2">
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
-          >
+          <Button size="sm" onClick={() => window.print()} className="gap-2">
             <Printer className="w-4 h-4" />
             Print
-          </button>
+          </Button>
           {onClose && (
-            <button
-              onClick={onClose}
-              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-            >
+            <Button variant="outline" size="sm" onClick={onClose}>
               Close
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -161,18 +173,19 @@ export default function ReceiptView({ orderId, onClose }) {
         id="receipt-printable"
         className="
           mx-auto max-w-sm
-          bg-white rounded-xl shadow-md border border-gray-200
+          bg-card rounded-xl shadow-md border border-border
           p-6 font-mono text-xs leading-relaxed
           print:shadow-none print:border-none print:rounded-none print:max-w-full print:p-4
         "
       >
-        {/* Store header */}
+        {/* Store header — condensed-black display face for a letterhead
+            feel; the rest of the receipt stays quiet and monospaced. */}
         <div className="text-center mb-3">
-          <p className="text-base font-bold text-gray-900 print:text-black">
+          <p className="font-display text-base text-foreground print:text-foreground">
             {receipt.store_name}
           </p>
           {receipt.store_address && (
-            <p className="text-gray-500 print:text-gray-800 text-xs">
+            <p className="text-muted-foreground print:text-foreground text-xs">
               {receipt.store_address}
             </p>
           )}
@@ -195,10 +208,10 @@ export default function ReceiptView({ orderId, onClose }) {
         <div className="mb-2 space-y-1">
           {(receipt.line_items || []).map((item) => (
             <div key={item.order_item_id}>
-              <div className="flex justify-between font-medium text-gray-900 print:text-black">
+              <div className="flex justify-between font-medium text-foreground print:text-foreground">
                 <span className="flex-1 pr-2">
                   {item.quantity > 1 && (
-                    <span className="text-gray-500 print:text-gray-700 mr-1">
+                    <span className="text-muted-foreground print:text-foreground mr-1 tabular-nums">
                       {item.quantity}×
                     </span>
                   )}
@@ -210,7 +223,7 @@ export default function ReceiptView({ orderId, onClose }) {
               {(item.modifiers || []).map((mod, mi) => (
                 <div
                   key={mi}
-                  className="flex justify-between pl-4 text-gray-500 print:text-gray-700"
+                  className="flex justify-between pl-4 text-muted-foreground print:text-foreground"
                 >
                   <span>{mod.name}</span>
                   {mod.price_cents_snapshot !== 0 && (
@@ -238,14 +251,14 @@ export default function ReceiptView({ orderId, onClose }) {
 
         <Divider />
 
-        <Row label="TOTAL" value={fmt(receipt.total_cents)} bold />
+        <Row label="TOTAL" value={fmt(receipt.total_cents)} bold accent />
 
         <Divider />
 
         {/* Payments */}
         {(receipt.payments || []).length > 0 && (
           <div className="mb-2 space-y-1">
-            <p className="font-semibold text-gray-700 print:text-black mb-0.5">
+            <p className="font-semibold text-foreground print:text-foreground mb-0.5">
               Payment
             </p>
             {receipt.payments.map((p) => (
@@ -263,7 +276,7 @@ export default function ReceiptView({ orderId, onClose }) {
                   />
                 )}
                 {p.payment_reference && (
-                  <div className="pl-4 text-gray-400 print:text-gray-600">
+                  <div className="pl-4 text-muted-foreground print:text-foreground">
                     Ref: {p.payment_reference}
                   </div>
                 )}
@@ -274,7 +287,7 @@ export default function ReceiptView({ orderId, onClose }) {
 
         {/* Footer */}
         <Divider />
-        <p className="text-center text-gray-400 print:text-gray-600 text-xs">
+        <p className="text-center text-muted-foreground print:text-foreground text-xs">
           Thank you for your business
         </p>
       </div>

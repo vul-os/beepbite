@@ -10,7 +10,16 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, LayoutGrid, RefreshCw, Settings2 } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarClock,
+  CheckCircle2,
+  LayoutGrid,
+  RefreshCw,
+  Settings2,
+  UtensilsCrossed,
+  Wrench,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -122,20 +131,27 @@ export default function FloorLive() {
         }
       />
 
-      {/* Status summary */}
+      {/* Status summary — same icon+colour pairing as the tiles below, so the
+          strip and the canvas always agree on what each status looks like. */}
       <Card>
         <CardContent className="p-4 flex flex-wrap gap-3">
-          <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
+          <Badge className="gap-1.5 bg-success/15 text-success hover:bg-success/15">
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             Available {statusCounts.available}
           </Badge>
-          <Badge className="bg-rose-100 text-rose-900 hover:bg-rose-100">
+          <Badge className="gap-1.5 bg-primary/15 text-primary hover:bg-primary/15">
+            <UtensilsCrossed className="h-3.5 w-3.5" aria-hidden="true" />
             Occupied {statusCounts.occupied}
           </Badge>
-          <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
+          <Badge className="gap-1.5 bg-warning/15 text-warning hover:bg-warning/15">
+            <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
             Reserved {statusCounts.reserved}
           </Badge>
           {statusCounts.out_of_service > 0 && (
-            <Badge variant="secondary">Out of service {statusCounts.out_of_service}</Badge>
+            <Badge variant="secondary" className="gap-1.5">
+              <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
+              Out of service {statusCounts.out_of_service}
+            </Badge>
           )}
         </CardContent>
       </Card>
@@ -144,8 +160,8 @@ export default function FloorLive() {
         <div
           className={`rounded-md border px-3 py-2 text-sm ${
             flash.type === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-rose-200 bg-rose-50 text-rose-800'
+              ? 'border-success/30 bg-success/10 text-success'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
           }`}
         >
           {flash.message}
@@ -155,7 +171,7 @@ export default function FloorLive() {
       {error && !loading && (
         <Card>
           <CardContent className="p-6 text-center">
-            <AlertCircle className="h-8 w-8 text-rose-500 mx-auto mb-2" />
+            <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
             <h3 className="font-medium text-foreground mb-1">Couldn&apos;t load floor</h3>
             <p className="text-sm text-muted-foreground mb-4">{error}</p>
             <Button size="sm" variant="outline" onClick={refresh}>Try again</Button>

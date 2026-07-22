@@ -15,7 +15,17 @@ import { Switch } from "@/components/ui/switch";
 import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
-import { COMPLEXITY_COLORS } from '@/lib/status-colors';
+
+// Recipe complexity maps 1:1 onto the three status tokens (simple = healthy,
+// moderate = needs a look, complex = the kitchen's biggest risk) — kept as a
+// local map (duplicated in menu/index.jsx / recipe-breakdown.jsx) rather than
+// pulling from the shared lib/status-colors.js, whose PO/invoice/reservation
+// tones still predate the Ticket Rail token system and are out of this pass's scope.
+const COMPLEXITY_TOKEN_CLASSES = {
+  simple: 'bg-success/10 text-success',
+  moderate: 'bg-warning/10 text-warning',
+  complex: 'bg-destructive/10 text-destructive',
+};
 
 const RecipeBuilder = ({ 
   item, 
@@ -236,7 +246,7 @@ const RecipeBuilder = ({
     }
   };
 
-  const getComplexityColor = (complexity) => COMPLEXITY_COLORS[complexity] || 'bg-muted text-muted-foreground';
+  const getComplexityColor = (complexity) => COMPLEXITY_TOKEN_CLASSES[complexity] || 'bg-muted text-muted-foreground';
 
   // Filter available items - only show recipe ingredients
   const filteredAvailableItems = availableItems.filter(availableItem => {
@@ -258,7 +268,7 @@ const RecipeBuilder = ({
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-4" />
+          <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">No item selected for recipe building</p>
         </div>
       </div>
@@ -280,7 +290,7 @@ const RecipeBuilder = ({
           )}
         </div>
         <div className="text-right">
-          <p className="text-lg font-semibold text-foreground">
+          <p className="text-lg font-semibold text-foreground tabular-nums">
             {formatCurrency(item.price)}
           </p>
           <p className="text-sm text-muted-foreground">Selling Price</p>
@@ -292,21 +302,21 @@ const RecipeBuilder = ({
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{recipeStats.totalComponents}</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums">{recipeStats.totalComponents}</p>
               <p className="text-sm text-muted-foreground">Components</p>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{recipeStats.maxLevel}</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums">{recipeStats.maxLevel}</p>
               <p className="text-sm text-muted-foreground">Max Level</p>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
@@ -317,11 +327,11 @@ const RecipeBuilder = ({
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-2xl font-bold text-foreground tabular-nums">
                 {formatCurrency(recipeStats.totalCost)}
               </p>
               <p className="text-sm text-muted-foreground">Total Cost</p>
@@ -360,7 +370,7 @@ const RecipeBuilder = ({
           <CardContent className="space-y-3">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
             ) : components.length === 0 ? (
               <div className="text-center py-8">
@@ -438,14 +448,15 @@ const RecipeBuilder = ({
                     </div>
                     
                     <div className="flex items-center justify-between mt-2">
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground tabular-nums">
                         Subtotal: {formatCurrency((component.quantity_needed || 0) * (component.cost_per_unit || 0))}
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => removeComponent(component.id)}
-                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                        aria-label={`Remove ${component.child_item?.name || 'ingredient'} from recipe`}
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive/80"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -501,7 +512,7 @@ const RecipeBuilder = ({
               filteredAvailableItems.map((availableItem) => (
                 <div
                   key={availableItem.id}
-                  className="flex items-center justify-between p-3 border border-border rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
+                  className="flex items-center justify-between p-3 border border-border rounded-lg hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer"
                   onClick={() => addComponent(availableItem)}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -523,9 +534,9 @@ const RecipeBuilder = ({
                       </div>
                       
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{formatCurrency(availableItem.price)}</span>
+                        <span className="tabular-nums">{formatCurrency(availableItem.price)}</span>
                         {availableItem.cost_price > 0 && (
-                          <span>Cost: {formatCurrency(availableItem.cost_price)}</span>
+                          <span className="tabular-nums">Cost: {formatCurrency(availableItem.cost_price)}</span>
                         )}
                         {availableItem.categories && (
                           <span>{availableItem.categories.name}</span>
@@ -571,15 +582,15 @@ const RecipeBuilder = ({
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Hash className="h-4 w-4" />
-            <span>{components.length} components</span>
+            <span className="tabular-nums">{components.length} components</span>
           </div>
           <div className="flex items-center gap-1">
             <Calculator className="h-4 w-4" />
-            <span>Total cost: {formatCurrency(recipeStats.totalCost)}</span>
+            <span className="tabular-nums">Total cost: {formatCurrency(recipeStats.totalCost)}</span>
           </div>
           <div className="flex items-center gap-1">
             <Layers className="h-4 w-4" />
-            <span>Max level: {recipeStats.maxLevel}</span>
+            <span className="tabular-nums">Max level: {recipeStats.maxLevel}</span>
           </div>
         </div>
         
@@ -594,7 +605,7 @@ const RecipeBuilder = ({
           >
             {saving ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
                 Saving...
               </>
             ) : (

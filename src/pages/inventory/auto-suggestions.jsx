@@ -120,7 +120,7 @@ export default function AutoSuggestionsPage() {
           {createResults.map((r, i) => (
             <div
               key={i}
-              className={`flex items-center gap-2 rounded p-2 text-sm ${r.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}
+              className={`flex items-center gap-2 rounded p-2 text-sm ${r.ok ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}
             >
               {r.ok
                 ? <span>Created PO <strong>{r.po_number}</strong> for {r.supplier}</span>
@@ -139,14 +139,14 @@ export default function AutoSuggestionsPage() {
       )}
 
       {!loading && error && (
-        <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded p-3">
+        <div className="flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
           <AlertCircle className="w-4 h-4" />
           <span>{error}</span>
         </div>
       )}
 
       {!loading && !error && suggestions.length === 0 && (
-        <Card className="border-orange-100">
+        <Card>
           <CardContent className="p-10 text-center">
             <Zap className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">No low-stock items with a preferred supplier found.</p>
@@ -157,7 +157,7 @@ export default function AutoSuggestionsPage() {
       {!loading && !error && suggestions.length > 0 && (
         <div className="space-y-4">
           {suggestions.map((sug, idx) => (
-            <Card key={idx} className={`border-2 transition-colors ${selected.has(idx) ? 'border-orange-400 bg-orange-50/20' : 'border-orange-100'}`}>
+            <Card key={idx} className={`border-2 transition-colors ${selected.has(idx) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
                   <Checkbox
@@ -171,13 +171,16 @@ export default function AutoSuggestionsPage() {
                       Estimated total: {fmtCents(sug.estimated_total_cents)} &middot; {sug.lines.length} line{sug.lines.length !== 1 ? 's' : ''}
                     </p>
                   </label>
-                  <Badge className="bg-orange-100 text-orange-700">Draft</Badge>
+                  {/* Every suggestion on this page is a not-yet-created draft
+                      PO — a neutral secondary badge, not a status that needs
+                      attention. */}
+                  <Badge variant="secondary">Draft</Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-muted-foreground border-b border-orange-100">
+                    <tr className="text-xs text-muted-foreground border-b border-border">
                       <th className="text-left py-1">Item ID</th>
                       <th className="text-right py-1">Qty</th>
                       <th className="text-left py-1 pl-2">Unit</th>
@@ -193,12 +196,12 @@ export default function AutoSuggestionsPage() {
                         line.ordered_quantity * (line.ordered_unit_price_cents ?? 0)
                       );
                       return (
-                        <tr key={li} className="border-b border-orange-50 last:border-0">
+                        <tr key={li} className="border-b border-border/60 last:border-0">
                           <td className="py-1 text-foreground font-mono text-xs truncate max-w-[120px]">{line.inventory_item_id}</td>
-                          <td className="py-1 text-right text-foreground">{line.ordered_quantity}</td>
+                          <td className="py-1 text-right text-foreground tabular-nums">{line.ordered_quantity}</td>
                           <td className="py-1 pl-2 text-muted-foreground">{line.ordered_unit}</td>
-                          <td className="py-1 text-right text-foreground">{fmtCents(line.ordered_unit_price_cents)}</td>
-                          <td className="py-1 text-right font-medium">{fmtCents(lineTotal)}</td>
+                          <td className="py-1 text-right text-foreground tabular-nums">{fmtCents(line.ordered_unit_price_cents)}</td>
+                          <td className="py-1 text-right font-medium tabular-nums">{fmtCents(lineTotal)}</td>
                         </tr>
                       );
                     })}
@@ -212,7 +215,6 @@ export default function AutoSuggestionsPage() {
             <Button
               onClick={createSelected}
               disabled={creating || selected.size === 0}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               <ShoppingCart className="w-4 h-4 mr-2" />
               {creating ? 'Creating…' : `Create ${selected.size} selected PO${selected.size !== 1 ? 's' : ''}`}

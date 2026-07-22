@@ -54,20 +54,20 @@ function fmtShort(date) {
 
 function ShiftCell({ shift, onDelete, deleting }) {
   return (
-    <div className="relative group flex flex-col gap-0.5 rounded-md bg-orange-50 border border-orange-200 px-2 py-1.5 text-xs">
-      <span className="font-semibold text-orange-800 leading-tight">
+    <div className="relative group flex flex-col gap-0.5 rounded-md bg-primary/10 border border-primary/20 px-2 py-1.5 text-xs">
+      <span className="font-semibold text-primary leading-tight">
         {shift.scheduled_start} – {shift.scheduled_end}
       </span>
       {shift.notes && (
-        <span className="text-orange-600 truncate">{shift.notes}</span>
+        <span className="text-primary/80 truncate">{shift.notes}</span>
       )}
       <Badge
         variant="outline"
         className={cn(
           'absolute top-1 right-1 text-[9px] px-1 py-0 capitalize opacity-0 group-hover:opacity-100 transition-opacity',
-          shift.status === 'completed' && 'bg-green-50 text-green-700 border-green-200',
-          shift.status === 'scheduled' && 'bg-blue-50 text-blue-700 border-blue-200',
-          shift.status === 'no_show'   && 'bg-red-50 text-red-600 border-red-200',
+          shift.status === 'completed' && 'bg-success/10 text-success border-success/30',
+          shift.status === 'scheduled' && 'bg-primary/10 text-primary border-primary/20',
+          shift.status === 'no_show'   && 'bg-destructive/10 text-destructive border-destructive/30',
         )}
       >
         {shift.status}
@@ -78,7 +78,7 @@ function ShiftCell({ shift, onDelete, deleting }) {
         size="icon"
         onClick={() => onDelete(shift)}
         disabled={deleting}
-        className="absolute bottom-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 hover:bg-transparent"
+        className="absolute bottom-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-transparent"
         aria-label="Delete shift"
       >
         <Trash2 className="w-3 h-3" />
@@ -122,7 +122,7 @@ function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubm
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Plus className="w-4 h-4 text-orange-500" />
+            <Plus className="w-4 h-4 text-primary" />
             Add shift
           </DialogTitle>
           <DialogDescription>
@@ -162,7 +162,7 @@ function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubm
             />
           </div>
           {error && (
-            <p className="text-sm text-red-600 flex items-center gap-1">
+            <p className="text-sm text-destructive flex items-center gap-1">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               {error}
             </p>
@@ -171,7 +171,7 @@ function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubm
             <Button
               type="button"
               variant="outline"
-              className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+              className="flex-1 border-primary/20 text-primary hover:bg-primary/10"
               onClick={() => onOpenChange(false)}
               disabled={saving}
             >
@@ -180,7 +180,7 @@ function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubm
             <Button
               type="submit"
               disabled={saving}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="flex-1"
             >
               {saving ? 'Saving…' : 'Add shift'}
             </Button>
@@ -241,7 +241,7 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
         </Button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {/* week grid */}
       <div className="grid grid-cols-7 gap-1">
@@ -255,7 +255,7 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
               <div
                 className={cn(
                   'text-center text-xs font-medium py-1 rounded-t-md',
-                  isToday ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground',
+                  isToday ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
                 )}
               >
                 {fmtShort(day)}
@@ -284,7 +284,7 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
                   className="absolute inset-0 h-auto w-auto flex items-end justify-center pb-1 opacity-0 hover:opacity-100 hover:bg-transparent transition-opacity"
                   aria-label={`Add shift on ${iso}`}
                 >
-                  <span className="w-5 h-5 rounded-full bg-orange-100 border border-orange-300 flex items-center justify-center text-orange-600">
+                  <span className="w-5 h-5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
                     <Plus className="w-3 h-3" />
                   </span>
                 </Button>

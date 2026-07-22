@@ -7,7 +7,11 @@
       "reviews": "Izibuyekezo",
       "selectLocation": "Khetha Indawo",
       "switchLocation": "Shintsha Indawo",
-      "noLocations": "Azikho izindawo ezitholakala"
+      "noLocations": "Azikho izindawo ezitholakala",
+      "homeDesc": "Ikhaya elikhulu",
+      "posDesc": "Isikhala sokusebenza somthengisi",
+      "kitchenDesc": "Udonga lwekhishi olugcwele isikrini",
+      "reviewsDesc": "Impendulo yamakhasimende"
     },
     "sideBar": {
       "frontOfHouse": "Phambili Kwendlu",
@@ -27,7 +31,22 @@
       "members": "Amalungu",
       "staff": "Abasebenzi",
       "orgSettings": "Izilungiselelo zenhlangano",
-      "account": "I-akhawunti"
+      "account": "I-akhawunti",
+      "posWorkspaceDesc": "Thatha ama-oda & vula irejista",
+      "kitchenWorkspace": "Isikhala sokusebenza sekhishi",
+      "kitchenWorkspaceDesc": "Amathebhu e-POS + Ikhishi ngebha engenhla",
+      "kitchenDisplayDesc": "Ukubukwa kwamathikithi esikrini esigcwele",
+      "reportsDesc": "Ukuhlaziywa kokuthengisa",
+      "menuDesc": "Ukuphathwa kwemenyu",
+      "categoriesDesc": "Phatha izigaba zemenyu",
+      "membersDesc": "Amalungu ohlelo lokwethembeka",
+      "staffDesc": "Ukuphathwa kwabasebenzi & ama-PIN",
+      "driverPortal": "Isango loshofela",
+      "driverPortalDesc": "Ukulethwa okusebenzayo & isishintshi se-inthanethi",
+      "orgSettingsDesc": "Inhlangano, ukukhokhisa, ivenkulu, isistimu",
+      "accountDesc": "I-akhawunti yakho siqu",
+      "staffLogin": "Ukungena kwabasebenzi",
+      "staffLoginHint": "Shintsha isisebenzi / faka i-PIN"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "Azikho imiphumela etholakaliyo",
     "required": "Kudingeka",
     "optional": "Okukhethekile",
-    "language": "Ulimi"
+    "language": "Ulimi",
+    "dismiss": "Vala",
+    "refresh": "Vuselela"
+  },
+  "sync": {
+    "offline": "Isebenza ngaphandle kwe-inthanethi",
+    "offlineDetail": "Ayikho ukuxhumana — izinguquko zigcinwa kule divayisi futhi zizothunyelwa uma usubuyele ku-inthanethi.",
+    "queued_one": "Ushintsho olu-{{count}} lulindile",
+    "queued_other": "Izinguquko ezingu-{{count}} zilindile",
+    "syncing": "Iyavumelanisa…",
+    "synced": "Zonke izinguquko zigciniwe",
+    "error": "Ezinye izinguquko azikwazanga ukuthunyelwa — kusazanywa futhi"
   }
 }

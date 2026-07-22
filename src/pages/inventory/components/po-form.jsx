@@ -101,11 +101,11 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      {err && <p className="text-sm text-destructive">{err}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label htmlFor="po_number">PO Number <span className="text-red-500">*</span></Label>
+          <Label htmlFor="po_number">PO Number <span className="text-destructive">*</span></Label>
           <Input id="po_number" value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="PO-2024-001" required />
         </div>
         <div className="space-y-1">
@@ -139,13 +139,13 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label>Line Items</Label>
-          <Button type="button" size="sm" variant="outline" onClick={addLine} className="border-orange-200 text-orange-700 hover:bg-orange-50">
+          <Button type="button" size="sm" variant="outline" onClick={addLine} className="border-primary/25 text-primary hover:bg-primary/10">
             <Plus className="w-4 h-4 mr-1" /> Add Line
           </Button>
         </div>
 
         {lines.map((line, idx) => (
-          <div key={idx} className="grid grid-cols-12 gap-2 items-end border border-orange-100 rounded p-2 bg-orange-50/30">
+          <div key={idx} className="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 bg-muted/30">
             <div className="col-span-4 space-y-1">
               <Label className="text-xs">Item</Label>
               <Select value={line.inventory_item_id} onValueChange={(v) => {
@@ -181,18 +181,18 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
 
             <div className="col-span-1 space-y-1">
               <Label className="text-xs">Total</Label>
-              <p className="text-sm font-medium h-8 flex items-center">{lineTotal(line)}</p>
+              <p className="text-sm font-medium h-8 flex items-center tabular-nums">{lineTotal(line)}</p>
             </div>
 
             <div className="col-span-1 flex justify-end">
-              <Button type="button" size="sm" variant="ghost" onClick={() => removeLine(idx)} className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" disabled={lines.length === 1}>
+              <Button type="button" size="sm" variant="ghost" onClick={() => removeLine(idx)} className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10" disabled={lines.length === 1}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
           </div>
         ))}
 
-        <div className="flex justify-end text-sm font-semibold text-foreground pr-2">
+        <div className="flex justify-end text-sm font-semibold text-foreground pr-2 tabular-nums">
           Grand Total: {grandTotal()}
         </div>
       </div>
@@ -201,7 +201,7 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1" disabled={saving}>
           Cancel
         </Button>
-        <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" disabled={saving}>
+        <Button type="submit" className="flex-1" disabled={saving}>
           {saving ? 'Creating…' : 'Create Purchase Order'}
         </Button>
       </div>

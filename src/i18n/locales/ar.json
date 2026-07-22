@@ -7,7 +7,11 @@
       "reviews": "المراجعات",
       "selectLocation": "اختر الموقع",
       "switchLocation": "تغيير الموقع",
-      "noLocations": "لا توجد مواقع متاحة"
+      "noLocations": "لا توجد مواقع متاحة",
+      "homeDesc": "الصفحة الرئيسية",
+      "posDesc": "مساحة عمل الكاشير",
+      "kitchenDesc": "شاشة المطبخ بملء الشاشة",
+      "reviewsDesc": "آراء العملاء"
     },
     "sideBar": {
       "frontOfHouse": "قاعة الخدمة",
@@ -27,7 +31,22 @@
       "members": "الأعضاء",
       "staff": "الموظفون",
       "orgSettings": "إعدادات المنظمة",
-      "account": "الحساب"
+      "account": "الحساب",
+      "posWorkspaceDesc": "استلام الطلبات وفتح الصندوق",
+      "kitchenWorkspace": "مساحة عمل المطبخ",
+      "kitchenWorkspaceDesc": "علامتا تبويب نقطة البيع والمطبخ مع شريط علوي",
+      "kitchenDisplayDesc": "عرض التذاكر بملء الشاشة للتثبيت على الحائط",
+      "reportsDesc": "تحليلات المبيعات",
+      "menuDesc": "إدارة القائمة",
+      "categoriesDesc": "إدارة فئات القائمة",
+      "membersDesc": "أعضاء برنامج الولاء",
+      "staffDesc": "إدارة الموظفين وأرقام التعريف الشخصية",
+      "driverPortal": "بوابة السائق",
+      "driverPortalDesc": "التوصيلات النشطة ومفتاح الاتصال",
+      "orgSettingsDesc": "المؤسسة، الفوترة، المتجر، النظام",
+      "accountDesc": "حسابك الشخصي",
+      "staffLogin": "تسجيل دخول الموظف",
+      "staffLoginHint": "تبديل الموظف / إدخال الرقم السري"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "لا توجد نتائج",
     "required": "مطلوب",
     "optional": "اختياري",
-    "language": "اللغة"
+    "language": "اللغة",
+    "dismiss": "تجاهل",
+    "refresh": "تحديث"
+  },
+  "sync": {
+    "offline": "العمل دون اتصال",
+    "offlineDetail": "لا يوجد اتصال — يتم حفظ التغييرات على هذا الجهاز وسيتم إرسالها بمجرد عودة الاتصال.",
+    "queued_one": "تغيير واحد في الانتظار",
+    "queued_other": "{{count}} تغييرات في الانتظار",
+    "syncing": "جارٍ المزامنة…",
+    "synced": "تم حفظ جميع التغييرات",
+    "error": "تعذر إرسال بعض التغييرات — ستتم إعادة المحاولة"
   }
 }

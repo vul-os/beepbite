@@ -7,7 +7,11 @@
       "reviews": "Avaliações",
       "selectLocation": "Selecionar Local",
       "switchLocation": "Trocar Local",
-      "noLocations": "Nenhum local disponível"
+      "noLocations": "Nenhum local disponível",
+      "homeDesc": "Página inicial principal",
+      "posDesc": "Área de trabalho do caixa",
+      "kitchenDesc": "Painel de cozinha em tela cheia",
+      "reviewsDesc": "Feedback dos clientes"
     },
     "sideBar": {
       "frontOfHouse": "Área do Cliente",
@@ -27,7 +31,22 @@
       "members": "Membros",
       "staff": "Funcionários",
       "orgSettings": "Configurações da Organização",
-      "account": "Conta"
+      "account": "Conta",
+      "posWorkspaceDesc": "Registre pedidos e abra o caixa",
+      "kitchenWorkspace": "Área de Trabalho da Cozinha",
+      "kitchenWorkspaceDesc": "Abas de PDV + Cozinha com barra superior",
+      "kitchenDisplayDesc": "Visualização de tela cheia montada na parede",
+      "reportsDesc": "Análise de vendas",
+      "menuDesc": "Gestão do cardápio",
+      "categoriesDesc": "Gerenciar categorias do cardápio",
+      "membersDesc": "Membros do programa de fidelidade",
+      "staffDesc": "Gestão de funcionários e PINs",
+      "driverPortal": "Portal do Entregador",
+      "driverPortalDesc": "Entregas ativas e alternância online",
+      "orgSettingsDesc": "Organização, faturamento, loja, sistema",
+      "accountDesc": "Sua conta pessoal",
+      "staffLogin": "Login de Funcionário",
+      "staffLoginHint": "Trocar de funcionário / inserir PIN"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "Nenhum resultado encontrado",
     "required": "Obrigatório",
     "optional": "Opcional",
-    "language": "Idioma"
+    "language": "Idioma",
+    "dismiss": "Dispensar",
+    "refresh": "Atualizar"
+  },
+  "sync": {
+    "offline": "Trabalhando offline",
+    "offlineDetail": "Sem conexão — as alterações são salvas neste dispositivo e serão enviadas assim que você estiver online novamente.",
+    "queued_one": "{{count}} alteração na fila",
+    "queued_other": "{{count}} alterações na fila",
+    "syncing": "Sincronizando…",
+    "synced": "Todas as alterações salvas",
+    "error": "Algumas alterações não puderam ser enviadas — tentando novamente"
   }
 }

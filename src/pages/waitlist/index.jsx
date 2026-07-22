@@ -178,7 +178,7 @@ export default function WaitlistPage() {
                   placeholder="High chair needed, etc."
                 />
               </div>
-              {addError && <p className="text-sm text-rose-600">{addError}</p>}
+              {addError && <p className="text-sm text-destructive">{addError}</p>}
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setShowAdd(false)} disabled={addBusy}>
                   Cancel
@@ -195,7 +195,7 @@ export default function WaitlistPage() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 text-sm text-rose-600">
+        <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>

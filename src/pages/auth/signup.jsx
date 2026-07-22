@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import AuthLayout from './auth-layout';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { signUp } = useAuth();
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +77,7 @@ const SignUpPage = () => {
       <Card variant="elevated" className="w-full">
         <CardHeader className="pb-2 pt-7 px-7 text-center space-y-1">
           <CardTitle className="text-2xl font-display font-semibold text-foreground">
-            Create your account
+            {t('auth.signUp.title')}
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
             Join thousands of restaurants using BeepBite
@@ -98,7 +100,7 @@ const SignUpPage = () => {
             {/* Email */}
             <div className="space-y-1.5">
               <Label htmlFor="signup-email" className="text-sm font-medium text-foreground">
-                Email address
+                {t('auth.signUp.emailLabel')}
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
@@ -130,7 +132,7 @@ const SignUpPage = () => {
             {/* Password */}
             <div className="space-y-1.5">
               <Label htmlFor="signup-password" className="text-sm font-medium text-foreground">
-                Password
+                {t('auth.signUp.passwordLabel')}
               </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
@@ -157,8 +159,8 @@ const SignUpPage = () => {
                   { key: 'upper', label: '1 uppercase letter', met: pwChecks.upper },
                   { key: 'number', label: '1 number', met: pwChecks.number },
                 ].map(({ key, label, met }) => (
-                  <li key={key} className={`text-xs flex items-center gap-1.5 transition-colors ${pwStarted ? (met ? 'text-green-600' : 'text-destructive') : 'text-muted-foreground'}`}>
-                    <CheckCircle2 className={`w-3 h-3 shrink-0 transition-colors ${pwStarted && met ? 'text-green-500' : 'text-muted-foreground/50'}`} aria-hidden="true" />
+                  <li key={key} className={`text-xs flex items-center gap-1.5 transition-colors ${pwStarted ? (met ? 'text-success' : 'text-destructive') : 'text-muted-foreground'}`}>
+                    <CheckCircle2 className={`w-3 h-3 shrink-0 transition-colors ${pwStarted && met ? 'text-success' : 'text-muted-foreground/50'}`} aria-hidden="true" />
                     {label}
                   </li>
                 ))}
@@ -230,14 +232,14 @@ const SignUpPage = () => {
           {/* Links */}
           <div className="text-center space-y-1.5">
             <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
+              {t('auth.signUp.hasAccount')}{' '}
               <button
                 type="button"
                 className="text-primary hover:text-primary/80 font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
                 onClick={() => navigate('/signin')}
                 disabled={isLoading}
               >
-                Sign in
+                {t('auth.signUp.signInLink')}
               </button>
             </p>
             <p className="text-xs">

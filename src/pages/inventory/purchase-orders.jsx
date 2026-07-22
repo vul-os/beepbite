@@ -24,7 +24,6 @@ import { usePOs } from './hooks/use-pos';
 import { useSuppliers } from './hooks/use-suppliers';
 import { POForm } from './components/po-form';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
-import { PO_STATUS_COLORS as STATUS_COLORS } from '@/lib/status-colors';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Statuses' },
@@ -35,6 +34,22 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
   { value: 'closed', label: 'Closed' },
 ];
+
+// Badge variant per PO status — draft is a plain outline (nothing committed
+// yet), sent is the primary in-flight state, partially_received still needs
+// a follow-up so it reads as warning, received is the success state,
+// cancelled is the dead-end (destructive), closed is just filed away.
+function poStatusVariant(status) {
+  switch (status) {
+    case 'draft': return 'outline';
+    case 'sent': return 'default';
+    case 'partially_received': return 'warning';
+    case 'received': return 'success';
+    case 'cancelled': return 'destructive';
+    case 'closed': return 'secondary';
+    default: return 'secondary';
+  }
+}
 
 export default function PurchaseOrdersPage() {
   const { activeLocation, activeOrganization } = useAuth();
@@ -134,14 +149,14 @@ export default function PurchaseOrdersPage() {
       )}
 
       {!loading && error && (
-        <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded p-3">
+        <div className="flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
           <AlertCircle className="w-4 h-4" />
           <span>{error}</span>
         </div>
       )}
 
       {!loading && !error && pos.length === 0 && (
-        <Card className="border-orange-100">
+        <Card>
           <CardContent className="p-10 text-center">
             <ShoppingCart className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">No purchase orders found. Create the first one.</p>
@@ -154,14 +169,15 @@ export default function PurchaseOrdersPage() {
           {pos.map((po) => (
             <Card
               key={po.id}
-              className="border-orange-100 hover:border-orange-300 cursor-pointer transition-colors"
+              variant="interactive"
+              className="cursor-pointer"
               onClick={() => { setSubmitErr(''); setDetailPO(po); }}
             >
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground">{po.po_number}</span>
-                    <Badge className={STATUS_COLORS[po.status] || 'bg-muted text-foreground'}>
+                    <Badge variant={poStatusVariant(po.status)}>
                       {po.status}
                     </Badge>
                   </div>
@@ -171,7 +187,7 @@ export default function PurchaseOrdersPage() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-foreground">{fmtCents(po.total_cents, po.currency)}</p>
+                  <p className="font-semibold text-foreground tabular-nums">{fmtCents(po.total_cents, po.currency)}</p>
                   <p className="text-xs text-muted-foreground">{po.currency}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -188,7 +204,7 @@ export default function PurchaseOrdersPage() {
             <DialogTitle>New Purchase Order</DialogTitle>
             <DialogDescription>Create a purchase order for {activeLocation.name}</DialogDescription>
           </DialogHeader>
-          {saveErr && <p className="text-sm text-red-600">{saveErr}</p>}
+          {saveErr && <p className="text-sm text-destructive">{saveErr}</p>}
           <POForm
             locationId={activeLocation.id}
             suppliers={suppliers}
@@ -207,7 +223,7 @@ export default function PurchaseOrdersPage() {
               <DialogHeader>
                 <DialogTitle>PO {detailPO.po_number}</DialogTitle>
                 <DialogDescription>
-                  <Badge className={STATUS_COLORS[detailPO.status] || 'bg-muted'}>{detailPO.status}</Badge>
+                  <Badge variant={poStatusVariant(detailPO.status)}>{detailPO.status}</Badge>
                 </DialogDescription>
               </DialogHeader>
 
@@ -218,16 +234,16 @@ export default function PurchaseOrdersPage() {
                   <div><span className="text-muted-foreground">Expected delivery</span><br />{fmtDate(detailPO.expected_delivery_date)}</div>
                   <div><span className="text-muted-foreground">Currency</span><br />{detailPO.currency}</div>
                 </div>
-                <div className="border border-orange-100 rounded p-3 space-y-1 mt-2">
+                <div className="border border-border rounded p-3 space-y-1 mt-2 tabular-nums">
                   <div className="flex justify-between"><span>Subtotal</span><span>{fmtCents(detailPO.subtotal_cents, detailPO.currency)}</span></div>
                   <div className="flex justify-between"><span>Tax</span><span>{fmtCents(detailPO.tax_cents, detailPO.currency)}</span></div>
                   <div className="flex justify-between"><span>Shipping</span><span>{fmtCents(detailPO.shipping_cents, detailPO.currency)}</span></div>
-                  <div className="flex justify-between font-semibold border-t border-orange-100 pt-1"><span>Total</span><span>{fmtCents(detailPO.total_cents, detailPO.currency)}</span></div>
+                  <div className="flex justify-between font-semibold border-t border-border pt-1"><span>Total</span><span>{fmtCents(detailPO.total_cents, detailPO.currency)}</span></div>
                 </div>
                 {detailPO.notes && <p className="text-muted-foreground italic">{detailPO.notes}</p>}
               </div>
 
-              {submitErr && <p className="text-sm text-red-600">{submitErr}</p>}
+              {submitErr && <p className="text-sm text-destructive">{submitErr}</p>}
 
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setDetailPO(null)} className="flex-1">Close</Button>
@@ -235,7 +251,7 @@ export default function PurchaseOrdersPage() {
                   <Button
                     onClick={() => handleSubmitPO(detailPO)}
                     disabled={submitting}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                    className="flex-1"
                   >
                     <Send className="w-4 h-4 mr-2" />
                     {submitting ? 'Submitting…' : 'Submit PO'}

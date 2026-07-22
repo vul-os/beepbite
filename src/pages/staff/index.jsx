@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, Search, UserPlus, Edit, Trash2, Shield, Crown, User, ChefHat, CreditCard, Clock, MapPin, Eye, EyeOff, AlertCircle, CheckCircle, XCircle, Timer, PlayCircle, StopCircle, Coffee, ArrowLeftCircle, Hash, KeyRound, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageContainer, PageHeader } from "@/components/ui/page-header";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -470,7 +471,7 @@ const Staff = () => {
     switch (status) {
       case 'in':
         return (
-          <Badge className="bg-beepbite-success/10 text-beepbite-success border-beepbite-success/20">
+          <Badge className="bg-success/10 text-success border-success/20">
             <Clock className="w-3 h-3 mr-1" />
             Clocked In
           </Badge>
@@ -522,7 +523,7 @@ const Staff = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
-            First Name <span className="text-red-500">*</span>
+            First Name <span className="text-destructive">*</span>
           </label>
           <Input
             placeholder="Enter first name"
@@ -535,7 +536,7 @@ const Staff = () => {
         
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
-            Last Name <span className="text-red-500">*</span>
+            Last Name <span className="text-destructive">*</span>
           </label>
           <Input
             placeholder="Enter last name"
@@ -550,7 +551,7 @@ const Staff = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
-            Email <span className="text-red-500">*</span>
+            Email <span className="text-destructive">*</span>
           </label>
           <Input
             type="email"
@@ -591,7 +592,7 @@ const Staff = () => {
         
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
-            Role <span className="text-red-500">*</span>
+            Role <span className="text-destructive">*</span>
           </label>
           <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
             <SelectTrigger>
@@ -636,7 +637,7 @@ const Staff = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
-            Password {isEdit ? '' : <span className="text-red-500">*</span>}
+            Password {isEdit ? '' : <span className="text-destructive">*</span>}
           </label>
           <Input
             type="password"
@@ -748,7 +749,7 @@ const Staff = () => {
                 resetForm();
                 setIsAddModalOpen(true);
               }}
-              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-xl hover:shadow-2xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
+              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:bg-primary/90 transition-all duration-300 z-40 flex items-center justify-center sm:hidden"
               size="lg"
             >
               <UserPlus className="w-6 h-6" />
@@ -761,7 +762,7 @@ const Staff = () => {
                   resetForm();
                   setIsAddModalOpen(true);
                 }}
-                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add Staff Member
@@ -774,7 +775,7 @@ const Staff = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-foreground">{staff.length}</p>
+                      <p className="text-3xl font-bold text-foreground tabular-nums">{staff.length}</p>
                       <p className="text-sm text-muted-foreground mt-1">Total Staff</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center">
@@ -788,7 +789,7 @@ const Staff = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-primary">
+                      <p className="text-3xl font-bold text-primary tabular-nums">
                         {staff.filter(s => s.is_active).length}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">Active</p>
@@ -804,7 +805,7 @@ const Staff = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold text-primary">
+                      <p className="text-3xl font-bold text-primary tabular-nums">
                         {staff.filter(s => !s.is_active).length}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">Inactive</p>
@@ -833,7 +834,7 @@ const Staff = () => {
 
             {/* Staff Grid */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground">Staff Members</h2>
+              <h2 className="font-display text-xl font-semibold text-foreground">Staff Members</h2>
               
               {filteredStaff.length === 0 ? (
                 <Card className="border-primary/15 bg-card">
@@ -841,7 +842,7 @@ const Staff = () => {
                     <div className="w-16 h-16 rounded-lg bg-primary/5 flex items-center justify-center mx-auto mb-4">
                       <Users className="w-8 h-8 text-primary/70" />
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                    <h3 className="font-display text-lg font-semibold text-foreground mb-2">
                       {searchTerm ? 'No staff found' : 'No staff members yet'}
                     </h3>
                     <p className="text-muted-foreground mb-6">
@@ -856,7 +857,7 @@ const Staff = () => {
                           resetForm();
                           setIsAddModalOpen(true);
                         }}
-                        className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         <UserPlus className="w-4 h-4 mr-2" />
                         Add First Staff Member
@@ -890,7 +891,7 @@ const Staff = () => {
                                 </p>
                                 
                                 {staffMember.employee_id && (
-                                  <p className="text-xs text-muted-foreground mb-2">
+                                  <p className="text-xs text-muted-foreground mb-2 font-mono">
                                     ID: {staffMember.employee_id}
                                   </p>
                                 )}
@@ -1058,7 +1059,7 @@ const Staff = () => {
                               {getStatusBadge(status)}
                               
                               {member.employee_id && (
-                                <p className="text-xs text-muted-foreground mt-2">
+                                <p className="text-xs text-muted-foreground mt-2 font-mono">
                                   ID: {member.employee_id}
                                 </p>
                               )}
@@ -1072,7 +1073,7 @@ const Staff = () => {
                                 size="sm"
                                 onClick={() => handleTimeEntry(member.id, 'clock_in')}
                                 disabled={isLoading}
-                                className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
+                                className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm hover:shadow"
                               >
                                 <PlayCircle className="w-3 h-3 mr-1" />
                                 Clock In
@@ -1085,7 +1086,7 @@ const Staff = () => {
                                   size="sm"
                                   onClick={() => handleTimeEntry(member.id, 'break_start')}
                                   disabled={isLoading}
-                                  className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
+                                  className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm hover:shadow"
                                 >
                                   <Coffee className="w-3 h-3 mr-1" />
                                   Start Break
@@ -1095,7 +1096,7 @@ const Staff = () => {
                                   size="sm"
                                   onClick={() => handleTimeEntry(member.id, 'clock_out')}
                                   disabled={isLoading}
-                                  className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
+                                  className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm hover:shadow"
                                 >
                                   <StopCircle className="w-3 h-3 mr-1" />
                                   Clock Out
@@ -1108,7 +1109,7 @@ const Staff = () => {
                                 size="sm"
                                 onClick={() => handleTimeEntry(member.id, 'break_end')}
                                 disabled={isLoading}
-                                className="text-xs bg-primary/50 hover:bg-primary/90 text-white shadow-sm hover:shadow"
+                                className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm hover:shadow"
                               >
                                 <ArrowLeftCircle className="w-3 h-3 mr-1" />
                                 End Break
@@ -1124,7 +1125,7 @@ const Staff = () => {
 
               {/* Time Entry History */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground">Recent Time Entries</h3>
+                <h3 className="font-display text-lg font-semibold text-foreground">Recent Time Entries</h3>
                 
                 {loadingTimeEntries ? (
                   <div className="space-y-4">
@@ -1149,7 +1150,7 @@ const Staff = () => {
                               <p className="font-medium text-foreground">
                                 {entry.staff.first_name} {entry.staff.last_name}
                               </p>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-sm text-muted-foreground tabular-nums">
                                 {format(parseISO(entry.timestamp), 'MMM dd, yyyy HH:mm:ss')}
                               </p>
                             </div>
@@ -1180,7 +1181,7 @@ const Staff = () => {
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="font-display flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-primary" />
               Add New Staff Member
             </DialogTitle>
@@ -1203,7 +1204,7 @@ const Staff = () => {
             <Button 
               onClick={addStaff}
               disabled={saving}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -1220,7 +1221,7 @@ const Staff = () => {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="font-display flex items-center gap-2">
               <Edit className="w-5 h-5 text-primary" />
               Edit Staff Member
             </DialogTitle>
@@ -1243,7 +1244,7 @@ const Staff = () => {
             <Button 
               onClick={editStaff}
               disabled={saving}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {saving ? (
                 <Clock className="w-4 h-4 mr-2 animate-spin" />
@@ -1260,7 +1261,7 @@ const Staff = () => {
       <Dialog open={pinDialogOpen} onOpenChange={(v) => { if (!v) closePinDialog(); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="font-display flex items-center gap-2">
               <Hash className="w-5 h-5 text-primary" />
               {pinTargetStaff?.pin_hash ? 'Reset PIN' : 'Set PIN'}
             </DialogTitle>
@@ -1275,10 +1276,10 @@ const Staff = () => {
 
           {pinSuccess ? (
             <div className="py-4 text-center space-y-3">
-              <CheckCircle className="w-10 h-10 text-green-500 mx-auto" />
-              <p className="text-sm text-green-700 font-medium">PIN updated successfully.</p>
+              <CheckCircle className="w-10 h-10 text-success mx-auto" />
+              <p className="text-sm text-success font-medium">PIN updated successfully.</p>
               <Button
-                className="bg-primary/50 hover:bg-primary/90 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={closePinDialog}
               >
                 Done
@@ -1306,7 +1307,7 @@ const Staff = () => {
               </div>
 
               {pinError && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="text-sm text-destructive flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                   {pinError}
                 </p>
@@ -1325,7 +1326,7 @@ const Staff = () => {
                 <Button
                   type="submit"
                   disabled={savingPin}
-                  className="flex-1 bg-primary/50 hover:bg-primary/90 text-white"
+                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   {savingPin ? (
                     <><Clock className="w-4 h-4 mr-1 animate-spin" /> Saving…</>
@@ -1359,9 +1360,9 @@ const Staff = () => {
             <AlertDialogAction
               onClick={confirmDeleteStaff}
               disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? 'Deleting…' : 'Delete staff member'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

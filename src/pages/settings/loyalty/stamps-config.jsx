@@ -178,7 +178,7 @@ export default function StampsConfig() {
             </p>
           )}
           {success && (
-            <p className="rounded-md bg-beepbite-success/10 px-3 py-2 text-sm text-beepbite-success">
+            <p className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">
               Stamp config saved.
             </p>
           )}

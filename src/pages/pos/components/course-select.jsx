@@ -30,9 +30,9 @@ export default function CourseSelect({ courseId, courses = [], onChange, classNa
       onChange={(e) => onChange(e.target.value || null)}
       aria-label="Assign course"
       className={cn(
-        'text-[10px] font-semibold rounded-full border px-2 py-0.5 bg-white',
-        'border-orange-200 text-orange-700 focus:outline-none focus:border-orange-400',
-        'cursor-pointer hover:bg-orange-50 transition',
+        'text-[10px] font-semibold rounded-full border px-2 py-0.5 bg-card',
+        'border-primary/25 text-primary focus:outline-none focus:border-primary/60',
+        'cursor-pointer hover:bg-primary/10 transition',
         className,
       )}
       onClick={(e) => e.stopPropagation()}

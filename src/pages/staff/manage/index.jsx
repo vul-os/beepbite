@@ -67,31 +67,31 @@ export default function StaffManagePage() {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="border-b border-orange-100 bg-transparent h-auto p-0 gap-0 flex">
+              <TabsList className="border-b border-primary/15 bg-transparent h-auto p-0 gap-0 flex">
                 <TabsTrigger
                   value="profile"
-                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-orange-700 data-[state=active]:bg-orange-50 text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <User className="w-3.5 h-3.5" />
                   Profile
                 </TabsTrigger>
                 <TabsTrigger
                   value="pay-rates"
-                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-orange-700 data-[state=active]:bg-orange-50 text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <TrendingUp className="w-3.5 h-3.5" />
                   Pay rates
                 </TabsTrigger>
                 <TabsTrigger
                   value="security"
-                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-orange-700 data-[state=active]:bg-orange-50 text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Shield className="w-3.5 h-3.5" />
                   Security
                 </TabsTrigger>
                 <TabsTrigger
                   value="schedule"
-                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-orange-700 data-[state=active]:bg-orange-50 text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Calendar className="w-3.5 h-3.5" />
                   Schedule

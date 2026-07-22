@@ -144,8 +144,8 @@ export default function BusinessInfoPage() {
         </Alert>
       )}
       {success && (
-        <Alert className="rounded-xl border-green-200 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800">
-          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+        <Alert className="rounded-xl border-success/20 bg-success/10 text-success">
+          <CheckCircle className="h-4 w-4 text-success" />
           <AlertDescription>Business info saved successfully.</AlertDescription>
         </Alert>
       )}

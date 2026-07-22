@@ -25,14 +25,19 @@ function snap(n) {
 function GridBackground() {
   return (
     <svg
-      className="absolute inset-0 pointer-events-none opacity-50"
+      className="absolute inset-0 pointer-events-none opacity-60"
       width={CANVAS_W}
       height={CANVAS_H}
       aria-hidden="true"
     >
       <defs>
         <pattern id="floor-grid" width={GRID_PX} height={GRID_PX} patternUnits="userSpaceOnUse">
-          <path d={`M ${GRID_PX} 0 L 0 0 0 ${GRID_PX}`} fill="none" stroke="#e5e7eb" strokeWidth="1" />
+          <path
+            d={`M ${GRID_PX} 0 L 0 0 0 ${GRID_PX}`}
+            fill="none"
+            stroke="hsl(var(--border))"
+            strokeWidth="1"
+          />
         </pattern>
       </defs>
       <rect width={CANVAS_W} height={CANVAS_H} fill="url(#floor-grid)" />
@@ -67,7 +72,7 @@ export default function FloorCanvas({
   const surface = (
     <div
       ref={canvasRef}
-      className="relative bg-white rounded-lg border border-zinc-200 overflow-hidden"
+      className="relative bg-card rounded-lg border-2 border-border overflow-hidden"
       style={{ width: CANVAS_W, height: CANVAS_H }}
     >
       <GridBackground />

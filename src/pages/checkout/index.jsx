@@ -228,17 +228,17 @@ export default function CheckoutPage() {
   if (confirmed) {
     const totalFormatted = formatPrice(toMinor(total), currency);
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center px-4 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-sm text-center shadow-xl border-0 rounded-3xl overflow-hidden">
-          <div className="bg-gradient-to-br from-green-400 to-emerald-500 px-6 pt-10 pb-8">
+          <div className="bg-success px-6 pt-10 pb-8">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 mx-auto mb-4 backdrop-blur-sm">
-              <CheckCircle className="h-10 w-10 text-white" aria-hidden="true" />
+              <CheckCircle className="h-10 w-10 text-success-foreground" aria-hidden="true" />
             </div>
-            <h2 className="text-2xl font-extrabold text-white leading-tight">
+            <h2 className="text-2xl font-display text-success-foreground leading-tight">
               {confirmedMethod ? 'On its way!' : 'Order placed!'}
             </h2>
             {orderRef && (
-              <p className="text-green-100 text-xs mt-1.5 font-mono">{orderRef}</p>
+              <p className="text-success-foreground/80 text-xs mt-1.5 font-mono tabular-nums">{orderRef}</p>
             )}
           </div>
 
@@ -249,14 +249,14 @@ export default function CheckoutPage() {
 
             {/* On-delivery confirmation messages */}
             {confirmedMethod === 'cash' && (
-              <div className="flex items-start gap-3 text-sm font-medium text-orange-700 bg-orange-50 rounded-xl px-4 py-3 border border-orange-200 text-left">
-                <Banknote className="h-4 w-4 mt-0.5 shrink-0 text-orange-500" aria-hidden="true" />
+              <div className="flex items-start gap-3 text-sm font-medium text-primary bg-primary/10 rounded-xl px-4 py-3 border border-primary/20 text-left">
+                <Banknote className="h-4 w-4 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
                 <span>Please have <strong>{totalFormatted}</strong> in cash ready for the driver.</span>
               </div>
             )}
             {confirmedMethod === 'card_machine' && (
-              <div className="flex items-start gap-3 text-sm font-medium text-orange-700 bg-orange-50 rounded-xl px-4 py-3 border border-orange-200 text-left">
-                <CreditCard className="h-4 w-4 mt-0.5 shrink-0 text-orange-500" aria-hidden="true" />
+              <div className="flex items-start gap-3 text-sm font-medium text-primary bg-primary/10 rounded-xl px-4 py-3 border border-primary/20 text-left">
+                <CreditCard className="h-4 w-4 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
                 <span>Have your card ready — the driver will bring a card machine.</span>
               </div>
             )}
@@ -275,14 +275,14 @@ export default function CheckoutPage() {
 
             <div className="flex flex-col gap-2.5 pt-1">
               <Button
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold h-11 rounded-xl"
+                className="w-full font-semibold h-11 rounded-xl"
                 onClick={() => navigate('/discover')}
               >
                 Discover more food
               </Button>
               <Button
                 variant="outline"
-                className="w-full border-orange-200 text-orange-600 hover:bg-orange-50 rounded-xl"
+                className="w-full border-primary/25 text-primary hover:bg-primary/10 rounded-xl"
                 onClick={() => navigate(`/store/${slug}`)}
               >
                 Back to menu
@@ -320,16 +320,17 @@ export default function CheckoutPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-4 py-5 space-y-4 pb-10">
-        {/* No-items warning */}
+        {/* No-items warning — informational, not urgent: a calm brand-tinted
+            nudge back to browsing, not an error state. */}
         {!hasItems && (
-          <Card className="border-orange-200 bg-orange-50 rounded-2xl">
-            <CardContent className="py-5 text-sm text-orange-700 text-center space-y-3">
+          <Card className="border-primary/20 bg-primary/5 rounded-2xl">
+            <CardContent className="py-5 text-sm text-primary text-center space-y-3">
               <p className="font-medium">Your cart is empty</p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/discover')}
-                className="border-orange-300 text-orange-600 hover:bg-orange-100 rounded-xl"
+                className="border-primary/30 text-primary hover:bg-primary/10 rounded-xl"
               >
                 Browse restaurants
               </Button>
@@ -337,10 +338,12 @@ export default function CheckoutPage() {
           </Card>
         )}
 
-        {/* Store not accepting orders */}
+        {/* Store not accepting orders — blocks checkout but isn't the
+            customer's mistake and nothing irreversible has happened, so this
+            is the warning tone, not destructive. */}
         {hasItems && paymentMode === 'none' && (
-          <Card className="border-red-200 bg-red-50 rounded-2xl">
-            <CardContent className="py-4 flex items-start gap-3 text-sm text-red-700">
+          <Card className="border-warning/30 bg-warning/10 rounded-2xl">
+            <CardContent className="py-4 flex items-start gap-3 text-sm text-warning">
               <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
               <span>This store isn't currently accepting orders online.</span>
             </CardContent>
@@ -357,14 +360,14 @@ export default function CheckoutPage() {
               <TabsList className="w-full p-1 bg-muted rounded-xl h-auto">
                 <TabsTrigger
                   value="delivery"
-                  className="flex-1 gap-2 rounded-lg py-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+                  className="flex-1 gap-2 rounded-lg py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all"
                 >
                   <Truck className="h-3.5 w-3.5" aria-hidden="true" />
                   Delivery
                 </TabsTrigger>
                 <TabsTrigger
                   value="collection"
-                  className="flex-1 gap-2 rounded-lg py-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+                  className="flex-1 gap-2 rounded-lg py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all"
                 >
                   <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" />
                   Collection
@@ -373,7 +376,7 @@ export default function CheckoutPage() {
 
               <TabsContent value="delivery" className="pt-4 space-y-3">
                 <div>
-                  <Label htmlFor="street" className="text-xs font-medium">Street address <span className="text-orange-500">*</span></Label>
+                  <Label htmlFor="street" className="text-xs font-medium">Street address <span className="text-primary">*</span></Label>
                   <AddressAutocomplete
                     id="street"
                     placeholder="123 Main Road"
@@ -390,7 +393,7 @@ export default function CheckoutPage() {
                       }))
                     }
                     required={fulfillment === 'delivery'}
-                    className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-orange-400"
+                    className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-ring"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -401,18 +404,18 @@ export default function CheckoutPage() {
                       placeholder="Suburb"
                       value={address.suburb}
                       onChange={(e) => setAddress((a) => ({ ...a, suburb: e.target.value }))}
-                      className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-orange-400"
+                      className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-ring"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="city" className="text-xs font-medium">City <span className="text-orange-500">*</span></Label>
+                    <Label htmlFor="city" className="text-xs font-medium">City <span className="text-primary">*</span></Label>
                     <Input
                       id="city"
                       placeholder="City"
                       value={address.city}
                       onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))}
                       required={fulfillment === 'delivery'}
-                      className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-orange-400"
+                      className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-ring"
                     />
                   </div>
                 </div>
@@ -423,15 +426,15 @@ export default function CheckoutPage() {
                     placeholder="Gate code, flat number, landmark…"
                     value={address.notes}
                     onChange={(e) => setAddress((a) => ({ ...a, notes: e.target.value }))}
-                    className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-orange-400"
+                    className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-ring"
                   />
                 </div>
               </TabsContent>
 
               <TabsContent value="collection" className="pt-4">
-                <div className="flex items-start gap-3 rounded-xl bg-orange-50 border border-orange-100 p-4 text-sm">
-                  <MapPin className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" aria-hidden="true" />
-                  <span className="text-orange-800">
+                <div className="flex items-start gap-3 rounded-xl bg-primary/10 border border-primary/20 p-4 text-sm">
+                  <MapPin className="h-4 w-4 mt-0.5 text-primary shrink-0" aria-hidden="true" />
+                  <span className="text-primary">
                     Collect your order directly from <strong>{storeName}</strong>. You'll get a notification when it's ready.
                   </span>
                 </div>
@@ -447,18 +450,18 @@ export default function CheckoutPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <Label htmlFor="name" className="text-xs font-medium">Name <span className="text-orange-500">*</span></Label>
+              <Label htmlFor="name" className="text-xs font-medium">Name <span className="text-primary">*</span></Label>
               <Input
                 id="name"
                 placeholder="Your full name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 required
-                className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-orange-400"
+                className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-ring"
               />
             </div>
             <div>
-              <Label htmlFor="phone" className="text-xs font-medium">WhatsApp / phone <span className="text-orange-500">*</span></Label>
+              <Label htmlFor="phone" className="text-xs font-medium">WhatsApp / phone <span className="text-primary">*</span></Label>
               <Input
                 id="phone"
                 type="tel"
@@ -466,7 +469,7 @@ export default function CheckoutPage() {
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 required
-                className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-orange-400"
+                className="mt-1.5 h-10 text-sm rounded-xl focus-visible:ring-ring"
               />
             </div>
           </CardContent>
@@ -512,8 +515,8 @@ export default function CheckoutPage() {
                     type="button"
                     className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-all ${
                       tipPct === opt.value && customTip === ''
-                        ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                        : 'border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-400'
+                        ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                        : 'border-primary/25 text-primary hover:bg-primary/10 hover:border-primary/50'
                     }`}
                     onClick={() => {
                       setTipPct(opt.value);
@@ -536,10 +539,10 @@ export default function CheckoutPage() {
                   placeholder="0.00"
                   value={customTip}
                   onChange={(e) => setCustomTip(e.target.value)}
-                  className="h-9 text-sm w-28 rounded-xl focus-visible:ring-orange-400"
+                  className="h-9 text-sm w-28 rounded-xl focus-visible:ring-ring"
                 />
                 {tipAmount > 0 && (
-                  <span className="text-sm font-medium text-orange-600 tabular-nums">
+                  <span className="text-sm font-medium text-primary tabular-nums">
                     {formatPrice(toMinor(tipAmount), currency)}
                   </span>
                 )}
@@ -550,7 +553,7 @@ export default function CheckoutPage() {
 
         {/* 5. On-delivery payment method selector */}
         {hasItems && paymentMode === 'on_delivery' && (
-          <Card className="rounded-2xl border-orange-200 shadow-sm">
+          <Card className="rounded-2xl border-primary/20 shadow-sm">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-semibold">How will you pay?</CardTitle>
             </CardHeader>
@@ -559,8 +562,8 @@ export default function CheckoutPage() {
                 <label
                   className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                     selectedDeliveryMethod === 'cash'
-                      ? 'border-orange-400 bg-orange-50 shadow-sm'
-                      : 'border-border hover:border-orange-300 hover:bg-orange-50/50'
+                      ? 'border-primary/50 bg-primary/10 shadow-sm'
+                      : 'border-border hover:border-primary/35 hover:bg-primary/5'
                   }`}
                 >
                   <input
@@ -569,10 +572,10 @@ export default function CheckoutPage() {
                     value="cash"
                     checked={selectedDeliveryMethod === 'cash'}
                     onChange={() => setSelectedDeliveryMethod('cash')}
-                    className="accent-orange-500 h-4 w-4"
+                    className="accent-primary h-4 w-4"
                   />
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 shrink-0">
-                    <Banknote className="h-4 w-4 text-orange-600" aria-hidden="true" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                    <Banknote className="h-4 w-4 text-primary" aria-hidden="true" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold">Cash on delivery</p>
@@ -584,8 +587,8 @@ export default function CheckoutPage() {
                 <label
                   className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                     selectedDeliveryMethod === 'card_machine'
-                      ? 'border-orange-400 bg-orange-50 shadow-sm'
-                      : 'border-border hover:border-orange-300 hover:bg-orange-50/50'
+                      ? 'border-primary/50 bg-primary/10 shadow-sm'
+                      : 'border-border hover:border-primary/35 hover:bg-primary/5'
                   }`}
                 >
                   <input
@@ -594,10 +597,10 @@ export default function CheckoutPage() {
                     value="card_machine"
                     checked={selectedDeliveryMethod === 'card_machine'}
                     onChange={() => setSelectedDeliveryMethod('card_machine')}
-                    className="accent-orange-500 h-4 w-4"
+                    className="accent-primary h-4 w-4"
                   />
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 shrink-0">
-                    <CreditCard className="h-4 w-4 text-orange-600" aria-hidden="true" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                    <CreditCard className="h-4 w-4 text-primary" aria-hidden="true" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold">Card on delivery</p>
@@ -611,7 +614,7 @@ export default function CheckoutPage() {
 
         {/* 6. Total + place order / pay button */}
         {hasItems && (
-          <Card className="bg-orange-50 border-orange-200 rounded-2xl shadow-sm">
+          <Card className="bg-primary/5 border-primary/20 rounded-2xl shadow-sm">
             <CardContent className="py-5 space-y-4">
               {/* Price breakdown */}
               <div className="space-y-1.5 text-sm">
@@ -625,10 +628,10 @@ export default function CheckoutPage() {
                     <span className="tabular-nums">{formatPrice(toMinor(tipAmount), currency)}</span>
                   </div>
                 )}
-                <Separator className="my-2 border-orange-200" />
+                <Separator className="my-2 border-primary/20" />
                 <div className="flex justify-between font-bold text-base">
                   <span>Total</span>
-                  <span className="text-orange-600 tabular-nums">{formatPrice(toMinor(total), currency)}</span>
+                  <span className="text-primary tabular-nums">{formatPrice(toMinor(total), currency)}</span>
                 </div>
               </div>
 
@@ -652,7 +655,7 @@ export default function CheckoutPage() {
 
               {/* Loading payment config */}
               {paymentMode === 'loading' && (
-                <Button disabled className="w-full bg-orange-400 text-white h-12 rounded-xl">
+                <Button disabled className="w-full h-12 rounded-xl">
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Checking payment options…
                 </Button>
@@ -663,7 +666,7 @@ export default function CheckoutPage() {
                 <Button
                   type="submit"
                   disabled={submitting || !hasItems || !selectedDeliveryMethod}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 rounded-xl font-semibold shadow-sm shadow-orange-200 text-sm"
+                  className="w-full h-12 rounded-xl font-semibold shadow-sm shadow-primary/20 text-sm"
                 >
                   {submitting ? (
                     <>
@@ -681,7 +684,7 @@ export default function CheckoutPage() {
                 <Button
                   type="submit"
                   disabled={submitting || !hasItems}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 rounded-xl font-semibold shadow-sm shadow-orange-200 text-sm"
+                  className="w-full h-12 rounded-xl font-semibold shadow-sm shadow-primary/20 text-sm"
                 >
                   {submitting ? (
                     <>
@@ -701,7 +704,7 @@ export default function CheckoutPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <span role="img" aria-label="Terms">📋</span> Order protected by{' '}
-                  <span className="font-medium text-orange-600">BeepBite</span>
+                  <span className="font-medium text-primary">BeepBite</span>
                 </span>
               </div>
             </CardContent>

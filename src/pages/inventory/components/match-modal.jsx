@@ -11,15 +11,25 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
 import { useMoney } from '@/context/locale-context';
 import { AlertCircle, CheckCircle } from 'lucide-react';
-import { MATCH_STATUS_COLORS } from '@/lib/status-colors';
 
 function fmtPct(v) {
   return `${(v * 100).toFixed(1)}%`;
 }
 
+// A variance is "needs a second look, nothing lost yet" (warning); matched
+// is the success state; unmatched (not yet run) is neutral.
+function matchStatusVariant(status) {
+  switch (status) {
+    case 'matched': return 'success';
+    case 'price_variance':
+    case 'qty_variance': return 'warning';
+    default: return 'secondary';
+  }
+}
+
 function matchStatusBadge(status) {
   return (
-    <Badge className={MATCH_STATUS_COLORS[status] || MATCH_STATUS_COLORS.unmatched}>
+    <Badge variant={matchStatusVariant(status)}>
       {status?.replace('_', ' ')}
     </Badge>
   );
@@ -78,18 +88,18 @@ export function MatchModal({ invoice, open, onClose, onMatched }) {
         </DialogHeader>
 
         {/* Invoice summary */}
-        <div className="grid grid-cols-3 gap-4 text-sm border border-orange-100 rounded p-3 bg-orange-50/30">
+        <div className="grid grid-cols-3 gap-4 text-sm border border-border rounded p-3 bg-muted/40">
           <div>
             <p className="text-muted-foreground text-xs">Invoice Total</p>
-            <p className="font-semibold">{fmtCents(invoice.total_cents)}</p>
+            <p className="font-semibold tabular-nums">{fmtCents(invoice.total_cents)}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Subtotal</p>
-            <p className="font-semibold">{fmtCents(invoice.subtotal_cents)}</p>
+            <p className="font-semibold tabular-nums">{fmtCents(invoice.subtotal_cents)}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Tax</p>
-            <p className="font-semibold">{fmtCents(invoice.tax_cents)}</p>
+            <p className="font-semibold tabular-nums">{fmtCents(invoice.tax_cents)}</p>
           </div>
         </div>
 
@@ -116,23 +126,23 @@ export function MatchModal({ invoice, open, onClose, onMatched }) {
                 </thead>
                 <tbody>
                   {result.lines.map((l, i) => (
-                    <tr key={l.invoice_line_id} className={l.has_variance ? 'bg-red-50' : 'bg-card'}>
+                    <tr key={l.invoice_line_id} className={l.has_variance ? 'bg-warning/10' : 'bg-card'}>
                       <td className="p-2 border border-border">{i + 1}</td>
-                      <td className="p-2 border border-border text-right">{l.invoice_qty}</td>
-                      <td className="p-2 border border-border text-right">{l.po_qty}</td>
-                      <td className="p-2 border border-border text-right">{l.grn_qty}</td>
-                      <td className="p-2 border border-border text-right">{fmtCents(l.invoice_price_cents)}</td>
-                      <td className="p-2 border border-border text-right">{fmtCents(l.po_price_cents)}</td>
-                      <td className={`p-2 border border-border text-right ${Math.abs(l.qty_variance_pct) > result.tolerance_pct ? 'text-red-600 font-semibold' : ''}`}>
+                      <td className="p-2 border border-border text-right tabular-nums">{l.invoice_qty}</td>
+                      <td className="p-2 border border-border text-right tabular-nums">{l.po_qty}</td>
+                      <td className="p-2 border border-border text-right tabular-nums">{l.grn_qty}</td>
+                      <td className="p-2 border border-border text-right tabular-nums">{fmtCents(l.invoice_price_cents)}</td>
+                      <td className="p-2 border border-border text-right tabular-nums">{fmtCents(l.po_price_cents)}</td>
+                      <td className={`p-2 border border-border text-right tabular-nums ${Math.abs(l.qty_variance_pct) > result.tolerance_pct ? 'text-warning font-semibold' : ''}`}>
                         {fmtPct(l.qty_variance_pct)}
                       </td>
-                      <td className={`p-2 border border-border text-right ${Math.abs(l.price_variance_pct) > result.tolerance_pct ? 'text-red-600 font-semibold' : ''}`}>
+                      <td className={`p-2 border border-border text-right tabular-nums ${Math.abs(l.price_variance_pct) > result.tolerance_pct ? 'text-warning font-semibold' : ''}`}>
                         {fmtPct(l.price_variance_pct)}
                       </td>
                       <td className="p-2 border border-border text-center">
                         {l.has_variance
-                          ? <AlertCircle className="w-4 h-4 text-red-500 mx-auto" />
-                          : <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />}
+                          ? <AlertCircle className="w-4 h-4 text-warning mx-auto" />
+                          : <CheckCircle className="w-4 h-4 text-success mx-auto" />}
                       </td>
                     </tr>
                   ))}
@@ -142,7 +152,7 @@ export function MatchModal({ invoice, open, onClose, onMatched }) {
           </div>
         )}
 
-        {err && <p className="text-sm text-red-600">{err}</p>}
+        {err && <p className="text-sm text-destructive">{err}</p>}
 
         <div className="flex gap-3 pt-2">
           <Button variant="outline" onClick={handleClose} className="flex-1">
@@ -151,7 +161,7 @@ export function MatchModal({ invoice, open, onClose, onMatched }) {
           <Button
             onClick={runMatch}
             disabled={running}
-            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+            className="flex-1"
           >
             {running ? 'Running match…' : 'Run Match'}
           </Button>

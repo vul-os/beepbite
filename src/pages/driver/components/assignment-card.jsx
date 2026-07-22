@@ -4,13 +4,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useMoney } from '@/context/locale-context';
 
-// Map statuses to human-readable labels and badge colours
+// Map statuses to human-readable labels and badge colours. `offered` uses the
+// warning tone (needs the driver's attention, still reversible); `delivered`
+// uses success; the two in-between working states share the primary tone
+// rather than borrowing a fourth arbitrary hue — they're both just "this is
+// in motion", not signals a driver needs to act differently on.
 const STATUS_META = {
-  offered:    { label: 'Offered',     colour: 'bg-amber-100 text-amber-800 border-amber-200' },
-  accepted:   { label: 'Accepted',    colour: 'bg-blue-100 text-blue-800 border-blue-200' },
-  picked_up:  { label: 'Picked up',   colour: 'bg-purple-100 text-purple-800 border-purple-200' },
-  delivered:  { label: 'Delivered',   colour: 'bg-green-100 text-green-800 border-green-200' },
-  cancelled:  { label: 'Cancelled',   colour: 'bg-gray-100 text-gray-500 border-gray-200' },
+  offered:    { label: 'Offered',     colour: 'bg-warning/15 text-warning border-warning/30' },
+  accepted:   { label: 'Accepted',    colour: 'bg-primary/10 text-primary border-primary/25' },
+  picked_up:  { label: 'Picked up',   colour: 'bg-primary/15 text-primary border-primary/30' },
+  delivered:  { label: 'Delivered',   colour: 'bg-success/15 text-success border-success/30' },
+  cancelled:  { label: 'Cancelled',   colour: 'bg-muted text-muted-foreground border-border' },
 };
 
 // Which action button to show for each status
@@ -27,7 +31,7 @@ export default function AssignmentCard({ assignment, onAction }) {
   const [cancelBusy, setCancelBusy] = useState(false);
 
   const { status, store_name, customer_address, total_cents, id } = assignment;
-  const statusMeta = STATUS_META[status] ?? { label: status, colour: 'bg-gray-100 text-gray-600 border-gray-200' };
+  const statusMeta = STATUS_META[status] ?? { label: status, colour: 'bg-muted text-muted-foreground border-border' };
   const next = NEXT_ACTION[status];
 
   async function handleAction(action, setBusyFn) {
@@ -40,13 +44,13 @@ export default function AssignmentCard({ assignment, onAction }) {
   }
 
   return (
-    <Card className="border border-orange-100 shadow-sm">
+    <Card className="border-border/70 shadow-sm">
       <CardContent className="p-4 space-y-3">
         {/* Header: store name + status badge */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Store className="w-4 h-4 text-orange-500 flex-shrink-0" />
-            <span className="font-semibold text-gray-900 text-sm truncate">
+            <Store className="w-4 h-4 text-primary flex-shrink-0" />
+            <span className="font-semibold text-foreground text-sm truncate">
               {store_name || 'Restaurant'}
             </span>
           </div>
@@ -56,15 +60,15 @@ export default function AssignmentCard({ assignment, onAction }) {
         </div>
 
         {/* Delivery address */}
-        <div className="flex items-start gap-2 text-sm text-gray-600">
-          <MapPin className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+          <MapPin className="w-4 h-4 text-primary/60 flex-shrink-0 mt-0.5" />
           <span className="leading-snug">{customer_address || 'Address not provided'}</span>
         </div>
 
         {/* Order total */}
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <DollarSign className="w-4 h-4 text-orange-400 flex-shrink-0" />
-          <span className="font-medium">{formatCurrency(total_cents)}</span>
+        <div className="flex items-center gap-2 text-sm text-foreground/90">
+          <DollarSign className="w-4 h-4 text-primary/60 flex-shrink-0" />
+          <span className="font-medium tabular-nums">{formatCurrency(total_cents)}</span>
         </div>
 
         {/* Action buttons */}
@@ -72,9 +76,9 @@ export default function AssignmentCard({ assignment, onAction }) {
           <div className="flex gap-2 pt-1">
             <Button
               size="sm"
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
               disabled={busy || cancelBusy}
               onClick={() => handleAction(next.action, setBusy)}
+              className="flex-1"
             >
               {busy
                 ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -83,12 +87,15 @@ export default function AssignmentCard({ assignment, onAction }) {
               {next.label}
             </Button>
 
-            {/* Cancel is available on offered + accepted */}
+            {/* Cancel is available on offered + accepted — reversible at this
+                stage (nothing picked up yet), so it stays an outline button
+                in the destructive hue rather than the irreversible-void
+                treatment reserved for post-pickup cancellations. */}
             {(status === 'offered' || status === 'accepted') && (
               <Button
                 size="sm"
                 variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50"
+                className="border-destructive/30 text-destructive hover:bg-destructive/10"
                 disabled={busy || cancelBusy}
                 onClick={() => handleAction('cancel', setCancelBusy)}
               >

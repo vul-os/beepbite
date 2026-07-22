@@ -109,8 +109,8 @@ export default function KitchenSettingsPage() {
     <div className="space-y-6">
       {/* ---- header ---- */}
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ChefHat className="h-6 w-6 text-orange-500" />
+        <h1 className="font-display text-2xl flex items-center gap-2">
+          <ChefHat className="h-6 w-6 text-primary" />
           Kitchen routing
         </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
@@ -340,8 +340,8 @@ function StationsTab({ locationId }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction onClick={confirmDelete} variant="destructive">
+              Delete station
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -505,7 +505,7 @@ function CategoryRoutingTab({ locationId }) {
                   </TableCell>
                   <TableCell>
                     {stationById[r.station_id]
-                      ? <Badge variant="outline" className="border-orange-400 text-orange-700">{stationById[r.station_id].name}</Badge>
+                      ? <Badge variant="outline" className="border-primary/40 text-primary">{stationById[r.station_id].name}</Badge>
                       : <span className="italic text-muted-foreground">{r.station_id?.slice(0, 8)}</span>
                     }
                   </TableCell>
@@ -553,6 +553,8 @@ function CategoryRoutingTab({ locationId }) {
         title="Remove category route?"
         description={`The route for "${categoryById[toDelete?.category_id]?.name ?? toDelete?.category_id}" will be removed.`}
         onConfirm={confirmDelete}
+        variant="warning"
+        confirmLabel="Remove route"
       />
     </div>
   );
@@ -668,7 +670,7 @@ function ItemRoutingTab({ locationId }) {
                   </TableCell>
                   <TableCell>
                     {stationById[r.station_id]
-                      ? <Badge variant="outline" className="border-orange-400 text-orange-700">{stationById[r.station_id].name}</Badge>
+                      ? <Badge variant="outline" className="border-primary/40 text-primary">{stationById[r.station_id].name}</Badge>
                       : <span className="italic text-muted-foreground">{r.station_id?.slice(0, 8)}</span>
                     }
                   </TableCell>
@@ -718,6 +720,8 @@ function ItemRoutingTab({ locationId }) {
         title="Remove item route?"
         description={`The override for "${itemById[toDelete?.item_id]?.name ?? toDelete?.item_id}" will be removed.`}
         onConfirm={confirmDelete}
+        variant="warning"
+        confirmLabel="Remove route"
       />
     </div>
   );
@@ -889,7 +893,7 @@ function DisplayGroupsTab({ locationId }) {
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {(Array.isArray(g.station_ids) ? g.station_ids : []).map((sid) => (
-                        <Badge key={sid} variant="outline" className="border-orange-400 text-orange-700 text-xs">
+                        <Badge key={sid} variant="outline" className="border-primary/40 text-primary text-xs">
                           {stationById[sid]?.name ?? sid.slice(0, 8)}
                         </Badge>
                       ))}
@@ -901,7 +905,7 @@ function DisplayGroupsTab({ locationId }) {
                   <TableCell className="text-muted-foreground text-sm">{g.display_order ?? '—'}</TableCell>
                   <TableCell className="text-sm">
                     {g.auto_recall_seconds
-                      ? <span className="flex items-center gap-1 text-emerald-700"><RotateCcw className="h-3.5 w-3.5" />{g.auto_recall_seconds}s</span>
+                      ? <span className="flex items-center gap-1 text-success tabular-nums"><RotateCcw className="h-3.5 w-3.5" />{g.auto_recall_seconds}s</span>
                       : <span className="text-muted-foreground">off</span>
                     }
                   </TableCell>
@@ -947,6 +951,8 @@ function DisplayGroupsTab({ locationId }) {
         title="Delete display group?"
         description={`"${toDelete?.name}" will be permanently deleted.`}
         onConfirm={confirmDelete}
+        variant="destructive"
+        confirmLabel="Delete group"
       />
     </div>
   );
@@ -1002,7 +1008,7 @@ function DisplayGroupForm({ initial, stations, onSubmit, onCancel, saving }) {
             <label key={s.id} className="flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 hover:bg-accent">
               <input
                 type="checkbox"
-                className="accent-orange-500"
+                className="accent-primary"
                 checked={selectedStations.has(s.id)}
                 onChange={() => toggleStation(s.id)}
               />
@@ -1054,7 +1060,12 @@ function DisplayGroupForm({ initial, stations, onSubmit, onCancel, saving }) {
 // Shared DeleteConfirm dialog
 // ============================================================
 
-function DeleteConfirm({ open, onOpenChange, title, description, onConfirm }) {
+// `variant` defaults to "warning" — most call sites here remove a single
+// routing link (category route / item route), which is trivially re-added
+// from the same tab and doesn't cascade or destroy other config. Call sites
+// that delete a whole named config object (display group) or something that
+// orphans other records (station) should pass variant="destructive".
+function DeleteConfirm({ open, onOpenChange, title, description, onConfirm, variant = 'warning', confirmLabel = 'Remove' }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -1066,9 +1077,9 @@ function DeleteConfirm({ open, onOpenChange, title, description, onConfirm }) {
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            variant={variant}
           >
-            Delete
+            {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

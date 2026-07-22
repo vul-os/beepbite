@@ -177,14 +177,14 @@ export default function LinkWhatsAppPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Smartphone className="h-5 w-5 text-green-600" />
+              <Smartphone className="h-5 w-5 text-primary" />
               Link WhatsApp Number
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {pendingPhone && (
               <div className="flex items-center gap-3 rounded-lg border bg-muted/40 px-4 py-3">
-                <Phone className="h-5 w-5 text-green-600 shrink-0" />
+                <Phone className="h-5 w-5 text-primary shrink-0" />
                 <span className="font-mono text-base font-semibold tracking-wide">
                   {pendingPhone}
                 </span>
@@ -192,8 +192,8 @@ export default function LinkWhatsAppPage() {
             )}
 
             {bindSuccess ? (
-              <Alert className="border-green-200 bg-green-50 text-green-800">
-                <CheckCircle className="h-4 w-4 text-green-600" />
+              <Alert className="border-success/30 bg-success/10 text-success">
+                <CheckCircle className="h-4 w-4 text-success" />
                 <AlertDescription>
                   <strong>{pendingPhone}</strong> has been added to your account.
                 </AlertDescription>
@@ -220,7 +220,7 @@ export default function LinkWhatsAppPage() {
                   <Button
                     onClick={handleBind}
                     disabled={binding}
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full"
                   >
                     {binding ? (
                       <>

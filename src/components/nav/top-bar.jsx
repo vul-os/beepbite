@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { hasCapability } from '@/services/pos';
 import { LogOut, Users, ChevronDown, UserCircle, BarChart3, MessageSquare, Hash, X, MapPin, ChefHat, Building2, Check, Store, Folder, Receipt, MonitorPlay, Truck, LockKeyhole, LayoutDashboard } from 'lucide-react';
@@ -15,10 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SyncStatusBadge } from "@/components/ui/sync-status";
 import { cn } from "@/lib/utils";
 import Logo from '@/components/ui/logo';
 
 const TopBar = () => {
+  const { t } = useTranslation();
   const {
     user,
     userProfile,
@@ -89,158 +92,83 @@ const TopBar = () => {
 
   // Top navigation items (2-3 most accessed)
   const topNavigationItems = [
-    {
-      name: 'Home',
-      path: '/home',
-      icon: Hash,
-      description: 'Main home'
-    },
-    {
-      name: 'POS',
-      path: '/pos/workspace',
-      icon: Receipt,
-      description: 'Cashier workspace'
-    },
-    {
-      name: 'Kitchen Display',
-      path: '/kds/expo',
-      icon: MonitorPlay,
-      description: 'Full-screen kitchen wall'
-    },
-    {
-      name: 'Reviews',
-      path: '/reviews',
-      icon: MessageSquare,
-      description: 'Customer feedback'
-    }
+    { name: t('nav.topBar.home'), path: '/home', icon: Hash, description: t('nav.topBar.homeDesc') },
+    { name: t('nav.topBar.pos'), path: '/pos/workspace', icon: Receipt, description: t('nav.topBar.posDesc') },
+    { name: t('nav.topBar.kitchen'), path: '/kds/expo', icon: MonitorPlay, description: t('nav.topBar.kitchenDesc') },
+    { name: t('nav.topBar.reviews'), path: '/reviews', icon: MessageSquare, description: t('nav.topBar.reviewsDesc') },
   ];
 
-  // Side navigation items (organized by category) - Original structure
+  // Side navigation items (organized by category)
   const sideNavigationSections = [
     {
-      title: 'Front of House',
+      title: t('nav.sideBar.frontOfHouse'),
       items: [
-        {
-          name: 'POS Workspace',
-          path: '/pos/workspace',
-          icon: Receipt,
-          description: 'Take orders & open the register'
-        },
-        {
-          name: 'Kitchen Workspace',
-          path: '/work',
-          icon: LayoutDashboard,
-          description: 'POS + Kitchen tabs with top bar'
-        },
-        {
-          name: 'Kitchen Display (full screen)',
-          path: '/kds/expo',
-          icon: MonitorPlay,
-          description: 'Wall-mount full-screen ticket view'
-        }
+        { name: t('nav.sideBar.posWorkspace'), path: '/pos/workspace', icon: Receipt, description: t('nav.sideBar.posWorkspaceDesc') },
+        { name: t('nav.sideBar.kitchenWorkspace'), path: '/work', icon: LayoutDashboard, description: t('nav.sideBar.kitchenWorkspaceDesc') },
+        { name: t('nav.sideBar.kitchenDisplay'), path: '/kds/expo', icon: MonitorPlay, description: t('nav.sideBar.kitchenDisplayDesc') },
       ]
     },
     {
-      title: 'Operations',
+      title: t('nav.sideBar.operations'),
       items: [
-        {
-          name: 'Reports',
-          path: '/reports',
-          icon: BarChart3,
-          description: 'Sales analytics',
-          capability: 'can_view_reports',
-        },
-        {
-          name: 'Menu',
-          path: '/menu',
-          icon: ChefHat,
-          description: 'Menu management'
-        },
-        {
-          name: 'Categories',
-          path: '/categories',
-          icon: Folder,
-          description: 'Manage menu categories'
-        }
+        { name: t('nav.sideBar.reports'), path: '/reports', icon: BarChart3, description: t('nav.sideBar.reportsDesc'), capability: 'can_view_reports' },
+        { name: t('nav.sideBar.menu'), path: '/menu', icon: ChefHat, description: t('nav.sideBar.menuDesc') },
+        { name: t('nav.sideBar.categories'), path: '/categories', icon: Folder, description: t('nav.sideBar.categoriesDesc') },
       ]
     },
     {
-      title: 'Team',
+      title: t('nav.sideBar.team'),
       items: [
-        {
-          name: 'Members',
-          path: '/members',
-          icon: Users,
-          description: 'Loyalty program members'
-        },
-        {
-          name: 'Staff',
-          path: '/staff',
-          icon: UserCircle,
-          description: 'Staff management & PINs'
-        },
-        {
-          name: 'Driver Portal',
-          path: '/driver',
-          icon: Truck,
-          description: 'Active deliveries & online toggle'
-        }
+        { name: t('nav.sideBar.members'), path: '/members', icon: Users, description: t('nav.sideBar.membersDesc') },
+        { name: t('nav.sideBar.staff'), path: '/staff', icon: UserCircle, description: t('nav.sideBar.staffDesc') },
+        { name: t('nav.sideBar.driverPortal'), path: '/driver', icon: Truck, description: t('nav.sideBar.driverPortalDesc') },
       ]
     },
     {
-      title: 'Settings',
+      title: t('nav.sideBar.settings'),
       items: [
-        {
-          name: 'Settings',
-          path: '/settings',
-          icon: Building2,
-          description: 'Organization, billing, storefront, system'
-        },
-        {
-          name: 'Account',
-          path: '/account',
-          icon: UserCircle,
-          description: 'Your personal account'
-        }
+        { name: t('nav.sideBar.orgSettings'), path: '/settings', icon: Building2, description: t('nav.sideBar.orgSettingsDesc') },
+        { name: t('nav.sideBar.account'), path: '/account', icon: UserCircle, description: t('nav.sideBar.accountDesc') },
       ]
     }
   ];
 
   return (
     <>
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      <header className={cn(
+        'fixed top-0 left-0 right-0 z-50 border-b-2 transition-colors',
         isLandingPage
-          ? 'bg-background/80 backdrop-blur-sm border-b border-border/60'
-          : 'bg-background border-b border-border'
-      }`}>
+          ? 'border-border/60 bg-background/90 backdrop-blur-sm'
+          : 'border-border bg-background',
+      )}>
         <nav className="h-16 px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="h-full flex items-center justify-between max-w-content mx-auto">
             {/* Left: Logo and Navigation */}
             <div className="flex items-center gap-6">
-              <Link to="/" className="flex items-center">
-                {/* Clean logo component */}
+              <Link to="/" className="flex items-center" aria-label="BeepBite home">
                 <Logo variant="minimal" />
               </Link>
 
               {/* Desktop Navigation - Show for authenticated users */}
               {user && (
-                <nav className="hidden sm:flex items-center space-x-2">
+                <nav className="hidden sm:flex items-center gap-1.5" aria-label="Primary">
                   {topNavigationItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = isActivePath(item.path);
-                    
+
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
+                        aria-current={isActive ? 'page' : undefined}
                         className={cn(
-                          "flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200",
+                          "flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                           isActive
-                            ? "bg-primary text-primary-foreground shadow-lg"
+                            ? "bg-primary text-primary-foreground"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                       >
-                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <Icon className="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" aria-hidden="true" />
                         <span className="hidden sm:inline">{item.name}</span>
                       </Link>
                     );
@@ -250,23 +178,25 @@ const TopBar = () => {
 
               {/* Mobile Navigation - Show for authenticated users */}
               {user && (
-                <nav className="flex sm:hidden items-center space-x-1">
+                <nav className="flex sm:hidden items-center gap-1" aria-label="Primary">
                   {topNavigationItems.slice(0, 2).map((item) => {
                     const Icon = item.icon;
                     const isActive = isActivePath(item.path);
-                    
+
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
+                        aria-current={isActive ? 'page' : undefined}
+                        aria-label={item.name}
                         className={cn(
-                          "flex items-center justify-center w-8 h-8 rounded-lg text-xs font-semibold transition-all duration-200",
+                          "flex items-center justify-center w-9 h-9 rounded-md text-xs font-semibold transition-colors",
                           isActive
-                            ? "bg-primary text-primary-foreground shadow-lg"
+                            ? "bg-primary text-primary-foreground"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                       >
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-4 h-4" aria-hidden="true" />
                       </Link>
                     );
                   })}
@@ -274,29 +204,34 @@ const TopBar = () => {
               )}
             </div>
 
-            {/* Right: Location Selector and User Menu */}
+            {/* Right: Sync status, location, user menu */}
             <div className="flex items-center gap-2">
               {user ? (
                 <>
+                  {/* Sync status — always visible, not tucked in a menu. See
+                      src/components/ui/sync-status.jsx: offline queueing is
+                      real (src/offline/queue.js) and staff need to see it. */}
+                  {!isLandingPage && <SyncStatusBadge className="hidden md:inline-flex" />}
+
                   {/* Location Selector - Desktop */}
                   {!isLandingPage && (
                     <div className="hidden md:block">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
-                            className="text-sm font-medium flex items-center gap-2 border-border text-foreground hover:border-primary hover:text-primary"
+                            className="text-sm font-medium flex items-center gap-2"
                           >
-                            <MapPin className="h-4 w-4" />
+                            <MapPin className="h-4 w-4" aria-hidden="true" />
                             <span className="max-w-[120px] truncate">
-                              {activeLocation?.name || "Select Location"}
+                              {activeLocation?.name || t('nav.topBar.selectLocation')}
                             </span>
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-4 w-4" aria-hidden="true" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuLabel>Switch Location</DropdownMenuLabel>
+                          <DropdownMenuLabel>{t('nav.topBar.switchLocation')}</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           {locations?.length > 0 ? (
                             locations.map((loc) => (
@@ -309,15 +244,15 @@ const TopBar = () => {
                                 )}
                               >
                                 {activeLocation?.id === loc.id && (
-                                  <Check className="h-4 w-4 text-primary" />
+                                  <Check className="h-4 w-4 text-primary" aria-hidden="true" />
                                 )}
-                                <Store className="h-4 w-4" />
+                                <Store className="h-4 w-4" aria-hidden="true" />
                                 <span>{loc.name}</span>
                               </DropdownMenuItem>
                             ))
                           ) : (
                             <DropdownMenuItem disabled className="text-muted-foreground">
-                              No locations available
+                              {t('nav.topBar.noLocations')}
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -325,16 +260,17 @@ const TopBar = () => {
                     </div>
                   )}
 
-                  {/* User Menu Button - Enhanced with depth and visual appeal */}
+                  {/* User Menu Button */}
                   <Button
-                    variant="ghost"
-                    className="h-12 w-12 rounded-full p-0 bg-gradient-to-br from-card to-muted border-2 border-border shadow-lg hover:shadow-xl hover:border-primary/40 hover:from-primary/10 hover:to-card transition-all duration-300 hover:scale-105 active:scale-95"
-                    aria-label="Open navigation menu"
+                    variant="outline"
+                    className="h-11 w-11 rounded-md p-0"
+                    aria-label={t('auth.openNavMenu')}
+                    aria-expanded={isSideNavOpen}
                     onClick={toggleSideNav}
                   >
-                    <Avatar className="h-9 w-9 ring-2 ring-background shadow-sm">
-                      <AvatarImage src={userProfile?.avatar_url} alt="User" className="object-cover" />
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold text-sm shadow-inner">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={userProfile?.avatar_url} alt="" className="object-cover" />
+                      <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
@@ -348,14 +284,14 @@ const TopBar = () => {
                     onClick={() => navigate('/signin')}
                     className="text-sm font-medium text-muted-foreground hover:text-foreground"
                   >
-                    Sign In
+                    {t('auth.signIn.title')}
                   </Button>
                   <Button
                     size="sm"
                     className="font-medium"
                     onClick={() => navigate('/signup')}
                   >
-                    Get Started
+                    {t('auth.signUp.submitButton')}
                   </Button>
                 </div>
               )}
@@ -364,49 +300,57 @@ const TopBar = () => {
         </nav>
       </header>
 
-      {/* Side Navigation - Original functionality with clean styling */}
+      {/* Side Navigation */}
       {user && isSideNavOpen && (
         <>
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
+          <div
+            className="fixed inset-0 bg-black/60 z-[9998]"
             onClick={closeSideNav}
+            aria-hidden="true"
           />
-          
-          {/* Side Navigation Panel - Clean styling */}
-          <div className={cn(
-            "fixed top-0 right-0 h-full w-80 sm:w-96 bg-background shadow-2xl z-[9999] transform transition-transform duration-300 ease-out",
-            "animate-in slide-in-from-right"
-          )}>
+
+          {/* Side Navigation Panel */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('auth.openNavMenu')}
+            className="fixed top-0 right-0 h-full w-80 sm:w-96 bg-background border-l-2 border-border shadow-2xl z-[9999] animate-in slide-in-from-right duration-200"
+          >
             <div className="h-full flex flex-col">
 
-              {/* Header - Clean brand styling */}
+              {/* Header */}
               <div className="bg-primary px-6 py-4 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border-2 border-primary-foreground/30">
-                      <AvatarImage src={userProfile?.avatar_url} alt="User" />
-                      <AvatarFallback className="bg-primary/80 text-primary-foreground font-bold">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-10 w-10 border-2 border-primary-foreground/40">
+                      <AvatarImage src={userProfile?.avatar_url} alt="" />
+                      <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground font-bold">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-primary-foreground/90 text-sm truncate font-medium">
+                      <p className="text-primary-foreground text-sm truncate font-semibold">
                         {user.email}
                       </p>
-                      <p className="text-primary-foreground/70 text-xs truncate">
-                        {activeLocation?.name || "No location selected"}
+                      <p className="text-primary-foreground/75 text-xs truncate">
+                        {activeLocation?.name || t('nav.topBar.selectLocation')}
                       </p>
                     </div>
                   </div>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={closeSideNav}
-                    className="text-primary-foreground/90 hover:text-primary-foreground hover:bg-primary-foreground/20 p-2 rounded-xl transition-all duration-200"
+                    aria-label={t('common.close')}
+                    className="text-primary-foreground hover:bg-primary-foreground/15 shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-5 h-5" aria-hidden="true" />
                   </Button>
+                </div>
+                {/* Sync status repeated here — mobile users don't see the top-bar badge. */}
+                <div className="mt-3 md:hidden">
+                  <SyncStatusBadge className="bg-primary-foreground/15 text-primary-foreground [&_svg]:text-primary-foreground" />
                 </div>
               </div>
 
@@ -414,8 +358,8 @@ const TopBar = () => {
               <div className="flex-1 overflow-y-auto">
                 <div className="p-6 space-y-6">
                   {sideNavigationSections.map((section) => (
-                    <div key={section.title} className="space-y-3">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                    <div key={section.title} className="space-y-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
                         {section.title}
                       </h3>
                       <div className="space-y-1">
@@ -428,28 +372,27 @@ const TopBar = () => {
                               key={item.path}
                               to={item.path}
                               onClick={closeSideNav}
+                              aria-current={isActive ? 'page' : undefined}
                               className={cn(
-                                "flex items-center gap-4 px-4 py-3 rounded-xl font-medium transition-all duration-200 w-full",
+                                "flex items-center gap-3.5 px-3 py-2.5 rounded-md font-medium transition-colors w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                 isActive
-                                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                                  : "text-foreground hover:bg-primary/10 hover:text-primary"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-foreground hover:bg-muted"
                               )}
                             >
                               <div className={cn(
-                                "w-10 h-10 rounded-lg flex items-center justify-center",
-                                isActive
-                                  ? "bg-primary-foreground/20"
-                                  : "bg-muted"
+                                "w-9 h-9 rounded-md flex items-center justify-center shrink-0",
+                                isActive ? "bg-primary-foreground/20" : "bg-muted"
                               )}>
                                 <Icon className={cn(
-                                  "w-5 h-5",
+                                  "w-[1.125rem] h-[1.125rem]",
                                   isActive ? "text-primary-foreground" : "text-muted-foreground"
-                                )} />
+                                )} aria-hidden="true" />
                               </div>
                               <div className="flex flex-col min-w-0 flex-1">
-                                <span className="text-base font-semibold truncate">{item.name}</span>
+                                <span className="text-sm font-semibold truncate">{item.name}</span>
                                 <span className={cn(
-                                  "text-sm truncate",
+                                  "text-xs truncate",
                                   isActive ? "text-primary-foreground/80" : "text-muted-foreground"
                                 )}>{item.description}</span>
                               </div>
@@ -460,121 +403,118 @@ const TopBar = () => {
                     </div>
                   ))}
 
-                  {/* Organization Selector - Clean styling */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                      Organization
+                  {/* Organization Selector */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+                      {t('nav.sideBar.organization')}
                     </h3>
-                    <div className="space-y-1">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="w-full h-12 px-4 text-sm font-medium flex items-center gap-3 border border-border text-foreground bg-background hover:bg-muted hover:text-foreground hover:border-border transition-all duration-150 group rounded-xl"
-                          >
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <Building2 className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="flex flex-col items-start flex-1 min-w-0">
-                              <span className="text-base font-semibold truncate w-full text-left">
-                                {activeOrganization?.name || "Select Organization"}
-                              </span>
-                              <span className="text-xs text-muted-foreground truncate w-full text-left">
-                                Current organization
-                              </span>
-                            </div>
-                            <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors duration-150 flex-shrink-0" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-80 max-h-[60vh] overflow-y-auto" sideOffset={8}>
-                          <DropdownMenuLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Your Organizations
-                          </DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            {organizations?.length > 0 ? (
-                              organizations.map((organization) => (
-                                <DropdownMenuItem
-                                  key={organization.id}
-                                  onClick={() => switchOrganization(organization.id)}
-                                  className={cn(
-                                    "flex items-center gap-3 py-3",
-                                    activeOrganization?.id === organization.id ? "bg-primary/10 text-primary" : ""
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "w-10 h-10 rounded-lg flex items-center justify-center",
-                                    activeOrganization?.id === organization.id ? "bg-primary" : "bg-muted"
-                                  )}>
-                                    <Building2 className={cn(
-                                      "w-5 h-5",
-                                      activeOrganization?.id === organization.id ? "text-primary-foreground" : "text-muted-foreground"
-                                    )} />
-                                  </div>
-                                  <div className="flex flex-col flex-1">
-                                    <span className="font-medium truncate">{organization.name}</span>
-                                    <span className="text-xs text-muted-foreground truncate">Organization</span>
-                                  </div>
-                                  {activeOrganization?.id === organization.id && (
-                                    <Check className="w-4 h-4 text-primary" />
-                                  )}
-                                </DropdownMenuItem>
-                              ))
-                            ) : (
-                              <DropdownMenuItem disabled className="flex items-center gap-3 py-3 text-muted-foreground">
-                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                                  <Building2 className="w-5 h-5 text-muted-foreground" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full h-auto py-3 px-3 flex items-center gap-3 justify-start"
+                        >
+                          <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                            <Building2 className="w-[1.125rem] h-[1.125rem] text-primary" aria-hidden="true" />
+                          </div>
+                          <div className="flex flex-col items-start flex-1 min-w-0">
+                            <span className="text-sm font-semibold truncate w-full text-left">
+                              {activeOrganization?.name || t('nav.sideBar.organization')}
+                            </span>
+                            <span className="text-xs text-muted-foreground truncate w-full text-left">
+                              {t('nav.sideBar.currentOrganization')}
+                            </span>
+                          </div>
+                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-80 max-h-[60vh] overflow-y-auto" sideOffset={8}>
+                        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          {t('nav.sideBar.yourOrganizations')}
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                          {organizations?.length > 0 ? (
+                            organizations.map((organization) => (
+                              <DropdownMenuItem
+                                key={organization.id}
+                                onClick={() => switchOrganization(organization.id)}
+                                className={cn(
+                                  "flex items-center gap-3 py-3",
+                                  activeOrganization?.id === organization.id ? "bg-primary/10 text-primary" : ""
+                                )}
+                              >
+                                <div className={cn(
+                                  "w-9 h-9 rounded-md flex items-center justify-center shrink-0",
+                                  activeOrganization?.id === organization.id ? "bg-primary" : "bg-muted"
+                                )}>
+                                  <Building2 className={cn(
+                                    "w-[1.125rem] h-[1.125rem]",
+                                    activeOrganization?.id === organization.id ? "text-primary-foreground" : "text-muted-foreground"
+                                  )} aria-hidden="true" />
                                 </div>
-                                <div className="flex flex-col flex-1">
-                                  <span className="font-medium">No organizations</span>
-                                  <span className="text-xs text-muted-foreground">Create an organization to get started</span>
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <span className="font-medium truncate">{organization.name}</span>
                                 </div>
+                                {activeOrganization?.id === organization.id && (
+                                  <Check className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+                                )}
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                            ))
+                          ) : (
+                            <DropdownMenuItem disabled className="flex items-center gap-3 py-3 text-muted-foreground">
+                              <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                <Building2 className="w-[1.125rem] h-[1.125rem] text-muted-foreground" aria-hidden="true" />
+                              </div>
+                              <div className="flex flex-col flex-1">
+                                <span className="font-medium">{t('nav.sideBar.noOrganizations')}</span>
+                                <span className="text-xs text-muted-foreground">{t('nav.sideBar.noOrganizationsHint')}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </div>
 
               {/* Fixed Bottom — Staff login + Sign Out */}
-              <div className="flex-shrink-0 p-6 border-t border-border bg-muted/50 space-y-2">
+              <div className="flex-shrink-0 p-4 border-t-2 border-border bg-muted/40 space-y-1.5">
                 {/* Staff / employee PIN login — shared-terminal "switch user" */}
-                <Button
+                <button
+                  type="button"
                   onClick={() => {
                     closeSideNav();
                     navigate(staffLoginPath);
                   }}
-                  variant="ghost"
-                  className="w-full justify-start gap-4 py-4 px-4 text-primary hover:bg-primary/10 hover:text-primary rounded-xl font-medium"
+                  className="flex w-full items-center gap-3.5 rounded-md px-3 py-3 text-primary hover:bg-primary/10 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <LockKeyhole className="w-5 h-5 text-primary" />
+                  <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                    <LockKeyhole className="w-[1.125rem] h-[1.125rem] text-primary" aria-hidden="true" />
                   </div>
                   <div className="text-left min-w-0 flex-1">
-                    <div className="text-base font-medium truncate">Staff Login</div>
-                    <div className="text-sm text-primary/80 truncate">Switch employee / enter PIN</div>
+                    <div className="text-sm font-semibold truncate">{t('nav.sideBar.staffLogin')}</div>
+                    <div className="text-xs text-primary/75 truncate">{t('nav.sideBar.staffLoginHint')}</div>
                   </div>
-                </Button>
+                </button>
 
-                <Button
+                <button
+                  type="button"
                   onClick={() => {
                     handleSignOut();
                     closeSideNav();
                   }}
-                  variant="ghost"
-                  className="w-full justify-start gap-4 py-4 px-4 text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl font-medium"
+                  className="flex w-full items-center gap-3.5 rounded-md px-3 py-3 text-destructive hover:bg-destructive/10 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-                    <LogOut className="w-5 h-5 text-destructive" />
+                  <div className="w-9 h-9 rounded-md bg-destructive/10 flex items-center justify-center shrink-0">
+                    <LogOut className="w-[1.125rem] h-[1.125rem] text-destructive" aria-hidden="true" />
                   </div>
                   <div className="text-left min-w-0 flex-1">
-                    <div className="text-base font-medium truncate">Sign Out</div>
-                    <div className="text-sm text-destructive/80 truncate">End your session</div>
+                    <div className="text-sm font-semibold truncate">{t('auth.signOut')}</div>
+                    <div className="text-xs text-destructive/75 truncate">{t('auth.signOutHint')}</div>
                   </div>
-                </Button>
+                </button>
               </div>
             </div>
           </div>

@@ -7,7 +7,11 @@
       "reviews": "Avis",
       "selectLocation": "Choisir un lieu",
       "switchLocation": "Changer de lieu",
-      "noLocations": "Aucun lieu disponible"
+      "noLocations": "Aucun lieu disponible",
+      "homeDesc": "Accueil principal",
+      "posDesc": "Espace de travail caissier",
+      "kitchenDesc": "Mur de cuisine plein écran",
+      "reviewsDesc": "Avis des clients"
     },
     "sideBar": {
       "frontOfHouse": "Salle",
@@ -27,7 +31,22 @@
       "members": "Membres",
       "staff": "Personnel",
       "orgSettings": "Paramètres de l'organisation",
-      "account": "Compte"
+      "account": "Compte",
+      "posWorkspaceDesc": "Prendre les commandes et ouvrir la caisse",
+      "kitchenWorkspace": "Espace de travail cuisine",
+      "kitchenWorkspaceDesc": "Onglets PDV + Cuisine avec barre supérieure",
+      "kitchenDisplayDesc": "Affichage plein écran mural des tickets",
+      "reportsDesc": "Analyse des ventes",
+      "menuDesc": "Gestion du menu",
+      "categoriesDesc": "Gérer les catégories du menu",
+      "membersDesc": "Membres du programme de fidélité",
+      "staffDesc": "Gestion du personnel et des codes PIN",
+      "driverPortal": "Portail livreur",
+      "driverPortalDesc": "Livraisons actives et bascule en ligne",
+      "orgSettingsDesc": "Organisation, facturation, vitrine, système",
+      "accountDesc": "Votre compte personnel",
+      "staffLogin": "Connexion employé",
+      "staffLoginHint": "Changer d'employé / saisir le code PIN"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "Aucun résultat trouvé",
     "required": "Requis",
     "optional": "Facultatif",
-    "language": "Langue"
+    "language": "Langue",
+    "dismiss": "Ignorer",
+    "refresh": "Actualiser"
+  },
+  "sync": {
+    "offline": "Travail hors ligne",
+    "offlineDetail": "Aucune connexion — les modifications sont enregistrées sur cet appareil et seront envoyées dès que vous serez de nouveau en ligne.",
+    "queued_one": "{{count}} modification en file d'attente",
+    "queued_other": "{{count}} modifications en file d'attente",
+    "syncing": "Synchronisation…",
+    "synced": "Toutes les modifications enregistrées",
+    "error": "Certaines modifications n'ont pas pu être envoyées — nouvelle tentative en cours"
   }
 }

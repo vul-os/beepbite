@@ -3,21 +3,24 @@ import { cva } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-// Card variants. `default` preserves the original look so existing usages are
-// unaffected; the new variants add depth, hover lift, and the brand gradient.
+// Card variants. Corners are grounded (rounded-lg, not the bubble-SaaS
+// rounded-2xl this used to default to everywhere) and borders carry more of
+// the definition than shadow does — this reads as a counter/order-pad
+// surface under flat kitchen lighting, where a 4px soft drop shadow all but
+// disappears.
 const cardVariants = cva(
   "text-card-foreground",
   {
     variants: {
       variant: {
-        default: "rounded-xl border bg-card shadow-card",
-        elevated: "rounded-2xl border border-border/60 bg-card shadow-elevated",
+        default: "rounded-lg border-2 bg-card shadow-card",
+        elevated: "rounded-lg border-2 border-border bg-card shadow-elevated",
         interactive:
-          "rounded-2xl border border-border/70 bg-card shadow-card card-interactive hover:border-border",
+          "rounded-lg border-2 border-border bg-card shadow-card card-interactive hover:border-primary/50",
         feature:
-          "rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/50 shadow-card",
+          "rounded-lg border-2 border-border bg-gradient-to-br from-card to-muted/50 shadow-card",
         glass:
-          "rounded-2xl border border-white/40 bg-white/70 shadow-card backdrop-blur-xl",
+          "rounded-lg border-2 border-white/40 bg-white/70 shadow-card backdrop-blur-xl",
       },
     },
     defaultVariants: { variant: "default" },

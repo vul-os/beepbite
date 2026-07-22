@@ -15,7 +15,13 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
-import { COMPLEXITY_COLORS } from '@/lib/status-colors';
+
+// Recipe complexity maps 1:1 onto the three status tokens (simple = healthy,
+// moderate = needs a look, complex = the kitchen's biggest risk) — kept as a
+// local map (duplicated in menu/index.jsx / recipe-builder.jsx) rather than
+// pulling from the shared lib/status-colors.js, whose PO/invoice/reservation
+// tones still predate the Ticket Rail token system and are out of this pass's scope.
+const COMPLEXITY_BADGE_VARIANT = { simple: 'success', moderate: 'warning', complex: 'destructive' };
 
 const RecipeBreakdown = ({ activeLocation }) => {
   const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
@@ -161,7 +167,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
     }
   };
 
-  const getComplexityColor = (complexity) => COMPLEXITY_COLORS[complexity] || 'bg-muted text-muted-foreground';
+  const getComplexityBadgeVariant = (complexity) => COMPLEXITY_BADGE_VARIANT[complexity] || 'outline';
 
   const getLevelIndentation = (level) => {
     return `${level * 24}px`;
@@ -281,7 +287,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-3"></div>
               <span className="text-muted-foreground">Loading breakdown data...</span>
             </div>
           ) : filteredBreakdown.length === 0 ? (
@@ -321,29 +327,29 @@ const RecipeBreakdown = ({ activeLocation }) => {
                       </Button>
                       
                       <div className="flex items-center gap-2">
-                        <ChefHat className="h-5 w-5 text-blue-600" />
+                        <ChefHat className="h-5 w-5 text-primary" />
                         <span className="font-semibold text-foreground">{group.parentInfo.name}</span>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className={getComplexityColor(group.parentInfo.complexity)}>
+                        <Badge variant={getComplexityBadgeVariant(group.parentInfo.complexity)}>
                           {group.parentInfo.complexity}
                         </Badge>
-                        
+
                         <Badge variant="outline" className="text-xs">
                           <Layers className="h-3 w-3 mr-1" />
                           Level {group.parentInfo.maxLevel}
                         </Badge>
-                        
+
                         <Badge variant="outline" className="text-xs">
                           <Hash className="h-3 w-3 mr-1" />
                           {group.parentInfo.totalComponents} components
                         </Badge>
                       </div>
-                      
+
                       {showCosts && (
                         <div className="ml-auto">
-                          <span className="text-lg font-semibold text-foreground">
+                          <span className="text-lg font-semibold text-foreground tabular-nums">
                             {formatCurrency(totalCost)}
                           </span>
                           <span className="text-sm text-muted-foreground ml-2">total cost</span>
@@ -380,20 +386,20 @@ const RecipeBreakdown = ({ activeLocation }) => {
                             
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
-                                <span className="font-medium">{component.total_quantity}</span>
+                                <span className="font-medium tabular-nums">{component.total_quantity}</span>
                                 <span>{component.unit}</span>
                               </div>
-                              
+
                               {showCosts && (
                                 <>
                                   <div className="flex items-center gap-1">
                                     <Calculator className="h-3 w-3" />
-                                    <span>{formatCurrency(component.cost_contribution)}</span>
+                                    <span className="tabular-nums">{formatCurrency(component.cost_contribution)}</span>
                                   </div>
-                                  
+
                                   {component.cost_percentage > 0 && (
                                     <div className="flex items-center gap-1">
-                                      <span>{component.cost_percentage.toFixed(1)}%</span>
+                                      <span className="tabular-nums">{component.cost_percentage.toFixed(1)}%</span>
                                     </div>
                                   )}
                                 </>
@@ -417,7 +423,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-2xl font-bold text-foreground tabular-nums">
                   {filteredBreakdown.length}
                 </p>
                 <p className="text-sm text-muted-foreground">Recipes Analyzed</p>
@@ -428,7 +434,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-2xl font-bold text-foreground tabular-nums">
                   {filteredBreakdown.reduce((sum, [, group]) => sum + group.components.length, 0)}
                 </p>
                 <p className="text-sm text-muted-foreground">Total Components</p>
@@ -439,7 +445,7 @@ const RecipeBreakdown = ({ activeLocation }) => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-2xl font-bold text-foreground tabular-nums">
                   {Math.max(...filteredBreakdown.map(([, group]) => group.parentInfo.maxLevel))}
                 </p>
                 <p className="text-sm text-muted-foreground">Max Recipe Depth</p>

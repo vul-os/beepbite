@@ -49,7 +49,7 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <KeyRound className="w-4 h-4 text-orange-500" />
+            <KeyRound className="w-4 h-4 text-primary" />
             Reset password
           </DialogTitle>
           <DialogDescription>
@@ -59,9 +59,8 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
 
         {success ? (
           <div className="py-4 text-center space-y-3">
-            <p className="text-sm text-green-700 font-medium">Password updated successfully.</p>
+            <p className="text-sm text-success font-medium">Password updated successfully.</p>
             <Button
-              className="bg-orange-500 hover:bg-orange-600 text-white"
               onClick={() => { reset(); onOpenChange(false); }}
             >
               Done
@@ -95,7 +94,7 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
+              <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 {error}
               </p>
@@ -105,7 +104,7 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+                className="flex-1 border-primary/20 text-primary hover:bg-primary/10"
                 onClick={() => { reset(); onOpenChange(false); }}
                 disabled={saving}
               >
@@ -114,7 +113,7 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
               <Button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                className="flex-1"
               >
                 {saving ? 'Saving…' : 'Set password'}
               </Button>
@@ -161,7 +160,7 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Hash className="w-4 h-4 text-orange-500" />
+            <Hash className="w-4 h-4 text-primary" />
             Reset PIN
           </DialogTitle>
           <DialogDescription>
@@ -171,9 +170,8 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
 
         {success ? (
           <div className="py-4 text-center space-y-3">
-            <p className="text-sm text-green-700 font-medium">PIN updated successfully.</p>
+            <p className="text-sm text-success font-medium">PIN updated successfully.</p>
             <Button
-              className="bg-orange-500 hover:bg-orange-600 text-white"
               onClick={() => { reset(); onOpenChange(false); }}
             >
               Done
@@ -197,7 +195,7 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
+              <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 {error}
               </p>
@@ -207,7 +205,7 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1 border-orange-200 text-orange-700 hover:bg-orange-50"
+                className="flex-1 border-primary/20 text-primary hover:bg-primary/10"
                 onClick={() => { reset(); onOpenChange(false); }}
                 disabled={saving}
               >
@@ -216,7 +214,7 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
               <Button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                className="flex-1"
               >
                 {saving ? 'Saving…' : 'Set PIN'}
               </Button>
@@ -252,11 +250,11 @@ export function SecurityTab({ staff, resetPassword, resetPin }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Password card */}
-        <Card className="border-orange-100 hover:border-orange-200 transition-colors">
+        <Card className="border-primary/15 hover:border-primary/25 transition-colors">
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-md bg-orange-50 flex items-center justify-center">
-                <KeyRound className="w-4 h-4 text-orange-500" />
+              <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                <KeyRound className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">Password</p>
@@ -266,7 +264,7 @@ export function SecurityTab({ staff, resetPassword, resetPin }) {
             <Button
               variant="outline"
               size="sm"
-              className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+              className="w-full border-primary/20 text-primary hover:bg-primary/10"
               onClick={() => setPwOpen(true)}
             >
               Reset password
@@ -275,11 +273,11 @@ export function SecurityTab({ staff, resetPassword, resetPin }) {
         </Card>
 
         {/* PIN card */}
-        <Card className="border-orange-100 hover:border-orange-200 transition-colors">
+        <Card className="border-primary/15 hover:border-primary/25 transition-colors">
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-md bg-orange-50 flex items-center justify-center">
-                <Hash className="w-4 h-4 text-orange-500" />
+              <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                <Hash className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">PIN</p>
@@ -289,7 +287,7 @@ export function SecurityTab({ staff, resetPassword, resetPin }) {
             <Button
               variant="outline"
               size="sm"
-              className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+              className="w-full border-primary/20 text-primary hover:bg-primary/10"
               onClick={() => setPinOpen(true)}
             >
               Reset PIN

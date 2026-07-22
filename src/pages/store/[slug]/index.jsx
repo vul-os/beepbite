@@ -104,8 +104,8 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
             onClick={() => onChange('delivery')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
               value === 'delivery'
-                ? 'bg-orange-500 text-white shadow-sm'
-                : 'text-muted-foreground hover:text-orange-600'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-primary'
             }`}
           >
             <Truck className="h-3.5 w-3.5" />
@@ -116,8 +116,8 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
             onClick={() => onChange('collection')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
               value === 'collection'
-                ? 'bg-orange-500 text-white shadow-sm'
-                : 'text-muted-foreground hover:text-orange-600'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-primary'
             }`}
           >
             <Store className="h-3.5 w-3.5" />
@@ -131,12 +131,12 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
         <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           {value === 'delivery' ? (
             <>
-              <Truck className="h-3.5 w-3.5 text-orange-500" />
+              <Truck className="h-3.5 w-3.5 text-primary" />
               <span>Delivery only</span>
             </>
           ) : (
             <>
-              <Store className="h-3.5 w-3.5 text-orange-500" />
+              <Store className="h-3.5 w-3.5 text-primary" />
               <span>Collection only</span>
             </>
           )}
@@ -155,7 +155,7 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
             placeholder="Enter your delivery address"
             value={deliveryAddress}
             onChange={(e) => onAddressChange(e.target.value)}
-            className="h-9 text-sm focus-visible:ring-orange-400 bg-background"
+            className="h-9 text-sm focus-visible:ring-ring bg-background"
           />
         </div>
       )}
@@ -163,7 +163,7 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
       {/* Collection note */}
       {value === 'collection' && (
         <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-          <MapPin className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" aria-hidden="true" />
+          <MapPin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             Collect at{' '}
             <span className="font-medium text-foreground">
@@ -296,7 +296,7 @@ export default function StoreDetailPage() {
               size="sm"
               className={`relative gap-2 sm:hidden rounded-full px-4 transition-all ${
                 cartQty > 0
-                  ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200'
+                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20'
                   : 'bg-muted text-muted-foreground border border-border'
               }`}
               aria-label={`View cart${cartQty > 0 ? `, ${cartQty} items` : ''}`}
@@ -341,7 +341,7 @@ export default function StoreDetailPage() {
       ) : store ? (
         <>
           {/* Hero cover image */}
-          <div className="relative h-44 sm:h-64 bg-orange-100 overflow-hidden">
+          <div className="relative h-44 sm:h-64 bg-primary/10 overflow-hidden">
             {store.cover_image_url ? (
               <img
                 src={store.cover_image_url}
@@ -349,7 +349,7 @@ export default function StoreDetailPage() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-100">
+              <div className="w-full h-full flex items-center justify-center bg-primary/10">
                 <span className="text-7xl" role="img" aria-hidden="true">🍽️</span>
               </div>
             )}
@@ -361,11 +361,11 @@ export default function StoreDetailPage() {
               <span
                 className={`absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg ${
                   store.is_open
-                    ? 'bg-green-500 text-white'
+                    ? 'bg-success text-success-foreground'
                     : 'bg-black/70 text-white/80'
                 }`}
               >
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-white' : 'bg-gray-400'}`} />
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-success-foreground' : 'bg-muted-foreground'}`} />
                 {store.is_open ? 'Open now' : 'Closed'}
               </span>
             )}
@@ -382,11 +382,11 @@ export default function StoreDetailPage() {
                 />
               )}
               <div className="flex-1 min-w-0 pt-0.5">
-                <h1 className="text-xl sm:text-2xl font-extrabold leading-tight tracking-tight">{store.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-display leading-tight tracking-tight">{store.name}</h1>
                 {store.cuisine_type && (
                   <Badge
                     variant="secondary"
-                    className="text-xs mt-1 bg-orange-50 text-orange-700 border border-orange-200"
+                    className="text-xs mt-1 bg-primary/10 text-primary border border-primary/20"
                   >
                     {store.cuisine_type}
                   </Badge>
@@ -402,14 +402,14 @@ export default function StoreDetailPage() {
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
               {store.city && (
                 <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3 text-orange-500" aria-hidden="true" />
+                  <MapPin className="h-3 w-3 text-primary" aria-hidden="true" />
                   {store.city}
                 </span>
               )}
               {store.rating && (
                 <span className="flex items-center gap-1 font-medium">
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
-                  <span className="text-foreground">{Number(store.rating).toFixed(1)}</span>
+                  <Star className="h-3 w-3 fill-warning text-warning" aria-hidden="true" />
+                  <span className="text-foreground tabular-nums">{Number(store.rating).toFixed(1)}</span>
                   {store.review_count ? (
                     <span className="text-muted-foreground">({store.review_count} reviews)</span>
                   ) : null}
@@ -417,7 +417,7 @@ export default function StoreDetailPage() {
               )}
               {store.delivery_time_min && (
                 <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-orange-500" aria-hidden="true" />
+                  <Clock className="h-3 w-3 text-primary" aria-hidden="true" />
                   {store.delivery_time_min}–{store.delivery_time_max ?? store.delivery_time_min + 10} min
                 </span>
               )}

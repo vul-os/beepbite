@@ -388,11 +388,16 @@ export default function AdjustmentModal({
               >
                 Back
               </Button>
+              {/* Void and refund are irreversible money actions — the final
+                  authorise button must look and read differently from a
+                  routine comp/price-override, not share one generic
+                  "Confirm" regardless of what it does. */}
               <Button
+                variant={type === 'void' || type === 'refund' ? 'destructive' : 'default'}
                 onClick={handleSubmit}
                 disabled={step2Invalid || submitting}
               >
-                {submitting ? 'Submitting...' : 'Confirm'}
+                {submitting ? 'Submitting…' : `Authorise ${TYPE_LABELS[type] || 'adjustment'}`}
               </Button>
             </>
           )}

@@ -111,21 +111,21 @@ export default function SuppliersPage() {
       )}
 
       {!loading && error && (
-        <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded p-3">
+        <div className="flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
           <AlertCircle className="w-4 h-4" />
           <span>{error}</span>
         </div>
       )}
 
       {!loading && !error && filtered.length === 0 && (
-        <Card className="border-orange-100">
+        <Card>
           <CardContent className="p-10 text-center">
             <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">
               {search ? 'No suppliers match your search.' : 'No suppliers yet. Create the first one.'}
             </p>
             {!search && (
-              <Button onClick={openCreate} className="mt-4 bg-orange-500 hover:bg-orange-600 text-white">
+              <Button onClick={openCreate} className="mt-4">
                 <Plus className="w-4 h-4 mr-2" /> New Supplier
               </Button>
             )}
@@ -136,14 +136,14 @@ export default function SuppliersPage() {
       {!loading && !error && filtered.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((sup) => (
-            <Card key={sup.id} className="border-orange-100 hover:border-orange-300 transition-colors">
+            <Card key={sup.id} variant="interactive">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base font-semibold text-foreground">{sup.name}</CardTitle>
-                  <Badge
-                    variant="outline"
-                    className={sup.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-muted text-muted-foreground'}
-                  >
+                  {/* Active/inactive is a healthy-vs-dormant signal, not a
+                      warning or an error — success for active, a plain
+                      secondary chip once a supplier is retired. */}
+                  <Badge variant={sup.is_active ? 'success' : 'secondary'}>
                     {sup.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
@@ -154,12 +154,12 @@ export default function SuppliersPage() {
                   <p>Net {sup.payment_terms_days} days</p>
                 )}
                 {sup.website && (
-                  <a href={sup.website} target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline block truncate">
+                  <a href={sup.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline block truncate">
                     {sup.website}
                   </a>
                 )}
                 <div className="pt-2">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(sup)} className="border-orange-200 text-orange-700 hover:bg-orange-50">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(sup)} className="border-primary/25 text-primary hover:bg-primary/10">
                     <Edit className="w-3 h-3 mr-1" /> Edit
                   </Button>
                 </div>
@@ -178,7 +178,7 @@ export default function SuppliersPage() {
               {editTarget ? `Editing ${editTarget.name}` : 'Add a new supplier to your organisation.'}
             </DialogDescription>
           </DialogHeader>
-          {saveErr && <p className="text-sm text-red-600 -mt-2">{saveErr}</p>}
+          {saveErr && <p className="text-sm text-destructive -mt-2">{saveErr}</p>}
           <SupplierForm
             initial={editTarget}
             onSubmit={handleSubmit}

@@ -31,7 +31,7 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
       className={cn(
         'flex items-center justify-between gap-4 rounded-2xl border px-4 py-4 shadow-sm transition-colors',
         isDelivered
-          ? 'bg-green-50 border-green-200'
+          ? 'bg-success/10 border-success/25'
           : isCancelled
             ? 'bg-muted border-border'
             : 'bg-card border-border/60',
@@ -42,20 +42,20 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
           className={cn(
             'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
             isDelivered
-              ? 'bg-green-100'
+              ? 'bg-success/15'
               : isCancelled
                 ? 'bg-muted-foreground/10'
-                : 'bg-orange-100',
+                : 'bg-primary/10',
           )}
         >
           <Clock
             className={cn(
               'h-5 w-5',
               isDelivered
-                ? 'text-green-600'
+                ? 'text-success'
                 : isCancelled
                   ? 'text-muted-foreground'
-                  : 'text-orange-600',
+                  : 'text-primary',
             )}
             aria-hidden="true"
           />
@@ -63,25 +63,25 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
         <div>
           <p
             className={cn(
-              'text-base font-bold leading-tight',
-              isDelivered ? 'text-green-700' : 'text-foreground',
+              'text-base font-display leading-tight',
+              isDelivered ? 'text-success' : 'text-foreground',
             )}
           >
             {etaLabel}
           </p>
           {updatedLabel && (
-            <p className="text-xs text-muted-foreground mt-0.5">{updatedLabel}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">{updatedLabel}</p>
           )}
         </div>
       </div>
 
       {isLive && (
-        <div className="flex items-center gap-1.5 shrink-0 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
+        <div className="flex items-center gap-1.5 shrink-0 bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
           </span>
-          <span className="text-xs font-semibold text-orange-600">Live</span>
+          <span className="text-xs font-semibold text-primary">Live</span>
         </div>
       )}
 
@@ -89,7 +89,7 @@ export default function EtaCard({ etaMinutes, status, lastUpdated }) {
         <RefreshCw
           className={cn(
             'h-4 w-4 shrink-0',
-            isDelivered ? 'text-green-500' : 'text-muted-foreground',
+            isDelivered ? 'text-success' : 'text-muted-foreground',
           )}
           aria-hidden="true"
         />

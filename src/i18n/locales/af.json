@@ -7,7 +7,11 @@
       "reviews": "Resensies",
       "selectLocation": "Kies Ligging",
       "switchLocation": "Wissel Ligging",
-      "noLocations": "Geen liggings beskikbaar nie"
+      "noLocations": "Geen liggings beskikbaar nie",
+      "homeDesc": "Hoofblad",
+      "posDesc": "Kassierswerkspasie",
+      "kitchenDesc": "Volskerm-kombuismuur",
+      "reviewsDesc": "Kliëntterugvoer"
     },
     "sideBar": {
       "frontOfHouse": "Voorkant van Huis",
@@ -27,7 +31,22 @@
       "members": "Lede",
       "staff": "Personeel",
       "orgSettings": "Organisasie-instellings",
-      "account": "Rekening"
+      "account": "Rekening",
+      "posWorkspaceDesc": "Neem bestellings & open die kasregister",
+      "kitchenWorkspace": "Kombuiswerkspasie",
+      "kitchenWorkspaceDesc": "POS + kombuis-oortjies met boonste balk",
+      "kitchenDisplayDesc": "Muurmontering volskerm-kaartjiesaansig",
+      "reportsDesc": "Verkoopsanalise",
+      "menuDesc": "Spyskaartbestuur",
+      "categoriesDesc": "Bestuur spyskaartkategorieë",
+      "membersDesc": "Lojaliteitsprogramlede",
+      "staffDesc": "Personeelbestuur & PIN's",
+      "driverPortal": "Bestuurderportaal",
+      "driverPortalDesc": "Aktiewe aflewerings & aanlyn-wisselaar",
+      "orgSettingsDesc": "Organisasie, fakturering, winkelfront, stelsel",
+      "accountDesc": "Jou persoonlike rekening",
+      "staffLogin": "Personeel-aanmelding",
+      "staffLoginHint": "Wissel werknemer / voer PIN in"
     }
   },
   "auth": {
@@ -82,6 +101,17 @@
     "noResults": "Geen resultate gevind nie",
     "required": "Verplig",
     "optional": "Opsioneel",
-    "language": "Taal"
+    "language": "Taal",
+    "dismiss": "Maak toe",
+    "refresh": "Verfris"
+  },
+  "sync": {
+    "offline": "Werk vanlyn",
+    "offlineDetail": "Geen verbinding nie — veranderinge word op hierdie toestel gestoor en sal stuur sodra jy weer aanlyn is.",
+    "queued_one": "{{count}} verandering in wagtou",
+    "queued_other": "{{count}} veranderinge in wagtou",
+    "syncing": "Sinkroniseer…",
+    "synced": "Alle veranderinge gestoor",
+    "error": "Sommige veranderinge kon nie gestuur word nie — probeer steeds weer"
   }
 }

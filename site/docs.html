@@ -5,125 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BeepBite docs</title>
 <meta name="description" content="BeepBite documentation — setup, user guide, features, API, development, troubleshooting, roadmap.">
+<meta name="color-scheme" content="dark light">
 <link rel="icon" href="./assets/brand/favicon.svg">
-<style>*,*::before,*::after{box-sizing:border-box}
-:root{
-  --bg:#0A0A0B; --bg-soft:#0F0F11; --panel:#141416; --panel-2:#1A1A1D;
-  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.13);
-  --text:#FAFAFA; --muted:#A1A1AA; --faint:#71717A; --body:#D4D4D8;
-  --code-bg:#0C0C0E; --code-text:#D4D4D8; --chip:rgba(255,255,255,.07);
-  --radius:16px; --max:1120px;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono","Geist Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
-}
-@media(prefers-color-scheme:light){
-  :root{
-    --bg:#FBFAF9; --bg-soft:#F4F2F0; --panel:#FFFFFF; --panel-2:#F7F5F3;
-    --border:rgba(24,20,16,.10); --border-2:rgba(24,20,16,.16);
-    --text:#18140F; --muted:#5C574F; --faint:#8A847A; --body:#2C2822;
-    --code-bg:#17151A; --code-text:#E4E4E7; --chip:rgba(24,20,16,.06);
-  }
-}
-html{scroll-behavior:smooth}
-body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;font-size:16px}
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:
-  radial-gradient(1100px 600px at 82% -10%, color-mix(in srgb,var(--accent) 10%, transparent), transparent 60%),
-  radial-gradient(900px 500px at -10% 8%, color-mix(in srgb,var(--accent-2) 8%, transparent), transparent 55%),
-  var(--bg);}
-a{color:inherit;text-decoration:none}
-img{max-width:100%;display:block}
-.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
-
-/* Header */
-.site-header{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 74%, transparent);border-bottom:1px solid var(--border)}
-.nav{display:flex;align-items:center;gap:18px;height:64px}
-.brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;letter-spacing:-.03em}
-.brand .tile{width:34px;height:34px;border-radius:9px;overflow:hidden;flex:none;box-shadow:0 1px 0 rgba(255,255,255,.10) inset, 0 4px 14px rgba(0,0,0,.28)}
-.brand .tile img{width:100%;height:100%;object-fit:contain}
-.brand .bite{color:var(--accent)}
-.nav-spacer{flex:1}
-.nav-links{display:flex;align-items:center;gap:22px}
-.nav-links a{color:var(--muted);font-size:14.5px;font-weight:500;transition:color .15s}
-.nav-links a:hover{color:var(--text)}
-.vulos-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--border-2);border-radius:999px;font-size:13px;color:var(--muted);transition:border-color .15s,color .15s}
-.vulos-badge:hover{border-color:var(--accent);color:var(--text)}
-.vulos-badge img{width:16px;height:16px;border-radius:4px}
-@media(max-width:820px){.nav-links{display:none}}
-
-/* Footer */
-.site-footer{border-top:1px solid var(--border);margin-top:40px;padding:40px 0}
-.foot{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between}
-.foot .left{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
-.foot .left img{width:20px;height:20px;border-radius:5px}
-.foot .links{display:flex;gap:20px;flex-wrap:wrap}
-.foot .links a{color:var(--muted);font-size:14px}
-.foot .links a:hover{color:var(--text)}
-.foot-note{color:var(--faint);font-size:13px;margin-top:22px;max-width:760px}
-.foot-note code{font-family:var(--mono);font-size:.9em}
-
-/* Status strip */
-.docs-status{border:1px solid color-mix(in srgb,var(--warn) 42%, transparent);background:color-mix(in srgb,var(--warn) 11%, transparent);border-radius:12px;padding:13px 16px;margin:22px 0 0;font-size:14px;color:var(--muted)}
-.docs-status b{color:var(--text)}
-.docs-status b::before{content:"⚠ ";color:var(--warn)}
-
-/* Docs viewer */
-.docs-shell{display:grid;grid-template-columns:250px 1fr;gap:36px;align-items:start;padding:26px 0 70px}
-@media(max-width:900px){.docs-shell{grid-template-columns:1fr}}
-.docs-nav{position:sticky;top:84px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);padding:14px}
-.docs-nav .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:6px 10px}
-.docs-nav .label+.label{margin-top:8px;border-top:1px solid var(--border);padding-top:12px}
-.docs-nav a{display:block;padding:8px 11px;border-radius:9px;color:var(--muted);font-size:14.5px;font-weight:500;transition:.15s}
-.docs-nav a:hover{background:var(--chip);color:var(--text)}
-.docs-nav a.active{background:color-mix(in srgb,var(--accent) 15%, transparent);color:var(--text)}
-@media(max-width:900px){.docs-nav{position:static}}
-.docs-main{min-width:0}
-.markdown{font-size:16px}
-.markdown>*:first-child{margin-top:0}
-.markdown h1{font-size:34px;letter-spacing:-.03em;margin:.2em 0 .5em;border-bottom:1px solid var(--border);padding-bottom:.3em}
-.markdown h2{font-size:25px;letter-spacing:-.02em;margin:1.6em 0 .6em;border-bottom:1px solid var(--border);padding-bottom:.25em}
-.markdown h3{font-size:19px;margin:1.4em 0 .5em}
-.markdown h4{font-size:16px;margin:1.3em 0 .4em;color:var(--text)}
-.markdown p,.markdown li{color:var(--body)}
-.markdown a{color:var(--accent);text-decoration:none}
-.markdown a:hover{text-decoration:underline}
-.markdown code{font-family:var(--mono);font-size:.88em;background:var(--chip);padding:2px 6px;border-radius:6px}
-.markdown pre{background:var(--code-bg);border:1px solid var(--border-2);border-radius:12px;padding:16px 18px;overflow:auto}
-.markdown pre code{background:none;padding:0;font-size:13.5px;line-height:1.7;color:var(--code-text)}
-.markdown blockquote{margin:1em 0;padding:.4em 1em;border-left:3px solid var(--accent);background:var(--chip);color:var(--muted);border-radius:0 8px 8px 0}
-.markdown blockquote p{color:var(--muted)}
-/* GitHub-style alerts: > [!WARNING] etc. */
-.markdown blockquote.callout{border-left-width:4px;padding:.8em 1.1em;border-radius:0 10px 10px 0}
-.markdown blockquote.callout .callout-label{display:block;font-weight:700;font-size:12px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:.35em}
-.markdown blockquote.callout p{color:var(--body)}
-.markdown blockquote.cw{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%, transparent)}
-.markdown blockquote.cw .callout-label{color:var(--warn)}
-.markdown blockquote.cc{border-left-color:#DC2626;background:color-mix(in srgb,#DC2626 9%, transparent)}
-.markdown blockquote.cc .callout-label{color:#DC2626}
-.markdown blockquote.ci{border-left-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%, transparent)}
-.markdown blockquote.ci .callout-label{color:var(--accent)}
-.markdown blockquote.cn{border-left-color:#3B82F6;background:color-mix(in srgb,#3B82F6 9%, transparent)}
-.markdown blockquote.cn .callout-label{color:#3B82F6}
-.markdown blockquote.ct{border-left-color:#14B8A6;background:color-mix(in srgb,#14B8A6 9%, transparent)}
-.markdown blockquote.ct .callout-label{color:#14B8A6}
-.markdown table{border-collapse:collapse;width:100%;margin:1.2em 0;font-size:14.5px;display:block;overflow:auto}
-.markdown th,.markdown td{border:1px solid var(--border-2);padding:9px 12px;text-align:left}
-.markdown th{background:var(--panel);font-weight:600}
-.markdown img{border-radius:10px;margin:1em 0;border:1px solid var(--border)}
-.markdown hr{border:none;border-top:1px solid var(--border);margin:2em 0}
-.markdown .mermaid{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin:1.2em 0;text-align:center;overflow:auto}
-.docs-title{font-size:13px;color:var(--faint);margin-bottom:6px}
-.docs-error{color:#DC2626;background:color-mix(in srgb,#DC2626 8%, transparent);border:1px solid color-mix(in srgb,#DC2626 25%, transparent);padding:14px 16px;border-radius:10px}
-.docs-error code{font-family:var(--mono)}
-</style>
-<style>:root{--accent:#FF6B35;--accent-2:#E8541A;--warn:#F5A524}</style>
-<script src="./assets/vendor/marked.umd.js"></script>
-<script src="./assets/vendor/mermaid.min.js"></script>
+<link rel="stylesheet" href="./assets/site.css">
+<script src="./assets/vendor/marked.umd.js" defer></script>
+<script src="./assets/vendor/mermaid.min.js" defer></script>
 </head>
 <body>
+<a class="skip-link" href="#content">Skip to content</a>
 <header class="site-header"><div class="wrap nav">
-    <a class="brand" href="./index.html"><span class="tile"><img src="./assets/brand/logo-mark.svg" alt="BeepBite mark"></span>Beep<span class="bite">Bite</span></a>
+    <a class="brand" href="./index.html"><span class="tile"><img src="./assets/brand/logo-mark.svg" alt="" width="34" height="34"></span>Beep<span class="bite">Bite</span></a>
     <div class="nav-spacer"></div>
-    <nav class="nav-links">
+    <nav class="nav-links" aria-label="Primary">
       <a href="./index.html#problem">The problem</a>
       <a href="./index.html#features">Features</a>
       <a href="./index.html#how">How it works</a>
@@ -131,14 +24,14 @@ img{max-width:100%;display:block}
       <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
     </nav>
     <a class="vulos-badge" href="https://vulos.org" target="_blank" rel="noopener" title="Part of VulOS">
-      <img src="./assets/vulos-logo.png" alt="VulOS">Part of VulOS
+      <img src="./assets/vulos-logo.png" alt="">Part of VulOS
     </a>
   </div></header>
 <div class="wrap">
-  <div class="docs-status"><b>BeepBite is pre-1.0 and under active rebuild.</b> POS, kitchen, inventory and WhatsApp ordering are substantially built and tested; other ordering channels and the single-binary target are not. Each chapter is accurate as of the repository it was copied from — see <a href="#features">Features</a> and <a href="#roadmap">Roadmap</a> for the honest state of each surface.</div>
+  <div class="docs-status"><b>Pre-1.0 &middot; active rebuild</b> POS, kitchen, inventory and WhatsApp ordering are substantially built and tested; other ordering channels and the single-binary target are not. Each chapter is accurate as of the repository it was copied from — see <a href="#features">Features</a> and <a href="#roadmap">Roadmap</a> for the honest state of each surface.</div>
 </div>
 <div class="wrap docs-shell">
-  <aside class="docs-nav">
+  <nav class="docs-nav" aria-label="Chapters">
     <div class="label">BeepBite docs</div>
         <a data-slug="setup" href="#setup">Setup</a>
         <a data-slug="user-guide" href="#user-guide">User guide</a>
@@ -146,24 +39,28 @@ img{max-width:100%;display:block}
         <a data-slug="api" href="#api">API</a>
         <a data-slug="development" href="#development">Development</a>
         <a data-slug="troubleshooting" href="#troubleshooting">Troubleshooting</a>
+        <a data-slug="security" href="#security">Security</a>
+        <a data-slug="sub-processors" href="#sub-processors">Sub-processors</a>
+        <a data-slug="screenshots" href="#screenshots">Screenshots</a>
     <div class="label">Project</div>
         <a data-slug="roadmap" href="#roadmap">Roadmap</a>
         <a data-slug="changelog" href="#changelog">Changelog</a>
-  </aside>
+  </nav>
   <main class="docs-main">
     <div class="docs-title" id="crumb"></div>
-    <article class="markdown" id="content">Loading…</article>
+    <article class="markdown" id="content"><p class="docs-loading">Loading…</p></article>
   </main>
+  <aside class="docs-toc" id="toc" aria-label="On this page"></aside>
 </div>
 <footer class="site-footer"><div class="wrap">
     <div class="foot">
-      <div class="left"><img src="./assets/vulos-logo.png" alt="VulOS"> <span>Part of <a href="https://vulos.org" target="_blank" rel="noopener" style="color:var(--text)">VulOS</a> — open, self-hostable apps. Standalone by design.</span></div>
-      <div class="links">
+      <div class="left"><img src="./assets/vulos-logo.png" alt=""> <span>Part of <a href="https://vulos.org" target="_blank" rel="noopener">VulOS</a> — open, self-hostable apps. Standalone by design.</span></div>
+      <nav class="links" aria-label="Footer">
         <a href="./index.html">Home</a>
         <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
         <a href="./LICENSE.txt">License</a>
         <a href="https://vulos.org" target="_blank" rel="noopener">vulos.org</a>
-      </div>
+      </nav>
     </div>
     <p class="foot-note">These pages are copied from the repository's own <code>docs/</code> by <code>npm run docs:sync</code> — never by hand — so what you read here cannot drift from what is in the repo. <code>marked</code> and <code>mermaid</code> are vendored; this page fetches nothing from any third party.</p>
   </div></footer>
@@ -177,6 +74,9 @@ const DOCS = [
   {"slug":"api","title":"API","path":"./docs/api.md"},
   {"slug":"development","title":"Development","path":"./docs/development.md"},
   {"slug":"troubleshooting","title":"Troubleshooting","path":"./docs/troubleshooting.md"},
+  {"slug":"security","title":"Security","path":"./docs/security.md"},
+  {"slug":"sub-processors","title":"Sub-processors","path":"./docs/sub-processors.md"},
+  {"slug":"screenshots","title":"Screenshots","path":"./docs/screenshots.md"},
   {"slug":"roadmap","title":"Roadmap","path":"./docs/roadmap.md"},
   {"slug":"changelog","title":"Changelog","path":"./docs/changelog.md"}
 ];
@@ -193,17 +93,61 @@ const OFFSITE = {
 };
 const content = document.getElementById('content');
 const crumb = document.getElementById('crumb');
+const tocEl = document.getElementById('toc');
+let currentSlug = null;
 let mermaidReady = false;
-try {
-  const dark = !window.matchMedia || !window.matchMedia('(prefers-color-scheme: light)').matches;
-  mermaid.initialize({ startOnLoad:false, theme: dark ? 'dark' : 'default', securityLevel:'loose', themeVariables:{ fontFamily:'var(--sans)' } });
-  mermaidReady = true;
-} catch(e){}
+const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
 
-if (window.marked && marked.setOptions) marked.setOptions({ gfm:true, breaks:false });
+function isDark(){ return !window.matchMedia || !window.matchMedia('(prefers-color-scheme: light)').matches; }
+function mermaidVars(dark){
+  return dark ? {
+    background:'#1b170f', primaryColor:'#221c12', primaryTextColor:'#f5efe0', primaryBorderColor:'#ff7a45',
+    lineColor:'#8c8168', secondaryColor:'#12100c', tertiaryColor:'#221c12',
+    textColor:'#f5efe0', mainBkg:'#221c12', nodeBorder:'#ff7a45', clusterBkg:'#1b170f', clusterBorder:'rgba(245,239,224,.22)',
+    edgeLabelBackground:'#1b170f', fontFamily: MONO
+  } : {
+    background:'#fffdf6', primaryColor:'#faf3e3', primaryTextColor:'#241c12', primaryBorderColor:'#ad4310',
+    lineColor:'#948566', secondaryColor:'#f2ead8', tertiaryColor:'#faf3e3',
+    textColor:'#241c12', mainBkg:'#faf3e3', nodeBorder:'#ad4310', clusterBkg:'#fffdf6', clusterBorder:'rgba(36,28,18,.26)',
+    edgeLabelBackground:'#fffdf6', fontFamily: MONO
+  };
+}
+function initMermaid(){
+  try {
+    window.mermaid.initialize({ startOnLoad:false, theme:'base', securityLevel:'loose', themeVariables: mermaidVars(isDark()) });
+    mermaidReady = true;
+  } catch(e){}
+}
+if (window.mermaid) initMermaid(); else window.addEventListener('load', initMermaid);
+if (window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', async function(){
+    if (!mermaidReady) return;
+    try {
+      window.mermaid.initialize({ startOnLoad:false, theme:'base', securityLevel:'loose', themeVariables: mermaidVars(isDark()) });
+      const nodes = content.querySelectorAll('.mermaid');
+      nodes.forEach(n=>{
+        if (n.dataset.src) { n.removeAttribute('data-processed'); n.textContent = n.dataset.src; }
+      });
+      if (nodes.length) await window.mermaid.run({ nodes });
+    } catch(e){}
+  });
+}
+
+function whenMarked(cb){
+  if (window.marked && marked.setOptions) { marked.setOptions({ gfm:true, breaks:false }); cb(); }
+  else setTimeout(()=>whenMarked(cb), 20);
+}
 
 function setActive(slug){
   document.querySelectorAll('.docs-nav a').forEach(a=>a.classList.toggle('active', a.dataset.slug===slug));
+}
+
+const slugCounts = {};
+function slugify(text){
+  let s = text.toLowerCase().trim().replace(/[^\w\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-');
+  if (!s) s = 'section';
+  if (slugCounts[s] != null) { slugCounts[s]++; s = s + '-' + slugCounts[s]; } else { slugCounts[s] = 0; }
+  return s;
 }
 
 // GitHub alert blockquotes (`> [!WARNING]`) are plain text to marked. These
@@ -227,29 +171,97 @@ function renderCallouts(){
   });
 }
 
+// Wrap tables so a wide table scrolls inside its own box rather than the page.
+function wrapTables(){
+  content.querySelectorAll('table').forEach(t=>{
+    if (t.parentElement.classList.contains('table-wrap')) return;
+    const div = document.createElement('div');
+    div.className = 'table-wrap';
+    t.parentNode.insertBefore(div, t);
+    div.appendChild(t);
+  });
+}
+
+// Give every h2/h3 a stable id and a clickable "¶" permalink, and build the
+// right-hand "on this page" table of contents from them.
+function buildToc(){
+  Object.keys(slugCounts).forEach(k=>delete slugCounts[k]);
+  const heads = [...content.querySelectorAll('h2, h3')];
+  if (!heads.length) { tocEl.innerHTML = ''; return; }
+  const ol = document.createElement('ol');
+  heads.forEach(h=>{
+    const id = slugify(h.textContent);
+    h.id = id;
+    const anchor = document.createElement('a');
+    anchor.href = '#' + currentSlug + '~' + id;
+    anchor.className = 'heading-anchor';
+    anchor.setAttribute('aria-label', 'Link to this section');
+    anchor.textContent = '#';
+    h.appendChild(anchor);
+    const li = document.createElement('li');
+    if (h.tagName === 'H3') li.className = 'lvl3';
+    const a = document.createElement('a');
+    a.href = '#' + currentSlug + '~' + id;
+    a.textContent = h.textContent.replace(/#$/, '').trim();
+    a.dataset.target = id;
+    li.appendChild(a);
+    ol.appendChild(li);
+  });
+  tocEl.innerHTML = '';
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = 'On this page';
+  tocEl.appendChild(label);
+  tocEl.appendChild(ol);
+}
+
+let tocObserver = null;
+function watchToc(){
+  if (tocObserver) tocObserver.disconnect();
+  const heads = [...content.querySelectorAll('h2, h3')];
+  if (!heads.length) return;
+  tocObserver = new IntersectionObserver((entries)=>{
+    entries.forEach(en=>{
+      if (!en.isIntersecting) return;
+      const id = en.target.id;
+      tocEl.querySelectorAll('a').forEach(a=>a.classList.toggle('active', a.dataset.target===id));
+    });
+  }, { rootMargin: '-84px 0px -70% 0px' });
+  heads.forEach(h=>tocObserver.observe(h));
+}
+
 async function renderMermaid(){
-  if(!mermaidReady) return;
   const blocks = [...content.querySelectorAll('code.language-mermaid')];
   blocks.forEach(code=>{
     const div = document.createElement('div');
     div.className='mermaid';
     div.textContent = code.textContent;
+    div.dataset.src = code.textContent;
     code.closest('pre').replaceWith(div);
   });
+  if (!mermaidReady) return;
   const nodes = content.querySelectorAll('.mermaid');
   if(nodes.length){ try { await mermaid.run({ nodes }); } catch(e){ console.warn('mermaid', e); } }
 }
 
-async function load(slug){
+function scrollToHeading(id){
+  if (!id) { window.scrollTo({top:0}); return; }
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ block:'start' });
+}
+
+async function load(slug, headingId){
   const doc = bySlug[slug] || DOCS[0];
   setActive(doc.slug);
   crumb.textContent = doc.title;
-  content.innerHTML = 'Loading…';
+  content.innerHTML = '<p class="docs-loading">Loading…</p>';
+  tocEl.innerHTML = '';
   try {
     const res = await fetch(doc.path, {cache:'no-cache'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const md = await res.text();
     content.innerHTML = marked.parse(md);
+    currentSlug = doc.slug;
 
     // Image paths: chapters reference screenshots relative to docs/, but the
     // site serves them from ./screenshots/.
@@ -260,6 +272,7 @@ async function load(slug){
       if(m) img.setAttribute('src','./screenshots/'+m[1]);
       const a=s.match(/(?:\.\.\/)*(?:docs\/)?assets\/(.+)$/);
       if(a) img.setAttribute('src','./assets/'+a[1]);
+      if (!img.hasAttribute('loading')) img.setAttribute('loading','lazy');
     });
 
     // Cross-doc links (setup.md, ../ROADMAP.md#next, docs/troubleshooting.md)
@@ -281,17 +294,31 @@ async function load(slug){
 
     content.querySelectorAll('a[href^="http"]').forEach(a=>{a.target='_blank';a.rel='noopener';});
     renderCallouts();
+    wrapTables();
     await renderMermaid();
-    window.scrollTo({top:0});
+    buildToc();
+    scrollToHeading(headingId);
+    watchToc();
   } catch(err){
     content.innerHTML = '<div class="docs-error">Could not load <code>'+doc.path.split('/').pop()+'</code> — '+err.message+
       '. If you are viewing this from the filesystem, serve the <code>site/</code> directory over HTTP instead; and make sure <code>npm run docs:sync</code> has been run.</div>';
+    tocEl.innerHTML = '';
   }
 }
 
-function current(){ return (location.hash||'').replace('#','') || DOCS[0].slug; }
-window.addEventListener('hashchange', ()=>load(current()));
-load(current());
+function parseHash(){
+  const raw = (location.hash||'').replace('#','');
+  const [slug, heading] = raw.split('~');
+  return { slug: slug || DOCS[0].slug, heading: heading || null };
+}
+
+window.addEventListener('hashchange', ()=>{
+  const { slug, heading } = parseHash();
+  if (slug === currentSlug) { scrollToHeading(heading); return; }
+  whenMarked(()=>load(slug, heading));
+});
+
+whenMarked(()=>{ const { slug, heading } = parseHash(); load(slug, heading); });
 </script>
 </body>
 </html>

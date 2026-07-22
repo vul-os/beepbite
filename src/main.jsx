@@ -1,6 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/inter'; // self-hosted Inter (300-900) — no Google Fonts network call
+// Self-hosted variable fonts — no Google Fonts network call, works offline.
+// Archivo carries both the weight (100-900) AND width (62%-125%) axes in one
+// file, so the same download serves normal-width body copy and the
+// condensed/black display type used for KDS tickets, order numbers and
+// station headers — one family, two very different jobs.
+import '@fontsource-variable/archivo/wdth.css';
+// JetBrains Mono — order numbers, timers, prices, receipt lines. Tabular
+// figures by default so columns of money and countdown clocks line up.
+import '@fontsource-variable/jetbrains-mono';
 import './index.css';
 import './i18n'; // initialise i18next — must precede render (Wave 30)
 import App from './App.jsx';

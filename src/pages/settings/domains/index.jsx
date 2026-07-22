@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import {
   Card,
   CardContent,
@@ -80,21 +81,22 @@ const STATUS_LABEL = {
   failed:       'Failed',
 };
 
+// Semantic per-status signal instead of one hue ("default" orange) for every
+// non-terminal state: pending/verifying are neutral (nothing to act on yet),
+// verified/live are the "this is good" success signal, cert_issuing is a
+// transient in-progress caution, failed is the genuinely destructive one.
 const STATUS_VARIANT = {
   pending:      'secondary',
   verifying:    'secondary',
-  verified:     'default',
-  cert_issuing: 'default',
-  live:         'default',   // styled green via className
+  verified:     'success',
+  cert_issuing: 'warning',
+  live:         'success',
   failed:       'destructive',
 };
 
 function StatusBadge({ status }) {
   return (
-    <Badge
-      variant={STATUS_VARIANT[status] ?? 'secondary'}
-      className={cn(status === 'live' && 'bg-green-600 text-white')}
-    >
+    <Badge variant={STATUS_VARIANT[status] ?? 'secondary'}>
       {STATUS_LABEL[status] ?? status}
     </Badge>
   );
@@ -124,7 +126,7 @@ function CopyButton({ value }) {
       className="ml-2 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
       title="Copy to clipboard"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
 }
@@ -248,7 +250,7 @@ function DomainRow({ domain, onVerify, onRemove, verifying }) {
       {expanded && needsDns && <DnsInstructions domain={domain} />}
 
       {domain.status === 'live' && (
-        <div className="flex items-center gap-1.5 text-xs text-green-700">
+        <div className="flex items-center gap-1.5 text-xs text-success">
           <CheckCircle2 className="h-3.5 w-3.5" />
           <span>
             Active — visitors to{' '}
@@ -258,7 +260,7 @@ function DomainRow({ domain, onVerify, onRemove, verifying }) {
       )}
 
       {domain.status === 'cert_issuing' && (
-        <div className="flex items-center gap-1.5 text-xs text-amber-700">
+        <div className="flex items-center gap-1.5 text-xs text-warning">
           <Clock className="h-3.5 w-3.5" />
           <span>SSL certificate is being issued — this may take a few minutes.</span>
         </div>
@@ -386,36 +388,39 @@ export default function DomainsSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6 max-w-3xl">
+    <PageContainer className="max-w-3xl">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Custom Domains</h1>
-          <p className="text-muted-foreground text-sm mt-1">
+      <PageHeader
+        eyebrow="Settings"
+        title="Custom Domains"
+        icon={Globe}
+        description={
+          <>
             Connect your own hostname (e.g.{' '}
             <code className="font-mono text-xs bg-muted px-1 rounded">
               order.mybakery.com
             </code>
             ) to <strong>{activeLocation.name}</strong>.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={load}
-            disabled={loading}
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5 mr-1', loading && 'animate-spin')} />
-            Refresh
-          </Button>
-          <Button size="sm" onClick={() => { setAddError(null); setHostname(''); setAddOpen(true); }}>
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Add domain
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={load}
+              disabled={loading}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5 mr-1', loading && 'animate-spin')} />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => { setAddError(null); setHostname(''); setAddOpen(true); }}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add domain
+            </Button>
+          </>
+        }
+      />
 
       {/* Verify error banner */}
       {verifyError && (
@@ -564,14 +569,14 @@ export default function DomainsSettingsPage() {
             <AlertDialogAction
               onClick={handleConfirmRemove}
               disabled={removing}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               {removing && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-              Remove
+              Remove domain
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

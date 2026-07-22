@@ -144,8 +144,8 @@ const UpdatePasswordPage = () => {
                       { label: '1 uppercase letter', met: pwChecks.upper },
                       { label: '1 number', met: pwChecks.number },
                     ].map(({ label, met }) => (
-                      <li key={label} className={`text-xs flex items-center gap-1.5 transition-colors ${pwStarted ? (met ? 'text-green-600' : 'text-destructive') : 'text-muted-foreground'}`}>
-                        <CheckCircle2 className={`w-3 h-3 shrink-0 ${pwStarted && met ? 'text-green-500' : 'text-muted-foreground/50'}`} aria-hidden="true" />
+                      <li key={label} className={`text-xs flex items-center gap-1.5 transition-colors ${pwStarted ? (met ? 'text-success' : 'text-destructive') : 'text-muted-foreground'}`}>
+                        <CheckCircle2 className={`w-3 h-3 shrink-0 ${pwStarted && met ? 'text-success' : 'text-muted-foreground/50'}`} aria-hidden="true" />
                         {label}
                       </li>
                     ))}
@@ -179,7 +179,7 @@ const UpdatePasswordPage = () => {
                       disabled={isLoading}
                       aria-invalid={!!errors.confirmPassword}
                       aria-describedby={errors.confirmPassword ? 'update-confirm-error' : undefined}
-                      className={`pl-10 pr-10 h-11 rounded-xl text-base transition-colors ${errors.confirmPassword ? 'border-destructive bg-destructive/5' : (confirmStarted && passwordsMatch ? 'border-green-400' : '')}`}
+                      className={`pl-10 pr-10 h-11 rounded-xl text-base transition-colors ${errors.confirmPassword ? 'border-destructive bg-destructive/5' : (confirmStarted && passwordsMatch ? 'border-success/60' : '')}`}
                     />
                     <button
                       type="button"
@@ -197,7 +197,7 @@ const UpdatePasswordPage = () => {
                         {errors.confirmPassword}
                       </p>
                     ) : confirmStarted && passwordsMatch ? (
-                      <p className="text-xs text-green-600 flex items-center gap-1">
+                      <p className="text-xs text-success flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
                         Passwords match
                       </p>
@@ -228,8 +228,8 @@ const UpdatePasswordPage = () => {
             /* Success state */
             <div className="space-y-6" role="status" aria-live="polite">
               <div className="flex flex-col items-center gap-4 py-3">
-                <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-8 h-8 text-green-600" aria-hidden="true" />
+                <div className="w-16 h-16 rounded-2xl bg-success/15 flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-success" aria-hidden="true" />
                 </div>
                 <div className="text-center space-y-1.5">
                   <h2 className="font-display font-semibold text-foreground text-lg">Password updated!</h2>

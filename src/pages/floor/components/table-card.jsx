@@ -3,51 +3,113 @@
 // In read-only mode (editable=false), a click triggers `onActivate(table)`.
 // In editor mode (editable=true), wraps content with @dnd-kit's useDraggable
 // so the consumer's DndContext can move it around.
+//
+// Status is never colour-only. A floor manager scanning a busy room at a
+// glance (and a colour-blind one specifically — deuteranopia/protanopia make
+// the classic red=stop/green=go pairing indistinguishable) gets three
+// redundant signals per tile:
+//   1. a distinct ICON in the status roundel (not just a recoloured dot)
+//   2. a visible text LABEL (not just a tinted background)
+//   3. a border PATTERN — solid for the three "live" seating states,
+//      dashed for out-of-service — so even a low-vision glance at shape
+//      alone tells "in rotation" from "not usable right now".
 
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { CalendarClock, CheckCircle2, Loader2, Users, UtensilsCrossed, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Users } from 'lucide-react';
 
-const STATUS_STYLES = {
-  available: 'bg-emerald-100 border-emerald-500 text-emerald-900',
-  occupied:  'bg-rose-100 border-rose-500 text-rose-900',
-  reserved:  'bg-amber-100 border-amber-500 text-amber-900',
-  out_of_service: 'bg-zinc-200 border-zinc-400 text-zinc-600',
+// Four statuses the backend actually models (see backend/cmd/seedcopper and
+// use-tables.js) — there is no separate "needs_cleaning" enum value; a table
+// coming out of service covers both "broken" and "needs a wipe-down before
+// the next seating", so the label and icon below are written to read
+// naturally for either.
+const STATUS_META = {
+  available: {
+    label: 'Available',
+    icon: CheckCircle2,
+    roundel: 'bg-success text-success-foreground',
+    tile: 'bg-success/10 border-success/50 text-success',
+    border: 'border-solid',
+  },
+  occupied: {
+    label: 'Occupied',
+    icon: UtensilsCrossed,
+    roundel: 'bg-primary text-primary-foreground',
+    tile: 'bg-primary/10 border-primary/50 text-primary',
+    border: 'border-solid',
+  },
+  reserved: {
+    label: 'Reserved',
+    icon: CalendarClock,
+    roundel: 'bg-warning text-warning-foreground',
+    tile: 'bg-warning/10 border-warning/50 text-warning',
+    border: 'border-solid',
+  },
+  out_of_service: {
+    label: 'Out of service',
+    icon: Wrench,
+    roundel: 'bg-muted-foreground text-background',
+    tile: 'bg-muted border-border text-muted-foreground',
+    // Dashed, not solid — a shape difference so this state never reads as
+    // "just another colour" of the three seatable ones above.
+    border: 'border-dashed',
+  },
 };
 
-const STATUS_DOT = {
-  available: 'bg-emerald-500',
-  occupied:  'bg-rose-500',
-  reserved:  'bg-amber-500',
-  out_of_service: 'bg-zinc-400',
-};
+function statusMeta(status) {
+  return STATUS_META[status] || STATUS_META.available;
+}
 
 export const TABLE_WIDTH = 96;
 export const TABLE_HEIGHT = 72;
 
 function CardContent({ table, badge, busy }) {
   const status = table.status || 'available';
+  const meta = statusMeta(status);
+  const Icon = meta.icon;
+
   return (
     <div
       className={cn(
-        'h-full w-full rounded-md border-2 px-2 py-1.5 shadow-sm select-none',
+        'relative h-full w-full rounded-md border-2 px-2 py-1.5 shadow-sm select-none',
         'flex flex-col justify-between',
-        STATUS_STYLES[status] || STATUS_STYLES.available,
-        busy && 'opacity-60'
+        meta.tile,
+        meta.border,
+        busy && 'opacity-60',
       )}
     >
-      <div className="flex items-center justify-between">
-        <span className="font-semibold text-sm truncate">{table.label}</span>
-        <span className={cn('h-2 w-2 rounded-full', STATUS_DOT[status])} />
+      <div className="flex items-start justify-between gap-1">
+        <span className="font-display font-extrabold text-sm leading-tight truncate">{table.label}</span>
+        {/* Status roundel: icon + colour, never colour alone */}
+        <span
+          className={cn(
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+            meta.roundel,
+          )}
+        >
+          <Icon className="h-3 w-3" aria-hidden="true" />
+        </span>
       </div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="flex items-center gap-1">
-          <Users className="h-3 w-3" />
+
+      <div className="flex items-end justify-between gap-1">
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Users className="h-3 w-3" aria-hidden="true" />
           {table.capacity}
         </span>
         {badge}
       </div>
+
+      {/* Visible status word — the third, non-colour signal */}
+      <span className="absolute bottom-1.5 left-2 text-[8px] font-bold uppercase tracking-wide leading-none pointer-events-none">
+        {meta.label}
+      </span>
+
+      {busy && (
+        <span className="absolute inset-0 flex items-center justify-center rounded-md bg-background/40">
+          <Loader2 className="h-4 w-4 animate-spin text-foreground" aria-hidden="true" />
+        </span>
+      )}
     </div>
   );
 }
@@ -61,6 +123,8 @@ export default function TableCard({
 }) {
   const x = Number(table.pos_x) || 0;
   const y = Number(table.pos_y) || 0;
+  const status = table.status || 'available';
+  const meta = statusMeta(status);
 
   // Read-only mode: plain absolute-positioned tile with click handler.
   if (!editable) {
@@ -68,14 +132,15 @@ export default function TableCard({
       <button
         type="button"
         onClick={() => onActivate && onActivate(table)}
-        className="absolute focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400"
+        disabled={busy}
+        className="absolute focus-ring-strong disabled:cursor-wait"
         style={{
           left: x,
           top: y,
           width: TABLE_WIDTH,
           height: TABLE_HEIGHT,
         }}
-        aria-label={`Table ${table.label}`}
+        aria-label={`Table ${table.label}, ${meta.label}, seats ${table.capacity}`}
       >
         <CardContent table={table} badge={badge} busy={busy} />
       </button>
@@ -84,10 +149,10 @@ export default function TableCard({
 
   // Editor mode: draggable.
   // The actual persistence lives on the parent's onDragEnd.
-  return <DraggableTable table={table} x={x} y={y} badge={badge} busy={busy} />;
+  return <DraggableTable table={table} x={x} y={y} badge={badge} busy={busy} meta={meta} />;
 }
 
-function DraggableTable({ table, x, y, badge, busy }) {
+function DraggableTable({ table, x, y, badge, busy, meta }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: table.id, data: { table } });
 
@@ -105,7 +170,10 @@ function DraggableTable({ table, x, y, badge, busy }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="absolute touch-none"
+      className="absolute touch-none focus-ring-strong"
+      role="button"
+      tabIndex={0}
+      aria-label={`Table ${table.label}, ${meta.label}, seats ${table.capacity}. Drag to reposition.`}
       {...listeners}
       {...attributes}
     >

@@ -61,7 +61,7 @@ function shortOrderNum(order) {
 function TicketHeader({ ticket, onAdjustGuests }) {
   if (!ticket) {
     return (
-      <div className="px-4 py-4 border-b border-orange-100 dark:border-orange-900/50 bg-gradient-to-r from-gray-50 to-orange-50/20 dark:from-gray-900 dark:to-orange-950/10">
+      <div className="px-4 py-4 border-b border-border bg-muted/40">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No ticket selected</p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Tap a table or add a walk-in to start.</p>
       </div>
@@ -70,9 +70,9 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 
   if (ticket.kind === 'walkin') {
     return (
-      <div className="px-4 py-3 border-b border-orange-100 dark:border-orange-900/50 bg-card flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-widest text-orange-500 dark:text-orange-400 font-bold mb-0.5">Walk-in</p>
+          <p className="text-[10px] uppercase tracking-widest text-primary font-bold mb-0.5">Walk-in</p>
           <p className="text-base font-bold text-gray-900 dark:text-white truncate">{ticket.label || `Walk-in #${ticket.id}`}</p>
         </div>
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-semibold shrink-0">
@@ -85,9 +85,9 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 
   // table-bound ticket
   return (
-    <div className="px-4 py-3 border-b border-orange-100 dark:border-orange-900/50 bg-card flex items-center justify-between gap-2">
+    <div className="px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2">
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-widest text-orange-500 dark:text-orange-400 font-bold mb-0.5">
+        <p className="text-[10px] uppercase tracking-widest text-primary font-bold mb-0.5">
           {ticket.section_name ? `${ticket.section_name} · ` : ''}Table
         </p>
         <p className="text-base font-bold text-gray-900 dark:text-white">Table {ticket.table_number ?? '?'}</p>
@@ -97,7 +97,7 @@ function TicketHeader({ ticket, onAdjustGuests }) {
           type="button"
           onClick={onAdjustGuests}
           aria-label={`Adjust guest count: ${ticket.party_size || 1} ${(ticket.party_size || 1) === 1 ? 'guest' : 'guests'}`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 text-xs font-semibold hover:bg-orange-100 dark:hover:bg-orange-950/70 active:bg-orange-200 dark:active:bg-orange-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 shrink-0"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-semibold hover:bg-primary/15 active:bg-primary/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
         >
           <Users className="w-3.5 h-3.5" />
           {ticket.party_size || 1} {(ticket.party_size || 1) === 1 ? 'guest' : 'guests'}
@@ -117,7 +117,7 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
   const { format, scale } = useMoney();
   const status = item.item_status || 'fired';
   const statusColor =
-    status === 'ready' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800'
+    status === 'ready' ? 'text-success bg-success/10 border-success/30'
     : status === 'in_progress' ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
     : 'text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700';
 
@@ -137,13 +137,13 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
       locationId={locationId}
       onSuccess={onAdjustSuccess}
       disabled={!canActOnItem || !itemId}
+      label={item.item_name || item.name}
     >
       <div
         className={cn(
-          'flex items-start gap-2 px-3 py-2',
-          canActOnItem && itemId && 'cursor-context-menu hover:bg-orange-50/40 dark:hover:bg-orange-950/20 transition-colors',
+          'flex items-start gap-2 py-2 pl-3 pr-10',
+          canActOnItem && itemId && 'hover:bg-muted/60 transition-colors',
         )}
-        title={canActOnItem && itemId ? 'Right-click or long-press to comp / discount' : undefined}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
@@ -188,20 +188,22 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card overflow-hidden shadow-sm">
-      {/* Header — right-click / long-press to Void the whole order */}
+      {/* Header — the AdjustmentMenu renders its own always-visible "more
+          actions" button (top-right of this row) for Void; right-click /
+          long-press remain as shortcuts on top of it. */}
       <AdjustmentMenu
         orderId={order.id}
         itemId={null}
         locationId={locationId}
         onSuccess={onAdjustSuccess}
         disabled={!canVoid}
+        label={`order ${shortOrderNum(order)}`}
       >
         <div
           className={cn(
-            'flex items-center justify-between px-3 py-2 bg-green-50/60 dark:bg-green-950/20 border-b border-green-100 dark:border-green-900/40',
-            canVoid && 'cursor-context-menu hover:bg-orange-50/60 dark:hover:bg-orange-950/30 transition-colors',
+            'flex items-center justify-between py-2 pl-3 pr-10 bg-success/10 border-b border-success/20',
+            canVoid && 'hover:bg-muted/60 transition-colors',
           )}
-          title={canVoid ? 'Right-click or long-press to void this order' : undefined}
         >
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-green-700 dark:text-green-400">
             <CheckCircle2 className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
@@ -269,7 +271,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate leading-tight">{item.name}</p>
           {item.modifier_names && item.modifier_names.length > 0 && (
-            <p className="text-[11px] text-orange-600 dark:text-orange-400 truncate mt-0.5">
+            <p className="text-[11px] text-primary truncate mt-0.5">
               {item.modifier_names.join(', ')}
             </p>
           )}
@@ -284,7 +286,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
             variant="outline"
             onClick={() => onBumpQty(item.id, -1)}
             aria-label={`Decrease quantity of ${item.name}`}
-            className="h-9 w-9 p-0 rounded-full border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-orange-950/40 hover:border-orange-400 dark:hover:border-orange-600 focus-visible:ring-2 focus-visible:ring-orange-400 transition"
+            className="h-9 w-9 p-0 rounded-full border-primary/25 hover:bg-primary/10 hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring transition"
           >
             <Minus className="w-4 h-4" />
           </Button>
@@ -294,7 +296,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
             size="sm"
             onClick={() => onBumpQty(item.id, +1)}
             aria-label={`Increase quantity of ${item.name}`}
-            className="h-9 w-9 p-0 rounded-full bg-orange-500 hover:bg-orange-600 focus-visible:ring-2 focus-visible:ring-orange-400 transition"
+            className="h-9 w-9 p-0 rounded-full bg-primary hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition"
           >
             <Plus className="w-4 h-4" />
           </Button>
@@ -334,8 +336,8 @@ function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }) {
   if (!newItems || newItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-        <div className="w-16 h-16 rounded-full bg-orange-50 dark:bg-orange-950/40 flex items-center justify-center mb-3">
-          <ShoppingCart className="w-7 h-7 text-orange-300 dark:text-orange-700" />
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+          <ShoppingCart className="w-7 h-7 text-primary/40" />
         </div>
         <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Cart is empty</p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[16ch] mx-auto">Tap any menu item to add it here.</p>
@@ -344,11 +346,11 @@ function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }) {
   }
   return (
     <div className="px-3 py-2.5">
-      <div className="flex items-center gap-1.5 px-1 mb-2 text-[10px] uppercase tracking-widest font-bold text-orange-500 dark:text-orange-400">
+      <div className="flex items-center gap-1.5 px-1 mb-2 text-[10px] uppercase tracking-widest font-bold text-primary">
         <Utensils className="w-3 h-3" />
         New — not yet sent
       </div>
-      <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-card overflow-hidden divide-y divide-orange-100 dark:divide-orange-900/40 shadow-sm">
+      <div className="rounded-xl border border-primary/25 bg-card overflow-hidden divide-y divide-primary/15 shadow-sm">
         {newItems.map((it) => (
           <NewItemRow
             key={it.id}
@@ -384,7 +386,7 @@ function TicketFooter({
   const canCharge = hasUnpaidOrders && !sending && Boolean(ticket);
 
   return (
-    <div className="border-t border-orange-100 dark:border-orange-900/50 bg-card px-4 py-3 space-y-2.5 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_-2px_8px_rgba(0,0,0,0.3)]">
+    <div className="border-t border-border bg-card px-4 py-3 space-y-2.5 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_-2px_8px_rgba(0,0,0,0.3)]">
       {/* Subtotal breakdown */}
       {(sentSubtotalCents > 0 || newSubtotalCents > 0) && (
         <div className="text-xs space-y-1 rounded-lg bg-gray-50 dark:bg-gray-800/60 px-3 py-2">
@@ -395,7 +397,7 @@ function TicketFooter({
             </div>
           )}
           {newSubtotalCents > 0 && (
-            <div className="flex justify-between text-orange-600 dark:text-orange-400 font-semibold">
+            <div className="flex justify-between text-primary font-semibold">
               <span>New items</span>
               <span className="tabular-nums">{format(newSubtotalCents)}</span>
             </div>
@@ -417,10 +419,10 @@ function TicketFooter({
           aria-label={sending ? 'Sending order to kitchen' : `Send ${newItemsCount} item${newItemsCount === 1 ? '' : 's'} to kitchen`}
           aria-busy={sending}
           className={cn(
-            'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1',
+            'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
             canSend
-              ? 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed shadow-none',
+              ? 'bg-primary hover:bg-primary/90 active:bg-primary/95 text-primary-foreground'
+              : 'bg-muted text-muted-foreground cursor-not-allowed shadow-none',
           )}
         >
           {sending ? (
@@ -445,10 +447,10 @@ function TicketFooter({
           disabled={!canCharge}
           aria-label="Charge customer and take payment"
           className={cn(
-            'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-1',
+            'h-14 font-bold text-base shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-1',
             canCharge
-              ? 'bg-green-600 hover:bg-green-700 active:bg-green-800 text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed shadow-none',
+              ? 'bg-success hover:bg-success/90 active:bg-success/95 text-success-foreground'
+              : 'bg-muted text-muted-foreground cursor-not-allowed shadow-none',
           )}
         >
           <span className="flex items-center gap-1.5">
@@ -503,7 +505,7 @@ export default function ActiveTicketPanel({
     <aside
       aria-label="Order ticket"
       className={cn(
-        'flex flex-col bg-gray-50 dark:bg-gray-900 border-l border-orange-100 dark:border-orange-900/50',
+        'flex flex-col bg-muted/40 border-l-2 border-border',
         // Desktop: fixed-width sidebar; mobile: full-width drawer fixed to bottom
         'w-full sm:max-w-[380px] md:max-w-[420px]',
         'h-full',

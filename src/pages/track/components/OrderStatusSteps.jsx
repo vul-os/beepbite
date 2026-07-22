@@ -60,8 +60,8 @@ export default function OrderStatusSteps({ status }) {
                 <div
                   className={cn(
                     'flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300',
-                    done   && 'bg-orange-500 border-orange-500 text-white shadow-sm shadow-orange-200',
-                    active && 'border-orange-500 text-orange-500 bg-orange-50 shadow-md shadow-orange-100',
+                    done   && 'bg-primary border-primary text-primary-foreground shadow-sm shadow-primary/20',
+                    active && 'border-primary text-primary bg-primary/10 shadow-md shadow-primary/15',
                     !done && !active && 'border-muted-foreground/25 text-muted-foreground/35 bg-background',
                   )}
                   aria-current={active ? 'step' : undefined}
@@ -74,8 +74,8 @@ export default function OrderStatusSteps({ status }) {
                 <p
                   className={cn(
                     'mt-2 text-xs text-center font-semibold leading-tight',
-                    active && 'text-orange-600',
-                    done   && 'text-orange-500',
+                    active && 'text-primary',
+                    done   && 'text-primary/80',
                     !done && !active && 'text-muted-foreground/40',
                   )}
                 >
@@ -89,7 +89,7 @@ export default function OrderStatusSteps({ status }) {
                   <div
                     className={cn(
                       'h-full rounded-full transition-colors duration-300',
-                      i < activeIdx ? 'bg-orange-400' : 'bg-muted-foreground/15',
+                      i < activeIdx ? 'bg-primary/60' : 'bg-muted-foreground/15',
                     )}
                   />
                 </div>
@@ -112,8 +112,8 @@ export default function OrderStatusSteps({ status }) {
                 <div
                   className={cn(
                     'flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-300',
-                    done   && 'bg-orange-500 border-orange-500 text-white shadow-sm shadow-orange-200',
-                    active && 'border-orange-500 text-orange-500 bg-orange-50 shadow-md shadow-orange-100',
+                    done   && 'bg-primary border-primary text-primary-foreground shadow-sm shadow-primary/20',
+                    active && 'border-primary text-primary bg-primary/10 shadow-md shadow-primary/15',
                     !done && !active && 'border-muted-foreground/25 text-muted-foreground/35 bg-background',
                   )}
                   aria-current={active ? 'step' : undefined}
@@ -127,7 +127,7 @@ export default function OrderStatusSteps({ status }) {
                   <div
                     className={cn(
                       'w-0.5 flex-1 min-h-[24px] my-1.5 rounded-full transition-colors duration-300',
-                      i < activeIdx ? 'bg-orange-400' : 'bg-muted-foreground/15',
+                      i < activeIdx ? 'bg-primary/60' : 'bg-muted-foreground/15',
                     )}
                   />
                 )}
@@ -138,8 +138,8 @@ export default function OrderStatusSteps({ status }) {
                 <p
                   className={cn(
                     'text-sm font-semibold leading-tight',
-                    active && 'text-orange-600',
-                    done   && 'text-orange-500',
+                    active && 'text-primary',
+                    done   && 'text-primary/80',
                     !done && !active && 'text-muted-foreground/40',
                   )}
                 >

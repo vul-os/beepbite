@@ -93,20 +93,20 @@ const AccountSettings = () => {
 
       {/* ── Restore notice (shown when org is soft-deleted) ── */}
       {(isDeleted || restoreState === 'done' || deleteState === 'done') && (
-        <Card className="border-beepbite-warning/40 bg-beepbite-warning/10">
+        <Card className="border-warning/40 bg-warning/10">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-beepbite-warning">
+            <CardTitle className="flex items-center gap-2 text-warning">
               <AlertCircle className="h-5 w-5" />
               Account scheduled for deletion
             </CardTitle>
-            <CardDescription className="text-beepbite-warning">
+            <CardDescription className="text-warning">
               Your account will be permanently deleted when the 30-day grace period
               expires. You can cancel the deletion below.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {restoreState === 'done' ? (
-              <p className="text-beepbite-success font-medium">
+              <p className="text-success font-medium">
                 Deletion cancelled — your account is active again.
               </p>
             ) : (
@@ -116,7 +116,7 @@ const AccountSettings = () => {
                 )}
                 <Button
                   variant="outline"
-                  className="border-beepbite-warning/60 text-beepbite-warning hover:bg-beepbite-warning/10"
+                  className="border-warning/60 text-warning hover:bg-warning/10"
                   onClick={handleRestore}
                   disabled={restoreState === 'loading'}
                 >
@@ -147,7 +147,7 @@ const AccountSettings = () => {
             <p className="text-destructive text-sm">{exportError}</p>
           )}
           {exportState === 'done' && (
-            <p className="text-beepbite-success text-sm font-medium">
+            <p className="text-success text-sm font-medium">
               Export downloaded successfully.
             </p>
           )}

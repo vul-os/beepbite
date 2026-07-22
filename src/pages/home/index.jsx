@@ -266,18 +266,18 @@ const Home = () => {
         <Reveal delay={0.05}>
           <div
             role="alert"
-            className="flex items-start gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
+            className="flex items-start gap-3 text-sm text-warning bg-warning/10 border border-warning/30 rounded-xl px-4 py-3"
           >
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" aria-hidden="true" />
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-warning" aria-hidden="true" />
             <div>
               <p className="font-medium">Analytics unavailable</p>
-              <p className="text-amber-700 text-xs mt-0.5">{summaryError}</p>
+              <p className="text-warning/80 text-xs mt-0.5">{summaryError}</p>
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={loadSummary}
-              className="ml-auto h-7 px-2 text-xs text-amber-700 hover:bg-amber-100 flex-shrink-0"
+              className="ml-auto h-7 px-2 text-xs text-warning hover:bg-warning/10 flex-shrink-0"
             >
               Retry
             </Button>

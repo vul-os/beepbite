@@ -31,7 +31,7 @@ function StarRow({ value = 0, size = 'sm', className }) {
           <svg
             key={n}
             viewBox="0 0 20 20"
-            className={cn(sizeClass, filled || half ? 'text-orange-500' : 'text-gray-200')}
+            className={cn(sizeClass, filled || half ? 'text-warning' : 'text-muted')}
             fill="currentColor"
             aria-hidden="true"
           >
@@ -43,16 +43,16 @@ function StarRow({ value = 0, size = 'sm', className }) {
                     <rect x="0" y="0" width="10" height="20" />
                   </clipPath>
                 </defs>
-                {/* grey base */}
+                {/* empty base */}
                 <path
                   d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                  className="text-gray-200"
+                  className="text-muted"
                 />
-                {/* orange left half */}
+                {/* filled left half */}
                 <path
                   clipPath={`url(#half-${uid}-${n})`}
                   d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                  className="text-orange-500"
+                  className="text-warning"
                 />
               </>
             ) : (
@@ -77,7 +77,7 @@ function AggregateHeader({ avgStars, reviewCount, liveAvg, liveCount }) {
 
   return (
     <div className="flex items-center gap-3 mb-5">
-      <span className="text-4xl font-bold text-foreground leading-none">
+      <span className="text-4xl font-display text-foreground leading-none tabular-nums">
         {displayAvg.toFixed(1)}
       </span>
       <div>
@@ -148,8 +148,8 @@ function ReviewCard({ review }) {
 
       {/* Owner reply */}
       {owner_reply && (
-        <div className="ml-4 pl-3 border-l-2 border-orange-300 space-y-0.5">
-          <p className="text-xs font-semibold text-orange-600">Owner reply</p>
+        <div className="ml-4 pl-3 border-l-2 border-primary/30 space-y-0.5">
+          <p className="text-xs font-semibold text-primary">Owner reply</p>
           {replyDate && (
             <p className="text-xs text-muted-foreground">{replyDate}</p>
           )}
@@ -238,8 +238,8 @@ export default function ReviewsSection({
 
       {/* Error */}
       {!loading && error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-center">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="rounded-xl border border-destructive/25 bg-destructive/10 px-5 py-4 text-center">
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
 

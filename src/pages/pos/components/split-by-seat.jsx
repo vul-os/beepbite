@@ -87,7 +87,7 @@ function seatTotalCents(seatId, assignments, allItems) {
 function SeatHeader({ seat, onRemove, canRemove }) {
   return (
     <div className="flex items-center gap-1 min-w-0">
-      <UserRound className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+      <UserRound className="w-3.5 h-3.5 text-primary shrink-0" />
       <span className="text-xs font-semibold truncate">{seat.label}</span>
       {canRemove && (
         <button
@@ -167,7 +167,8 @@ export default function SplitBySeat({
     setAssignments((prev) => {
       const next = {};
       for (const [itemKey, seatMap] of Object.entries(prev)) {
-        const { [seatId]: _, ...rest } = seatMap;
+        const rest = { ...seatMap };
+        delete rest[seatId];
         if (Object.keys(rest).length > 0) next[itemKey] = rest;
       }
       return next;
@@ -286,18 +287,18 @@ export default function SplitBySeat({
     <>
       <Dialog open={open && !tenderingSplit} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl w-full p-0 overflow-hidden max-h-[90vh] flex flex-col">
-          <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b border-border shrink-0">
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <Scissors className="w-5 h-5 text-orange-500" />
+              <Scissors className="w-5 h-5 text-primary" />
               Split Check by Seat
               {ticket.table_number && (
-                <span className="ml-1 text-sm font-normal text-gray-500">
+                <span className="ml-1 text-sm font-normal text-muted-foreground">
                   — Table {ticket.table_number}
                 </span>
               )}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Assign order items to seats then tender each seat's total independently.
+              Assign order items to seats, then tender each seat total independently.
             </DialogDescription>
           </DialogHeader>
 
@@ -306,12 +307,12 @@ export default function SplitBySeat({
             {!appliedSplits && (
               <>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-700">Seats</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Seats</h3>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={handleAddSeat}
-                    className="h-7 px-2 text-xs border-orange-200 text-orange-700 hover:bg-orange-50"
+                    className="h-8 px-2.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
                   >
                     <Plus className="w-3 h-3 mr-1" /> Add Seat
                   </Button>
@@ -338,14 +339,14 @@ export default function SplitBySeat({
                 </div>
 
                 {/* Item assignment grid */}
-                <div className="overflow-x-auto border rounded-lg">
+                <div className="overflow-x-auto border border-border rounded-lg">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b bg-orange-50/60">
-                        <th className="text-left px-3 py-2 font-semibold text-gray-600 w-40">Item</th>
-                        <th className="text-center px-2 py-2 font-semibold text-gray-600 w-12">Qty</th>
+                      <tr className="border-b border-border bg-primary/10">
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-40">Item</th>
+                        <th className="text-center px-2 py-2 font-semibold text-muted-foreground w-12">Qty</th>
                         {seats.map((seat) => (
-                          <th key={seat.id} className="text-center px-2 py-2 font-semibold text-orange-700 min-w-[72px]">
+                          <th key={seat.id} className="text-center px-2 py-2 font-semibold text-primary min-w-[72px]">
                             <SeatHeader
                               seat={seat}
                               onRemove={handleRemoveSeat}
@@ -353,7 +354,7 @@ export default function SplitBySeat({
                             />
                           </th>
                         ))}
-                        <th className="text-center px-2 py-2 font-semibold text-gray-400 w-14">Left</th>
+                        <th className="text-center px-2 py-2 font-semibold text-muted-foreground w-14">Left</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -361,49 +362,71 @@ export default function SplitBySeat({
                         const allocated = Object.values(assignments[item.key] || {}).reduce((s, v) => s + v, 0);
                         const unallocated = item.quantity - allocated;
                         return (
-                          <tr key={item.key} className={cn('border-b last:border-0', unallocated > 0 && 'bg-destructive/5')}>
+                          <tr key={item.key} className={cn('border-b border-border last:border-0', unallocated > 0 && 'bg-destructive/5')}>
                             <td className="px-3 py-2">
-                              <span className="font-medium text-gray-900 line-clamp-1">{item.name}</span>
-                              <span className="text-gray-400 ml-1">({format(Math.abs(item.unitCents))}/ea)</span>
+                              <span className="font-medium text-foreground line-clamp-1">{item.name}</span>
+                              <span className="text-muted-foreground ml-1">({format(Math.abs(item.unitCents))}/ea)</span>
                             </td>
                             <td className="px-2 py-2 text-center font-semibold">{item.quantity}</td>
                             {seats.map((seat) => {
                               const qty = assignments[item.key]?.[seat.id] || 0;
+                              const isAssigned = qty > 0;
                               return (
                                 <td key={seat.id} className="px-2 py-2 text-center">
                                   {item.quantity === 1 ? (
-                                    // Single-quantity item: toggle button
+                                    // Single-quantity item: toggle button. Selected state is a
+                                    // deliberately unmistakable combination — bold fill, thick
+                                    // border, and a swapped icon (check vs plus) — never a
+                                    // subtle colour tint alone, since a mis-assigned seat is
+                                    // exactly the kind of mistake this screen exists to prevent.
                                     <button
                                       type="button"
                                       onClick={() => handleToggleAssign(item.key, seat.id)}
+                                      aria-pressed={isAssigned}
+                                      aria-label={`${isAssigned ? 'Unassign' : 'Assign'} ${item.name} to ${seat.label}`}
                                       className={cn(
-                                        'w-8 h-8 rounded-full border-2 transition flex items-center justify-center mx-auto',
-                                        qty > 0
-                                          ? 'bg-orange-500 border-orange-500 text-white'
-                                          : 'border-gray-200 text-gray-300 hover:border-orange-300',
+                                        'w-11 h-11 rounded-full border-[3px] transition flex items-center justify-center mx-auto',
+                                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                                        isAssigned
+                                          ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                          : 'border-border text-muted-foreground/40 hover:border-primary/50 hover:text-primary/60',
                                       )}
                                     >
-                                      {qty > 0 ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                      {isAssigned ? <CheckCircle2 className="w-5 h-5" /> : <Plus className="w-4 h-4" />}
                                     </button>
                                   ) : (
-                                    // Multi-quantity: numeric input
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={item.quantity}
-                                      value={qty || ''}
-                                      placeholder="0"
-                                      onChange={(e) => handleAssign(item.key, seat.id, e.target.value)}
-                                      className={cn(
-                                        'w-14 h-8 text-center text-xs rounded border focus:outline-none focus:border-orange-400 tabular-nums',
-                                        qty > 0 ? 'border-orange-300 bg-orange-50' : 'border-gray-200',
+                                    // Multi-quantity: numeric input. Same unmistakable-selected
+                                    // rule applies — a filled qty gets a bold border + strong
+                                    // fill + a check badge, not just a lighter background tint.
+                                    <div className="relative inline-block">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={item.quantity}
+                                        value={qty || ''}
+                                        placeholder="0"
+                                        aria-label={`Quantity of ${item.name} for ${seat.label}`}
+                                        onChange={(e) => handleAssign(item.key, seat.id, e.target.value)}
+                                        className={cn(
+                                          'w-14 h-9 text-center text-sm font-bold rounded-lg border-2 tabular-nums transition-colors',
+                                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                          isAssigned
+                                            ? 'border-primary bg-primary/15 text-primary'
+                                            : 'border-border bg-background text-muted-foreground',
+                                        )}
+                                      />
+                                      {isAssigned && (
+                                        <CheckCircle2
+                                          className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 text-primary bg-card rounded-full"
+                                          aria-hidden="true"
+                                        />
                                       )}
-                                    />
+                                    </div>
                                   )}
                                 </td>
                               );
                             })}
-                            <td className={cn('px-2 py-2 text-center font-semibold tabular-nums', unallocated > 0 ? 'text-destructive' : 'text-green-600')}>
+                            <td className={cn('px-2 py-2 text-center font-semibold tabular-nums', unallocated > 0 ? 'text-destructive' : 'text-success')}>
                               {unallocated}
                             </td>
                           </tr>
@@ -411,10 +434,10 @@ export default function SplitBySeat({
                       })}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t bg-gray-50">
-                        <td className="px-3 py-2 font-semibold text-xs text-gray-600" colSpan={2}>Subtotal</td>
+                      <tr className="border-t border-border bg-muted/40">
+                        <td className="px-3 py-2 font-semibold text-xs text-muted-foreground" colSpan={2}>Subtotal</td>
                         {seats.map((seat) => (
-                          <td key={seat.id} className="px-2 py-2 text-center font-bold tabular-nums text-xs text-orange-700">
+                          <td key={seat.id} className="px-2 py-2 text-center font-extrabold tabular-nums text-xs text-primary">
                             {format(Math.abs(seatTotalCents(seat.id, assignments, allItems)))}
                           </td>
                         ))}
@@ -440,7 +463,7 @@ export default function SplitBySeat({
             {/* Applied splits — tender view */}
             {appliedSplits && (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-green-700 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
+                <div className="flex items-center gap-2 text-sm font-semibold text-success bg-success/10 rounded-lg px-3 py-2 border border-success/30">
                   <CheckCircle2 className="w-4 h-4" />
                   Check split applied — tender each seat below.
                 </div>
@@ -452,17 +475,17 @@ export default function SplitBySeat({
                     <div
                       key={split.id}
                       className={cn(
-                        'flex items-center justify-between p-3 rounded-lg border',
-                        isPaid ? 'bg-green-50 border-green-200' : 'bg-white border-orange-100',
+                        'flex items-center justify-between p-3 rounded-lg border-2',
+                        isPaid ? 'bg-success/10 border-success/30' : 'bg-card border-primary/15',
                       )}
                     >
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <UserRound className="w-4 h-4 text-orange-500" />
+                          <UserRound className="w-4 h-4 text-primary" />
                           <span className="font-semibold text-sm">{split.split_label}</span>
-                          {isPaid && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                          {isPaid && <CheckCircle2 className="w-3.5 h-3.5 text-success" />}
                         </div>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {(appliedSplits.items.filter((i) => i.check_split_id === split.id)).length} item(s)
                         </span>
                       </div>
@@ -472,13 +495,13 @@ export default function SplitBySeat({
                           <Button
                             size="sm"
                             onClick={() => handleTenderSplit(split)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white h-8 px-3"
+                            className="h-10 px-4"
                           >
                             <Wallet className="w-3.5 h-3.5 mr-1" />
                             Tender
                           </Button>
                         ) : (
-                          <span className="text-xs font-semibold text-green-700 px-3">Paid</span>
+                          <span className="text-xs font-semibold text-success px-3">Paid</span>
                         )}
                       </div>
                     </div>
@@ -486,7 +509,7 @@ export default function SplitBySeat({
                 })}
                 {allSplitsPaid && (
                   <div className="text-center pt-2">
-                    <p className="text-sm text-green-700 font-semibold">All seats paid — table cleared.</p>
+                    <p className="text-sm text-success font-semibold">All seats paid — table cleared.</p>
                     <Button
                       variant="outline"
                       size="sm"
@@ -503,21 +526,20 @@ export default function SplitBySeat({
 
           {/* Footer — only shown before split is applied */}
           {!appliedSplits && (
-            <div className="px-6 pb-5 pt-2 border-t flex gap-2 shrink-0">
+            <div className="px-6 pb-5 pt-2 border-t border-border flex gap-2 shrink-0">
               <Button
                 variant="outline"
+                size="touch"
                 onClick={() => onOpenChange(false)}
                 className="flex-1"
               >
                 Cancel
               </Button>
               <Button
+                size="touch"
                 onClick={handleApply}
                 disabled={!canApply || applying}
-                className={cn(
-                  'flex-1 bg-orange-500 hover:bg-orange-600 text-white',
-                  'disabled:bg-orange-200 disabled:text-orange-400',
-                )}
+                className="flex-1 font-bold"
               >
                 {applying ? (
                   <>

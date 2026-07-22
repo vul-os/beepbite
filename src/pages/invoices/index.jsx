@@ -227,13 +227,15 @@ export default function InvoicesPage() {
                       {inv.recipient_name || 'Unnamed recipient'}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {inv.invoice_number
-                        ? `#${inv.invoice_number}`
-                        : `#${inv.id.slice(0, 8).toUpperCase()}`}
+                      <span className="font-mono tabular-nums">
+                        {inv.invoice_number
+                          ? `#${inv.invoice_number}`
+                          : `#${inv.id.slice(0, 8).toUpperCase()}`}
+                      </span>
                       {' · '}
                       {inv.issuer === 'platform' ? 'Platform invoice' : 'Tenant invoice'}
                       {' · '}
-                      {fmtDate(inv.created_at)}
+                      <span className="tabular-nums">{fmtDate(inv.created_at)}</span>
                     </p>
                   </div>
 
@@ -243,7 +245,7 @@ export default function InvoicesPage() {
                       {fmtCents(inv.total_cents, inv.currency)}
                     </p>
                     {inv.vat_cents > 0 && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground tabular-nums">
                         incl. VAT {fmtCents(inv.vat_cents, inv.currency)}
                       </p>
                     )}
@@ -336,10 +338,10 @@ export default function InvoicesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => handleDelete(confirmDeleteId)}
             >
-              Delete
+              Delete invoice
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

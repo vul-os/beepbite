@@ -31,7 +31,7 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            className="pl-9 h-9 text-sm border-border focus:border-orange-300 focus:ring-orange-200"
+            className="pl-9 h-9 text-sm border-border focus:border-primary focus:ring-primary/20"
             placeholder="Search staff…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -65,7 +65,7 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
                     className={cn(
                       'w-full h-auto flex items-center justify-start gap-3 px-3 py-2.5 rounded-lg text-left font-normal',
                       active
-                        ? 'bg-orange-50 text-orange-900 hover:bg-orange-50 hover:text-orange-900'
+                        ? 'bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary'
                         : 'text-foreground',
                     )}
                   >
@@ -73,7 +73,7 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
                       <AvatarFallback
                         className={cn(
                           'text-xs font-semibold',
-                          active ? 'bg-orange-100 text-orange-700' : 'bg-muted text-muted-foreground',
+                          active ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
                         )}
                       >
                         {getInitials(m.first_name, m.last_name)}
@@ -93,7 +93,7 @@ export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
                         {!m.is_active && (
                           <Badge
                             variant="outline"
-                            className="text-[10px] px-1.5 py-0 bg-red-50 text-red-600 border-red-200"
+                            className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-border"
                           >
                             Inactive
                           </Badge>

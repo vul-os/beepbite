@@ -224,9 +224,9 @@ const OnboardingChecklist = ({ onComplete }) => {
   // Loading state while fetching step data
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8 pb-16 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/5 pt-8 pb-16 px-4">
         <div className="max-w-2xl mx-auto space-y-6">
-          <div className="h-44 rounded-2xl bg-orange-400/30 animate-pulse" />
+          <div className="h-44 rounded-2xl bg-primary/20 animate-pulse" />
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />
           ))}
@@ -237,27 +237,27 @@ const OnboardingChecklist = ({ onComplete }) => {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8 pb-16 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/5 pt-8 pb-16 px-4">
         <div className="max-w-2xl mx-auto space-y-5">
 
           {/* Hero card */}
-          <Card className="border-0 shadow-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white overflow-hidden relative">
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-primary to-primary/90 text-primary-foreground overflow-hidden relative">
             <div className="absolute inset-0 opacity-10" aria-hidden="true">
-              <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary-foreground -translate-y-1/2 translate-x-1/2" />
             </div>
             <CardContent className="p-6 sm:p-8 relative">
               <div className="flex items-start gap-3 mb-5">
                 <div
-                  className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm shrink-0"
+                  className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary-foreground/20 backdrop-blur-sm shrink-0"
                   aria-hidden="true"
                 >
-                  <Sparkles className="w-5 h-5 text-white" />
+                  <Sparkles className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-xl sm:text-2xl font-bold leading-tight">
                     Let&apos;s get {activeOrganization?.name || 'your business'} ready to serve
                   </h1>
-                  <p className="text-orange-100 text-sm mt-1">
+                  <p className="text-primary-foreground/80 text-sm mt-1">
                     Complete the steps below to unlock the full POS experience.
                   </p>
                 </div>
@@ -266,7 +266,7 @@ const OnboardingChecklist = ({ onComplete }) => {
               {/* Progress */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-orange-100">Setup progress</span>
+                  <span className="text-primary-foreground/80">Setup progress</span>
                   <span className="font-bold tabular-nums">
                     {doneCount}/{totalCount}
                   </span>
@@ -277,17 +277,17 @@ const OnboardingChecklist = ({ onComplete }) => {
                   aria-valuemax={100}
                   aria-valuenow={progressPct}
                   aria-label={`Setup ${progressPct}% complete`}
-                  className="h-2.5 rounded-full bg-white/20 overflow-hidden"
+                  className="h-2.5 rounded-full bg-primary-foreground/20 overflow-hidden"
                 >
                   <div
-                    className="h-full rounded-full bg-white transition-all duration-700 ease-out"
+                    className="h-full rounded-full bg-primary-foreground transition-all duration-700 ease-out"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
               </div>
 
               {allDone && (
-                <div className="mt-4 flex items-center gap-2 text-sm font-medium bg-white/20 rounded-xl px-4 py-2.5" role="status">
+                <div className="mt-4 flex items-center gap-2 text-sm font-medium bg-primary-foreground/20 rounded-xl px-4 py-2.5" role="status">
                   <CheckCircle2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                   All set! You can now take orders.
                 </div>
@@ -308,9 +308,9 @@ const OnboardingChecklist = ({ onComplete }) => {
                     className={cn(
                       'border transition-all duration-200',
                       step.done
-                        ? 'border-green-200 bg-green-50/60'
+                        ? 'border-success/30 bg-success/10'
                         : step.isPrimary && !step.done
-                        ? 'border-orange-300 bg-card shadow-md ring-1 ring-orange-100'
+                        ? 'border-primary/40 bg-card shadow-md ring-1 ring-primary/15'
                         : 'border-border bg-card',
                       isDisabled && 'opacity-60'
                     )}
@@ -321,12 +321,12 @@ const OnboardingChecklist = ({ onComplete }) => {
                         {/* Status icon */}
                         <div className="shrink-0 mt-0.5" aria-hidden="true">
                           {step.done ? (
-                            <CheckCircle2 className="w-6 h-6 text-green-500" />
+                            <CheckCircle2 className="w-6 h-6 text-success" />
                           ) : (
                             <Circle
                               className={cn(
                                 'w-6 h-6',
-                                step.isPrimary ? 'text-orange-400' : 'text-muted-foreground'
+                                step.isPrimary ? 'text-primary/70' : 'text-muted-foreground'
                               )}
                             />
                           )}
@@ -339,9 +339,9 @@ const OnboardingChecklist = ({ onComplete }) => {
                               className={cn(
                                 'flex items-center justify-center w-7 h-7 rounded-lg shrink-0',
                                 step.done
-                                  ? 'bg-green-100'
+                                  ? 'bg-success/15'
                                   : step.isPrimary
-                                  ? 'bg-orange-100'
+                                  ? 'bg-primary/10'
                                   : 'bg-muted'
                               )}
                               aria-hidden="true"
@@ -350,9 +350,9 @@ const OnboardingChecklist = ({ onComplete }) => {
                                 className={cn(
                                   'w-4 h-4',
                                   step.done
-                                    ? 'text-green-600'
+                                    ? 'text-success'
                                     : step.isPrimary
-                                    ? 'text-orange-500'
+                                    ? 'text-primary'
                                     : 'text-muted-foreground'
                                 )}
                               />
@@ -360,21 +360,18 @@ const OnboardingChecklist = ({ onComplete }) => {
                             <span
                               className={cn(
                                 'font-semibold text-sm',
-                                step.done ? 'text-green-800 line-through decoration-green-400' : 'text-foreground'
+                                step.done ? 'text-success line-through decoration-success/50' : 'text-foreground'
                               )}
                             >
                               {step.label}
                             </span>
                             {idx === 0 && (
-                              <Badge
-                                variant="secondary"
-                                className="bg-green-100 text-green-700 border-green-200 text-xs"
-                              >
+                              <Badge variant="success" className="text-xs">
                                 Done
                               </Badge>
                             )}
                             {step.isPrimary && !step.done && (
-                              <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs border">
+                              <Badge className="bg-primary/10 text-primary border-primary/25 text-xs border">
                                 Required
                               </Badge>
                             )}
@@ -399,10 +396,10 @@ const OnboardingChecklist = ({ onComplete }) => {
                                 onClick={() => handlePickServiceStyle('dine_in')}
                                 aria-pressed={serviceStyle === 'dine_in'}
                                 className={cn(
-                                  'h-auto flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold whitespace-normal focus-visible:ring-2 focus-visible:ring-orange-400',
+                                  'h-auto flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold whitespace-normal focus-visible:ring-2 focus-visible:ring-primary',
                                   serviceStyle === 'dine_in'
-                                    ? 'border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-50'
-                                    : 'border-border bg-card text-muted-foreground hover:border-orange-300 hover:bg-orange-50'
+                                    ? 'border-primary bg-primary/10 text-primary hover:bg-primary/10'
+                                    : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-primary/5'
                                 )}
                               >
                                 <UtensilsCrossed className="w-5 h-5" />
@@ -415,10 +412,10 @@ const OnboardingChecklist = ({ onComplete }) => {
                                 onClick={() => handlePickServiceStyle('takeaway')}
                                 aria-pressed={serviceStyle === 'takeaway'}
                                 className={cn(
-                                  'h-auto flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold whitespace-normal focus-visible:ring-2 focus-visible:ring-orange-400',
+                                  'h-auto flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center text-xs font-semibold whitespace-normal focus-visible:ring-2 focus-visible:ring-primary',
                                   serviceStyle === 'takeaway'
-                                    ? 'border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-50'
-                                    : 'border-border bg-card text-muted-foreground hover:border-orange-300 hover:bg-orange-50'
+                                    ? 'border-primary bg-primary/10 text-primary hover:bg-primary/10'
+                                    : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-primary/5'
                                 )}
                               >
                                 <ShoppingBag className="w-5 h-5" />
@@ -436,9 +433,7 @@ const OnboardingChecklist = ({ onComplete }) => {
                             onClick={step.onAction}
                             className={cn(
                               'shrink-0 gap-1 h-9 px-3 rounded-lg focus-visible:ring-2 focus-visible:ring-offset-1',
-                              step.isPrimary
-                                ? 'bg-orange-500 hover:bg-orange-600 text-white focus-visible:ring-orange-400'
-                                : 'bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-ring'
+                              !step.isPrimary && 'bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-ring'
                             )}
                           >
                             {step.actionLabel}
@@ -447,7 +442,7 @@ const OnboardingChecklist = ({ onComplete }) => {
                         )}
 
                         {step.done && !step.alwaysDone && (
-                          <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" aria-hidden="true" />
+                          <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" aria-hidden="true" />
                         )}
                       </div>
                     </CardContent>

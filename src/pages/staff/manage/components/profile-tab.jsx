@@ -22,8 +22,8 @@ function Field({ icon: Icon, label, value }) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-3">
-      <div className="mt-0.5 w-8 h-8 rounded-md bg-orange-50 flex items-center justify-center shrink-0">
-        <Icon className="w-4 h-4 text-orange-500" />
+      <div className="mt-0.5 w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4 text-primary" />
       </div>
       <div>
         <p className="text-xs text-muted-foreground font-medium">{label}</p>
@@ -53,10 +53,10 @@ export function ProfileTab({ staff }) {
   return (
     <div className="space-y-6">
       {/* avatar + name hero */}
-      <Card className="border-orange-100 bg-gradient-to-br from-orange-50/40 to-card">
+      <Card className="border-primary/15 bg-gradient-to-br from-primary/5 to-card">
         <CardContent className="p-6 flex items-center gap-5">
-          <Avatar className="h-16 w-16 border-2 border-orange-100">
-            <AvatarFallback className="bg-orange-100 text-orange-700 text-xl font-bold">
+          <Avatar className="h-16 w-16 border-2 border-primary/15">
+            <AvatarFallback className="bg-primary/15 text-primary text-xl font-bold">
               {getInitials(staff.first_name, staff.last_name)}
             </AvatarFallback>
           </Avatar>
@@ -77,8 +77,8 @@ export function ProfileTab({ staff }) {
                 className={cn(
                   'text-xs',
                   staff.is_active
-                    ? 'bg-green-50 text-green-700 border-green-200'
-                    : 'bg-red-50 text-red-600 border-red-200',
+                    ? 'bg-success/10 text-success border-success/30'
+                    : 'bg-muted text-muted-foreground border-border',
                 )}
               >
                 {staff.is_active ? (
@@ -94,7 +94,7 @@ export function ProfileTab({ staff }) {
       </Card>
 
       {/* details grid */}
-      <Card className="border-orange-100">
+      <Card className="border-primary/15">
         <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Field icon={AtSign}    label="Username"    value={staff.username ?? '—'} />
           <Field icon={Mail}      label="Email"       value={staff.email} />
@@ -106,7 +106,7 @@ export function ProfileTab({ staff }) {
       </Card>
 
       {staff.notes && (
-        <Card className="border-orange-100">
+        <Card className="border-primary/15">
           <CardContent className="p-5">
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Notes</p>
             <p className="text-sm text-foreground whitespace-pre-wrap">{staff.notes}</p>

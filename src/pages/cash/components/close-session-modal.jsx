@@ -14,7 +14,8 @@ import { Switch } from '@/components/ui/switch';
 import { DenominationGrid } from './denomination-grid';
 import { api } from '@/lib/api-client';
 import { useMoney } from '@/context/locale-context';
-import { Loader2, LockKeyhole } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Loader2, LockKeyhole, CheckCircle2, AlertTriangle, AlertOctagon } from 'lucide-react';
 
 /**
  * CloseSessionModal
@@ -57,6 +58,24 @@ export function CloseSessionModal({
     ? denomTotalCents
     : parse(manualCents) ?? 0;
 
+  // The one number this whole screen exists to surface. Blind closes hide
+  // the expected amount from the counter on purpose (that's the point of a
+  // blind count), so there is nothing to compare against until it's known.
+  const hasExpected = !isBlind && typeof expectedCents === 'number';
+  const discrepancyCents = hasExpected ? declaredCents - expectedCents : 0;
+  const absDiscrepancyCents = Math.abs(discrepancyCents);
+  // "Small" is defined in the currency's own units (5 of them — 5 dollars,
+  // 5 yen, 5 rand) via `scale`, not a hardcoded cent amount that would
+  // misprice a JPY till (scale 1) or overstate a KWD one (scale 1000).
+  const smallVarianceCents = scale * 5;
+  const varianceLevel = !hasExpected
+    ? null
+    : absDiscrepancyCents === 0
+      ? 'balanced'
+      : absDiscrepancyCents <= smallVarianceCents
+        ? 'warning'
+        : 'destructive';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -88,7 +107,7 @@ export function CloseSessionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-white">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LockKeyhole className="h-5 w-5 text-destructive" />
@@ -96,7 +115,7 @@ export function CloseSessionModal({
           </DialogTitle>
           {!isBlind && (
             <DialogDescription>
-              Expected balance: {format(expectedCents)}
+              Expected balance: <span className="tabular-nums">{format(expectedCents)}</span>
             </DialogDescription>
           )}
           {isBlind && (
@@ -141,8 +160,68 @@ export function CloseSessionModal({
           {/* Declared total preview */}
           <div className="flex justify-between text-sm rounded-md bg-muted px-3 py-2">
             <span className="text-muted-foreground">Your declared total</span>
-            <span className="font-semibold">{format(declaredCents)}</span>
+            <span className="font-semibold tabular-nums">{format(declaredCents)}</span>
           </div>
+
+          {/* Expected-vs-counted discrepancy — the single most important
+              number on this screen. Colour + size carry the outcome:
+              balanced (success), a small/explainable gap (warning), or a
+              gap big enough that a manager should be looped in before the
+              drawer closes (destructive). */}
+          {hasExpected && (
+            <div
+              role="status"
+              className={cn(
+                'flex items-center justify-between gap-3 rounded-lg border-2 px-4 py-3',
+                varianceLevel === 'balanced' && 'border-success/30 bg-success/10',
+                varianceLevel === 'warning' && 'border-warning/30 bg-warning/10',
+                varianceLevel === 'destructive' && 'border-destructive/30 bg-destructive/10',
+              )}
+            >
+              <div>
+                <p
+                  className={cn(
+                    'text-xs font-semibold uppercase tracking-wide',
+                    varianceLevel === 'balanced' && 'text-success',
+                    varianceLevel === 'warning' && 'text-warning',
+                    varianceLevel === 'destructive' && 'text-destructive',
+                  )}
+                >
+                  {varianceLevel === 'balanced'
+                    ? 'Balanced'
+                    : discrepancyCents > 0
+                      ? 'Over'
+                      : 'Short'}
+                </p>
+                <p
+                  className={cn(
+                    'font-display text-2xl font-bold tabular-nums leading-tight',
+                    varianceLevel === 'balanced' && 'text-success',
+                    varianceLevel === 'warning' && 'text-warning',
+                    varianceLevel === 'destructive' && 'text-destructive',
+                  )}
+                >
+                  {varianceLevel === 'balanced'
+                    ? format(0)
+                    : `${discrepancyCents > 0 ? '+' : '-'}${format(absDiscrepancyCents)}`}
+                </p>
+                {varianceLevel === 'destructive' && (
+                  <p className="text-xs text-destructive/80 mt-0.5">
+                    That's a large gap — add a note below explaining it.
+                  </p>
+                )}
+              </div>
+              {varianceLevel === 'balanced' && (
+                <CheckCircle2 className="h-7 w-7 text-success flex-shrink-0" aria-hidden="true" />
+              )}
+              {varianceLevel === 'warning' && (
+                <AlertTriangle className="h-7 w-7 text-warning flex-shrink-0" aria-hidden="true" />
+              )}
+              {varianceLevel === 'destructive' && (
+                <AlertOctagon className="h-7 w-7 text-destructive flex-shrink-0" aria-hidden="true" />
+              )}
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-1">
@@ -169,7 +248,7 @@ export function CloseSessionModal({
             </Button>
             <Button
               type="submit"
-              variant="destructive"
+              variant={varianceLevel === 'destructive' ? 'destructive' : 'default'}
               disabled={submitting}
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

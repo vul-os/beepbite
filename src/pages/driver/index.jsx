@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { OfflineBanner } from '@/components/ui/sync-status';
 
 import {
   fetchAssignments,
@@ -155,8 +156,8 @@ export default function DriverPortal() {
     if (assignmentsError) {
       return (
         <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <AlertCircle className="w-10 h-10 text-red-400" />
-          <p className="text-sm text-red-600">{assignmentsError}</p>
+          <AlertCircle className="w-10 h-10 text-destructive/70" />
+          <p className="text-sm text-destructive">{assignmentsError}</p>
           <Button
             variant="outline"
             size="sm"
@@ -173,11 +174,11 @@ export default function DriverPortal() {
     if (assignments.length === 0) {
       return (
         <div className="flex flex-col items-center gap-3 py-12 text-center">
-          <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
-            <Truck className="w-7 h-7 text-orange-400" />
+          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+            <Truck className="w-7 h-7 text-primary/70" />
           </div>
-          <p className="text-sm text-gray-500">No active assignments right now.</p>
-          <p className="text-xs text-gray-400">
+          <p className="text-sm text-muted-foreground">No active assignments right now.</p>
+          <p className="text-xs text-muted-foreground/70">
             {isOnline ? 'Hang tight — deliveries will appear here.' : 'Go online to start receiving deliveries.'}
           </p>
         </div>
@@ -195,31 +196,38 @@ export default function DriverPortal() {
 
   // ── Page ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
       {/* Top bar */}
-      <div className="bg-white border-b border-orange-100 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+      <div className="bg-card border-b border-primary/15 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Truck className="w-5 h-5 text-orange-500" />
-          <h1 className="text-lg font-bold text-foreground">Driver Portal</h1>
+          <Truck className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-display text-foreground">Driver Portal</h1>
         </div>
         <Button
           variant="ghost"
           size="sm"
           onClick={loadAssignments}
           disabled={loadingAssignments}
-          className="h-8 w-8 p-0 text-gray-400 hover:text-orange-600 hover:bg-orange-50"
+          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
           title="Refresh"
         >
           <RefreshCw className={`w-4 h-4 ${loadingAssignments ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
+      {/* Offline / sync banner — a driver on the road loses signal constantly;
+          this must be impossible to miss since pings + shift actions queue
+          silently otherwise. */}
+      <OfflineBanner />
+
       {/* Body */}
       <div className="px-4 py-4 max-w-lg mx-auto space-y-4">
 
-        {/* Geolocation permission banner */}
+        {/* Geolocation permission banner — distinct from the offline banner:
+            this is "we can't see where you are", not "we can't reach the
+            server". Warning tone (reversible: re-enable location any time). */}
         {geoError && (
-          <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <div className="flex items-start gap-2 text-sm text-warning-foreground bg-warning border border-warning rounded-xl px-4 py-3">
             <MapPinOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{geoError}</span>
           </div>
@@ -237,7 +245,7 @@ export default function DriverPortal() {
         {/* Assignments */}
         <div className="space-y-2">
           {!isNotDriver && assignments.length > 0 && (
-            <h2 className="text-sm font-semibold text-gray-700 px-0.5">
+            <h2 className="text-sm font-semibold text-foreground px-0.5">
               Active assignments ({assignments.length})
             </h2>
           )}

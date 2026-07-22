@@ -148,8 +148,8 @@ const ForgotPasswordPage = () => {
             /* Success state */
             <div className="space-y-6" role="status" aria-live="polite">
               <div className="flex flex-col items-center gap-4 py-3">
-                <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-8 h-8 text-green-600" aria-hidden="true" />
+                <div className="w-16 h-16 rounded-2xl bg-success/15 flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-success" aria-hidden="true" />
                 </div>
                 <div className="text-center space-y-1.5">
                   <h2 className="font-display font-semibold text-foreground text-lg">Check your inbox</h2>

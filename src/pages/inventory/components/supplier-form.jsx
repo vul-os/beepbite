@@ -84,11 +84,11 @@ export function SupplierForm({ initial, onSubmit, onCancel, saving }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      {err && <p className="text-sm text-destructive">{err}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label htmlFor="name">Name <span className="text-red-500">*</span></Label>
+          <Label htmlFor="name">Name <span className="text-destructive">*</span></Label>
           <Input id="name" value={form.name} onChange={(e) => set('name', e.target.value)} required />
         </div>
         <div className="space-y-1">
@@ -153,7 +153,7 @@ export function SupplierForm({ initial, onSubmit, onCancel, saving }) {
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1" disabled={saving}>
           Cancel
         </Button>
-        <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" disabled={saving}>
+        <Button type="submit" className="flex-1" disabled={saving}>
           {saving ? 'Saving…' : initial ? 'Update Supplier' : 'Create Supplier'}
         </Button>
       </div>

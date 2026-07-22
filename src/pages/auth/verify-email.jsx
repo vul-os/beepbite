@@ -91,8 +91,8 @@ const VerifyEmailPage = () => {
           /* ── Confirmed success state ── */
           <>
             <CardHeader className="pb-2 pt-7 px-7 text-center space-y-4">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center">
-                <CheckCircle2 className="w-8 h-8 text-green-600" aria-hidden="true" />
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-success/15 flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-success" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <CardTitle className="text-2xl font-display font-semibold text-foreground">
@@ -141,9 +141,9 @@ const VerifyEmailPage = () => {
               {/* Feedback — aria-live regions */}
               <div aria-live="polite" aria-atomic="true">
                 {successMessage && (
-                  <Alert className="border-l-4 border-green-500 bg-green-50">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" aria-hidden="true" />
-                    <AlertDescription className="text-sm text-green-800">
+                  <Alert className="border-l-4 border-success bg-success/10">
+                    <CheckCircle2 className="h-4 w-4 text-success shrink-0" aria-hidden="true" />
+                    <AlertDescription className="text-sm text-success">
                       {successMessage}
                     </AlertDescription>
                   </Alert>
