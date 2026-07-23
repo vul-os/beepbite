@@ -121,6 +121,10 @@ func main() {
 	}
 	defer database.Close()
 
+	// Fail loudly if the app is connected as a role that bypasses RLS — that
+	// silently disables all tenant isolation (see WarnIfRLSBypassed).
+	db.WarnIfRLSBypassed(ctx, database.Pool)
+
 	// Services
 	store := auth.NewStore(database.Pool)
 	svc := auth.NewService(store, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
