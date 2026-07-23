@@ -111,11 +111,27 @@ jobs:
         working-directory: backend
         run: go run ./cmd/migrate --up
 
+      - name: Provision non-superuser app role
+        working-directory: backend
+        # The server must NOT connect as the migration/admin role: Postgres skips
+        # ALL row-level security for a superuser/BYPASSRLS role even under FORCE
+        # RLS, which silently disables tenant isolation (and makes the
+        # cross-tenant smoke suite vacuous — one org can read another's data).
+        # Create a NOSUPERUSER NOBYPASSRLS role and run the server as it, exactly
+        # as the integration tests do (testenv's bb_app).
+        env:
+          APP_DB_PASSWORD: ci-bb-app-pw
+        run: go run ./cmd/setupapprole
+
       - name: Start server in background
         working-directory: backend
+        # DATABASE_URL overridden to the non-superuser bb_app role so RLS is
+        # enforced (the job-level DATABASE_URL is the admin role used for
+        # migration + role provisioning above). APP_ENV, JWT_SECRET, PORT still
+        # come from the job-level env block.
+        env:
+          DATABASE_URL: postgres://bb_app:ci-bb-app-pw@localhost:5432/beepbite_ci?sslmode=disable
         run: go run ./cmd/server &
-        # The server reads APP_ENV, DATABASE_URL, JWT_SECRET, and PORT from the
-        # environment (all set in the job-level env block above).
 
       - name: Wait for server /health
         # Poll /health with a 1-second back-off for up to 30 seconds.
