@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -98,6 +99,7 @@ import (
 	"github.com/beepbite/backend/internal/llm"
 	"github.com/beepbite/backend/internal/middleware/hostresolve"
 	"github.com/beepbite/backend/internal/obs"
+	"github.com/beepbite/backend/internal/payments"
 	"github.com/beepbite/backend/internal/ratelimit"
 	"github.com/beepbite/backend/internal/staffauth"
 	"github.com/beepbite/backend/internal/webhookdelivery"
@@ -188,6 +190,29 @@ func main() {
 	deliveryZonesH := deliveryzones.NewHandler(database.Pool)
 	fiscalH := fiscal.NewHandler(database.Pool)
 	marketplaceH := marketplace.NewHandler(database.Pool)
+
+	// Online payments (optional, patala build only — docs/ONLINE-PAYMENTS.md).
+	// NewOnlineGatewayProvider returns a non-nil provider ONLY in a `-tags
+	// patala` build with BEEPBITE_ONLINE_PAYMENT_PROVIDER set; the default
+	// CGO_ENABLED=0 image links no gateway code, so this leaves checkout
+	// on-delivery-only, byte for byte. A configured-but-unbuildable name (typo
+	// or wrong build) surfaces at startup instead of failing silently.
+	onlineGateway, onlineProviderName, gwErr := payments.NewOnlineGatewayProvider()
+	if gwErr != nil {
+		log.Fatalf("online payment provider %q: %v", onlineProviderName, gwErr)
+	}
+	if onlineGateway != nil {
+		apiPublicURL := strings.TrimSpace(os.Getenv("BEEPBITE_API_PUBLIC_URL"))
+		if apiPublicURL == "" {
+			log.Fatalf("online payment provider %q is configured but BEEPBITE_API_PUBLIC_URL is unset — the customer's browser cannot be redirected back to settle", onlineProviderName)
+		}
+		marketplaceH = marketplaceH.WithOnlinePayments(onlineGateway, onlineProviderName, cfg.JWTSecret, apiPublicURL)
+		posH = posH.WithGateway(onlineGateway)
+		log.Printf("online payments ENABLED via %q (return base %s)", onlineProviderName, apiPublicURL)
+	} else if onlineProviderName != "" {
+		log.Printf("WARNING: BEEPBITE_ONLINE_PAYMENT_PROVIDER=%q is set but this binary has no online-gateway code linked (build with -tags patala to enable online payments); checkout stays on-delivery-only", onlineProviderName)
+	}
+
 	recipeCostRunner := recipecost.NewRunner(database.Pool)
 	kdsFanoutRunner := kdsfanout.NewRunner(database.Pool, kds.NewStore(database.Pool))
 	auditRetentionRunner := auditretention.NewRunner(database.Pool, 90)
