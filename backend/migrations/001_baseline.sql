@@ -6931,3 +6931,113 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENC
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO service_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO marketplace_role;
+
+-- ============================================================================
+-- Reference-data seeds (restored 2026-07-23): the migration fold was schema-
+-- only, so these rows — loaded by the pre-fold chain (migrations 014/024/056)
+-- into FK-target reference tables — were dropped from the baseline. A fresh DB
+-- needs them: orders.currency_code, locations payment methods, and email
+-- provider config all FK/relate to these. Statements are verbatim from the
+-- original migrations (idempotent, ON CONFLICT-guarded).
+-- ============================================================================
+
+-- currencies (014: base set)
+INSERT INTO currencies (code, name, symbol, decimal_digits, is_active)
+VALUES
+    ('USD', 'US Dollar',            '$',    2, true),
+    ('ZAR', 'South African Rand',   'R',    2, true),
+    ('NGN', 'Nigerian Naira',       '₦',    2, true),
+    ('KES', 'Kenyan Shilling',      'KSh',  2, true),
+    ('GHS', 'Ghanaian Cedi',        '₵',    2, true),
+    ('EUR', 'Euro',                 '€',    2, true),
+    ('GBP', 'British Pound',        '£',    2, true),
+    ('INR', 'Indian Rupee',         '₹',    2, true)
+ON CONFLICT (code) DO UPDATE
+    SET name         = EXCLUDED.name,
+        symbol       = EXCLUDED.symbol,
+        decimal_digits = EXCLUDED.decimal_digits,
+        is_active    = EXCLUDED.is_active;
+
+-- currencies (056: extended ISO set)
+INSERT INTO currencies (code, name, symbol, decimal_digits, is_active) VALUES
+    ('JPY', 'Japanese Yen',            '¥',   0, true),
+    ('KRW', 'South Korean Won',        '₩',   0, true),
+    ('ISK', 'Icelandic Króna',         'kr',  0, true),
+    ('CLP', 'Chilean Peso',            '$',   0, true),
+    ('VND', 'Vietnamese Dong',         '₫',   0, true),
+    ('UGX', 'Ugandan Shilling',        'USh', 0, true),
+    ('RWF', 'Rwandan Franc',           'FRw', 0, true),
+    ('XOF', 'West African CFA Franc',  'CFA', 0, true),
+    ('XAF', 'Central African CFA Franc','FCFA',0, true),
+    ('KWD', 'Kuwaiti Dinar',           'د.ك', 3, true),
+    ('BHD', 'Bahraini Dinar',          '.د.ب',3, true),
+    ('OMR', 'Omani Rial',              'ر.ع.',3, true),
+    ('JOD', 'Jordanian Dinar',         'د.ا', 3, true),
+    ('TND', 'Tunisian Dinar',          'د.ت', 3, true),
+    ('AUD', 'Australian Dollar',       '$',   2, true),
+    ('CAD', 'Canadian Dollar',         '$',   2, true),
+    ('NZD', 'New Zealand Dollar',      '$',   2, true),
+    ('CHF', 'Swiss Franc',             'CHF', 2, true),
+    ('SEK', 'Swedish Krona',           'kr',  2, true),
+    ('NOK', 'Norwegian Krone',         'kr',  2, true),
+    ('DKK', 'Danish Krone',            'kr',  2, true),
+    ('PLN', 'Polish Złoty',            'zł',  2, true),
+    ('CZK', 'Czech Koruna',            'Kč',  2, true),
+    ('BRL', 'Brazilian Real',          'R$',  2, true),
+    ('MXN', 'Mexican Peso',            '$',   2, true),
+    ('ARS', 'Argentine Peso',          '$',   2, true),
+    ('SGD', 'Singapore Dollar',        '$',   2, true),
+    ('HKD', 'Hong Kong Dollar',        'HK$', 2, true),
+    ('MYR', 'Malaysian Ringgit',       'RM',  2, true),
+    ('THB', 'Thai Baht',               '฿',   2, true),
+    ('IDR', 'Indonesian Rupiah',       'Rp',  2, true),
+    ('PHP', 'Philippine Peso',         '₱',   2, true),
+    ('AED', 'UAE Dirham',              'د.إ', 2, true),
+    ('SAR', 'Saudi Riyal',             'ر.س', 2, true),
+    ('ILS', 'Israeli New Shekel',      '₪',   2, true),
+    ('TRY', 'Turkish Lira',            '₺',   2, true),
+    ('EGP', 'Egyptian Pound',          'E£',  2, true),
+    ('MAD', 'Moroccan Dirham',         'د.م.',2, true),
+    ('TZS', 'Tanzanian Shilling',      'TSh', 2, true),
+    ('ZMW', 'Zambian Kwacha',          'ZK',  2, true),
+    ('BWP', 'Botswana Pula',           'P',   2, true),
+    ('NAD', 'Namibian Dollar',         '$',   2, true),
+    ('MUR', 'Mauritian Rupee',         '₨',   2, true),
+    ('PKR', 'Pakistani Rupee',         '₨',   2, true),
+    ('BDT', 'Bangladeshi Taka',        '৳',   2, true),
+    ('LKR', 'Sri Lankan Rupee',        'Rs',  2, true),
+    ('CNY', 'Chinese Yuan',            '¥',   2, true),
+    ('RUB', 'Russian Ruble',           '₽',   2, true),
+    ('UAH', 'Ukrainian Hryvnia',       '₴',   2, true),
+    ('RON', 'Romanian Leu',            'lei', 2, true),
+    ('HUF', 'Hungarian Forint',        'Ft',  2, true),
+    ('COP', 'Colombian Peso',          '$',   2, true),
+    ('PEN', 'Peruvian Sol',            'S/',  2, true)
+ON CONFLICT (code) DO NOTHING;
+
+-- payment_methods (014)
+INSERT INTO payment_methods (code, name, kind, is_active, requires_reference, supports_tips)
+VALUES
+    ('cash',             'Cash',              'offline', true, false, true),
+    ('card_in_person',   'Card Machine',      'offline', true, true,  true),
+    ('eft',              'Bank Transfer',     'offline', true, true,  false),
+    ('gift_card',        'Gift Card',         'offline', true, false, false),
+    ('house_account',    'House Account',     'offline', true, false, true),
+    ('store_credit',     'Store Credit',      'offline', true, false, false),
+    ('cash_on_delivery', 'Cash on Delivery',  'offline', true, false, true),
+    ('card_on_delivery', 'Card on Delivery',  'offline', true, true,  true)
+ON CONFLICT (code) DO UPDATE
+    SET name               = EXCLUDED.name,
+        kind               = EXCLUDED.kind,
+        is_active          = EXCLUDED.is_active,
+        requires_reference = EXCLUDED.requires_reference,
+        supports_tips      = EXCLUDED.supports_tips;
+
+-- email_providers (024)
+INSERT INTO email_providers (code, name, is_active) VALUES
+    ('sendgrid',  'SendGrid',                true),
+    ('mailgun',   'Mailgun',                 true),
+    ('ses',       'Amazon SES',              true),
+    ('smtp',      'Generic SMTP',            true)
+ON CONFLICT (code) DO NOTHING;
+
