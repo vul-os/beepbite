@@ -1,0 +1,16 @@
+-- =============================================================================
+-- 046_earthdistance_ext.sql — NO-OP (extension approach abandoned)
+-- =============================================================================
+--
+-- GET /stores' geo-radius filter originally used earth_distance/ll_to_earth from
+-- the `earthdistance` extension, which the Wave 0 consolidation never created —
+-- so every /stores call returned 500 (planning failed before the OR short-
+-- circuit). Surfaced by the Wave 15 pen-test suite.
+--
+-- CREATE EXTENSION requires superuser, which the application DB role does not
+-- have, so we CANNOT enable it from a migration. Instead the marketplace
+-- store-list query (internal/handlers/marketplace/store.go) was rewritten to use
+-- a plain haversine formula built from radians()/sin()/cos()/acos() — all core
+-- functions, no extension needed. This migration is therefore a no-op, kept to
+-- preserve a gap-free sequence.
+SELECT 1;
