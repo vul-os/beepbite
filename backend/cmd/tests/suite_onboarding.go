@@ -154,14 +154,15 @@ func suiteOnboarding(r *Runner) {
 
 	// -------------------------------------------------------------------
 	// Step 7: POST /data/locations → 201
-	// (BUG-ORGSCOPE-MEMBERSHIP-RLS fixed via service-role queryMemberships;
-	//  region_id now resolved dynamically.)
+	// (No region_id: the locations.region_id column / regions table were
+	//  added by one migration and dropped by a later one, so sending a
+	//  region_id 400s the insert. This was previously mis-filed as an
+	//  RLS bug.)
 	// -------------------------------------------------------------------
 	resp = r.POST("/data/locations",
 		map[string]any{
 			"organization_id": orgID,
 			"name":            "Main Branch",
-			"region_id":       firstActiveRegionID(r, token),
 		},
 		withBearer(token))
 	r.CheckStatus(resp.status, 201, "step7: create location 201")
@@ -197,29 +198,4 @@ func suiteOnboarding(r *Runner) {
 		// Location wasn't created (expected under the bug), skip the visibility check.
 		r.Check(true, "step8: skipped visibility check (location not created in step7)")
 	}
-}
-
-// firstActiveRegionID resolves a real seeded region id from the live server
-// (the ZA region from migration 014) rather than hard-coding a UUID. A stale
-// hard-coded value caused a foreign-key 400 on location creation that was
-// previously mis-attributed to an RLS bug.
-func firstActiveRegionID(r *Runner, token string) string {
-	resp := r.GET("/data/regions?eq=code,ZA&limit=1", withBearer(token))
-	var regions []map[string]any
-	_ = resp.JSON(&regions)
-	if len(regions) > 0 {
-		if id, ok := regions[0]["id"].(string); ok && id != "" {
-			return id
-		}
-	}
-	// Fallback: any region.
-	resp = r.GET("/data/regions?limit=1", withBearer(token))
-	var any1 []map[string]any
-	_ = resp.JSON(&any1)
-	if len(any1) > 0 {
-		if id, ok := any1[0]["id"].(string); ok {
-			return id
-		}
-	}
-	return ""
 }

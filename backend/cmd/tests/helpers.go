@@ -79,12 +79,13 @@ func bootstrapOrgAndLocation(r *Runner) bool {
 		r.refresh = sess2.RefreshToken
 	}
 
-	// 5. create location (may fail due to BUG-ORGSCOPE-MEMBERSHIP-RLS)
+	// 5. create location. (There is no locations.region_id column / regions
+	// table in the schema — an earlier migration added both and a later one
+	// dropped them — so no region_id is sent; sending one 400s the insert.)
 	resp = r.POST("/data/locations",
 		map[string]any{
 			"organization_id":             orgID,
 			"name":                        "Main Branch",
-			"region_id":                   firstActiveRegionID(r, token),
 			"on_delivery_payment_methods": []string{"cash"},
 		},
 		withBearer(token))
@@ -96,9 +97,8 @@ func bootstrapOrgAndLocation(r *Runner) bool {
 		}
 	}
 
-	// If location creation failed (BUG-ORGSCOPE-MEMBERSHIP-RLS), try fetching
-	// any existing location for this org that may have been created via a prior
-	// run or seeded by migrations.
+	// Fall back to any existing location for this org if creation somehow
+	// returned no row.
 	if r.locationID == "" {
 		resp2 := r.GET("/data/locations?eq=organization_id,"+orgID+"&limit=1", withBearer(token))
 		var locs []map[string]any
@@ -108,7 +108,5 @@ func bootstrapOrgAndLocation(r *Runner) bool {
 		}
 	}
 
-	// Return true even if locationID is empty — the caller will check and skip
-	// location-dependent checks. The org/user bootstrap itself succeeded.
 	return true
 }
