@@ -42,10 +42,20 @@ docker rm -f "$ORIG_C" "$FOLD_C" >/dev/null 2>&1
 docker run -d --name "$ORIG_C" -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=bb postgres:16 >/dev/null
 docker run -d --name "$FOLD_C" -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=bb postgres:16 >/dev/null
 for c in "$ORIG_C" "$FOLD_C"; do
-  for _ in $(seq 1 30); do
-    docker exec "$c" pg_isready -U postgres -d bb >/dev/null 2>&1 && break
+  # pg_isready is NOT a safe readiness signal here: the postgres:16 image starts
+  # a transient bootstrap server to run its init (which is what CREATEs
+  # POSTGRES_DB=bb) and then restarts; pg_isready reports that bootstrap server
+  # as "ready" while bb does not yet exist, so an apply can race in and fail with
+  # `FATAL: database "bb" does not exist`. A real query against bb is the only
+  # honest signal — it keeps failing until the init restart has created bb.
+  ready=""
+  for _ in $(seq 1 60); do
+    if docker exec "$c" psql -U postgres -d bb -tAqc 'select 1' >/dev/null 2>&1; then
+      ready=1; break
+    fi
     sleep 1
   done
+  [ -n "$ready" ] || { echo "FAILED: $c never became ready (bb not queryable)"; exit 2; }
 done
 
 apply() { docker exec -i "$1" psql -v ON_ERROR_STOP=1 -q -U postgres -d bb >/dev/null; }

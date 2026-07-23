@@ -2,9 +2,11 @@
 --
 -- The 55-file migration history is collapsed into this single forward-only
 -- baseline. BeepBite has no production database, so nothing is lost; this file
--- reproduces, byte-for-byte, the schema those 55 migrations produced (verified
--- with a pg_dump --schema-only diff on postgres:16 — apply the old chain, apply
--- this, the two dumps are identical).
+-- reproduces, byte-for-byte, the schema those 55 migrations produced. That is a
+-- reproducible check, not a bare claim: `scripts/verify-fold.sh` applies the
+-- pre-fold chain (recovered from git history) to one throwaway postgres:16 and
+-- this baseline to another, then diffs `pg_dump --schema-only` of the two —
+-- exit 0 iff the schemas are identical (146 tables).
 --
 -- Shape: each table's PRIMARY KEY and UNIQUE constraints are inlined into its
 -- CREATE TABLE (CHECK constraints were already inline). Foreign keys stay in a
