@@ -34,6 +34,7 @@ echo "==> resolving Go module graph (backend/)"
 (cd backend && go mod download)
 (cd backend && go list -m -json all) | "$DETECTOR" \
   -includeIndirect \
+  -rules scripts/notices/go-licence-rules.json \
   -noticeTemplate scripts/notices/go-modules.tmpl \
   -noticeOut "$TMP/go-notices.txt"
 
