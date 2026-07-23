@@ -163,6 +163,7 @@ func suiteOnboarding(r *Runner) {
 		map[string]any{
 			"organization_id": orgID,
 			"name":            "Main Branch",
+			"currency_code":   "ZAR",
 		},
 		withBearer(token))
 	r.CheckStatus(resp.status, 201, "step7: create location 201")

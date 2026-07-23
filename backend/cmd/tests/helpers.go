@@ -82,10 +82,14 @@ func bootstrapOrgAndLocation(r *Runner) bool {
 	// 5. create location. (There is no locations.region_id column / regions
 	// table in the schema — an earlier migration added both and a later one
 	// dropped them — so no region_id is sent; sending one 400s the insert.)
+	// currency_code is set so orders on this location resolve a real, seeded
+	// currency (locations.currency_code FKs to currencies); without it the
+	// order's currency is empty and POST /pos/orders fails the currency FK.
 	resp = r.POST("/data/locations",
 		map[string]any{
 			"organization_id":             orgID,
 			"name":                        "Main Branch",
+			"currency_code":               "ZAR",
 			"on_delivery_payment_methods": []string{"cash"},
 		},
 		withBearer(token))
