@@ -89,10 +89,9 @@ GET /api/v1/data/orders?eq=status,pending&limit=10
 Authorization: Bearer bb_live_aB3kQr7mPxN2vY9wTd4sUcFoZeHiLj1R
 ```
 
-A missing, malformed, revoked, or expired key gets a plain-text `401
-unauthorized` (not a JSON body — `apiauth.RequireAPIKey` uses `http.Error`,
-inconsistent with every other error path in this API, which returns
-`{"error": "..."}`).
+A missing, malformed, revoked, or expired key gets a `401` carrying the same
+`{"error": "unauthorized"}` JSON body every other error path in this API
+returns (`apiauth.writeUnauthorizedJSON`).
 
 > [!IMPORTANT]
 > **Scopes are not fully enforced yet.** The scope list above maps to
@@ -241,8 +240,8 @@ That's it — no `{"success": false, "error": {"code": ..., "details": ...}}`
 envelope, no catalog of machine-readable error codes. HTTP status carries the
 meaning: `400` bad input, `401` bad/missing credential, `403` capability or
 role denied, `404` unknown resource or table not on the allowlist, `429` rate
-limited, `500` something broke server-side. The one exception is the 401 from
-`apiauth.RequireAPIKey` itself, which is plain text (see above).
+limited, `500` something broke server-side. Every path, including the API-key
+`401`, uses this one `{"error": "..."}` shape.
 
 ## What is not here
 

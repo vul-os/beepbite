@@ -244,12 +244,20 @@ type keyLookup interface {
 	StampLastUsed(ctx context.Context, keyID string)
 }
 
+// writeUnauthorizedJSON emits a 401 with the same {"error": "..."} body every
+// other error path in this API returns, rather than http.Error's plain text.
+func writeUnauthorizedJSON(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+}
+
 func requireAPIKeyWith(store keyLookup) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx, ok := resolveAPIKey(r, store)
 			if !ok {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				writeUnauthorizedJSON(w)
 				return
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -268,7 +276,7 @@ func optionalAPIKeyWith(store keyLookup) func(http.Handler) http.Handler {
 			}
 			ctx, ok := resolveAPIKey(r, store)
 			if !ok {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				writeUnauthorizedJSON(w)
 				return
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
