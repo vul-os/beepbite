@@ -5,7 +5,9 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  // 'site/assets/vendor' holds third-party minified bundles (marked, mermaid)
+  // vendored for the docs site — never our code to lint.
+  { ignores: ['dist', 'site/assets/vendor'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
