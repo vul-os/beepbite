@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,6 +108,16 @@ func Load(env string) (*Config, error) {
 		FXProvider:            os.Getenv("FX_PROVIDER"),
 		FXBaseURL:             os.Getenv("FX_OPENRATE_URL"),
 		FXCacheTTL:            envDuration("FX_CACHE_TTL", 5*time.Minute),
+	}
+
+	// Never leave AllowedOrigins empty: go-chi/cors turns an empty list into
+	// ["*"], which with AllowCredentials=true is both invalid per the CORS spec
+	// and an any-origin free-for-all. When CORS_ORIGINS is unset, allow only
+	// local dev frontends — a real deployment MUST set CORS_ORIGINS to its own
+	// origins.
+	if len(c.CORSOrigins) == 0 {
+		c.CORSOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+		log.Printf("CORS_ORIGINS is not set — defaulting to local dev origins %v; set CORS_ORIGINS explicitly for any shared or production deployment", c.CORSOrigins)
 	}
 
 	if c.DatabaseURL == "" {
