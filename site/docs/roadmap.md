@@ -134,7 +134,10 @@ A feature that silently does nothing is worse than one that says it isn't built.
    do. A network blip today loses what it always lost.
 3. **No channel-adapter abstraction.** WhatsApp and web ordering are two direct integrations that
    happen to converge on the same order stream. "Channel-agnostic" is the intent and not yet the
-   architecture; adding Discord, Slack or email today means writing a third bespoke integration.
+   architecture; adding Discord, Slack or email today means writing a third bespoke integration. The
+   near-term fix is Now-3's in-house seam. The destination that seam is built to host is not a growing
+   pile of in-house per-platform plugins, though — it's Stage 3 of the DMTAP plan below, which deletes
+   the direct integration entirely rather than abstracting it. Gated; see there.
 4. **Postgres is required.** The single-binary property is real; the single-*file* property is not.
    There is no SQLite driver in `go.mod`, and no store abstraction to put one behind.
 5. **Platform-era surfaces are still linked in.** `handlers/admin` (platform-admin gate),
@@ -194,7 +197,14 @@ that is the whole claim, and it is not "offline POS".
 One interface behind which WhatsApp, the web storefront and anything after them are plugins: inbound
 message → order intent → the same order stream, outbound status → the channel that placed it. This is
 the prerequisite for every "and also Discord / Slack / email" sentence anyone has ever written about
-this product, including the DMTAP one below. Until it exists, those sentences are marketing.
+this product, including the DMTAP ones below. Until it exists, those sentences are marketing.
+
+**Design constraint, carried forward from the `store.Merger` precedent in Now-5/Stage 2.** The
+interface must stay generic enough to host more than one messaging mechanism behind it — today's
+direct Meta Cloud API calls, a DMTAP-gateway-backed implementation (Stage 3 below), or something else
+again — selected per deployment, never hard-coded. The seam owns the boundary between "an order
+arrived" and "how it arrived"; it does not get an opinion about what's on the other side of it. DMTAP
+is one possible implementation behind this seam, not the only shape the code is allowed to take.
 
 > *"Customers order from wherever they already are — and adding a new 'wherever' is a plugin, not a rewrite."*
 
@@ -298,9 +308,19 @@ need a shared fact:
   database, and the one place a signed, append-only, hash-chained feed is the right primitive.
 - **Ordering channels that route around Meta and Google** — a real dependency the product would rather
   not have.
+- **A shared home for legacy-channel credentials, reached over a location-transparent protocol** — this
+  one is not a trust problem between two parties (a co-located gateway is the same operator, the same
+  box, the same trust domain as BeepBite itself) but a *code-reuse* problem: the Meta/Telegram/Slack/SIM
+  glue gets written and maintained once, in one gateway role, instead of once per vulos product. DMTAP's
+  contribution here is narrow and specific — the wire protocol between BeepBite and the gateway is what
+  makes *where the gateway process runs* a deployment choice instead of an architecture decision. See
+  Stage 3 below.
 
-Nothing else in BeepBite is inter-party. The roadmap will not promise decentralization value where
-there is none.
+Of the three, only the first two are inter-party in the strict "two businesses that don't fully trust
+each other" sense — the third exists to end code duplication, not to solve a multi-party trust problem,
+and it stays sovereign specifically because the default keeps it out of any third party's hands at all.
+Nothing else in BeepBite is inter-party. The roadmap will not promise decentralization value where there
+is none.
 
 ### Verified status of the waist (checked, not assumed)
 
@@ -411,7 +431,143 @@ once in a way that is not a BeepBite bug.
 the oplog, which never stopped being the default and never stopped being written. This only works if
 DMTAP-SYNC stays opt-in — which is precisely why it does.
 
-### Stage 3 — Ordering over DMTAP mail — blocked, and honestly so
+### Stage 3 — Channel gateway: BeepBite becomes a DMTAP client, WhatsApp moves to the standard legacy gateway (④ Infrastructure Roles + ① Identity)
+
+**The decision.** README's own honesty admission is the starting point: *"No channel-adapter
+abstraction exists yet — WhatsApp and web ordering are each their own direct integration, not plugins
+behind a common interface."* Stage 3 does not fix that by building a plugin system inside BeepBite. It
+deletes the direct integration. BeepBite stops implementing legacy messaging channels at all and
+becomes a **DMTAP client** speaking to a **gateway** — a separate DMTAP role that owns the platform
+credentials (a WhatsApp WABA token, a SIM, Slack/Telegram bot tokens) and carries messages. Reached over
+the DMTAP protocol, *where that gateway process runs is a deployment choice, not an architecture
+decision*.
+
+**BeepBite is never asked to build a gateway.** There is exactly **one standard DMTAP legacy gateway** —
+envoir's implementation of the §7 gateway role. BeepBite's job is to *deploy* that standard binary, not
+to write one, fork one, or host a BeepBite-specific plugin system in its place. Every other vulos
+product that reaches a legacy channel deploys the same binary. The code is written once and shared,
+which is the entire economic case for doing this at all.
+
+**Two ways to run it, one deployment choice:**
+
+- **Co-located gateway (default, sovereign).** The gateway process runs on the same box, or the same
+  LAN, as BeepBite, configured with the restaurant's own credentials. Nothing leaves the premises that
+  doesn't leave it today; BeepBite's own WhatsApp integration code — the Meta HMAC webhook receiver, the
+  Cloud API client, the phone-number-id config — is *removed from BeepBite's tree*, not hidden behind an
+  interface. It is maintained once, in the gateway, shared across the whole vulos family.
+- **Public gateway (opt-in).** For a shop that will not stand up its own WABA (Meta's business
+  verification is real friction for a small operator). Content-visible by construction — the gateway
+  terminates the legacy leg in plaintext to bridge it at all, exactly as §7 says of itself: *"the legacy
+  leg is unavoidably plaintext... the only part of DMTAP not content-blind."* Priced, and honestly
+  labelled as what it is. The restaurant chooses this per deployment; BeepBite's own code is identical
+  either way — it only ever speaks DMTAP to *a* gateway, never Meta directly.
+
+**What comes out of BeepBite, and what does not.** Not everything with "whatsapp" in its name is
+deleted — most of the value is the order-taking conversation logic, which is already close to
+channel-agnostic in substance if not in wiring:
+
+| Removed (transport-specific, Meta-only) | ~LOC | Stays (channel-agnostic once behind Now-3's seam) | ~LOC |
+|---|---:|---|---:|
+| `internal/integrations/whatsapp/` — the Meta Cloud API client | 899 | `internal/chatbot/` — conversation state, ordering, address/profile management, review system, message formatting | ~4,800 |
+| `internal/handlers/whatsappwebhook/` — the webhook receiver **and its `X-Hub-Signature-256` HMAC verification** | 225 | `internal/handlers/whatsapplink/` — customer WhatsApp-number ↔ loyalty-profile binding | ~850 |
+| `internal/handlers/whatsappsend/` | 117 | | |
+| `internal/warouting/` — the `meta_phone_number_id` registry/resolver | 156 | | |
+| `cmd/tests/suite_whatsapp.go` | 38 | | |
+| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` config keys | — | | |
+| **Total removed from BeepBite's own tree** | **~1,435** | | |
+
+`chatbot.Service` currently holds a `*whatsapp.Client` field directly and calls `s.wa.SendText(...)` to
+reply (`internal/chatbot/service.go`, `internal/chatbot/main_handler.go:401`) — that field is exactly
+what Now-3's seam generalizes. The ~4,800 lines of conversation logic behind it do not move to the
+gateway and do not get deleted; they stop being wired to a Meta-specific client and start being wired to
+the seam.
+
+**The new dependency, and its shape.**
+
+- BeepBite holds one DMTAP identity — an Ed25519 keypair, the same primitive already planned for
+  courier identity in Stage 1 — and exchanges **MOTEs** with the gateway rather than Meta webhook JSON.
+- **Inbound.** The gateway bridges a WhatsApp (or, once adapted, SMS/Slack/Telegram) message into a
+  MOTE and delivers it to BeepBite's address. The customer's legacy identifier — their WhatsApp number
+  today — rides in `provenance` as `legacy_from`.
+- **Outbound.** BeepBite addresses a reply MOTE back through the same gateway; the gateway un-bridges it
+  to a WhatsApp/SMS/Slack message using the credentials it holds.
+- **Resolution barely changes.** BeepBite already keys customer identity on
+  `(organization_id, whatsapp_number)` — `customers_organization_id_whatsapp_number_key`
+  (`backend/migrations/001_baseline.sql`) — and tags every order with its channel via
+  `orders.order_type`, where `whatsapp` is already one of the four values `orders_order_type_check`
+  admits. In DMTAP's own vocabulary that pairing is *(rail, identifier)*: `order_type` is the rail,
+  `whatsapp_number` is the identifier. The only thing that changes is where the identifier is read
+  from — `provenance.legacy_from` inside a MOTE, instead of `message.from` inside a Meta webhook POST.
+  `warouting.Resolve`'s registry lookup and `whatsapplink`'s number-to-profile bind flow key on the same
+  identifier either way and need no redesign, only a new source for it.
+
+**The seam stays generic — a design constraint, not a suggestion.** This mirrors Now-5/Stage 2's
+`store.Merger` on purpose: DMTAP is *one* implementation behind Now-3's channel seam, never the only one
+the code is allowed to express. BeepBite must be able to keep the direct Meta path forever, drop DMTAP
+for a hand-rolled bridge, or run both side by side for different channels — all without touching
+`chatbot/*`. A rewrite to adopt this stage would mean the seam was built wrong in Now-3.
+
+**Why co-located preserves every privacy promise in the README, and why public is a conscious trade.**
+"Nothing phones home," "a fresh install makes no outbound network calls at all," and "no company between
+a shop and its customers" are the promises at stake. Co-located changes *where the WhatsApp-calling code
+runs* — from inside BeepBite's own process to a second process the shop still owns, on hardware the shop
+still owns — and changes nothing about who else sees the traffic. Meta still sees WhatsApp content
+because Meta is the WhatsApp network, exactly as it does today; no new third party is introduced. A
+public gateway is different in kind: a shop that chooses it is deliberately routing its customer
+messages through an operator it does not run, in exchange for not needing its own WABA. That is a real
+trade the operator makes with eyes open, not a default anyone falls into, and it must be priced and
+labelled as such.
+
+**Failure-domain note.** A co-located gateway going down is "my own box is down" — the same failure
+domain BeepBite's Postgres or its till already are, and an outage the shop already tolerates for
+everything else. A remote or public gateway going down widens that failure domain to a network path and
+a third party's uptime BeepBite has never depended on for anything. Order-taking is real-time revenue —
+a missed WhatsApp order is a missed sale, not a delayed report — which is the concrete reason co-located
+is the *default*, not merely the sovereign-sounding option.
+
+**Precondition — this is a gated future stage, not current work.** None of the following exist yet:
+
+1. **The legacy-adapter profile does not exist in the DMTAP spec.** `07-gateway.md` §7 today specifies
+   the gateway role for legacy **mail** only — SMTP MX/relay, IMAP/POP3/SMTP-submission, CalDAV/CardDAV
+   — and says so explicitly: *"the node is native-only... runs no legacy protocol server"* beyond that
+   list. `GatewayAttestation.disc` (`18-wire-format.md` §18.3.11) is hard-coded to `1 = legacy-inbound
+   bridge attestation`, and its `legacy_from` field is typed and described as *"the SMTP `MAIL FROM`"* —
+   not a phone number, not a Slack user id. A profile that bridges WhatsApp/SMS/Slack/Telegram is not a
+   stub in the spec tree; it has not been started.
+2. **No implementation of that profile exists.** `envoir/gateway` is a real, tested implementation of §7
+   for mail (`envoir/gateway/tests/gateway.rs`, `envoir/integration/tests/gateway_provenance.rs`,
+   `gateway_authz_antispam.rs`, `gateway_alias_roundtrip.rs`) — SMTP relay, aliasing, provenance
+   attestation, antispam. It implements none of the legacy-messaging-adapter profile above.
+3. **MOTE messaging itself is not yet something BeepBite can lean on.** `docs/internal/PLAN.md` §8 lists
+   "MOTE messaging (pre-alpha, simulated network)" and "mailbox role (unconfirmed)" among the DMTAP
+   capabilities BeepBite deliberately does not depend on today. This stage is the first place BeepBite
+   would depend on both, so both have to mature past that description — this precondition is in addition
+   to, not instead of, the legacy-adapter profile above.
+4. **Now-3 has to ship first.** There is nowhere to plug a second implementation behind the channel seam
+   until the seam exists.
+
+**Until all four hold, WhatsApp ordering stays exactly what it is today: a direct Meta Cloud API
+integration, shipped, in the default build.** This section records the destination, not a change to
+what ships next.
+
+**Abandon if.** The legacy-adapter profile, once drafted, turns out to need so much per-platform
+special-casing that "one gateway role" is a fiction — Slack's socket-mode auth and WhatsApp's webhook
+model may simply not unify cleanly. If so, direct per-channel integrations behind Now-3's seam (no
+gateway, no DMTAP) is the honest architecture, and this stage is abandoned in favour of that.
+
+**Rollback path.** The seam is the rollback, exactly as in Stage 2: point the channel seam back at the
+direct-Meta implementation. Nothing about the order stream, `orders.order_type`, or customer resolution
+changes either way — which is the entire reason the resolution logic was designed to key on
+`(rail, identifier)` rather than on anything WhatsApp-specific.
+
+**Relationship to Stage 4, below.** Stage 4 is a different problem solved by the *same* §7 role: this
+stage bridges legacy *messaging platforms* behind credentials the gateway holds; Stage 4 bridges the
+*open email network* behind a domain BeepBite itself would need to control. A gateway that later grows
+the legacy-adapter profile does not shrink Stage 4's blocker — mail still needs a public IP, PTR and
+port 25 from somewhere — but it is the same binary, so an operator who stands one up for this stage has
+already paid down part of the cost of standing one up for the other, if they ever want both.
+
+### Stage 4 — Ordering over DMTAP mail — blocked, and honestly so
 
 Email ordering, including over DMTAP, is the channel with no Meta and no Google in the middle. It is
 also **not built, and doubly blocked**:

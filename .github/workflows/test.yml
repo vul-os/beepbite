@@ -169,6 +169,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Fail if docs/ was edited without re-running the site/docs mirror — the
+      # whole point of sync-docs.mjs is that the published viewer never serves
+      # stale copies. A hard gate (unlike lint) since it is deterministic.
+      - name: Docs mirror in sync (docs/ -> site/docs/)
+        run: npm run docs:check
+
       # TODO: remove continue-on-error once ESLint debt is driven to zero and
       # this can be made a hard gate.
       - name: ESLint (advisory)
