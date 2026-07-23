@@ -10,6 +10,14 @@ func suiteRecipes(r *Runner) {
 	if !r.ensureSession() {
 		return
 	}
+	if r.locationID == "" {
+		// BUG-ORGSCOPE-MEMBERSHIP-RLS: earlier suites could not create a
+		// location, so there is nothing to build a recipe against. Record the
+		// same known-fail its sibling suites do rather than panicking on the
+		// empty category insert below.
+		r.fail("recipes: no location available [KNOWN-FAIL: BUG-ORGSCOPE-MEMBERSHIP-RLS]")
+		return
+	}
 
 	// parent item
 	parentID := r.itemID
@@ -19,6 +27,10 @@ func suiteRecipes(r *Runner) {
 			withBearer(r.token))
 		var ins []map[string]any
 		_ = resp.JSON(&ins)
+		if len(ins) == 0 {
+			r.fail("recipes: could not create category")
+			return
+		}
 		catID := fmt.Sprint(ins[0]["id"])
 
 		resp = r.POST("/data/items",
