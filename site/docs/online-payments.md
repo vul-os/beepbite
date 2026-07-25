@@ -21,7 +21,8 @@ courier.**
 
 1. At checkout, BeepBite asks the gateway to create a hosted payment and hands
    it a **return URL** pointing back at BeepBite —
-   `…/api/marketplace/pay/return?ott=<token>`. The `ott` is an HMAC-SHA256
+   `<BEEPBITE_API_PUBLIC_URL>/stores/<slug>/orders/<id>/pay/return?ott=<token>`
+   (`CheckoutStore.buildReturnURL`). The `ott` is an HMAC-SHA256
    signed, 2-hour, order-scoped token (`internal/payments/returntoken.go`); it
    only *names* an order, it authenticates nothing, and it is unforgeable.
 2. The customer pays on the processor's hosted page.

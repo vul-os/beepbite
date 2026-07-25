@@ -14,8 +14,8 @@ mutual Ed25519 auth, offline-first, `site/` landing + docs embedded in the
 binary. Nothing phones home.
 
 Positioning: **you run it.** There is no hosted BeepBite, no rake, no
-facilitator. The only optional paid service in the ecosystem is Vulos Relay,
-and it is never required.
+facilitator. The only optional reachability seam in the ecosystem is Ephor
+(github.com/vul-os/ephor), and it is never required.
 
 ## 2. Stack
 
@@ -68,7 +68,7 @@ endpoints; a POS charge is synchronous at the counter. Outbound-only polling
 works behind CGNAT with no port forwarding, static IP, DNS, or any box operated
 by us. Existing idempotency keys make this safe against double-charging.
 
-Vulos Relay covers the residual async cases (overnight EFT settlement) if push
+Ephor covers the residual async cases (overnight EFT settlement) if push
 is ever wanted — documented honestly, since relay is content-visible L7 and
 would see payload contents. It can never forge a webhook: signature
 verification happens on the shop's node with the shop's own secret, and relay
@@ -172,7 +172,7 @@ plane or DMTAP. So:
   order (FlowStock ties on node id, the substrate on author public key).
 - **DMTAP-PUB** for signed public menus and reputation feeds. Needs no mesh —
   plain HTTPS at `/.well-known/dmtap-pub/*`. Go implementation to lift from
-  `vulos-relay/tunnel/pubcache/`.
+  Ephor's `tunnel/pubcache/` (github.com/vul-os/ephor).
 
 Deliberately **not** depended on: MOTE messaging (pre-alpha, simulated
 network), DMTAP-Auth (trusted-client half stubbed, so nobody can actually sign
@@ -232,8 +232,8 @@ sync step — manual everywhere today, worth automating here.
 Docs: `ARCHITECTURE.md`, `GETTING-STARTED.md`, `CONFIGURATION.md`,
 `SCREENSHOTS.md`, `SYNC.md`, `THUMA.md`, `TESTING.md`.
 
-MIT. `VERSION` + `CHANGELOG.md` (Keep a Changelog). Register in
-`vulos-cloud/scripts/collect-product-sites.mjs`.
+MIT. `VERSION` + `CHANGELOG.md` (Keep a Changelog). Register in the
+vulos-static site repo's `scripts/collect-product-sites.mjs`.
 
 ## 12. Order of work
 

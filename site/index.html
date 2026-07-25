@@ -180,16 +180,16 @@ cd backend &amp;&amp; go run ./cmd/seedcopper --env=local --clean</pre>
       <img src="./assets/vulos-logo.png" alt="VulOS logo" width="56" height="56">
       <div>
         <h3>Part of VulOS</h3>
-        <p><strong>Vulos = free, open-source software + two paid services.</strong> The <a class="inline" href="https://vulos.org" target="_blank" rel="noopener">Vulos OS</a>, all its apps (BeepBite included) and the app store are OSS and free — you self-host them. You self-provision and self-pay your own box; Vulos does not host or provision boxes. Vulos bills for only two things: <strong>Relay</strong> (reachability) and <strong>backup storage</strong> (buckets). There is no compute billing, no mail billing, and no app-store subscription.</p>
+        <p><strong>Vulos publishes one thing: the OS.</strong> The <a class="inline" href="https://vulos.org" target="_blank" rel="noopener">Vulos OS</a>, all its apps (BeepBite included) and the app store are free and open-source, dual MIT OR Apache-2.0 — you self-host them. You self-provision and self-pay your own box; Vulos does not host or provision boxes, and does not bill for anything.</p>
         <ul>
           <li><strong>Vulos OS</strong> — the web-native desktop shell that hosts the apps</li>
-          <li><strong>Vulos Office</strong> — docs, sheets, slides, PDF and whiteboards</li>
+          <li><strong>ofisi</strong> — docs, sheets, slides, PDF and whiteboards</li>
           <li><strong>Vulos Files</strong> — file storage and P2P sharing, built into the OS</li>
-          <li><strong>Vulos Relay</strong> — sovereign reachability fabric — one of the two paid services</li>
+          <li><strong>Ephor</strong> — self-hostable reachability broker the box dials out to</li>
           <li><strong>llmux</strong> — sovereign AI gateway</li>
         </ul>
         <p>PIM is bring-your-own (Mail / Calendar / Contacts); chat and video are third-party (Matrix/Element, Element Call / Jitsi) — not Vulos products.</p>
-        <p><strong>BeepBite's role:</strong> the restaurant point-of-sale and ordering app. It runs standalone against your own Postgres, and is designed to also be hosted as an app by the Vulos OS — the same binary, with the OS wiring identity and scoped storage in front of it. Relay, the control plane and DMTAP are optional seams; a hard runtime dependency on any of them is forbidden.</p>
+        <p><strong>BeepBite's role:</strong> the restaurant point-of-sale and ordering app. It runs standalone against your own Postgres, and is designed to also be hosted as an app by the Vulos OS — the same binary, with the OS wiring identity and scoped storage in front of it. Ephor, the control plane and DMTAP are optional seams; a hard runtime dependency on any of them is forbidden.</p>
         <a class="more" href="https://vulos.org" target="_blank" rel="noopener">Explore VulOS &rarr;</a>
       </div>
     </div>

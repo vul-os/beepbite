@@ -367,8 +367,8 @@ solves it is exactly what §22 specifies.
   feed proves nothing.
 - The feed is served over plain HTTPS at `/.well-known/dmtap-pub/*` — no mesh, no relay, no libp2p.
   This is already proven possible (`kerf-pub`), and if it stops being possible, the stage stops.
-- A Go implementation exists to lift rather than invent: `vulos-relay/tunnel/pubcache/` already
-  carries the content-addressing, Merkle and proof code.
+- A Go implementation exists to lift rather than invent: Ephor's `tunnel/pubcache/`
+  (github.com/vul-os/ephor) already carries the content-addressing, Merkle and proof code.
 
 **Scope.**
 - A shop publishes a signed `FeedHead` / `FeedEntry` chain of job outcomes, using **§22's bytes** —
