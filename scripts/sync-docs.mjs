@@ -59,6 +59,23 @@ async function collect() {
   return out.sort((a, b) => a.to.localeCompare(b.to));
 }
 
+/**
+ * Every file we publish into site/docs/ has to appear in the viewer's `DOCS`
+ * array, or readers can only reach it by guessing the URL fragment. Returns
+ * the basenames that are published but not linked. Silent (returns nothing to
+ * complain about) if the viewer isn't on this branch.
+ */
+async function checkViewerIndex(files) {
+  const viewer = join(repoRoot, 'site', 'docs.html');
+  if (!existsSync(viewer)) return [];
+  const html = await readFile(viewer, 'utf8');
+  const linked = new Set([...html.matchAll(/"path"\s*:\s*"\.\/docs\/([^"]+)"/g)].map((m) => m[1]));
+  if (linked.size === 0) return [];   // no recognisable DOCS array — don't guess
+  return files
+    .map((f) => f.to.slice(siteDocsDir.length + 1))
+    .filter((name) => !linked.has(name));
+}
+
 async function main() {
   if (!existsSync(docsDir)) {
     console.error(`sync-docs: no docs/ directory at ${docsDir}`);
@@ -98,6 +115,21 @@ async function main() {
 
   for (const path of stale) {
     log(`  ${check ? 'stale' : 'rm   '} ${path.slice(repoRoot.length + 1)}`);
+  }
+
+  // A chapter can be copied here perfectly and still be unreachable, because
+  // the viewer's own chapter list is a hand-written array in site/docs.html.
+  // `online-payments.md` was published and unlinked for exactly that reason.
+  // Copying without linking is the same failure this script exists to stop,
+  // so the two are checked against each other.
+  const unlinked = await checkViewerIndex(files);
+  if (unlinked.length) {
+    console.error(
+      `\nsync-docs: site/docs.html does not link ${unlinked.length} published chapter(s):\n` +
+      unlinked.map((s) => `  - ${s}`).join('\n') +
+      '\nAdd them to the DOCS array and the chapter nav in site/docs.html.'
+    );
+    process.exit(1);
   }
 
   if (check && (changed || stale.length)) {

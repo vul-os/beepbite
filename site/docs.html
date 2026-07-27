@@ -6,52 +6,93 @@
 <title>BeepBite docs</title>
 <meta name="description" content="BeepBite documentation — setup, user guide, features, API, development, troubleshooting, roadmap.">
 <meta name="color-scheme" content="dark light">
+<link rel="canonical" href="https://vulos.org/products/beepbite/docs.html">
 <link rel="icon" href="./assets/brand/favicon.svg">
 <link rel="stylesheet" href="./assets/site.css">
+<script>
+/* Same pre-paint theme resolution as the landing page, and the same `js`
+   class gating every enhancement below it. */
+(function(){
+  document.documentElement.classList.add('js');
+  try { var t = localStorage.getItem('bb-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch(e){}
+})();
+</script>
 <script src="./assets/vendor/marked.umd.js" defer></script>
-<script src="./assets/vendor/mermaid.min.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#content">Skip to content</a>
+<div class="progress" id="progress" aria-hidden="true"></div>
+
 <header class="site-header"><div class="wrap nav">
     <a class="brand" href="./index.html"><span class="tile"><img src="./assets/brand/logo-mark.svg" alt="" width="34" height="34"></span>Beep<span class="bite">Bite</span></a>
     <div class="nav-spacer"></div>
     <nav class="nav-links" aria-label="Primary">
+      <a href="./index.html#screens">Screens</a>
       <a href="./index.html#problem">The problem</a>
       <a href="./index.html#features">Features</a>
       <a href="./index.html#how">How it works</a>
-      <a href="./docs.html">Docs</a>
+      <a href="./docs.html" class="here">Docs</a>
       <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
     </nav>
-    <a class="vulos-badge" href="https://vulos.org" target="_blank" rel="noopener" title="Part of VulOS">
-      <img src="./assets/vulos-logo.png" alt="">Part of VulOS
-    </a>
+    <div class="nav-tools">
+      <a class="vulos-badge" href="https://vulos.org" target="_blank" rel="noopener" title="Part of VulOS">
+        <img src="./assets/vulos-logo.png" alt=""><span>Part of VulOS</span>
+      </a>
+      <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch between light and dark" title="Switch theme">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
   </div></header>
+
+<div class="mobile-nav" id="mobile-nav"><div class="wrap">
+    <a href="./index.html">Home</a>
+    <a href="./index.html#screens">Screens</a>
+    <a href="./index.html#features">Features</a>
+    <a href="./index.html#how">How it works</a>
+    <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
+  </div></div>
+
 <div class="wrap">
   <div class="docs-status"><b>Pre-1.0 &middot; active rebuild</b> POS, kitchen, inventory and WhatsApp ordering are substantially built and tested; other ordering channels and the single-binary target are not. Each chapter is accurate as of the repository it was copied from — see <a href="#features">Features</a> and <a href="#roadmap">Roadmap</a> for the honest state of each surface.</div>
 </div>
+
 <div class="wrap docs-shell">
   <nav class="docs-nav" aria-label="Chapters">
-    <div class="label">BeepBite docs</div>
-        <a data-slug="setup" href="#setup">Setup</a>
-        <a data-slug="user-guide" href="#user-guide">User guide</a>
-        <a data-slug="features" href="#features">Features</a>
-        <a data-slug="api" href="#api">API</a>
-        <a data-slug="development" href="#development">Development</a>
-        <a data-slug="troubleshooting" href="#troubleshooting">Troubleshooting</a>
-        <a data-slug="security" href="#security">Security</a>
-        <a data-slug="sub-processors" href="#sub-processors">Sub-processors</a>
-        <a data-slug="screenshots" href="#screenshots">Screenshots</a>
-    <div class="label">Project</div>
-        <a data-slug="roadmap" href="#roadmap">Roadmap</a>
-        <a data-slug="changelog" href="#changelog">Changelog</a>
+    <div class="docs-search">
+      <input id="search" type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" spellcheck="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <kbd>/</kbd>
+    </div>
+    <div id="results" class="search-results" role="region" aria-label="Search results" aria-live="polite"></div>
+    <div id="chapters">
+      <div class="label">BeepBite docs</div>
+          <a data-slug="setup" href="#setup">Setup</a>
+          <a data-slug="user-guide" href="#user-guide">User guide</a>
+          <a data-slug="features" href="#features">Features</a>
+          <a data-slug="api" href="#api">API</a>
+          <a data-slug="development" href="#development">Development</a>
+          <a data-slug="troubleshooting" href="#troubleshooting">Troubleshooting</a>
+          <a data-slug="security" href="#security">Security</a>
+          <a data-slug="online-payments" href="#online-payments">Online payments</a>
+          <a data-slug="sub-processors" href="#sub-processors">Sub-processors</a>
+          <a data-slug="screenshots" href="#screenshots">Screenshots</a>
+      <div class="label">Project</div>
+          <a data-slug="roadmap" href="#roadmap">Roadmap</a>
+          <a data-slug="changelog" href="#changelog">Changelog</a>
+    </div>
   </nav>
   <main class="docs-main">
     <div class="docs-title" id="crumb"></div>
     <article class="markdown" id="content"><p class="docs-loading">Loading…</p></article>
+    <nav class="docs-pager" id="pager" aria-label="Chapter"></nav>
   </main>
   <aside class="docs-toc" id="toc" aria-label="On this page"></aside>
 </div>
+
 <footer class="site-footer"><div class="wrap">
     <div class="foot">
       <div class="left"><img src="./assets/vulos-logo.png" alt=""> <span>Part of <a href="https://vulos.org" target="_blank" rel="noopener">VulOS</a> — open, self-hostable apps. Standalone by design.</span></div>
@@ -64,6 +105,7 @@
     </div>
     <p class="foot-note">These pages are copied from the repository's own <code>docs/</code> by <code>npm run docs:sync</code> — never by hand — so what you read here cannot drift from what is in the repo. <code>marked</code> and <code>mermaid</code> are vendored; this page fetches nothing from any third party.</p>
   </div></footer>
+
 <script>
 // The site is served from site/; docs are copied here from the repo's own
 // markdown by scripts/sync-docs.mjs. Never edit site/docs/*.md by hand.
@@ -75,6 +117,7 @@ const DOCS = [
   {"slug":"development","title":"Development","path":"./docs/development.md"},
   {"slug":"troubleshooting","title":"Troubleshooting","path":"./docs/troubleshooting.md"},
   {"slug":"security","title":"Security","path":"./docs/security.md"},
+  {"slug":"online-payments","title":"Online payments","path":"./docs/online-payments.md"},
   {"slug":"sub-processors","title":"Sub-processors","path":"./docs/sub-processors.md"},
   {"slug":"screenshots","title":"Screenshots","path":"./docs/screenshots.md"},
   {"slug":"roadmap","title":"Roadmap","path":"./docs/roadmap.md"},
@@ -94,11 +137,42 @@ const OFFSITE = {
 const content = document.getElementById('content');
 const crumb = document.getElementById('crumb');
 const tocEl = document.getElementById('toc');
+const pagerEl = document.getElementById('pager');
 let currentSlug = null;
 let mermaidReady = false;
+let mermaidLoading = null;
 const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
 
-function isDark(){ return !window.matchMedia || !window.matchMedia('(prefers-color-scheme: light)').matches; }
+/* ---------------------------------------------------------------------
+   Theme. Shares the `bb-theme` key and the resolution rules with the
+   landing page, so a choice made on one carries to the other.
+   --------------------------------------------------------------------- */
+const root = document.documentElement;
+function resolvedTheme(){
+  const t = root.getAttribute('data-theme');
+  if (t === 'light' || t === 'dark') return t;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+}
+document.getElementById('theme-btn').addEventListener('click', ()=>{
+  const next = resolvedTheme() === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  try { localStorage.setItem('bb-theme', next); } catch(e){}
+  repaintMermaid();
+});
+
+/* ---- Mobile nav ---- */
+const menuBtn = document.getElementById('menu-btn');
+const mobileNav = document.getElementById('mobile-nav');
+menuBtn.addEventListener('click', ()=>{
+  const open = mobileNav.classList.toggle('open');
+  menuBtn.setAttribute('aria-expanded', String(open));
+});
+
+/* ---------------------------------------------------------------------
+   Mermaid, loaded only if a chapter actually contains a diagram. The
+   bundle is 3.5 MB; none of the current chapters use it, and paying for
+   it on every page view to render nothing is not a trade worth making.
+   --------------------------------------------------------------------- */
 function mermaidVars(dark){
   return dark ? {
     background:'#1b170f', primaryColor:'#221c12', primaryTextColor:'#f5efe0', primaryBorderColor:'#ff7a45',
@@ -112,24 +186,36 @@ function mermaidVars(dark){
     edgeLabelBackground:'#fffdf6', fontFamily: MONO
   };
 }
-function initMermaid(){
+function loadMermaid(){
+  if (mermaidLoading) return mermaidLoading;
+  mermaidLoading = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = './assets/vendor/mermaid.min.js';
+    s.onload = ()=>{
+      try {
+        window.mermaid.initialize({ startOnLoad:false, theme:'base', securityLevel:'loose', themeVariables: mermaidVars(resolvedTheme() === 'dark') });
+        mermaidReady = true;
+        resolve();
+      } catch(e){ reject(e); }
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return mermaidLoading;
+}
+async function repaintMermaid(){
+  if (!mermaidReady) return;
   try {
-    window.mermaid.initialize({ startOnLoad:false, theme:'base', securityLevel:'loose', themeVariables: mermaidVars(isDark()) });
-    mermaidReady = true;
+    window.mermaid.initialize({ startOnLoad:false, theme:'base', securityLevel:'loose', themeVariables: mermaidVars(resolvedTheme() === 'dark') });
+    const nodes = content.querySelectorAll('.mermaid');
+    nodes.forEach(n=>{ if (n.dataset.src) { n.removeAttribute('data-processed'); n.textContent = n.dataset.src; } });
+    if (nodes.length) await window.mermaid.run({ nodes });
   } catch(e){}
 }
-if (window.mermaid) initMermaid(); else window.addEventListener('load', initMermaid);
 if (window.matchMedia) {
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', async function(){
-    if (!mermaidReady) return;
-    try {
-      window.mermaid.initialize({ startOnLoad:false, theme:'base', securityLevel:'loose', themeVariables: mermaidVars(isDark()) });
-      const nodes = content.querySelectorAll('.mermaid');
-      nodes.forEach(n=>{
-        if (n.dataset.src) { n.removeAttribute('data-processed'); n.textContent = n.dataset.src; }
-      });
-      if (nodes.length) await window.mermaid.run({ nodes });
-    } catch(e){}
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()=>{
+    if (root.getAttribute('data-theme')) return;
+    repaintMermaid();
   });
 }
 
@@ -139,7 +225,7 @@ function whenMarked(cb){
 }
 
 function setActive(slug){
-  document.querySelectorAll('.docs-nav a').forEach(a=>a.classList.toggle('active', a.dataset.slug===slug));
+  document.querySelectorAll('.docs-nav a[data-slug]').forEach(a=>a.classList.toggle('active', a.dataset.slug===slug));
 }
 
 const slugCounts = {};
@@ -182,7 +268,31 @@ function wrapTables(){
   });
 }
 
-// Give every h2/h3 a stable id and a clickable "¶" permalink, and build the
+// Every code block gets a copy button. Setup instructions that have to be
+// retyped by hand are setup instructions that get mistyped.
+function addCopyButtons(){
+  content.querySelectorAll('pre').forEach(pre=>{
+    if (pre.parentElement.classList.contains('pre-wrap')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'pre-wrap';
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    btn.addEventListener('click', ()=>{
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(pre.innerText).then(()=>{
+        btn.textContent = 'Copied'; btn.classList.add('done');
+        setTimeout(()=>{ btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1800);
+      }).catch(()=>{});
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+// Give every h2/h3 a stable id and a clickable "#" permalink, and build the
 // right-hand "on this page" table of contents from them.
 function buildToc(){
   Object.keys(slugCounts).forEach(k=>delete slugCounts[k]);
@@ -215,6 +325,16 @@ function buildToc(){
   tocEl.appendChild(ol);
 }
 
+// Previous / next chapter, so the docs can be read straight through.
+function buildPager(slug){
+  const i = DOCS.findIndex(d=>d.slug===slug);
+  const prev = i > 0 ? DOCS[i-1] : null;
+  const next = i >= 0 && i < DOCS.length - 1 ? DOCS[i+1] : null;
+  pagerEl.innerHTML =
+    (prev ? '<a href="#'+prev.slug+'"><span class="k">&larr; Previous</span><span class="t">'+prev.title+'</span></a>' : '<span class="none"></span>') +
+    (next ? '<a class="next" href="#'+next.slug+'"><span class="k">Next &rarr;</span><span class="t">'+next.title+'</span></a>' : '<span class="none"></span>');
+}
+
 let tocObserver = null;
 function watchToc(){
   if (tocObserver) tocObserver.disconnect();
@@ -232,6 +352,7 @@ function watchToc(){
 
 async function renderMermaid(){
   const blocks = [...content.querySelectorAll('code.language-mermaid')];
+  if (!blocks.length) return;
   blocks.forEach(code=>{
     const div = document.createElement('div');
     div.className='mermaid';
@@ -239,7 +360,7 @@ async function renderMermaid(){
     div.dataset.src = code.textContent;
     code.closest('pre').replaceWith(div);
   });
-  if (!mermaidReady) return;
+  try { await loadMermaid(); } catch(e){ return; }
   const nodes = content.querySelectorAll('.mermaid');
   if(nodes.length){ try { await mermaid.run({ nodes }); } catch(e){ console.warn('mermaid', e); } }
 }
@@ -250,16 +371,122 @@ function scrollToHeading(id){
   if (el) el.scrollIntoView({ block:'start' });
 }
 
+/* ---------------------------------------------------------------------
+   Search. Every chapter is fetched once, cached, and matched on raw
+   markdown — the whole doc set is a few hundred KB of text, so this stays
+   local: no index to build, no service to call, nothing leaves the page.
+   --------------------------------------------------------------------- */
+const cache = {};
+const resultsEl = document.getElementById('results');
+const chaptersEl = document.getElementById('chapters');
+const searchEl = document.getElementById('search');
+let corpusLoaded = false;
+
+async function fetchDoc(doc){
+  if (cache[doc.slug] != null) return cache[doc.slug];
+  const res = await fetch(doc.path, {cache:'no-cache'});
+  if (!res.ok) throw new Error('HTTP '+res.status);
+  cache[doc.slug] = await res.text();
+  return cache[doc.slug];
+}
+async function loadCorpus(){
+  if (corpusLoaded) return;
+  await Promise.all(DOCS.map(d=>fetchDoc(d).catch(()=>{ cache[d.slug] = ''; })));
+  corpusLoaded = true;
+}
+function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// Search matches raw markdown, so a snippet lifted straight out of it arrives
+// full of `**`, backticks and table pipes. Strip the syntax, keep the words.
+function plain(s){
+  return s
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')   // links and images -> their text
+    .replace(/[*_`>#]+/g, '')
+    .replace(/\s*\|\s*/g, ' · ')
+    .replace(/-{2,}/g, '—')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function runSearch(q){
+  const query = q.trim().toLowerCase();
+  if (query.length < 2) {
+    resultsEl.innerHTML = '';
+    chaptersEl.style.display = '';
+    return;
+  }
+  chaptersEl.style.display = 'none';
+  const hits = [];
+  for (const doc of DOCS) {
+    const text = cache[doc.slug] || '';
+    const idx = text.toLowerCase().indexOf(query);
+    if (idx === -1) continue;
+    // Label the hit with the nearest heading above it — "API · Idempotency"
+    // locates a match far better than the chapter title alone.
+    const heads = text.slice(0, idx).match(/^#{1,6} .+$/gm);
+    const heading = heads ? plain(heads[heads.length - 1].replace(/^#+\s*/, '')) : null;
+    const start = Math.max(0, idx - 56);
+    const raw = plain(text.slice(start, idx + query.length + 92));
+    const rel = raw.toLowerCase().indexOf(query);
+    const snippet = rel === -1 ? escapeHtml(raw)
+      : escapeHtml(raw.slice(0, rel)) + '<mark>' + escapeHtml(raw.slice(rel, rel + query.length)) + '</mark>' + escapeHtml(raw.slice(rel + query.length));
+    hits.push({ doc, heading, snippet, count: (text.toLowerCase().split(query).length - 1) });
+  }
+  hits.sort((a,b)=>b.count - a.count);
+  if (!hits.length) {
+    resultsEl.innerHTML = '<p class="search-empty">No match in any chapter.</p>';
+    return;
+  }
+  resultsEl.innerHTML = hits.slice(0, 8).map(h=>
+    '<a href="#'+h.doc.slug+'"><span class="t">'+escapeHtml(h.doc.title)+(h.heading ? ' &middot; '+escapeHtml(h.heading) : '')+'</span><span class="s">…'+h.snippet+'…</span></a>'
+  ).join('');
+}
+
+let searchTimer = null;
+searchEl.addEventListener('input', ()=>{
+  const q = searchEl.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async ()=>{
+    if (q.trim().length >= 2) await loadCorpus();
+    runSearch(q);
+  }, 120);
+});
+searchEl.addEventListener('focus', ()=>{ loadCorpus().catch(()=>{}); });
+searchEl.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape') { searchEl.value = ''; runSearch(''); searchEl.blur(); }
+  if (e.key === 'Enter') { const first = resultsEl.querySelector('a'); if (first) first.click(); }
+});
+resultsEl.addEventListener('click', (e)=>{
+  if (e.target.closest('a')) { searchEl.value = ''; runSearch(''); }
+});
+document.addEventListener('keydown', (e)=>{
+  if (e.key === '/' && document.activeElement !== searchEl && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+    e.preventDefault(); searchEl.focus();
+  }
+});
+
+/* ---- Reading progress ---- */
+const progressEl = document.getElementById('progress');
+let progressQueued = false;
+function updateProgress(){
+  progressQueued = false;
+  const h = document.documentElement.scrollHeight - window.innerHeight;
+  progressEl.style.width = (h > 0 ? Math.min(window.scrollY / h, 1) * 100 : 0) + '%';
+}
+window.addEventListener('scroll', ()=>{
+  if (progressQueued) return;
+  progressQueued = true;
+  requestAnimationFrame(updateProgress);
+}, { passive: true });
+
 async function load(slug, headingId){
   const doc = bySlug[slug] || DOCS[0];
   setActive(doc.slug);
   crumb.textContent = doc.title;
   content.innerHTML = '<p class="docs-loading">Loading…</p>';
   tocEl.innerHTML = '';
+  pagerEl.innerHTML = '';
   try {
-    const res = await fetch(doc.path, {cache:'no-cache'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const md = await res.text();
+    const md = await fetchDoc(doc);
     content.innerHTML = marked.parse(md);
     currentSlug = doc.slug;
 
@@ -295,14 +522,18 @@ async function load(slug, headingId){
     content.querySelectorAll('a[href^="http"]').forEach(a=>{a.target='_blank';a.rel='noopener';});
     renderCallouts();
     wrapTables();
+    addCopyButtons();
     await renderMermaid();
     buildToc();
+    buildPager(doc.slug);
     scrollToHeading(headingId);
     watchToc();
+    updateProgress();
   } catch(err){
     content.innerHTML = '<div class="docs-error">Could not load <code>'+doc.path.split('/').pop()+'</code> — '+err.message+
       '. If you are viewing this from the filesystem, serve the <code>site/</code> directory over HTTP instead; and make sure <code>npm run docs:sync</code> has been run.</div>';
     tocEl.innerHTML = '';
+    pagerEl.innerHTML = '';
   }
 }
 
