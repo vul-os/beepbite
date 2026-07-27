@@ -13,7 +13,6 @@ import POSInterfacePreview from '@/components/previews/pos-interface-preview';
 import { useTheme } from '@/components/theme-provider';
 import { formatMoney, currencyScale } from '@/lib/currency';
 import {
-  Clock,
   Star,
   CheckCircle,
   ArrowRight,
@@ -23,8 +22,6 @@ import {
   MessageSquare,
   Utensils,
   Heart,
-  Phone,
-  Mail,
   CreditCard,
   Sparkles,
   Bell,
@@ -292,33 +289,21 @@ const ThemeToggle = () => {
   );
 };
 
-// ---------- Support 3D scene ----------
-// Ambient Spline scene rendered as the support section background. Plain iframe
-// (no extra deps) — lazy-loaded, fades in on load, hidden on small screens to
-// keep mobile light, and pointer-events-none so it never traps scroll/clicks.
-//
-// The iframe is deliberately oversized and anchored top-left so its bottom-right
-// corner — where Spline stamps its "Built with Spline" watermark — overflows the
-// section's `overflow-hidden` box and gets clipped away. No patch/overlay needed.
-const SupportSpline = () => {
-  const [ready, setReady] = React.useState(false);
-
-  return (
-    <div className="absolute inset-0 hidden md:block pointer-events-none" style={{ zIndex: 0 }} aria-hidden="true">
-      <iframe
-        src="https://my.spline.design/lostorbinthemountains-lc5szATmGQdqox9vGI2n6YEu/"
-        title="Ambient 3D background"
-        loading="lazy"
-        onLoad={() => setReady(true)}
-        className={`absolute top-0 left-0 border-0 transition-opacity duration-[1200ms] ${
-          ready ? 'opacity-100' : 'opacity-0'
-        }`}
-        // Oversize so the watermarked bottom-right corner is clipped by the parent.
-        style={{ width: 'calc(100% + 180px)', height: 'calc(100% + 120px)' }}
-      />
-    </div>
-  );
-};
+// ---------- Support section backdrop ----------
+// This used to be an ambient 3D scene loaded in an iframe from my.spline.design.
+// It looked good and it was a lie: BeepBite's central claim is that a fresh
+// install makes no outbound network calls at all, and the page making that
+// claim was fetching a third-party scene to decorate itself. The replacement is
+// drawn locally — layered radial glows and a drifting conic sweep — so the
+// landing page keeps the promise the product makes.
+const SupportBackdrop = () => (
+  <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }} aria-hidden="true">
+    <div className="absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full bg-orange-500/20 blur-3xl animate-blob" />
+    <div className="absolute -bottom-48 -right-24 w-[560px] h-[560px] rounded-full bg-rose-500/15 blur-3xl animate-blob animation-delay-2000" />
+    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full bg-amber-400/10 blur-3xl animate-blob animation-delay-4000" />
+    <div className="absolute inset-0 bg-grid-orange opacity-[0.18] [mask-image:radial-gradient(ellipse_at_center,black_15%,transparent_65%)]" />
+  </div>
+);
 
 // ---------- Page ----------
 const LandingPage = () => {
@@ -366,8 +351,8 @@ const LandingPage = () => {
     },
     {
       icon: <Zap className="w-5 h-5" />,
-      title: 'Instant Setup',
-      desc: 'Import your menu, scan a QR, hand out the WhatsApp number. You can serve today.',
+      title: 'One binary, your box',
+      desc: 'A Go API and a React app against your own Postgres. Nothing to subscribe to, nothing to phone home to.',
       tone: 'amber',
     },
   ];
@@ -390,30 +375,33 @@ const LandingPage = () => {
     amber: 'group-hover:border-amber-200',
   };
 
+  // Countable facts about this repository, not service-level promises. There
+  // is no service behind BeepBite to promise uptime or staffed support for —
+  // the numbers that mean anything are the ones you can check in the tree.
   const stats = [
-    { value: 30, suffix: 's', label: 'Avg pickup notify time', icon: <Clock className="w-5 h-5" /> },
-    { value: 99.9, suffix: '%', label: 'Uptime guarantee', icon: <Shield className="w-5 h-5" /> },
-    { value: 2, suffix: ' min', label: 'Menu import', icon: <Utensils className="w-5 h-5" /> },
-    { value: 24, suffix: '/7', label: 'WhatsApp support', icon: <MessageSquare className="w-5 h-5" /> },
+    { value: 0, suffix: '%', label: 'Cut of every order', icon: <CreditCard className="w-5 h-5" /> },
+    { value: 0, suffix: '', label: 'Outbound calls on a fresh install', icon: <Shield className="w-5 h-5" /> },
+    { value: 146, suffix: '', label: 'Tables in one baseline migration', icon: <BarChart3 className="w-5 h-5" /> },
+    { value: 337, suffix: '', label: 'HTTP endpoints on your own API', icon: <Zap className="w-5 h-5" /> },
   ];
 
   const steps = [
     {
       n: '01',
-      title: 'Import your menu',
-      desc: 'Snap a photo or upload a PDF — our AI builds your menu in minutes.',
+      title: 'Build the menu',
+      desc: 'Categories, items, modifiers and recipes — entered once, on this instance, and used by every channel.',
       icon: <Utensils className="w-5 h-5" />,
     },
     {
       n: '02',
-      title: 'Connect WhatsApp',
-      desc: 'Link your business number. Customers order and pay without an app.',
+      title: 'Connect WhatsApp — or don’t',
+      desc: 'Add your own Meta Cloud API credentials to turn the channel on. Without them it stays dark, and the counter still works.',
       icon: <WhatsAppIcon className="w-5 h-5" />,
     },
     {
       n: '03',
       title: 'Serve & notify',
-      desc: 'Take orders at the counter or via WhatsApp. Tap "ready" — pagers gone.',
+      desc: 'Take orders at the counter or over WhatsApp. Tap "ready" and the customer gets a message instead of a buzzer.',
       icon: <Bell className="w-5 h-5" />,
     },
   ];
@@ -570,7 +558,7 @@ const LandingPage = () => {
                 className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-xl mx-auto lg:mx-0 leading-relaxed text-pretty"
               >
                 A complete point-of-sale built for the way people actually order today — at the counter, and on the
-                phone they're already holding. No app downloads. No plastic pagers.
+                phone they&rsquo;re already holding. No app downloads. No plastic pagers.
               </motion.p>
 
               {/* CTA row */}
@@ -585,7 +573,7 @@ const LandingPage = () => {
                   onClick={() => navigate('/signup')}
                   className="group relative bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white px-7 py-6 text-base rounded-2xl shadow-glow hover:shadow-xl hover:shadow-orange-500/40 transition-all hover:-translate-y-0.5"
                 >
-                  Start free trial
+                  Create an account
                   <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                 </Button>
                 <Button
@@ -605,7 +593,7 @@ const LandingPage = () => {
                 transition={{ duration: 0.8, delay: 0.4 }}
                 className="flex flex-wrap items-center gap-x-5 gap-y-2 justify-center lg:justify-start text-sm text-gray-500 dark:text-gray-400"
               >
-                {['No card required', 'Cancel anytime', 'Free menu import'].map((t) => (
+                {['Your own database', 'No per-order fee', 'MIT or Apache-2.0'].map((t) => (
                   <div key={t} className="flex items-center gap-1.5">
                     <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                     {t}
@@ -756,14 +744,16 @@ const LandingPage = () => {
           {/* Mid-section CTA */}
           <Reveal delay={0.1}>
             <div className="text-center mt-20 pt-12 border-t border-border/50 dark:border-gray-800">
-              <h3 className="text-2xl sm:text-3xl text-balance">Ready to try BeepBite?</h3>
-              <p className="text-muted-foreground mt-3 max-w-md mx-auto text-pretty">No credit card. Set up in minutes.</p>
+              <h3 className="text-2xl sm:text-3xl text-balance">Ready to open the till?</h3>
+              <p className="text-muted-foreground mt-3 max-w-md mx-auto text-pretty">
+                This instance is yours. Create an account and start taking orders on it.
+              </p>
               <Button
                 size="lg"
                 onClick={() => navigate('/signup')}
                 className="mt-7 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white px-8 py-6 rounded-2xl shadow-glow hover:shadow-xl transition-all hover:-translate-y-0.5"
               >
-                Start free trial <ArrowRight className="w-4 h-4 ml-2" />
+                Create an account <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
           </Reveal>
@@ -813,7 +803,7 @@ const LandingPage = () => {
               <Eyebrow className="bg-violet-100 text-violet-700">How it works</Eyebrow>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl text-balance">
                 From sign-up to first order in{' '}
-                <span className="font-display-italic text-primary">10 minutes</span>
+                <span className="font-display-italic text-primary">one evening</span>
               </h2>
             </div>
           </Reveal>
@@ -854,24 +844,33 @@ const LandingPage = () => {
               <div className="absolute -top-20 -right-20 w-56 h-56 bg-orange-100 dark:bg-orange-900/20 rounded-full blur-3xl pointer-events-none" />
               <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-rose-100 dark:bg-rose-900/20 rounded-full blur-3xl pointer-events-none" />
 
+              {/*
+                There was a five-star customer testimonial here, from a named
+                owner of a named restaurant. Both were invented. A project whose
+                entire pitch is "we tell you what is actually built" cannot open
+                with a fabricated endorsement, so it is replaced by the rule the
+                product is actually built to — which is checkable.
+              */}
               <div className="relative grid sm:grid-cols-5 gap-8 sm:gap-12 items-center">
                 <div className="sm:col-span-1 flex sm:justify-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 text-white flex items-center justify-center text-3xl font-display shadow-glow select-none">
-                    "
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 text-white flex items-center justify-center shadow-glow select-none">
+                    <Shield className="w-7 h-7" />
                   </div>
                 </div>
                 <div className="sm:col-span-4">
-                  <div className="flex gap-1 mb-4">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                    ))}
+                  <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
+                    The rule this is built to
                   </div>
                   <p className="text-lg sm:text-xl text-gray-800 dark:text-gray-100 leading-relaxed text-pretty">
-                    Customers love getting a WhatsApp instead of a buzzer — they wander, they come back, they tip more.
-                    Our prep-to-pickup time dropped by half in the first week.
+                    No feature is described as working unless it is in the tree, wired into the running server, and
+                    exercised by a test. Where something is half-built, the docs say so and name the defect — because a
+                    feature that silently does nothing is worse than one that admits it isn&rsquo;t built.
                   </p>
                   <div className="mt-5 text-sm font-semibold text-gray-900 dark:text-white">
-                    Sandile M. <span className="font-normal text-muted-foreground">· Owner, Bay Burgers</span>
+                    ROADMAP.md{' '}
+                    <span className="font-normal text-muted-foreground">
+                      · the honesty conventions, and they&rsquo;re load-bearing
+                    </span>
                   </div>
                 </div>
               </div>
@@ -884,10 +883,8 @@ const LandingPage = () => {
           SUPPORT
       ============================================================ */}
       <section id="support" className="relative py-20 sm:py-28 bg-gray-950 text-white overflow-hidden">
-        {/* Ambient 3D scene — desktop only, behind everything */}
-        <SupportSpline />
-        {/* Flat scrim on mobile only (no scene there); desktop shows the raw scene */}
-        <div className="absolute inset-0 bg-gray-950/80 md:hidden pointer-events-none" style={{ zIndex: 1 }} />
+        {/* Ambient backdrop — drawn locally, no third-party fetch */}
+        <SupportBackdrop />
         <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" style={{ zIndex: 1 }} />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -895,57 +892,58 @@ const LandingPage = () => {
             <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
               <Eyebrow className="bg-white/10 text-white/80">Support</Eyebrow>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl text-balance text-white">
-                We're here when you need us
+                Nobody to call — everything to read
               </h2>
               <p className="mt-5 text-lg text-gray-400 text-pretty leading-relaxed">
-                Real humans, fast replies. Most questions answered in under five minutes.
+                There is no support desk, because there is no service and no subscription funding one. What there is
+                instead: the source, the docs, and an issue tracker where the answers are public.
               </p>
             </div>
           </Reveal>
 
           <Stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {/*
+              These used to be a support desk: a WhatsApp line, a callback
+              request and a support@beepbite.io mailbox — none of which exist,
+              on a domain nobody operates. Every destination below is real and
+              reachable.
+            */}
             {[
-              {
-                icon: <WhatsAppIcon className="w-5 h-5" />,
-                title: 'WhatsApp',
-                desc: 'Quick chat with our team',
-                cta: 'Message us',
-                // No business WhatsApp number is configured here — a wa.me
-                // link needs one, and inventing one meant hardcoding a
-                // country's dialing code as if it were the default.
-                href: 'mailto:support@beepbite.io?subject=WhatsApp%20support',
-                accent: 'from-emerald-500 to-emerald-600',
-                ext: false,
-              },
-              {
-                icon: <Mail className="w-5 h-5" />,
-                title: 'Email',
-                desc: 'Detailed help & onboarding',
-                cta: 'Email us',
-                href: 'mailto:support@beepbite.io',
-                accent: 'from-orange-500 to-rose-500',
-                ext: false,
-              },
-              {
-                icon: <Phone className="w-5 h-5" />,
-                title: 'Phone',
-                desc: "Leave your number, we'll call you",
-                cta: 'Request a callback',
-                // No support line is configured here — a tel: link needs a
-                // real number, and a South African one is exactly the
-                // hardcoded default this pass removes.
-                href: 'mailto:support@beepbite.io?subject=Callback%20request',
-                accent: 'from-amber-500 to-orange-500',
-                ext: false,
-              },
               {
                 icon: <MessageSquare className="w-5 h-5" />,
                 title: 'Docs',
-                desc: 'Self-serve guides',
-                cta: 'Read docs',
+                desc: 'Setup, the API, and what is honestly not built yet',
+                cta: 'Read the docs',
                 href: '/docs',
                 accent: 'from-violet-500 to-indigo-500',
                 ext: false,
+              },
+              {
+                icon: <Zap className="w-5 h-5" />,
+                title: 'Issues',
+                desc: 'Report a bug or read what others already hit',
+                cta: 'Open an issue',
+                href: 'https://github.com/vul-os/beepbite/issues',
+                accent: 'from-orange-500 to-rose-500',
+                ext: true,
+              },
+              {
+                icon: <Shield className="w-5 h-5" />,
+                title: 'Source',
+                desc: 'Every claim on this page is checkable in the tree',
+                cta: 'Browse the code',
+                href: 'https://github.com/vul-os/beepbite',
+                accent: 'from-emerald-500 to-emerald-600',
+                ext: true,
+              },
+              {
+                icon: <Users className="w-5 h-5" />,
+                title: 'VulOS',
+                desc: 'The wider family of self-hostable apps this belongs to',
+                cta: 'Explore VulOS',
+                href: 'https://vulos.org',
+                accent: 'from-amber-500 to-orange-500',
+                ext: true,
               },
             ].map((c) => (
               <StaggerItem key={c.title}>
@@ -984,11 +982,11 @@ const LandingPage = () => {
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <Reveal>
             <h2 className="text-4xl sm:text-5xl lg:text-6xl text-white text-balance">
-              Upgrade your POS{' '}
+              Own your counter{' '}
               <span className="font-display-italic">today.</span>
             </h2>
             <p className="mt-6 text-lg sm:text-xl text-white/85 max-w-xl mx-auto text-pretty leading-relaxed">
-              Modern point of sale, WhatsApp ordering and digital pagers — all in one. Free to start.
+              Point of sale, kitchen display, WhatsApp ordering and digital pagers — one system, on your hardware.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
               <Button
@@ -996,7 +994,7 @@ const LandingPage = () => {
                 onClick={() => navigate('/signup')}
                 className="bg-white text-orange-600 hover:bg-orange-50 px-8 py-6 text-base font-semibold rounded-2xl shadow-2xl shadow-black/10 hover:-translate-y-0.5 transition-all"
               >
-                Start free trial
+                Create an account
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
               <Button
@@ -1008,7 +1006,7 @@ const LandingPage = () => {
                 Sign in
               </Button>
             </div>
-            <p className="mt-7 text-sm text-white/75">No credit card · Cancel anytime · Setup in minutes</p>
+            <p className="mt-7 text-sm text-white/75">Self-hosted · No per-order fee · MIT or Apache-2.0</p>
           </Reveal>
         </div>
       </section>
@@ -1093,7 +1091,7 @@ const LandingPage = () => {
 
           <div className="border-t border-border/50 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-xs sm:text-sm text-muted-foreground text-center md:text-left">
-              &copy; {new Date().getFullYear()} BeepBite — a <a href="https://github.com/vul-os" className="underline hover:text-foreground">VulOS</a> project · open-source, MIT-licensed
+              &copy; {new Date().getFullYear()} BeepBite — a <a href="https://github.com/vul-os" className="underline hover:text-foreground">VulOS</a> project · open-source, dual MIT OR Apache-2.0
             </p>
             <button
               onClick={() => scrollToSection('home')}

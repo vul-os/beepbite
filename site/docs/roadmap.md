@@ -280,7 +280,9 @@ Not committed. Each gets pulled into Now when its trigger fires.
 
 ## DMTAP — a staged, gated adoption plan
 
-[DMTAP](https://github.com/vul-os/dmtap) is a decentralized message-transfer and identity protocol
+[DMTAP](https://github.com/vul-os/kotva) — the mail profile of the **KOTVA** substrate, which is
+where the specs referenced throughout this section now live — is a decentralized message-transfer
+and identity protocol
 whose five general capabilities form a **narrow waist** that non-mail products may adopt à la carte:
 **① Identity**, **② Feeds & Blobs**, **③ Sync**, **④ Infrastructure Roles**, **⑤ Wake**. Two of its
 adoption rules govern everything below:

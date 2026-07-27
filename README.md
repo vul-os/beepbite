@@ -46,8 +46,9 @@ Ordering is meant to be **channel-agnostic**: customers order from wherever
 they already are, not wherever BeepBite decided to build first. Today that
 means WhatsApp chat (built, using your own Meta credentials) and QR-at-table
 or web ordering (built). Discord, Slack, and email — including over
-[DMTAP](https://github.com/vul-os/dmtap), our own decentralized mail protocol,
-the option with no Meta or Google in the middle — are the intended next
+[DMTAP](https://github.com/vul-os/kotva), our own decentralized mail protocol
+(the mail profile of the KOTVA substrate) and the option with no Meta or
+Google in the middle — are the intended next
 adapters, not yet built. See [Status](#status) for exactly which is which.
 
 > [!NOTE]

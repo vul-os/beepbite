@@ -1,5 +1,34 @@
-User-agent: *
-Allow: /
+# BeepBite is self-hosted: every deployment is a different host, owned by the
+# restaurant running it, so there is no canonical public site to point at and
+# no sitemap to publish. (This file previously advertised a sitemap on
+# caseon.co.za — a different product's domain, inherited from a template.)
+#
+# The default below assumes the operational surfaces are private and the
+# public storefront is not. Edit it to suit your own deployment.
 
-# Sitemap location
-Sitemap: https://caseon.co.za/sitemap.xml
+User-agent: *
+
+# Customer-facing tracking links carry a capability token in the URL. They
+# must never be crawled or indexed.
+Disallow: /track/
+
+# The till, kitchen, back office and account surfaces are behind a login and
+# have nothing to offer a crawler.
+Disallow: /pos
+Disallow: /quick-pos
+Disallow: /kds
+Disallow: /floor
+Disallow: /work
+Disallow: /manager
+Disallow: /admin
+Disallow: /reports
+Disallow: /inventory
+Disallow: /settings
+Disallow: /account
+Disallow: /staff
+Disallow: /driver
+Disallow: /cash
+
+# The public store page (/store/<slug>) and the marketing pages stay
+# crawlable — that is how a customer finds the shop's own ordering page.
+Allow: /

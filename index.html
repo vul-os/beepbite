@@ -11,16 +11,21 @@
     <meta name="author" content="BeepBite" />
     <meta name="robots" content="index, follow" />
 
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://beepbite.io/" />
+    <!--
+      No canonical or absolute og:url here on purpose. This is the app shell
+      of a self-hosted product: every deployment lives on the operator's own
+      hostname, so a canonical pointing at one domain would tell crawlers that
+      every restaurant's till belongs to somebody else's site. (It used to
+      point at beepbite.io, which nobody operates.) The marketing page that
+      *does* have a canonical home is site/index.html.
+    -->
 
     <!-- Favicons -->
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon.png" />
 
-    <!-- Open Graph / Facebook -->
+    <!-- Open Graph / Facebook — relative image, host-agnostic -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://beepbite.io/" />
     <meta property="og:title" content="BeepBite | The restaurant point-of-sale you actually own" />
     <meta property="og:description" content="Till, kitchen display, floor plan, inventory and delivery on your own hardware and your own database. No cloud account, no per-order fee, nothing phones home." />
     <meta property="og:image" content="/icon.png" />
@@ -28,7 +33,6 @@
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://beepbite.io/" />
     <meta property="twitter:title" content="BeepBite | The restaurant point-of-sale you actually own" />
     <meta property="twitter:description" content="Till, kitchen display, floor plan, inventory and delivery on your own hardware and your own database. No cloud account, no per-order fee, nothing phones home." />
     <meta property="twitter:image" content="/icon.png" />
