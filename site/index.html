@@ -6,16 +6,38 @@
 <title>BeepBite — A restaurant point-of-sale you actually own.</title>
 <meta name="description" content="Front of house, kitchen, delivery and multi-channel ordering — one self-hosted system, running on your own hardware. No cloud account, no per-order fee, no platform standing between you and your customers.">
 <meta name="color-scheme" content="dark light">
+<link rel="canonical" href="https://vulos.org/products/beepbite/">
 <link rel="icon" href="./assets/brand/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BeepBite — A restaurant point-of-sale you actually own.">
+<meta property="og:description" content="Front of house, kitchen, delivery and multi-channel ordering — one self-hosted system on your own hardware. No cloud account, no per-order fee, no platform in the middle.">
+<meta property="og:url" content="https://vulos.org/products/beepbite/">
+<meta property="og:image" content="./screenshots/pos-workspace-dark.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="./assets/site.css">
-<script src="./assets/vendor/mermaid.min.js" defer></script>
+<!-- No vendored renderer here on purpose: the "how it works" flowchart is
+     hand-built HTML/CSS, which is 3.5 MB lighter than the Mermaid bundle it
+     replaced and re-inks with the theme instead of being re-rendered. -->
+<script>
+/* Resolve the stored theme before first paint so the page never flashes the
+   wrong palette. "system" stores nothing and lets prefers-color-scheme win.
+   The `js` class gates every progressive enhancement below — without it the
+   scroll-reveal CSS never hides anything, so the page reads fine with
+   scripting off. */
+(function(){
+  document.documentElement.classList.add('js');
+  try { var t = localStorage.getItem('bb-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch(e){}
+})();
+</script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
+
 <header class="site-header"><div class="wrap nav">
     <a class="brand" href="./index.html"><span class="tile"><img src="./assets/brand/logo-mark.svg" alt="" width="34" height="34"></span>Beep<span class="bite">Bite</span></a>
     <div class="nav-spacer"></div>
     <nav class="nav-links" aria-label="Primary">
+      <a href="#screens">Screens</a>
       <a href="#problem">The problem</a>
       <a href="#features">Features</a>
       <a href="#how">How it works</a>
@@ -23,34 +45,265 @@
       <a href="./docs.html">Docs</a>
       <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
     </nav>
-    <a class="vulos-badge" href="https://vulos.org" target="_blank" rel="noopener" title="Part of VulOS">
-      <img src="./assets/vulos-logo.png" alt="">Part of VulOS
-    </a>
-  </div></header>
-<main id="main">
-  <section class="hero"><div class="wrap">
-    <span class="eyebrow print-in">No cloud &middot; no per-order fee &middot; no platform in the middle</span>
-    <h1 class="print-in">A restaurant point-of-sale<br>you actually own.</h1>
-    <p class="tagline print-in">Front of house, kitchen, delivery, and ordering from wherever your customers already are — one system, running on your own hardware.</p>
-    <p class="blurb print-in">Take the order, cook it, serve it, deliver it, know what it cost you. Ordering isn't tied to one vendor: a shop turns on the channels its customers actually use — WhatsApp today, using its own Meta credentials, with Discord, Slack and email each landing in the same order stream as they ship. No download, no signup, no app-store listing just to order dinner.</p>
-
-    <div class="status print-in">
-      <b>Pre-1.0 &middot; under active rebuild</b>
-      <p>POS, kitchen display, floor plan, orders, inventory, purchasing, gift cards and loyalty are substantially built and covered by integration and e2e tests. WhatsApp ordering works today against your own Meta credentials; Discord, Slack and email/DMTAP adapters are designed but not yet built — see <a href="./docs.html#roadmap">the roadmap</a>. Postgres is required today; the single-binary-plus-SQLite target is planned, not shipped. Read the honest <a href="./docs.html#features">feature-by-feature status</a> before deploying this anywhere real.</p>
+    <div class="nav-tools">
+      <a class="vulos-badge" href="https://vulos.org" target="_blank" rel="noopener" title="Part of VulOS">
+        <img src="./assets/vulos-logo.png" alt=""><span>Part of VulOS</span>
+      </a>
+      <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch between light and dark" title="Switch theme">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
     </div>
+  </div></header>
 
-    <div class="cta-row print-in">
-      <a class="btn btn-primary" href="./docs.html#setup">Read the setup guide</a>
-      <a class="btn btn-ghost" href="./docs.html">Browse the docs</a>
-      <a class="btn btn-ghost" href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">View on GitHub</a>
+<div class="mobile-nav" id="mobile-nav"><div class="wrap">
+    <a href="#screens">Screens</a>
+    <a href="#problem">The problem</a>
+    <a href="#features">Features</a>
+    <a href="#how">How it works</a>
+    <a href="#selfhost">Self-hosting</a>
+    <a href="./docs.html">Docs</a>
+    <a href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">GitHub</a>
+  </div></div>
+
+<main id="main">
+
+  <!-- ====================================================================
+       HERO
+       ==================================================================== -->
+  <section class="hero"><div class="wrap">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow print-in">No cloud &middot; no per-order fee &middot; no platform in the middle</span>
+        <h1 class="print-in">A restaurant point-of-sale <em>you actually own</em>.</h1>
+        <p class="tagline print-in">Front of house, kitchen, delivery, and ordering from wherever your customers already are — one system, running on your own hardware.</p>
+        <p class="blurb print-in">Take the order, cook it, serve it, deliver it, know what it cost you. Ordering isn't tied to one vendor: a shop turns on the channels its customers actually use — WhatsApp today, using its own Meta credentials, with Discord, Slack and email each landing in the same order stream as they ship. No download, no signup, no app-store listing just to order dinner.</p>
+
+        <div class="cta-row print-in">
+          <a class="btn btn-primary" href="./docs.html#setup">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+            Read the setup guide
+          </a>
+          <a class="btn btn-ghost" href="#screens">See the real screens</a>
+        </div>
+
+        <ul class="trust print-in">
+          <li>MIT OR Apache-2.0</li>
+          <li>Your Postgres, your building</li>
+          <li>Nothing phones home</li>
+        </ul>
+      </div>
+
+      <!-- The live order chit: the product's own unit of work, printing itself. -->
+      <div class="ticket-stage" aria-hidden="true">
+        <div class="ticket" id="ticket">
+          <div class="t-head">
+            <div class="t-live"><span class="dot"></span> Live &middot; The Copper Table <span class="spacer"></span> <span id="t-clock">19:42</span></div>
+            <div class="t-no">
+              <strong>CT&#8209;01512</strong>
+              <span class="meta">Table T2<br>Main dining</span>
+            </div>
+            <span class="t-stamp" id="t-stamp" data-state="new">New</span>
+          </div>
+
+          <div class="t-body">
+            <div class="t-line"><span class="qty">1&times;</span><span class="name">300g Rump Steak</span><span class="st" data-line="0">Queued</span></div>
+            <div class="t-line"><span class="qty">1&times;</span><span class="name">Chargrilled Octopus</span><span class="st" data-line="1">Queued</span></div>
+            <div class="t-line"><span class="qty">2&times;</span><span class="name">Truffle Parmesan Fries</span><span class="st" data-line="2">Queued</span></div>
+            <div class="t-note"><b>Note:</b> steak medium&#8209;rare, no dairy on the fries.</div>
+          </div>
+
+          <div class="t-foot">
+            <div class="t-channels">
+              <span class="on">WhatsApp</span>
+              <span>QR table</span>
+              <span>Counter</span>
+            </div>
+            <div class="t-total">Total <b>368,00&nbsp;&euro;</b></div>
+            <div class="t-barcode"></div>
+          </div>
+        </div>
+
+        <div class="t-float kds">
+          <div class="k">Expo &middot; hot kitchen</div>
+          <div class="v" id="t-timer">04:12</div>
+        </div>
+        <div class="t-float msg">
+          <div class="k">Outbound &middot; WhatsApp</div>
+          <div class="v" id="t-msg">Order received — we'll message you the moment it's ready.</div>
+        </div>
+      </div>
     </div>
   </div></section>
 
+  <!-- ====================================================================
+       PROOF STRIP
+       ==================================================================== -->
+  <section class="wrap reveal">
+    <div class="proof">
+      <div><div class="n" data-count="0">0</div><div class="l">Per&#8209;order fee,<br>ever</div></div>
+      <div><div class="n" data-count="0">0</div><div class="l">Outbound calls<br>on a fresh install</div></div>
+      <div><div class="n" data-count="146">146</div><div class="l">Tables in one<br>baseline migration</div></div>
+      <div><div class="n" data-count="337">337</div><div class="l">HTTP endpoints<br>on the Go API</div></div>
+      <div><div class="n" data-count="43">43</div><div class="l">Application<br>surfaces</div></div>
+      <div><div class="n" data-count="4">4</div><div class="l">Release targets,<br>one binary</div></div>
+    </div>
+    <p class="proof-note">Counted from this repository, not from a pitch deck: <code>backend/migrations/001_baseline.sql</code>, the router registrations under <code>backend/internal/</code>, <code>src/pages/</code>, and the <code>linux&nbsp;&times;&nbsp;darwin</code> / <code>amd64&nbsp;&times;&nbsp;arm64</code> matrix in <code>.github/workflows/release.yml</code>.</p>
+  </section>
+
+  <!-- ====================================================================
+       HONEST STATUS
+       ==================================================================== -->
+  <section class="wrap reveal" style="margin-top:34px">
+    <div class="status">
+      <b>Pre-1.0 &middot; under active rebuild</b>
+      <p>POS, kitchen display, floor plan, orders, inventory, purchasing, gift cards and loyalty are substantially built and covered by integration and e2e tests. WhatsApp ordering works today against your own Meta credentials; Discord, Slack and email/DMTAP adapters are designed but not yet built — see <a href="./docs.html#roadmap">the roadmap</a>. Postgres is required today; the single-binary-plus-SQLite target is planned, not shipped. Read the honest <a href="./docs.html#features">feature-by-feature status</a> before deploying this anywhere real.</p>
+    </div>
+  </section>
+
+  <!-- ====================================================================
+       SCREENS — real captures from a real seeded instance
+       ==================================================================== -->
+  <section class="section" id="screens"><div class="wrap">
+    <div class="section-head reveal">
+      <span class="kicker">01 &mdash; The screens</span>
+      <h2>This is the actual software, on an actual database</h2>
+      <p class="lead">Every image below is captured by <code>npm run screenshots</code> against a live instance — a real Postgres, a real Go API, signed in through the real form as a seeded restaurant called The Copper Table. Nothing here is a mockup, and nothing is drawn by hand.</p>
+    </div>
+
+    <div class="shots">
+
+      <div class="shot reveal">
+        <div class="shot-copy">
+          <span class="shot-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></i> Point of sale</span>
+          <h3>A till that keeps up with the counter</h3>
+          <p>Tabs and tables, modifiers, courses, splits by seat or by amount, voids, comps and manager approval — with the open ticket always in view on the right.</p>
+          <ul>
+            <li>Split tender across cash, card, transfer and voucher</li>
+            <li>The 86 list greys the item out mid&#8209;service</li>
+            <li>Idempotency keys, so a retried tap can't double&#8209;charge</li>
+          </ul>
+        </div>
+        <div>
+          <div class="shot-frame">
+            <div class="bar"><i></i><i></i><i></i><span>/pos/workspace</span></div>
+            <picture>
+              <source class="shot-light" media="(prefers-color-scheme: light)" srcset="./screenshots/pos-workspace.png">
+              <img src="./screenshots/pos-workspace-dark.png" alt="The BeepBite POS workspace: a table strip across the top, a searchable menu grid, and the open ticket for table T2 with three items and a running total." width="2880" height="1800" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="shot-cap">POS workspace &middot; table T2 open, three items, 368,00&nbsp;&euro; running</p>
+        </div>
+      </div>
+
+      <div class="shot flip reveal">
+        <div class="shot-copy">
+          <span class="shot-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16M6 20V10a6 6 0 0 1 12 0v10M9 4h6"/></svg></i> Kitchen display</span>
+          <h3>The pass, without anybody shouting</h3>
+          <p>Tickets route to the station that has to cook them and surface again on expo when every station is done. Live over server-sent events — no polling loop, no message broker to operate.</p>
+          <ul>
+            <li>Per&#8209;station routing with a fan&#8209;out expo queue</li>
+            <li>Age colouring, so the oldest ticket is impossible to miss</li>
+            <li>Dark chrome on purpose — this screen lives in a kitchen</li>
+          </ul>
+        </div>
+        <div>
+          <div class="shot-frame">
+            <div class="bar"><i></i><i></i><i></i><span>/kds/expo</span></div>
+            <picture>
+              <source class="shot-light" media="(prefers-color-scheme: light)" srcset="./screenshots/kds-expo.png">
+              <img src="./screenshots/kds-expo-dark.png" alt="The BeepBite kitchen display in expo mode: a grid of order tickets with station breakdowns, per-ticket timers and ready-to-plate badges." width="2880" height="1800" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="shot-cap">Kitchen display &middot; expo &middot; 18 open orders, 4 ready to plate</p>
+        </div>
+      </div>
+
+      <div class="shot reveal">
+        <div class="shot-copy">
+          <span class="shot-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 4-6"/></svg></i> Dashboard</span>
+          <h3>What the day actually did</h3>
+          <p>Sales trend, busy hours, channel mix and the live order feed on one screen — read straight out of your own database, with nothing aggregated by anybody else first.</p>
+          <ul>
+            <li>Counter vs. WhatsApp vs. delivery, side by side</li>
+            <li>Live orders as they land, whatever the channel</li>
+            <li>Your history stays readable whether or not you ever pay anyone</li>
+          </ul>
+        </div>
+        <div>
+          <div class="shot-frame">
+            <div class="bar"><i></i><i></i><i></i><span>/home</span></div>
+            <picture>
+              <source class="shot-light" media="(prefers-color-scheme: light)" srcset="./screenshots/home.png">
+              <img src="./screenshots/home-dark.png" alt="The BeepBite home dashboard: sales trend chart, busiest-hours breakdown and a live orders feed for the seeded restaurant." width="2880" height="1800" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="shot-cap">Home &middot; sales trend, busy hours and the live orders feed</p>
+        </div>
+      </div>
+
+      <div class="shot flip reveal">
+        <div class="shot-copy">
+          <span class="shot-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="1.4" fill="currentColor" stroke="none"/><circle cx="7" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="7" cy="17" r="1.4" fill="currentColor" stroke="none"/></svg></i> Inventory &amp; purchasing</span>
+          <h3>Know what the plate cost before you price it</h3>
+          <p>Suppliers, purchase orders, goods receipts and three&#8209;way invoice matching, with recursive recipe costing behind every menu item and waste recorded against the batch it came from.</p>
+          <ul>
+            <li>Recipes cost recursively — sub&#8209;recipes included</li>
+            <li>Goods receipts reconcile against the invoice, line by line</li>
+            <li>Reorder suggestions from real consumption, not guesswork</li>
+          </ul>
+        </div>
+        <div>
+          <div class="shot-frame">
+            <div class="bar"><i></i><i></i><i></i><span>/inventory/purchase-orders</span></div>
+            <picture>
+              <source class="shot-light" media="(prefers-color-scheme: light)" srcset="./screenshots/inventory-purchase-orders.png">
+              <img src="./screenshots/inventory-purchase-orders-dark.png" alt="The BeepBite purchase-orders screen: a list of supplier orders with statuses, totals and receipt state." width="2880" height="1800" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="shot-cap">Inventory &middot; purchase orders and goods receipts</p>
+        </div>
+      </div>
+
+      <div class="shot pair reveal">
+        <div>
+          <div class="shot-frame">
+            <div class="bar"><i></i><i></i><i></i><span>/floor</span></div>
+            <picture>
+              <source class="shot-light" media="(prefers-color-scheme: light)" srcset="./screenshots/floor.png">
+              <img src="./screenshots/floor-dark.png" alt="The BeepBite floor plan: table shapes laid out by room, coloured by occupancy state." width="2880" height="1800" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="shot-cap">Floor plan &middot; live table state by room</p>
+        </div>
+        <div>
+          <div class="shot-frame">
+            <div class="bar"><i></i><i></i><i></i><span>/menu</span></div>
+            <picture>
+              <source class="shot-light" media="(prefers-color-scheme: light)" srcset="./screenshots/menu.png">
+              <img src="./screenshots/menu-dark.png" alt="The BeepBite menu manager: categories, items, prices and availability, edited in one place for every channel." width="2880" height="1800" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="shot-cap">Menu &middot; one edit, every channel</p>
+        </div>
+      </div>
+
+    </div>
+  </div></section>
+
+  <!-- ====================================================================
+       THE PROBLEM
+       ==================================================================== -->
   <section class="section" id="problem"><div class="wrap">
-    <span class="kicker">01 &mdash; The problem</span>
-    <h2>Two ways a counter stops belonging to the restaurant</h2>
-    <p class="lead">Neither one is a technology problem. Both are ownership problems, and both are what BeepBite is actually for.</p>
-    <div class="problem">
+    <div class="section-head reveal">
+      <span class="kicker">02 &mdash; The problem</span>
+      <h2>Two ways a counter stops belonging to the restaurant</h2>
+      <p class="lead">Neither one is a technology problem. Both are ownership problems, and both are what BeepBite is actually for.</p>
+    </div>
+    <div class="problem reveal">
       <div class="chit">
         <span class="chit-no">CHIT 01</span>
         <h3>Delivery platforms take the cut and the customer</h3>
@@ -64,7 +317,7 @@
         <p>BeepBite is a Go API and a React app running against a Postgres database you control. There is no BeepBite service to subscribe to and nobody to cut off — the software is the same whether you paid us anything, because you never do.</p>
       </div>
     </div>
-    <div class="two-up">
+    <div class="two-up reveal">
       <div class="rule-card">
         <h4>No payment facilitator, on purpose</h4>
         <p>BeepBite records tenders — cash, card, transfer, voucher — it never touches the money itself. "Card" means the restaurant's own card machine on its own counter. No PCI scope, no settlement delay, no cut of revenue taken on the way through.</p>
@@ -76,74 +329,95 @@
     </div>
   </div></section>
 
+  <!-- ====================================================================
+       FEATURES
+       ==================================================================== -->
   <section class="section" id="features"><div class="wrap">
-    <span class="kicker">02 &mdash; Features</span>
-    <h2>Every surface, tagged with its real build state</h2>
-    <p class="lead">Front of house, kitchen and stock, money and people, ordering and delivery. Nothing here is claimed as working unless it is — that's the point of the stamps.</p>
-    <div class="grid">
-      <div class="card"><span class="chit-no">№ 01</span><h3>Touch POS <span class="tag tag-built">Built</span></h3><p>Tabs, splits, voids, comps and manager approval, with a floor plan and table management alongside a customer-facing display.</p></div>
-      <div class="card"><span class="chit-no">№ 02</span><h3>Kitchen display <span class="tag tag-built">Built</span></h3><p>Per-station routing and expo, so an order lands on the right screen in the kitchen without a runner shouting it across the pass.</p></div>
-      <div class="card"><span class="chit-no">№ 03</span><h3>Cash drawer &amp; tenders <span class="tag tag-built">Built</span></h3><p>Drawer sessions and reconciliation across cash, card, transfer and voucher tenders — recorded, never processed.</p></div>
-      <div class="card"><span class="chit-no">№ 04</span><h3>Gift cards &amp; loyalty <span class="tag tag-built">Built</span></h3><p>Gift cards, store credit, house accounts, promotions and coupons, plus invoicing and house-account billing.</p></div>
-      <div class="card"><span class="chit-no">№ 05</span><h3>Inventory &amp; purchasing <span class="tag tag-built">Built</span></h3><p>Recipes and costing, the 86 list, suppliers, purchase orders, goods receipts, invoice matching, waste tracking and reorder suggestions.</p></div>
-      <div class="card"><span class="chit-no">№ 06</span><h3>Delivery &amp; tracking <span class="tag tag-built">Built</span></h3><p>Delivery zones, a driver app and live tracking with a public customer tracking page — built, though less exercised than the POS, and its ETA/map panel has a known bug (see <a href="./docs.html#screenshots">docs</a>).</p></div>
-      <div class="card"><span class="chit-no">№ 07</span><h3>WhatsApp ordering <span class="tag tag-built">Built</span></h3><p>A customer messages the restaurant's number and orders in the app they already use all day. Needs your own Meta Cloud API credentials — off without them.</p></div>
-      <div class="card"><span class="chit-no">№ 08</span><h3>QR-at-table ordering <span class="tag tag-built">Built</span></h3><p>A code on the table opens ordering in the browser, no app install, landing in the same order stream as every other channel.</p></div>
-      <div class="card"><span class="chit-no">№ 09</span><h3>Discord ordering <span class="tag tag-planned">Planned</span></h3><p>A channel adapter, same shape as WhatsApp: order in a Discord server a community already uses. Designed, not built.</p></div>
-      <div class="card"><span class="chit-no">№ 10</span><h3>Slack ordering <span class="tag tag-planned">Planned</span></h3><p>Order from a Slack workspace — useful for office lunch runs and corporate accounts. Designed, not built.</p></div>
-      <div class="card"><span class="chit-no">№ 11</span><h3>Email ordering <span class="tag tag-planned">Planned</span></h3><p>Ordering by email, including over <a href="https://github.com/vul-os/dmtap" target="_blank" rel="noopener">DMTAP</a>, a decentralized mail protocol with no platform operator in the middle. Designed, not built.</p></div>
-      <div class="card"><span class="chit-no">№ 12</span><h3>Every integration is optional <span class="tag tag-built">Built</span></h3><p>WhatsApp, maps and AI are each off unless you supply your own credentials. A fresh install makes no outbound network calls at all.</p></div>
+    <div class="section-head reveal">
+      <span class="kicker">03 &mdash; Features</span>
+      <h2>Every surface, tagged with its real build state</h2>
+      <p class="lead">Front of house, kitchen and stock, money and people, ordering and delivery. Nothing here is claimed as working unless it is — that's the point of the stamps.</p>
     </div>
-    <p class="grid-note">Ordering is not tied to a single vendor by design: the channel layer is built as pluggable adapters feeding one order stream (see <a href="#how">how it works</a>), and WhatsApp being first to ship doesn't make it the identity of the product.</p>
+    <div class="legend reveal">
+      <span class="tag tag-built">Built</span> in the tree, wired in, exercised by a test
+      <span class="tag tag-planned">Planned</span> designed, not built
+    </div>
+    <div class="grid reveal">
+      <div class="card"><span class="chit-no">№ 01</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span><h3>Touch POS <span class="tag tag-built">Built</span></h3><p>Tabs, splits, voids, comps and manager approval, with a floor plan and table management alongside a customer-facing display.</p></div>
+      <div class="card"><span class="chit-no">№ 02</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16M6 20V10a6 6 0 0 1 12 0v10M9 4h6"/></svg></span><h3>Kitchen display <span class="tag tag-built">Built</span></h3><p>Per-station routing and expo, so an order lands on the right screen in the kitchen without a runner shouting it across the pass.</p></div>
+      <div class="card"><span class="chit-no">№ 03</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 11h20"/><circle cx="17" cy="14.5" r="1.2" fill="currentColor" stroke="none"/></svg></span><h3>Cash drawer &amp; tenders <span class="tag tag-built">Built</span></h3><p>Drawer sessions and reconciliation across cash, card, transfer and voucher tenders — recorded, never processed.</p></div>
+      <div class="card"><span class="chit-no">№ 04</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M8.5 8a2.5 2.5 0 1 1 3.5-3.2A2.5 2.5 0 1 1 15.5 8z"/></svg></span><h3>Gift cards &amp; loyalty <span class="tag tag-built">Built</span></h3><p>Gift cards, store credit, house accounts, promotions and coupons, plus invoicing and house-account billing.</p></div>
+      <div class="card"><span class="chit-no">№ 05</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.5 12 12.4l8.7-4.9M12 21.6V12.4"/></svg></span><h3>Inventory &amp; purchasing <span class="tag tag-built">Built</span></h3><p>Recipes and costing, the 86 list, suppliers, purchase orders, goods receipts, invoice matching, waste tracking and reorder suggestions.</p></div>
+      <div class="card"><span class="chit-no">№ 06</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16V7h11v9M14 10h4l3 3.5V16"/><circle cx="7" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/></svg></span><h3>Delivery &amp; tracking <span class="tag tag-built">Built</span></h3><p>Delivery zones, a driver app and live tracking with a public customer tracking page — built, though less exercised than the POS, and its ETA/map panel has a known bug (see <a href="./docs.html#screenshots">docs</a>).</p></div>
+      <div class="card"><span class="chit-no">№ 07</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.5L3 21l2.1-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg></span><h3>WhatsApp ordering <span class="tag tag-built">Built</span></h3><p>A customer messages the restaurant's number and orders in the app they already use all day. Needs your own Meta Cloud API credentials — off without them.</p></div>
+      <div class="card"><span class="chit-no">№ 08</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 20h1M17 20v1"/></svg></span><h3>QR-at-table ordering <span class="tag tag-built">Built</span></h3><p>A code on the table opens ordering in the browser, no app install, landing in the same order stream as every other channel.</p></div>
+      <div class="card planned"><span class="chit-no">№ 09</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 4.5 6 5.2A16 16 0 0 0 3.5 16a14 14 0 0 0 4.3 2.1l.9-1.5M15.5 4.5 18 5.2A16 16 0 0 1 20.5 16a14 14 0 0 1-4.3 2.1l-.9-1.5"/><circle cx="9.5" cy="12" r="1.3"/><circle cx="14.5" cy="12" r="1.3"/></svg></span><h3>Discord ordering <span class="tag tag-planned">Planned</span></h3><p>A channel adapter, same shape as WhatsApp: order in a Discord server a community already uses. Designed, not built.</p></div>
+      <div class="card planned"><span class="chit-no">№ 10</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v6H9zM3 9h6v6H3zM15 9h6v6h-6zM9 15h6v6H9z"/></svg></span><h3>Slack ordering <span class="tag tag-planned">Planned</span></h3><p>Order from a Slack workspace — useful for office lunch runs and corporate accounts. Designed, not built.</p></div>
+      <div class="card planned"><span class="chit-no">№ 11</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg></span><h3>Email ordering <span class="tag tag-planned">Planned</span></h3><p>Ordering by email, including over <a href="https://github.com/vul-os/kotva" target="_blank" rel="noopener">DMTAP</a> — the mail profile of the KOTVA substrate, with no platform operator in the middle. Designed, not built.</p></div>
+      <div class="card"><span class="chit-no">№ 12</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6.2V11c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6.2z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg></span><h3>Every integration is optional <span class="tag tag-built">Built</span></h3><p>WhatsApp, maps and AI are each off unless you supply your own credentials. A fresh install makes no outbound network calls at all.</p></div>
+    </div>
+    <p class="grid-note reveal">Ordering is not tied to a single vendor by design: the channel layer is built as pluggable adapters feeding one order stream (see <a href="#how">how it works</a>), and WhatsApp being first to ship doesn't make it the identity of the product.</p>
   </div></section>
 
+  <!-- ====================================================================
+       HOW IT WORKS
+       ==================================================================== -->
   <section class="section" id="how"><div class="wrap">
-    <span class="kicker">03 &mdash; How it works</span>
-    <h2>One order stream, whatever the source</h2>
-    <p class="lead">Orders arrive through whichever channel adapters a restaurant has turned on, and land in one order stream on hardware it controls.</p>
-    <div class="diagram">
-      <pre class="mermaid">
-flowchart LR
-  subgraph Channels["Ordering channels — pluggable adapters"]
-    W["WhatsApp<br/><i>built</i>"]
-    Q["QR at table<br/><i>built</i>"]
-    D["Discord<br/><i>planned</i>"]
-    S["Slack<br/><i>planned</i>"]
-    E["Email / DMTAP<br/><i>planned</i>"]
-  end
-  subgraph Hardware["Your hardware"]
-    API["Go API<br/><i>chi &middot; pgx</i>"]
-    DB[("Postgres")]
-    UI["POS &middot; KDS &middot; Floor<br/><i>React</i>"]
-  end
-  DRV["Driver app"]
-  T["Tracking page"]
-  W --> API
-  Q --> API
-  D -.-> API
-  S -.-> API
-  E -.-> API
-  UI --> API
-  API --> DB
-  API --> DRV
-  API --> T
-      </pre>
+    <div class="section-head reveal">
+      <span class="kicker">04 &mdash; How it works</span>
+      <h2>One order stream, whatever the source</h2>
+      <p class="lead">Orders arrive through whichever channel adapters a restaurant has turned on, and land in one order stream on hardware it controls.</p>
     </div>
-    <div class="two-up">
+    <div class="diagram reveal">
+      <div class="flowdiag">
+        <div class="fd-col">
+          <div class="fd-label">Ordering channels<br>pluggable adapters</div>
+          <div class="fd-node built">WhatsApp <small>built</small></div>
+          <div class="fd-node built">QR at table <small>built</small></div>
+          <div class="fd-node planned">Discord <small>planned</small></div>
+          <div class="fd-node planned">Slack <small>planned</small></div>
+          <div class="fd-node planned">Email / DMTAP <small>planned</small></div>
+        </div>
+
+        <div class="fd-arrow" aria-hidden="true"></div>
+
+        <div class="fd-col">
+          <div class="fd-label">Your hardware<br>nothing phones home</div>
+          <div class="fd-group">
+            <div class="fd-node key">Go API <small>chi &middot; pgx &middot; SSE</small></div>
+            <div class="fd-node">Postgres <small>your database</small></div>
+            <div class="fd-node">POS &middot; KDS &middot; Floor <small>React</small></div>
+          </div>
+        </div>
+
+        <div class="fd-arrow" aria-hidden="true"></div>
+
+        <div class="fd-col">
+          <div class="fd-label">Out to the street</div>
+          <div class="fd-node">Driver app</div>
+          <div class="fd-node">Tracking page</div>
+        </div>
+      </div>
+      <p class="diagram-key"><span><i></i>Solid border &mdash; built and wired in</span><span><i class="d"></i>Dashed border &mdash; designed, not built</span></p>
+    </div>
+    <div class="two-up reveal">
       <div class="rule-card">
         <h4>Normalised before the kitchen ever sees it</h4>
         <p>Every channel adapter normalises into the same order shape before it reaches the kitchen, so orders route to the right station and, if they're going out, to a driver with a tracking link — regardless of whether the order started as a WhatsApp message or a QR scan. Live updates are server-sent events: no polling, no message broker to operate.</p>
       </div>
       <div class="rule-card">
         <h4>The direction is further than any one platform</h4>
-        <p>The dotted adapters above are the direction, not a promise of a date. The furthest end of it is ordering over <a href="https://github.com/vul-os/dmtap" target="_blank" rel="noopener">DMTAP</a>, our own decentralized mail protocol — so that even the sovereign option needs no Meta, no Google, and no platform operator standing between a shop and its customers. Design intent, not shipped code.</p>
+        <p>The dotted adapters above are the direction, not a promise of a date. The furthest end of it is ordering over DMTAP, the mail profile of <a href="https://github.com/vul-os/kotva" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:underline">KOTVA</a>, our own decentralized substrate — so that even the sovereign option needs no Meta, no Google, and no platform operator standing between a shop and its customers. Design intent, not shipped code, and staged behind named preconditions in <a href="./docs.html#roadmap" style="color:var(--ink);text-decoration:underline">the roadmap</a>.</p>
       </div>
     </div>
   </div></section>
 
+  <!-- ====================================================================
+       SELF-HOSTING
+       ==================================================================== -->
   <section class="section" id="selfhost"><div class="wrap">
-    <span class="kicker">04 &mdash; Self-hosting</span>
-    <div class="band">
+    <span class="kicker reveal">05 &mdash; Self-hosting</span>
+    <div class="band reveal">
       <h2>Self-hosting is the only mode</h2>
       <p class="lead" style="margin-bottom:0">There is no hosted BeepBite, no free tier, no seat count, and no account with us — because there is nothing to sell you. It is MIT/Apache-2.0-licensed software you run on hardware you already have.</p>
       <div class="cols">
@@ -152,8 +426,8 @@ flowchart LR
         <div><h4>Every integration is opt-in</h4><p>WhatsApp, maps and AI are each off unless you supply your own credentials. As Discord, Slack and email adapters land, the same rule applies — they activate only when you turn them on.</p></div>
       </div>
       <div class="codeblock">
-        <div class="bar"><i></i><i></i><i></i><span>works today &middot; Postgres required</span></div>
-        <pre><span class="c"># 1. Database</span>
+        <div class="bar"><i></i><i></i><i></i><span>works today &middot; Postgres required</span><button class="copy-btn" type="button" data-copy="#quickstart">Copy</button></div>
+        <pre id="quickstart"><span class="c"># 1. Database</span>
 createdb beepbite
 
 <span class="c"># 2. Configure — set DATABASE_URL and JWT_SECRET</span>
@@ -175,8 +449,11 @@ cd backend &amp;&amp; go run ./cmd/seedcopper --env=local --clean</pre>
     </div>
   </div></section>
 
+  <!-- ====================================================================
+       VULOS
+       ==================================================================== -->
   <section class="section"><div class="wrap">
-    <div class="vulos-band">
+    <div class="vulos-band reveal">
       <img src="./assets/vulos-logo.png" alt="VulOS logo" width="56" height="56">
       <div>
         <h3>Part of VulOS</h3>
@@ -189,12 +466,30 @@ cd backend &amp;&amp; go run ./cmd/seedcopper --env=local --clean</pre>
           <li><strong>llmux</strong> — sovereign AI gateway</li>
         </ul>
         <p>PIM is bring-your-own (Mail / Calendar / Contacts); chat and video are third-party (Matrix/Element, Element Call / Jitsi) — not Vulos products.</p>
-        <p><strong>BeepBite's role:</strong> the restaurant point-of-sale and ordering app. It runs standalone against your own Postgres, and is designed to also be hosted as an app by the Vulos OS — the same binary, with the OS wiring identity and scoped storage in front of it. Ephor, the control plane and DMTAP are optional seams; a hard runtime dependency on any of them is forbidden.</p>
+        <p><strong>BeepBite's role:</strong> the restaurant point-of-sale and ordering app. It runs standalone against your own Postgres, and is designed to also be hosted as an app by the Vulos OS — the same binary, with the OS wiring identity and scoped storage in front of it. Ephor, the control plane and KOTVA are optional seams; a hard runtime dependency on any of them is forbidden.</p>
         <a class="more" href="https://vulos.org" target="_blank" rel="noopener">Explore VulOS &rarr;</a>
       </div>
     </div>
   </div></section>
+
+  <!-- ====================================================================
+       CLOSING CTA
+       ==================================================================== -->
+  <section class="section" style="padding-top:0"><div class="wrap">
+    <div class="cta-band reveal">
+      <h2>Run it tonight, on your own machine</h2>
+      <p>Clone it, point it at a Postgres, seed the demo restaurant and click around a real till. Nothing to sign up for, nobody to email, no card.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="./docs.html#setup">Read the setup guide</a>
+        <a class="btn btn-ghost" href="./docs.html">Browse the docs</a>
+        <a class="btn btn-ghost" href="https://github.com/vul-os/beepbite" target="_blank" rel="noopener">Clone from GitHub</a>
+      </div>
+      <p class="fine">Pre-1.0 &middot; MIT OR Apache-2.0 &middot; Postgres required today</p>
+    </div>
+  </div></section>
+
 </main>
+
 <footer class="site-footer"><div class="wrap">
     <div class="foot">
       <div class="left"><img src="./assets/vulos-logo.png" alt=""> <span>Part of <a href="https://vulos.org" target="_blank" rel="noopener">VulOS</a> — open, self-hostable apps. Standalone by design.</span></div>
@@ -207,40 +502,201 @@ cd backend &amp;&amp; go run ./cmd/seedcopper --env=local --clean</pre>
         <a href="https://vulos.org" target="_blank" rel="noopener">vulos.org</a>
       </nav>
     </div>
-    <p class="foot-note">This page fetches nothing from anywhere. No CDN, no web fonts, no analytics — <code>mermaid</code> is vendored into <code>site/assets/vendor/</code>. The same rule the product is built to.</p>
+    <p class="foot-note">This page fetches nothing from anywhere. No CDN, no web fonts, no analytics, and no rendering library — the diagram above is hand-built HTML and CSS. The same rule the product is built to.</p>
   </div></footer>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Full-size screenshot">
+  <button class="close" type="button" id="lightbox-close">Close &times;</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
 <script>
 (function(){
-  function isDark(){ return !window.matchMedia || !window.matchMedia('(prefers-color-scheme: light)').matches; }
-  var mono = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
-  function palette(dark){
-    return dark ? {
-      background:'#1b170f', primaryColor:'#221c12', primaryTextColor:'#f5efe0', primaryBorderColor:'#ff7a45',
-      lineColor:'#8c8168', secondaryColor:'#12100c', tertiaryColor:'#221c12',
-      textColor:'#f5efe0', mainBkg:'#221c12', nodeBorder:'#ff7a45', clusterBkg:'#1b170f', clusterBorder:'rgba(245,239,224,.22)',
-      edgeLabelBackground:'#1b170f', fontFamily: mono
-    } : {
-      background:'#fffdf6', primaryColor:'#faf3e3', primaryTextColor:'#241c12', primaryBorderColor:'#ad4310',
-      lineColor:'#948566', secondaryColor:'#f2ead8', tertiaryColor:'#faf3e3',
-      textColor:'#241c12', mainBkg:'#faf3e3', nodeBorder:'#ad4310', clusterBkg:'#fffdf6', clusterBorder:'rgba(36,28,18,.26)',
-      edgeLabelBackground:'#fffdf6', fontFamily: mono
-    };
+  'use strict';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------------------------------------------------------------
+     Theme. Three states — 'light', 'dark', and unset (follow the OS).
+     Clicking always moves to the opposite of what is showing now, so
+     the button never needs a third click to do the obvious thing.
+     --------------------------------------------------------------- */
+  var root = document.documentElement;
+  function resolved(){
+    var t = root.getAttribute('data-theme');
+    if (t === 'light' || t === 'dark') return t;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
   }
-  function boot(){
-    try {
-      var dark = isDark();
-      window.mermaid.initialize({ startOnLoad:true, theme:'base', securityLevel:'loose', themeVariables: palette(dark) });
-    } catch (e) { /* diagram degrades to its source text; the page still works */ }
+  /* <picture> picks the light screenshot from a media query, which only
+     knows about the OS setting. Rewriting that query is what keeps the
+     manual toggle and the images in agreement — and it keeps exactly one
+     of the two files being downloaded. */
+  function syncShots(){
+    var t = root.getAttribute('data-theme');
+    var q = t === 'light' ? 'all' : t === 'dark' ? 'not all' : '(prefers-color-scheme: light)';
+    var srcs = document.querySelectorAll('source.shot-light');
+    for (var i = 0; i < srcs.length; i++) srcs[i].media = q;
   }
-  if (window.mermaid) boot(); else window.addEventListener('load', boot);
+  var themeBtn = document.getElementById('theme-btn');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function(){
+      var next = resolved() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('bb-theme', next); } catch(e){}
+      syncShots();
+    });
+  }
+  syncShots();
+
+  /* ---- Mobile nav ---- */
+  var menuBtn = document.getElementById('menu-btn');
+  var mobileNav = document.getElementById('mobile-nav');
+  if (menuBtn && mobileNav) {
+    menuBtn.addEventListener('click', function(){
+      var open = mobileNav.classList.toggle('open');
+      menuBtn.setAttribute('aria-expanded', String(open));
+    });
+    mobileNav.addEventListener('click', function(e){
+      if (e.target.tagName === 'A') { mobileNav.classList.remove('open'); menuBtn.setAttribute('aria-expanded','false'); }
+    });
+  }
+
+  /* ---- Scroll reveal ---- */
+  var reveals = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)) {
+    for (var r = 0; r < reveals.length; r++) reveals[r].classList.add('seen');
+  } else {
+    var ro = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if (en.isIntersecting) { en.target.classList.add('seen'); ro.unobserve(en.target); } });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.06 });
+    for (var j = 0; j < reveals.length; j++) ro.observe(reveals[j]);
+  }
+
+  /* ---- Nav scroll-spy ----
+     Derived from scroll position rather than from observer callbacks: an
+     observer only fires on crossings, so scrolling back to the top of the
+     page would leave the last section it saw highlighted forever. */
+  var spyIds = ['screens','problem','features','how','selfhost'];
+  var navAnchors = {};
+  document.querySelectorAll('.nav-links a[href^="#"]').forEach(function(a){ navAnchors[a.getAttribute('href').slice(1)] = a; });
+  var spySections = spyIds.map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  var spyQueued = false;
+  function updateSpy(){
+    spyQueued = false;
+    var line = window.scrollY + window.innerHeight * 0.35;
+    var current = null;
+    for (var i = 0; i < spySections.length; i++) {
+      var el = spySections[i];
+      var top = el.getBoundingClientRect().top + window.scrollY;
+      if (line >= top && line < top + el.offsetHeight) { current = el.id; break; }
+    }
+    Object.keys(navAnchors).forEach(function(k){ navAnchors[k].classList.toggle('here', k === current); });
+  }
+  window.addEventListener('scroll', function(){
+    if (spyQueued) return;
+    spyQueued = true;
+    requestAnimationFrame(updateSpy);
+  }, { passive: true });
+  updateSpy();
+
+  /* ---------------------------------------------------------------
+     The hero ticket. Three states of one real order, on a loop:
+     it arrives, it fires, it's ready — which is the whole product in
+     one object. Frozen on the first state if motion is reduced.
+     --------------------------------------------------------------- */
+  var STATES = [
+    { stamp: 'New',   lines: ['Queued','Queued','Queued'], on: [false,false,false], msg: "Order received — we'll message you the moment it's ready.", timer: '00:12' },
+    { stamp: 'Fired', lines: ['Grill','Larder','Fryer'],   on: [false,false,false], msg: 'Three items fired to two stations. Expo is watching the clock.', timer: '04:12' },
+    { stamp: 'Ready', lines: ['Ready','Ready','Ready'],    on: [true,true,true],    msg: 'Ready for pickup — no buzzer, no app, just a message.', timer: '07:48' }
+  ];
+  var stampEl = document.getElementById('t-stamp');
+  var msgEl = document.getElementById('t-msg');
+  var timerEl = document.getElementById('t-timer');
+  var lineEls = document.querySelectorAll('.t-line .st');
+  var step = 0;
+  function paintTicket(i){
+    var s = STATES[i];
+    if (stampEl) {
+      stampEl.textContent = s.stamp;
+      stampEl.dataset.state = s.stamp.toLowerCase();
+      if (!reduce) { stampEl.style.animation = 'none'; void stampEl.offsetWidth; stampEl.style.animation = ''; }
+    }
+    if (msgEl) msgEl.textContent = s.msg;
+    if (timerEl) timerEl.textContent = s.timer;
+    for (var k = 0; k < lineEls.length; k++) {
+      lineEls[k].textContent = s.lines[k] || '';
+      lineEls[k].classList.toggle('on', !!s.on[k]);
+    }
+  }
+  paintTicket(0);
+  if (!reduce && stampEl) {
+    setInterval(function(){ step = (step + 1) % STATES.length; paintTicket(step); }, 3400);
+  }
+  /* Wall clock on the chit header — a printed ticket carries the time. */
+  var clockEl = document.getElementById('t-clock');
+  function tickClock(){
+    if (!clockEl) return;
+    var d = new Date();
+    clockEl.textContent = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  tickClock();
+  setInterval(tickClock, 20000);
+
+  /* ---- Proof counters ---- */
+  var counters = document.querySelectorAll('.proof .n[data-count]');
+  function runCount(el){
+    var target = parseInt(el.dataset.count, 10) || 0;
+    if (reduce || target === 0) { el.textContent = String(target); return; }
+    var start = null, dur = 1100;
+    function frame(ts){
+      if (start === null) start = ts;
+      var p = Math.min((ts - start) / dur, 1);
+      el.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+  if ('IntersectionObserver' in window) {
+    var co = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if (en.isIntersecting) { runCount(en.target); co.unobserve(en.target); } });
+    }, { threshold: 0.5 });
+    for (var c = 0; c < counters.length; c++) co.observe(counters[c]);
+  }
+
+  /* ---- Copy button on the quickstart block ---- */
+  document.querySelectorAll('.copy-btn[data-copy]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var src = document.querySelector(btn.dataset.copy);
+      if (!src || !navigator.clipboard) return;
+      navigator.clipboard.writeText(src.innerText).then(function(){
+        btn.textContent = 'Copied'; btn.classList.add('done');
+        setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1800);
+      }).catch(function(){});
+    });
+  });
+
+  /* ---- Screenshot lightbox ---- */
+  var lb = document.getElementById('lightbox');
+  var lbImg = document.getElementById('lightbox-img');
+  var lbClose = document.getElementById('lightbox-close');
+  document.querySelectorAll('.shot-frame img').forEach(function(img){
+    img.addEventListener('click', function(){
+      lbImg.src = img.currentSrc || img.src;
+      lbImg.alt = img.alt;
+      lb.classList.add('open');
+      lbClose.focus();
+    });
+  });
+  function closeLb(){ lb.classList.remove('open'); lbImg.src = ''; }
+  if (lbClose) lbClose.addEventListener('click', closeLb);
+  if (lb) lb.addEventListener('click', function(e){ if (e.target === lb) closeLb(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && lb.classList.contains('open')) closeLb(); });
+
+  /* The OS flipping themes only has to be followed while the visitor has not
+     made an explicit choice of their own. */
   if (window.matchMedia) {
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(){
-      try {
-        var nodes = document.querySelectorAll('.mermaid');
-        nodes.forEach(function(n){ n.removeAttribute('data-processed'); });
-        window.mermaid.initialize({ startOnLoad:false, theme:'base', securityLevel:'loose', themeVariables: palette(isDark()) });
-        window.mermaid.run({ nodes: nodes });
-      } catch(e){}
+      if (root.getAttribute('data-theme')) return;
+      syncShots();
     });
   }
 })();

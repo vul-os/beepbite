@@ -1,5 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="15" fill="#141416"/>
-  <circle cx="31" cy="33" r="17" fill="none" stroke="#FF6B35" stroke-width="5"/>
-  <circle cx="45.5" cy="20.5" r="9.5" fill="#141416"/>
+<!--
+  The tab icon is the product mark, not a lookalike. The previous favicon was
+  an unrelated circle-and-dot in a slightly different orange, so the browser
+  tab and the header logo were showing two different brands. This is the same
+  beep arcs over the same cloche as assets/brand/logo-mark.svg, thickened so
+  it still reads at 16px.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#141416"/>
+  <g fill="none" stroke="#FF6B3D" stroke-linecap="round">
+    <path d="M63 230C63 76 230-20 363 57c62 36 100 102 100 173" stroke-width="34"/>
+    <path d="M113 234C113 118 238 46 338 104c46 27 75 76 75 130" stroke-width="28"/>
+    <path d="M161 236c0-78 84-127 152-88 31 18 50 52 50 88" stroke-width="22"/>
+  </g>
+  <!-- Cloche: the lid bar and the dome beneath it. -->
+  <rect x="64" y="300" width="384" height="62" rx="31" fill="#FF6B3D"/>
+  <path d="M104 386h304l-26 68a48 48 0 0 1-45 31H175a48 48 0 0 1-45-31z" fill="#FF6B3D"/>
 </svg>
