@@ -48,8 +48,12 @@ var (
 type Op struct {
 	// ID uniquely identifies this op. It is the identity Add uses to dedup
 	// on union and Set uses to recognise "this exact op, replayed" as a
-	// no-op. Callers are expected to mint IDs that are globally unique
-	// (e.g. ULIDs) — this package does not generate or check them.
+	// no-op. Callers mint it and this package neither generates nor checks
+	// it — but it must be globally unique across every branch, since two
+	// nodes minting the same ID would silently collapse two different
+	// operations into one. A UUID is the form the rest of BeepBite uses and
+	// the form sync_ops stores; anything else fails the cast at the database
+	// rather than replicating.
 	ID string
 
 	Kind Kind
