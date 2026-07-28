@@ -55,9 +55,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Go
+        # Must be >= the version backend/go.mod requires (1.25.0). It said 1.22
+        # for a long while and the jobs still went green, because the toolchain
+        # line makes Go download a newer one on demand — which is a fallback,
+        # not a guarantee: it needs network access to the module proxy at build
+        # time and it silently produces a different toolchain than the one the
+        # runner installed. Pinning the real requirement means a version bump in
+        # go.mod fails here loudly instead of changing what CI quietly fetches.
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.25'
           cache: true
 
       # -----------------------------------------------------------------------
@@ -152,6 +159,87 @@ jobs:
         # --all exercises: sanity, auth, pentest, menu, recipes, orders, members,
         # whatsapp, onboarding, pos, kds, cashdrawer, adjustments.
         run: go run ./cmd/tests --all
+
+  # ---------- Shared merge engine: frozen conformance vectors ----------
+  # internal/sync/substrate runs the shared DMTAP-SYNC engine, and the whole
+  # justification for calling it that is this job. It drives all 24 of
+  # SYNC.md §10's frozen conformance vectors through the engine the binary
+  # links and compares the results byte-for-byte against the frozen file.
+  #
+  # It is a separate job rather than a step in go-build because it needs a
+  # second checkout (the vectors live in vul-os/kotva, not here) and because a
+  # red tick on THIS job has a specific meaning: the engine's algebra moved, or
+  # the vectors moved, and BeepBite's merge semantics are downstream of both.
+  #
+  # Why not `go test github.com/vul-os/kotva/bindings/go` instead: that module's
+  # own vectors_test.go resolves a native trace through a path that is not in
+  # the module zip and not overridable, so its tests can never pass from a proxy
+  # fetch. BeepBite carries its own driver, as FlowStock does.
+  sync-vectors:
+    name: DMTAP-SYNC conformance vectors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      # Read the engine's version out of go.mod rather than duplicating it
+      # here, so the pin stays written down where the toolchain enforces it.
+      # kotva tags its Go submodule as bindings/go/<version>, and the vectors
+      # at that tag are the ones the engine in that version was proved against.
+      - name: Resolve the engine's pinned version
+        id: pin
+        working-directory: backend
+        run: |
+          ver="$(go list -m -f '{{.Version}}' github.com/vul-os/kotva/bindings/go)"
+          if [ -z "$ver" ]; then
+            echo "::error::backend/go.mod does not require github.com/vul-os/kotva/bindings/go"
+            exit 1
+          fi
+          echo "ref=bindings/go/$ver" >> "$GITHUB_OUTPUT"
+          echo "engine module version: $ver"
+
+      # vul-os/kotva is public, so this needs no token. If it ever fails the
+      # job fails — which is the point: no vector cross-check, no green tick.
+      - name: Check out the substrate repo at the engine's tag
+        uses: actions/checkout@v4
+        with:
+          repository: vul-os/kotva
+          ref: ${{ steps.pin.outputs.ref }}
+          path: .upstream-kotva
+
+      # BEEPBITE_REQUIRE_SYNC_VECTORS turns the driver's "no checkout, so
+      # nothing was verified" skip into a failure. A guard that has quietly
+      # stopped running looks identical, from a green run, to one that works.
+      - name: Drive the frozen vectors
+        working-directory: backend
+        env:
+          KOTVA_DIR: ${{ github.workspace }}/.upstream-kotva
+          BEEPBITE_REQUIRE_SYNC_VECTORS: '1'
+        # pipefail explicitly, not by runner default: without it the pipeline's
+        # status is tee's and a failing `go test` would report success. This is
+        # the gate the package's name rests on; it does not get to depend on
+        # what shell options a runner image happens to set.
+        run: |
+          set -euo pipefail
+          go test ./internal/sync/substrate/ -run TestFrozenSyncVectors -v | tee /tmp/vectors.out
+
+      # Exit 0 is not the assertion. A driver that recognised no vectors, or a
+      # `-run` pattern that matched nothing, both exit 0 — so the count is
+      # checked here as well as inside the test, and the number is written out
+      # so a reader of the log can see what was actually covered.
+      - name: Assert all 24 vectors were driven
+        run: |
+          set -euo pipefail
+          if ! grep -q 'drove all 24 frozen SYNC conformance vectors' /tmp/vectors.out; then
+            echo "::error::the conformance driver did not report driving all 24 vectors"
+            exit 1
+          fi
+          echo "24/24 frozen SYNC conformance vectors driven"
 
   # ---------- Frontend ----------
   frontend:

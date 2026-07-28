@@ -12,9 +12,10 @@ require (
 	github.com/pquerna/otp v1.5.0
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
+	github.com/vul-os/kotva/bindings/go v0.2.0
+	github.com/vul-os/patala/patala-go v0.0.0-20260721151334-1c99293c23b8
 	golang.org/x/crypto v0.48.0
 	golang.org/x/oauth2 v0.23.0
-	github.com/vul-os/patala/patala-go v0.0.0-20260721151334-1c99293c23b8
 )
 
 require (
@@ -62,6 +63,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
@@ -71,7 +73,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

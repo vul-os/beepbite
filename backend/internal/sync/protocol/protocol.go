@@ -32,10 +32,18 @@ import (
 
 // Engine names the merge algebra this build speaks.
 //
-// Per ROADMAP Stage 0 this is BeepBite's own engine and must not be described
-// as, or confused with, any external sync specification. The version suffix
-// moves when the algebra changes in a way that would make two nodes disagree —
-// not when the transport or the JSON shape changes.
+// Per ROADMAP Stage 0 this is BeepBite's own engine (internal/oplog) and must
+// not be described as, or confused with, any external sync specification. The
+// version suffix moves when the algebra changes in a way that would make two
+// nodes disagree — not when the transport or the JSON shape changes.
+//
+// There is now a second name a deployment could advertise here:
+// substrate.EngineName, for a deployment running the shared DMTAP-SYNC engine.
+// Nothing selects between them yet — ROADMAP Stage 2's boot seam does not
+// exist, and Stage 2's preconditions are not met — so this constant is what
+// every build advertises today. When the seam lands, the choice is per
+// deployment and recorded in the handshake, and refusing the mismatch is what
+// keeps a mesh from running two total orders and calling the result success.
 const Engine = "beepbite-oplog-v1"
 
 // SignPurpose domain-separates sync signatures from every other thing this node

@@ -11,6 +11,26 @@
 // Nothing here is wired into the server. It is foundation for Now-5's
 // symmetric push/pull rounds, which will layer transport, persistence and
 // manual peer enrollment on top of this.
+//
+// # The other engine, and what this one still owns
+//
+// internal/sync/substrate now runs the shared DMTAP-SYNC engine — the
+// substrate's own core, not a re-implementation, proved against SYNC.md §10's
+// 24 frozen conformance vectors on every CI run. That package may carry the
+// name; this one still may not, and the distinction is the whole point of the
+// rule rather than a technicality. Two things follow for this package:
+//
+//   - Op identity and canonical encoding moved out. An op is addressed by the
+//     substrate's §4.1 content address and signed as a COSE_Sign1; there is no
+//     second encoder here (see op.go).
+//   - The drift bound below did NOT move, and must not. The substrate refuses
+//     excessive skew on the op-ingest path and leaves state untouched when it
+//     does — but its hlc.observe entry point takes no receiver clock and so
+//     structurally cannot check anything, and a far-future stamp folded in
+//     there drags the clock's wall permanently forward. Update is the bound
+//     that sits above it. See substrate.Engine.Observe, which calls Update
+//     first and the engine's clock second, and drift_test.go, which asserts
+//     that ordering by its consequence.
 package oplog
 
 import (

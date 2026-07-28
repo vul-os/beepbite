@@ -1,8 +1,10 @@
 package nodeid
 
 import (
+	"crypto"
 	"crypto/ed25519"
-	"encoding/binary"
+
+	"github.com/beepbite/backend/internal/canon"
 )
 
 // domainContext is prepended to every signed message.
@@ -59,25 +61,40 @@ func Verify(pub NodeID, purpose string, payload, sig []byte) bool {
 // bytes that the attacker chooses. Prefixing each field with its own length
 // makes the field boundaries part of what is signed rather than something
 // inferred from content, which removes that ambiguity entirely.
+//
+// The prefixing itself is canon.AppendChunk — one definition, shared with
+// internal/sync/protocol's envelope, because two copies of a framing rule is two
+// chances for one of them to drift. See that package's doc.
 func envelope(purpose string, payload []byte) []byte {
 	ctx := []byte(domainContext)
 	p := []byte(purpose)
 
 	buf := make([]byte, 0, 3*4+len(ctx)+len(p)+len(payload))
-	buf = appendChunk(buf, ctx)
-	buf = appendChunk(buf, p)
-	buf = appendChunk(buf, payload)
+	buf = canon.AppendChunk(buf, ctx)
+	buf = canon.AppendChunk(buf, p)
+	buf = canon.AppendChunk(buf, payload)
 	return buf
 }
 
-// appendChunk appends a 4-byte big-endian length prefix followed by b.
-// 4 bytes comfortably bounds any purpose or payload BeepBite will ever
-// sign; a fixed-width prefix (rather than a varint) keeps decoding
-// trivial for the day something needs to parse an envelope back apart.
-func appendChunk(buf, b []byte) []byte {
-	var lenBuf [4]byte
-	binary.BigEndian.PutUint32(lenBuf[:], uint32(len(b)))
-	buf = append(buf, lenBuf[:]...)
-	buf = append(buf, b...)
-	return buf
-}
+// CryptoSigner exposes this identity as a crypto.Signer, for a protocol that
+// supplies its own domain separation and needs a raw Ed25519 signature over a
+// preimage it computed itself.
+//
+// This deliberately bypasses envelope() above, so it needs justifying rather
+// than merely documenting. domainContext exists so a BeepBite signature can
+// never be replayed as valid under another protocol, and a signer that skips it
+// hands out exactly that replay — unless the caller's preimage carries domain
+// separation of its own that is at least as strong.
+//
+// The one caller today is internal/sync/substrate, whose preimage is an RFC 9052
+// Sig_structure carrying the shared engine's own DMTAP-SYNC-v0/op external_aad.
+// A signature minted under that tag cannot verify as a BeepBite envelope
+// signature and vice versa: neither byte string is a prefix or a re-framing of
+// the other, because each begins with its own fixed context. So the property
+// domainContext protects is preserved by the caller rather than dropped.
+//
+// The key does not leave the process and never enters the WebAssembly module —
+// the substrate binding accepts a signer, not a seed, and asserts on every run
+// that its module exposes no entry point that could accept key material. Use
+// Sign for anything that does not carry a domain tag of its own.
+func (id *Identity) CryptoSigner() crypto.Signer { return id.private }

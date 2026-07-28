@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
+	"github.com/beepbite/backend/internal/canon"
 	"github.com/beepbite/backend/internal/nodeid"
 )
 
@@ -26,11 +27,12 @@ type Envelope struct {
 
 // Canonical renders the envelope as the exact bytes that get signed.
 //
-// Every variable-length field is length-prefixed. Plain concatenation would let
-// two different envelopes produce identical bytes — path "/sync" + nonce "ab"
-// and path "/syncab" + nonce "" are the same string and must not be the same
-// signature. The tests build exactly that collision and assert the encodings
-// differ.
+// Every variable-length field is length-prefixed, by canon.AppendChunk — the
+// one definition of that framing, shared with internal/nodeid's signing
+// envelope. Plain concatenation would let two different envelopes produce
+// identical bytes — path "/sync" + nonce "ab" and path "/syncab" + nonce "" are
+// the same string and must not be the same signature. The tests build exactly
+// that collision and assert the encodings differ.
 //
 // encoding/json is not used on purpose: field ordering and string escaping are
 // implementation details there, and a signature is a promise about bytes.
@@ -59,10 +61,7 @@ func (e Envelope) Canonical() []byte {
 	out := make([]byte, 0, n)
 
 	for _, f := range fields {
-		var l [4]byte
-		binary.BigEndian.PutUint32(l[:], uint32(len(f)))
-		out = append(out, l[:]...)
-		out = append(out, f...)
+		out = canon.AppendChunk(out, f)
 	}
 	var ts [8]byte
 	binary.BigEndian.PutUint64(ts[:], uint64(e.Timestamp))

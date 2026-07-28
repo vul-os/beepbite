@@ -53,19 +53,44 @@ type staffPVDTO struct {
 	Role        string `json:"role"`
 }
 
+// pinVerifyStore is the slice of *Store this flow touches.
+//
+// It is an interface so the tests can drive the REAL Verify below rather than a
+// copy of it. That distinction cost something to discover: pin_verify_test.go
+// used to exercise a hand-written reimplementation of Verify against a stub
+// store, which meant the audit-log calls — the whole compliance story for this
+// endpoint — were covered by a file that did not contain them, and a branch
+// added to Verify would have been invisible to every test in the package.
+type pinVerifyStore interface {
+	GetByUsername(ctx context.Context, locationID, username string) (*StaffUser, error)
+	IncrementFailedAttempts(ctx context.Context, staffID string) error
+	ClearFailedAttempts(ctx context.Context, staffID string) error
+}
+
+// auditFunc records one PIN-verify outcome.
+type auditFunc func(ctx context.Context, staffID, locationID, action string)
+
 // PinVerifyService holds the dependencies for the PIN-verify flow.
 // It is intentionally a thin wrapper so the underlying Store is unchanged
 // and tests can pass a pool directly.
 type PinVerifyService struct {
-	store  *Store
+	store  pinVerifyStore
 	secret []byte
 	pool   *pgxpool.Pool
+
+	// audit is the seam the audit-coverage test asserts through. It defaults
+	// to writeAudit, which is the only implementation in production; a test
+	// swaps in a recorder so "every branch writes exactly one audit row" is a
+	// checked property of this function rather than a claim about it.
+	audit auditFunc
 }
 
 // NewPinVerifyService constructs a PinVerifyService. pool is used solely for
 // the audit_log INSERT; all staff-row work goes through store.
 func NewPinVerifyService(store *Store, secret string, pool *pgxpool.Pool) *PinVerifyService {
-	return &PinVerifyService{store: store, secret: []byte(secret), pool: pool}
+	s := &PinVerifyService{store: store, secret: []byte(secret), pool: pool}
+	s.audit = s.writeAudit
+	return s
 }
 
 // Verify executes the PIN-verify flow described in the file-level comment.
@@ -88,7 +113,7 @@ func (s *PinVerifyService) Verify(
 	user, err := s.store.GetByUsername(ctx, req.LocationID, req.Username)
 	if errors.Is(err, ErrStaffNotFound) {
 		// Don't leak whether the username exists.
-		s.writeAudit(ctx, "", req.LocationID, "staff.pin_overlay_failed")
+		s.audit(ctx, "", req.LocationID, "staff.pin_overlay_failed")
 		return nil, ErrInvalidCredential
 	}
 	if err != nil {
@@ -97,25 +122,25 @@ func (s *PinVerifyService) Verify(
 
 	// Inactive staff cannot use the PIN overlay.
 	if !user.IsActive {
-		s.writeAudit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
+		s.audit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
 		return nil, ErrStaffInactive
 	}
 
 	// Lockout check (shared counter with password login — same threshold/duration).
 	if user.LockedUntil != nil && time.Now().UTC().Before(*user.LockedUntil) {
-		s.writeAudit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
+		s.audit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
 		return nil, ErrStaffLocked
 	}
 
 	if user.PinHash == nil {
-		s.writeAudit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
+		s.audit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
 		return nil, ErrInvalidCredential
 	}
 
 	// bcrypt compare — constant-time, intentionally slow.
 	if err := bcrypt.CompareHashAndPassword([]byte(*user.PinHash), []byte(req.PIN)); err != nil {
 		_ = s.store.IncrementFailedAttempts(ctx, user.ID)
-		s.writeAudit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
+		s.audit(ctx, user.ID, req.LocationID, "staff.pin_overlay_failed")
 		return nil, ErrInvalidCredential
 	}
 
@@ -134,7 +159,7 @@ func (s *PinVerifyService) Verify(
 		return nil, err
 	}
 
-	s.writeAudit(ctx, user.ID, req.LocationID, "staff.pin_overlay_verify")
+	s.audit(ctx, user.ID, req.LocationID, "staff.pin_overlay_verify")
 
 	displayName := user.FirstName + " " + user.LastName
 
@@ -181,12 +206,7 @@ func decodeCaps(raw []byte) []string {
 // writeAudit inserts a single audit_log row for a PIN-verify event.
 // Errors are suppressed — audit failure must not affect the API response
 // (best-effort semantics).
-func (s *PinVerifyService) writeAudit(
-	ctx context.Context,
-	staffID string,
-	locationID string,
-	action string,
-) {
+func (s *PinVerifyService) writeAudit(ctx context.Context, staffID, locationID, action string) {
 	var staffIDVal any
 	if staffID != "" {
 		staffIDVal = staffID

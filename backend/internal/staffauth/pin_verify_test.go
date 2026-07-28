@@ -2,9 +2,11 @@ package staffauth
 
 // pin_verify_test.go — unit tests for the PIN-verify logic.
 //
-// These tests use a pvTestService — a thin reimplementation of Verify that
-// substitutes an in-memory stubStore in place of a real *Store and a
-// noopPool in place of a real pgxpool.Pool. No real database is needed.
+// These tests drive the real PinVerifyService.Verify with an in-memory stub
+// store and a recording audit sink in place of a real *Store and a real
+// pgxpool.Pool. No database is needed, and nothing here is a copy of the code
+// under test — see pvTestService below for why that distinction was worth the
+// two seams it cost.
 //
 // What is tested here:
 //   - Wrong PIN → ErrInvalidCredential, failed_login_attempts incremented
@@ -85,70 +87,49 @@ func (s *stubPVStore) ClearFailedAttempts(_ context.Context, _ string) error {
 	return nil
 }
 
-// pvTestService mirrors PinVerifyService.Verify but uses stubPVStore.
+// pvTestService drives the REAL PinVerifyService.Verify against the stub store
+// above, and records the audit calls it makes.
+//
+// It used to be a hand-written copy of Verify. That copy passed every test in
+// this file while containing none of the audit-log calls the endpoint's whole
+// compliance story rests on, and a branch added to the real Verify would have
+// been invisible here. Verify now takes its store through an interface and its
+// audit sink through a function field (pin_verify.go), so the thing under test
+// is the thing that runs in production.
 type pvTestService struct {
+	*PinVerifyService
 	store  *stubPVStore
-	secret []byte
+	audits []auditEvent
+}
+
+// auditEvent is one recorded call to the audit sink.
+type auditEvent struct {
+	staffID    string
+	locationID string
+	action     string
 }
 
 func newPVTest(user *StaffUser) *pvTestService {
 	// Initialise lockedUntilTime from the user struct so makeUser(..., &future)
 	// propagates through to the stub's GetByUsername return path.
 	state := &userState{user: user, lockedUntilTime: user.LockedUntil}
-	return &pvTestService{
-		store:  &stubPVStore{state: state},
+	store := &stubPVStore{state: state}
+
+	svc := &pvTestService{store: store}
+	svc.PinVerifyService = &PinVerifyService{
+		store:  store,
 		secret: []byte(testSecret),
+		audit: func(_ context.Context, staffID, locationID, action string) {
+			svc.audits = append(svc.audits, auditEvent{staffID, locationID, action})
+		},
 	}
+	return svc
 }
 
+// verify calls the real flow. It exists so the assertions below read the same
+// way they always did.
 func (s *pvTestService) verify(ctx context.Context, memberID string, memberCaps []byte, req PinVerifyRequest) (*PinVerifyResponse, error) {
-	if req.LocationID == "" || req.Username == "" || req.PIN == "" {
-		return nil, ErrInvalidCredential
-	}
-
-	user, err := s.store.GetByUsername(ctx, req.LocationID, req.Username)
-	if err != nil {
-		return nil, ErrInvalidCredential
-	}
-
-	if !user.IsActive {
-		return nil, ErrStaffInactive
-	}
-
-	if user.LockedUntil != nil && time.Now().UTC().Before(*user.LockedUntil) {
-		return nil, ErrStaffLocked
-	}
-
-	if user.PinHash == nil {
-		return nil, ErrInvalidCredential
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(*user.PinHash), []byte(req.PIN)); err != nil {
-		_ = s.store.IncrementFailedAttempts(ctx, user.ID)
-		return nil, ErrInvalidCredential
-	}
-
-	if err := s.store.ClearFailedAttempts(ctx, user.ID); err != nil {
-		return nil, err
-	}
-
-	caps := decodeCaps(memberCaps)
-
-	tok, exp, err := auth.IssueActorToken(memberID, user.ID, req.LocationID, caps, s.secret, actorOverlayTTL)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PinVerifyResponse{
-		ActorToken: tok,
-		ExpiresAt:  exp,
-		Staff: staffPVDTO{
-			ID:          user.ID,
-			DisplayName: user.FirstName + " " + user.LastName,
-			Role:        user.Role,
-		},
-		Capabilities: caps,
-	}, nil
+	return s.PinVerifyService.Verify(ctx, memberID, memberCaps, req)
 }
 
 // ---------------------------------------------------------------------------

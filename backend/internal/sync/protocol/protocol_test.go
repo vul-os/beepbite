@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/beepbite/backend/internal/nodeid"
 	"github.com/beepbite/backend/internal/oplog"
+	"github.com/beepbite/backend/internal/sync/substrate"
 )
 
 func testIdentity(t *testing.T) *nodeid.Identity {
@@ -278,36 +280,54 @@ func TestAuthenticate_FailsClosedOnCacheError(t *testing.T) {
 
 // ─── Wire ────────────────────────────────────────────────────────────────────
 
-func goodOp() oplog.Op {
-	return oplog.Op{
-		ID:     "01J000000000000000000000",
-		Kind:   oplog.KindSet,
-		Entity: "menu_items",
-		Key:    "k1",
-		Field:  "name",
-		Value:  []byte("Steak"),
-		TS:     oplog.Timestamp{Wall: 1, Counter: 0, Node: "node-a"},
+// goodRecord is a minted operation as it would arrive from a peer: a content
+// address, a signed envelope, and the projection of what the envelope carries.
+//
+// It is built by a real substrate.Engine rather than typed out, because the id
+// IS the hash of the op and the envelope IS a signature over it — a hand-made
+// pair would exercise two string fields and none of the properties this wire
+// format now depends on.
+func goodRecord(t *testing.T) substrate.Record {
+	t.Helper()
+	id, err := nodeid.LoadOrCreate(filepath.Join(t.TempDir(), "node.json"))
+	if err != nil {
+		t.Fatalf("nodeid.LoadOrCreate: %v", err)
 	}
+	ctx := context.Background()
+	eng, err := substrate.Open(ctx, substrate.Options{Identity: id, NS: "org-1"})
+	if err != nil {
+		t.Fatalf("substrate.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = eng.Close(ctx) })
+
+	rec, err := eng.Mint(oplog.Op{
+		Kind: oplog.KindSet, Entity: "menu_items", Key: "k1", Field: "name", Value: []byte("Steak"),
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Mint: %v", err)
+	}
+	return rec
 }
 
 func TestWire_RoundTrip(t *testing.T) {
-	op := goodOp()
-	sig := []byte("signature-bytes")
-	back, gotSig, err := FromWire(ToWire(op, sig))
+	rec := goodRecord(t)
+	back, err := FromWire(ToWire(rec))
 	if err != nil {
 		t.Fatalf("FromWire: %v", err)
 	}
-	if back.ID != op.ID || back.Entity != op.Entity || back.Key != op.Key ||
-		back.Field != op.Field || string(back.Value) != string(op.Value) ||
-		back.TS != op.TS || back.Kind != op.Kind {
-		t.Fatalf("round trip changed the op:\n got %+v\nwant %+v", back, op)
+	if back.ID != rec.ID || back.Op.Entity != rec.Op.Entity || back.Op.Key != rec.Op.Key ||
+		back.Op.Field != rec.Op.Field || string(back.Op.Value) != string(rec.Op.Value) ||
+		back.Op.TS != rec.Op.TS || back.Op.Kind != rec.Op.Kind {
+		t.Fatalf("round trip changed the op:\n got %+v\nwant %+v", back.Op, rec.Op)
 	}
-	if string(gotSig) != string(sig) {
-		t.Fatalf("signature not preserved: %q", gotSig)
+	if string(back.Cose) != string(rec.Cose) {
+		t.Fatal("the signed envelope did not survive the round trip — a peer would " +
+			"have nothing left to verify against the author's key")
 	}
 }
 
 func TestFromWire_RejectsMalformed(t *testing.T) {
+	rec := goodRecord(t)
 	for _, tc := range []struct {
 		name   string
 		mutate func(*WireOp)
@@ -319,14 +339,17 @@ func TestFromWire_RejectsMalformed(t *testing.T) {
 		{"oversized field", func(w *WireOp) { w.Field = strings.Repeat("x", MaxFieldLen+1) }},
 		{"empty node", func(w *WireOp) { w.Node = "" }},
 		{"no id", func(w *WireOp) { w.ID = "" }},
+		{"uuid id", func(w *WireOp) { w.ID = "aaaaaaaa-0000-0000-0000-000000000001" }},
+		{"id not hex", func(w *WireOp) { w.ID = strings.Repeat("z", OpIDLen) }},
 		{"unknown kind", func(w *WireOp) { w.Kind = 7 }},
 		{"value not base64", func(w *WireOp) { w.Value = "!!!!not base64!!!!" }},
-		{"sig not base64", func(w *WireOp) { w.Signature = "!!!!" }},
+		{"envelope not base64", func(w *WireOp) { w.Cose = "!!!!" }},
+		{"no envelope", func(w *WireOp) { w.Cose = "" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			w := ToWire(goodOp(), nil)
+			w := ToWire(rec)
 			tc.mutate(&w)
-			if _, _, err := FromWire(w); err == nil {
+			if _, err := FromWire(w); err == nil {
 				t.Fatalf("%s was accepted", tc.name)
 			}
 		})
@@ -335,29 +358,62 @@ func TestFromWire_RejectsMalformed(t *testing.T) {
 
 // A peer must not be able to choose how much memory we allocate.
 func TestFromWire_RejectsOversizedValueBeforeDecoding(t *testing.T) {
-	w := ToWire(goodOp(), nil)
+	w := ToWire(goodRecord(t))
 	w.Value = strings.Repeat("A", (MaxValueLen+1024)*4/3)
-	if _, _, err := FromWire(w); !errors.Is(err, ErrMalformed) {
+	if _, err := FromWire(w); !errors.Is(err, ErrMalformed) {
 		t.Fatalf("oversized value: want ErrMalformed, got %v", err)
 	}
 }
 
+func TestFromWire_RejectsOversizedEnvelopeBeforeDecoding(t *testing.T) {
+	w := ToWire(goodRecord(t))
+	w.Cose = strings.Repeat("A", (MaxCoseLen+1024)*4/3)
+	if _, err := FromWire(w); !errors.Is(err, ErrMalformed) {
+		t.Fatalf("oversized envelope: want ErrMalformed, got %v", err)
+	}
+}
+
 func TestDecodeOps_RejectsOversizedBatch(t *testing.T) {
+	rec := goodRecord(t)
 	ws := make([]WireOp, MaxOpsPerReq+1)
 	for i := range ws {
-		ws[i] = ToWire(goodOp(), nil)
+		ws[i] = ToWire(rec)
 	}
-	if _, _, err := DecodeOps(ws); !errors.Is(err, ErrMalformed) {
+	if _, err := DecodeOps(ws); !errors.Is(err, ErrMalformed) {
 		t.Fatalf("oversized batch: want ErrMalformed, got %v", err)
 	}
 }
 
 func TestDecodeOps_ReportsWhichOpFailed(t *testing.T) {
-	ws := []WireOp{ToWire(goodOp(), nil), ToWire(goodOp(), nil)}
+	rec := goodRecord(t)
+	ws := []WireOp{ToWire(rec), ToWire(rec)}
 	ws[1].Entity = ""
-	_, _, err := DecodeOps(ws)
+	_, err := DecodeOps(ws)
 	if err == nil || !strings.Contains(err.Error(), "operation 1") {
 		t.Fatalf("want an error naming operation 1, got %v", err)
+	}
+}
+
+// TestFromWire_DoesNotVouchForTheProjection is the property the wire format's
+// doc comment claims and nothing else here would catch: the JSON fields are
+// peer-controlled and unsigned, so a sender can describe an operation that is
+// not the one its envelope carries, and FromWire accepts that — deliberately.
+// The lie is caught by ingesting the envelope, which is where it belongs.
+func TestFromWire_DoesNotVouchForTheProjection(t *testing.T) {
+	rec := goodRecord(t)
+	w := ToWire(rec)
+	w.Value = base64.StdEncoding.EncodeToString([]byte("not what was signed"))
+
+	back, err := FromWire(w)
+	if err != nil {
+		t.Fatalf("FromWire refused a structurally valid op: %v", err)
+	}
+	if string(back.Op.Value) == string(rec.Op.Value) {
+		t.Fatal("FromWire silently repaired the projection from the envelope; it must not, " +
+			"because a caller would then believe the projection had been checked")
+	}
+	if string(back.Cose) != string(rec.Cose) {
+		t.Fatal("the envelope changed — the one thing that is not the sender's to alter")
 	}
 }
 

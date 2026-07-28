@@ -72,7 +72,9 @@ var managerElevationRoles = map[string]struct{}{
 // It deliberately reuses PinVerifyService's store and secret to avoid
 // duplicating bcrypt / lockout logic.
 type PinVerifyElevationService struct {
-	store  *Store
+	// Same three staff-row methods PinVerifyService uses, behind the same
+	// interface, so the two flows cannot drift apart in what they touch.
+	store  pinVerifyStore
 	secret []byte
 	pvSvc  *PinVerifyService
 }

@@ -2,9 +2,12 @@
 # verify-sync-rls.sh — prove the sync tables' security properties against a real
 # Postgres, as a non-superuser tenant role.
 #
-# migrations/002_sync.sql makes three claims in its comments. Comments are not
-# evidence, and the properties below are exactly the kind that look fine in code
-# review and are wrong in the database:
+# migrations/002_sync.sql makes three claims in its comments, and
+# migrations/004_sync_ops_content_address.sql re-makes them after DROPping and
+# re-CREATEing sync_ops. Comments are not evidence, and a table that came back
+# from a DROP without its policies would be an open one — every query a single
+# tenant runs looks identical either way. The properties below are exactly the
+# kind that look fine in code review and are wrong in the database:
 #
 #   1. sync_ops is APPEND-ONLY for tenants. Not "the handlers never update it" —
 #      the database refuses. An operation log that can be edited is not a log.
@@ -27,8 +30,17 @@ MIGRATIONS="$REPO_ROOT/backend/migrations"
 
 ORG_A='11111111-1111-1111-1111-111111111111'
 ORG_B='22222222-2222-2222-2222-222222222222'
-OP_A='aaaaaaaa-0000-0000-0000-000000000001'
-OP_B='bbbbbbbb-0000-0000-0000-000000000002'
+
+# Op ids are §4.1 content addresses now, not uuids: 33 bytes, the §18.1.5 v0
+# form, which begins 0x1e. These two are synthetic — this script proves RLS, not
+# the algebra, and the engine's own addressing is proved by the conformance
+# vectors — but they are the right SHAPE, so the octet_length(id) = 33 CHECK is
+# exercised rather than worked around. A uuid would simply fail to cast, which
+# is a weaker thing to have tested.
+OP_A='\x1eaa00000000000000000000000000000000000000000000000000000000000001'
+OP_B='\x1ebb00000000000000000000000000000000000000000000000000000000000002'
+COSE_A='\xd28443a10127a0'
+COSE_B='\xd28443a10127a1'
 
 cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -75,9 +87,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bb_tenant
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO bb_tenant;
 
 INSERT INTO organizations (id, name) VALUES ('$ORG_A','Org A'), ('$ORG_B','Org B');
-INSERT INTO sync_ops (id, organization_id, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
-VALUES ('$OP_A','$ORG_A','menu_items','k1','name',1,'\x61',100,0,'nodeA'),
-       ('$OP_B','$ORG_B','menu_items','k9','name',1,'\x62',100,0,'nodeB');
+-- kind 3 is the substrate's lww-set. Under migration 002 this column held
+-- internal/oplog's own numbering, where 1 meant Set; 1 now means set-add, so a
+-- query carried over from that schema would silently select the other kind.
+INSERT INTO sync_ops (id, organization_id, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
+VALUES ('$OP_A','$ORG_A','$COSE_A','menu_items','k1','name',3,'\x61',100,0,'nodeA'),
+       ('$OP_B','$ORG_B','$COSE_B','menu_items','k9','name',3,'\x62',100,0,'nodeB');
 SQL
 
 echo "==> asserting"
@@ -102,11 +117,31 @@ echo "  ok  DELETE affects no rows (append-only)"
   || fail "operation value changed despite the update being refused"
 echo "  ok  value survived both attempts unchanged"
 
-if as_tenant "INSERT INTO sync_ops (id, organization_id, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
-              VALUES ('cccccccc-0000-0000-0000-000000000003','$ORG_B','x','k','f',1,'\\x63',1,0,'nodeA');" >/dev/null 2>&1; then
+if as_tenant "INSERT INTO sync_ops (id, organization_id, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
+              VALUES ('\\x1ecc00000000000000000000000000000000000000000000000000000000000003','$ORG_B','\\xd28443a10127a2','x','k','f',3,'\\x63',1,0,'nodeA');" >/dev/null 2>&1; then
   fail "tenant inserted an operation into another organisation"
 fi
 echo "  ok  cross-organisation INSERT refused by policy"
+
+# The schema must refuse a kind BeepBite does not model. Migration 004's CHECK
+# is (1, 3); 2 was oplog.KindAdd under migration 002 and is set-remove in the
+# substrate, which this product never mints. A row carrying one did not come
+# from here, and storing it would put an op in the log under an algebra nothing
+# reads it back with.
+if psql_ -q -v ON_ERROR_STOP=1 -c "INSERT INTO sync_ops (id, organization_id, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
+     VALUES ('\\x1edd00000000000000000000000000000000000000000000000000000000000004','$ORG_A','\\xd28443a10127a3','x','k','',2,'\\x64',1,0,'nodeA');" >/dev/null 2>&1; then
+  fail "an op kind BeepBite does not model was accepted (the kind CHECK is gone)"
+fi
+echo "  ok  an unmodelled op kind is refused by the CHECK constraint"
+
+# And an id that is not a 33-byte content address. A uuid is exactly what this
+# column used to hold, which is the point: the shape moved, and the database
+# should say so rather than store a name where an address belongs.
+if psql_ -q -v ON_ERROR_STOP=1 -c "INSERT INTO sync_ops (id, organization_id, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
+     VALUES ('\\xaaaaaaaa','$ORG_A','\\xd28443a10127a4','x','k','f',3,'\\x65',1,0,'nodeA');" >/dev/null 2>&1; then
+  fail "a 4-byte op id was accepted — sync_ops.id is not a content address"
+fi
+echo "  ok  an id that is not a 33-byte content address is refused"
 
 [ "$(psql_ -tAc "SELECT count(*) FROM pg_class WHERE relname IN ('sync_ops','sync_peers','sync_nonces') AND relrowsecurity;")" = "3" ] \
   || fail "row-level security is not enabled on all three sync tables"

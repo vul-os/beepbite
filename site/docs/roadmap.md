@@ -232,6 +232,18 @@ be re-proved above the database on that path — that is the hard part and it is
 > envelope, and no mapping from BeepBite's tables onto the ownership classes below.
 > Two instances still do not talk to each other. Per Stage 0 this engine is
 > BeepBite's own and must not be described as DMTAP-sync.
+>
+> That list is about **this package**, and it got slightly more true rather than less:
+> `sync_ops` and the wire format now carry the substrate's operations (below), not
+> `oplog.Op`, so nothing persists or transmits this algebra at all.
+>
+> **A second engine now exists beside it.** `internal/sync/substrate` runs the shared
+> DMTAP-SYNC engine (Stage 2 below), `internal/sync/opstore` persists its operations
+> to `sync_ops` under RLS, and `internal/sync/protocol` carries them on the wire. That
+> package may carry the name — the `sync-vectors` CI job drives all 24 frozen SYNC
+> conformance vectors through the engine it links — and `internal/oplog` still may not.
+> It changes nothing about Stage 2's status: the two engines are not selectable at
+> boot, no merge suite compares them, and the default is unchanged.
 The unit of authority is the **branch**, which is what makes this tractable at all: orders, order
 sequence numbers, the cash drawer, table state and shifts have exactly one writer, so money and
 sequencing have no conflicts to resolve. Menu, pricing and staff are group-owned and replicated down.
@@ -357,14 +369,30 @@ best-proven one and are additive. That ordering is the plan.
 
 ### Stage 0 (current, indefinite) — adopt nothing at runtime
 
-**Scope.** BeepBite's default sync engine is the hand-rolled HLC oplog (Now-5). No DMTAP code is in
-the tree today and none is required to be. Per `VULOS-PRODUCT-STANDARD.md`, no hard runtime dependency
-on relay, control plane or DMTAP is permitted, and this stage honours that by having no dependency at all.
+**Scope.** BeepBite's default sync engine is the hand-rolled HLC oplog (Now-5). Per
+`VULOS-PRODUCT-STANDARD.md`, no hard *runtime* dependency on relay, control plane or DMTAP is
+permitted, and that still holds — but the second half of this paragraph used to say "no DMTAP code is
+in the tree today", and that is no longer true, so it says what is true instead.
+
+`backend/internal/sync/substrate` links `github.com/vul-os/kotva/bindings/go` and runs the shared
+DMTAP-SYNC engine in-process. It is a compile-time dependency of the sync packages and of nothing
+else: `cmd/server` does not import it, no request path reaches it, and a BeepBite that never syncs
+never instantiates it. The engine itself opens no socket, reads no file and calls no clock — it is a
+WebAssembly module with no imports at all — so "no hard runtime dependency" is preserved structurally
+rather than by policy. What a build does pay is 4.31 MiB of binary if it is ever wired in (Stage 2,
+precondition 5).
 
 **The rule this stage must not break:** because BeepBite's oplog is *not* the Sync capability, it MUST
 NOT be described as DMTAP-sync, in code, docs or landing copy. Adopting zero capabilities is
 explicitly allowed by the waist ("a product that adopts zero waist capabilities is simply not a DMTAP
 product"). Claiming a capability we do not speak is what is forbidden.
+
+That rule is about `internal/oplog`, and it is unchanged: that package is BeepBite's own algebra and
+may never carry the name. `internal/sync/substrate` is a different thing and may, because it does not
+re-implement anything — it executes the substrate's own core, and the `sync-vectors` CI job drives all
+24 of SYNC.md §10's frozen vectors through it on every push with `BEEPBITE_REQUIRE_SYNC_VECTORS=1` so
+the job cannot pass by skipping. The name is earned exactly as far as that job is green. If it ever
+goes red or is removed, the name comes off the package with it.
 
 **Rollback path.** None needed — this is the baseline every later stage rolls back to.
 
@@ -427,9 +455,25 @@ degrades to what it was before: whatever the shop recorded about its own courier
    concurrent offline sales of the last unit converge to −2 (not −1); concurrent menu edits resolve
    identically on both engines; an order sequence never collides across branches; and a partition
    healed after N minutes produces the same drawer total as one that never partitioned.
-5. Adopting it costs **no cgo**: `envoir/bindings/go` embeds the Rust core as WASM under wazero
-   (verified: its `go.mod` requires `github.com/tetratelabs/wazero` and nothing else). The moment
+5. Adopting it costs **no cgo**: `github.com/vul-os/kotva/bindings/go` embeds the Rust core as WASM
+   under wazero (its `go.mod` requires `github.com/tetratelabs/wazero` and nothing else). The moment
    reaching DMTAP-SYNC requires cgo, the single static binary is gone and the price is too high.
+
+   **Met, and measured rather than reasoned about.** `internal/sync/substrate` links the engine at
+   `bindings/go v0.2.0`, and with it reachable, `CGO_ENABLED=0` cross-compilation of `./cmd/server`
+   to `linux/amd64`, `linux/arm64`, `windows/amd64` and `darwin/arm64` all still succeed. The price
+   is **+4.31 MiB** on the server binary (25,473,874 → 29,990,274 bytes, +17.7%), of which only
+   418 KiB is the engine artifact — roughly 90% is wazero's optimizing compiler. That is the whole
+   cost of the "no cgo" property, and it is the one line of this precondition list that has moved.
+
+   **Preconditions 1 and 2 have moved too, but not by anything BeepBite did**, so they are recorded
+   here as observations rather than as ticks: the `SYNC` family now carries 24 frozen vectors, and
+   `.github/workflows/test.yml`'s `sync-vectors` job drives all 24 of them through the engine
+   BeepBite links on every push. Whether that satisfies 1's "generated by something other than the
+   document's own script" is a question about the kotva repo, not this one — the vectors file names
+   `gen_sync_vectors.py` in that repo as its generator — and 3 and 4 are untouched. **4 in particular
+   does not exist**: there is no BeepBite merge suite comparing the two engines under induced
+   partition, and until there is, this stage stays gated.
 
 **Scope.** A second implementation behind the `store.Merger` seam introduced with Now-5, chosen at boot.
 The seam is a Now-5 deliverable, not something that exists today.

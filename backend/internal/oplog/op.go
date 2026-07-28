@@ -1,10 +1,6 @@
 package oplog
 
-import (
-	"bytes"
-	"encoding/binary"
-	"errors"
-)
+import "errors"
 
 // Kind selects which merge rule an Op is subject to. These are the only two
 // the Now-5 ownership model needs (ROADMAP.md): catalog and config rows
@@ -48,12 +44,17 @@ var (
 type Op struct {
 	// ID uniquely identifies this op. It is the identity Add uses to dedup
 	// on union and Set uses to recognise "this exact op, replayed" as a
-	// no-op. Callers mint it and this package neither generates nor checks
-	// it — but it must be globally unique across every branch, since two
-	// nodes minting the same ID would silently collapse two different
-	// operations into one. A UUID is the form the rest of BeepBite uses and
-	// the form sync_ops stores; anything else fails the cast at the database
-	// rather than replicating.
+	// no-op. This package neither generates nor checks it.
+	//
+	// It is a CONTENT ADDRESS, not a minted name: internal/sync/substrate
+	// sets it to the shared engine's §4.1 address of the op's canonical
+	// bytes, lowercase hex, and migration 004 stores exactly that as
+	// sync_ops.id. A caller must not invent one. The reason is worth stating
+	// where it will be read: while ops were addressed by a caller-minted
+	// uuid and deduplicated by the engine on content, one operation was two
+	// rows in Postgres and one op to the engine — so opstore.Append's
+	// idempotence held for the log and not for the store, which is a
+	// divergence no error surfaces.
 	ID string
 
 	Kind Kind
@@ -98,48 +99,17 @@ func (op Op) Validate() error {
 	return nil
 }
 
-// Canonical returns a deterministic byte encoding of op, suitable for
-// hashing or signing (Now-5's mutual-Ed25519 peer auth needs exactly this:
-// two nodes must compute the identical bytes for the identical op).
+// There is deliberately no canonical encoder in this package any more.
 //
-// This is NOT encoding/json. JSON's map key ordering is unspecified across
-// the language (Go happens to sort struct-derived object keys, but that is
-// an implementation detail, not a promise), and its string escaping rules
-// have changed between library versions before (e.g. HTML-escaping
-// defaults). Either kind of drift would silently change the encoded bytes
-// of an op that hasn't changed at all, which breaks both hashing and
-// signature verification across a version skew between two branches'
-// binaries — exactly the failure mode a canonical encoding exists to rule
-// out. Instead every variable-length field (ID, Entity, Key, Field, Value,
-// Node) is written as a fixed-width big-endian uint32 length prefix
-// followed by its raw bytes. Length-prefixing (rather than a delimiter) is
-// what makes the encoding unambiguous: two ops whose fields differ only in
-// where a boundary falls — e.g. Entity="ab",Key="c" vs Entity="a",Key="bc"
-// — encode to different byte strings, because the prefix records exactly
-// where each field ends. A delimiter-based scheme could conflate the two
-// wherever a field's content contains the delimiter.
-func (op Op) Canonical() []byte {
-	var buf bytes.Buffer
-	buf.WriteByte(byte(op.Kind))
-	writeLenPrefixed(&buf, []byte(op.ID))
-	writeLenPrefixed(&buf, []byte(op.Entity))
-	writeLenPrefixed(&buf, []byte(op.Key))
-	writeLenPrefixed(&buf, []byte(op.Field))
-	writeLenPrefixed(&buf, op.Value)
-
-	var ts [12]byte
-	binary.BigEndian.PutUint64(ts[0:8], uint64(op.TS.Wall))
-	binary.BigEndian.PutUint32(ts[8:12], op.TS.Counter)
-	buf.Write(ts[:])
-	writeLenPrefixed(&buf, []byte(op.TS.Node))
-
-	return buf.Bytes()
-}
-
-// writeLenPrefixed appends a 4-byte big-endian length followed by b to buf.
-func writeLenPrefixed(buf *bytes.Buffer, b []byte) {
-	var length [4]byte
-	binary.BigEndian.PutUint32(length[:], uint32(len(b)))
-	buf.Write(length[:])
-	buf.Write(b)
-}
+// Op.Canonical() used to render an op as length-prefixed bytes for hashing and
+// signing, on the reasoning that two nodes must compute identical bytes for an
+// identical op. That reasoning still holds; what changed is who owns the answer.
+// internal/sync/substrate encodes an op through the shared engine's §4.1
+// deterministic CBOR, addresses it by the content address of those bytes, and
+// signs it as an RFC 9052 COSE_Sign1 — so the bytes two nodes agree on are the
+// substrate's, proven byte-identical against the frozen conformance vectors on
+// every CI run, rather than BeepBite's own and proven by nobody.
+//
+// Keeping a second encoder here would be strictly worse than having none: an op
+// signed under one framing and addressed under the other is a signature that
+// verifies against bytes nothing else in the system computes.

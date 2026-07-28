@@ -1,7 +1,6 @@
 package oplog
 
 import (
-	"bytes"
 	"errors"
 	"testing"
 )
@@ -66,70 +65,10 @@ func TestOp_Validate(t *testing.T) {
 	}
 }
 
-func TestOp_Canonical_StableAcrossCalls(t *testing.T) {
-	op := Op{
-		ID:     "op-1",
-		Kind:   KindSet,
-		Entity: "menu_item",
-		Key:    "row1",
-		Field:  "price",
-		Value:  []byte("1299"),
-		TS:     Timestamp{Wall: 123456, Counter: 7, Node: "branch-a"},
-	}
-	a := op.Canonical()
-	b := op.Canonical()
-	if !bytes.Equal(a, b) {
-		t.Fatalf("Canonical() not stable across calls: %x vs %x", a, b)
-	}
-}
-
-func TestOp_Canonical_DistinguishesFieldBoundaries(t *testing.T) {
-	ts := Timestamp{Wall: 1, Counter: 0, Node: "n"}
-
-	// "ab"/"c" and "a"/"bc" concatenate to the same raw string ("abc") if you
-	// naively join Entity+Key without a length prefix. Length-prefixing must
-	// keep them apart.
-	opA := Op{ID: "x", Kind: KindSet, Entity: "ab", Key: "c", Field: "f", TS: ts}
-	opB := Op{ID: "x", Kind: KindSet, Entity: "a", Key: "bc", Field: "f", TS: ts}
-
-	if bytes.Equal(opA.Canonical(), opB.Canonical()) {
-		t.Fatalf("Canonical() collided across a field boundary: Entity=%q/Key=%q vs Entity=%q/Key=%q both encoded to %x",
-			opA.Entity, opA.Key, opB.Entity, opB.Key, opA.Canonical())
-	}
-}
-
-func TestOp_Canonical_DistinguishesEveryFieldIndependently(t *testing.T) {
-	base := Op{
-		ID:     "id",
-		Kind:   KindSet,
-		Entity: "entity",
-		Key:    "key",
-		Field:  "field",
-		Value:  []byte("value"),
-		TS:     Timestamp{Wall: 42, Counter: 3, Node: "node"},
-	}
-	baseBytes := base.Canonical()
-
-	variants := []struct {
-		name string
-		op   Op
-	}{
-		{"different ID", func() Op { o := base; o.ID = "id2"; return o }()},
-		{"different Kind", func() Op { o := base; o.Kind = KindAdd; o.Field = ""; return o }()},
-		{"different Entity", func() Op { o := base; o.Entity = "entity2"; return o }()},
-		{"different Key", func() Op { o := base; o.Key = "key2"; return o }()},
-		{"different Field", func() Op { o := base; o.Field = "field2"; return o }()},
-		{"different Value", func() Op { o := base; o.Value = []byte("value2"); return o }()},
-		{"different Wall", func() Op { o := base; o.TS.Wall = 43; return o }()},
-		{"different Counter", func() Op { o := base; o.TS.Counter = 4; return o }()},
-		{"different Node", func() Op { o := base; o.TS.Node = "node2"; return o }()},
-	}
-
-	for _, v := range variants {
-		t.Run(v.name, func(t *testing.T) {
-			if bytes.Equal(baseBytes, v.op.Canonical()) {
-				t.Fatalf("Canonical() did not change for variant %q", v.name)
-			}
-		})
-	}
-}
+// The Canonical() tests that used to live here — stable across calls, field
+// boundaries distinguished, every field independently distinguished — moved to
+// internal/sync/substrate's TestOpAddressDistinguishesEveryField when op
+// encoding and addressing moved to the shared engine. They were deleted here
+// rather than kept, because there is no second encoder left to assert about;
+// what they were really testing is now a property of the substrate's §4.1 CBOR,
+// which the frozen conformance vectors also cover.

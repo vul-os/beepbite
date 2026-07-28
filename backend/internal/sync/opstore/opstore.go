@@ -1,12 +1,33 @@
-// Package opstore is the Postgres persistence layer for internal/oplog's
-// operation log (ROADMAP.md, "Now-5 — Multi-branch sync: HLC oplog, manual
-// peer enrollment"). It maps oplog.Op directly onto the sync_ops table
-// defined in migrations/002_sync.sql and does nothing else: no transport, no
-// peer handshake, no signature verification. Those are Now-5's push/pull
-// round, which is layered on top of this.
+// Package opstore is the Postgres persistence layer for the operation log
+// (ROADMAP.md, "Now-5 — Multi-branch sync: HLC oplog, manual peer enrollment").
+// It maps internal/sync/substrate's minted records onto the sync_ops table
+// defined in migrations/004_sync_ops_content_address.sql and does nothing else:
+// no transport, no peer handshake, no merge. Those are Now-5's push/pull round
+// and the substrate engine respectively, both layered on top of this.
 //
-// Every method runs its query inside db.Scoped so RLS is in force — see that
-// migration's comment on sync_ops for why append-only is enforced by policy
+// # What identifies a row
+//
+// A row's primary key is the operation's §4.1 content address — a hash of the
+// op's own canonical bytes, computed by the shared engine, identical on every
+// branch that holds the operation. Nothing here mints an id, and a caller
+// cannot supply one: Append takes the records substrate.Engine.Mint or
+// substrate.Engine.Ingest produced, and both set it from the engine.
+//
+// That is what makes `ON CONFLICT (id) DO NOTHING` mean the same thing to
+// Postgres and to the engine. Under migration 002 it did not: the id was a
+// caller-minted uuid while the engine deduplicated on content, so one operation
+// re-offered under a fresh uuid inserted a second row that the engine
+// considered a duplicate — a divergence between the store and the log that
+// produced no error anywhere. See that migration file for the whole argument.
+//
+// The COSE_Sign1 envelope is stored alongside and is the row's source of truth.
+// Every other column is a projection of what the envelope carries, present so
+// the pull path and the read path are index scans rather than a decode of every
+// row. A caller that is about to trust a row's contents should ingest its
+// envelope rather than read its columns.
+//
+// Every method runs its query inside db.Scoped so RLS is in force — see
+// migration 004's comment on sync_ops for why append-only is enforced by policy
 // rather than by convention (no UPDATE/DELETE grant to tenant roles at all).
 // This package adds nothing on top of that: it has no admin bypass and no
 // direct pool access outside db.Scoped.
@@ -14,6 +35,7 @@ package opstore
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -22,6 +44,7 @@ import (
 
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/oplog"
+	"github.com/beepbite/backend/internal/sync/substrate"
 )
 
 // ---------------------------------------------------------------------------
@@ -35,46 +58,40 @@ import (
 // organization_id because a caller forgot to populate the scope.
 var ErrEmptyOrgScope = errors.New("opstore: scope has no organization id")
 
-// ErrSigsLengthMismatch is returned by Append when sigs is non-empty but its
-// length does not match ops. sigs may be omitted entirely (nil or
-// zero-length) for callers that have not wired up signing yet — see
-// migration 002's comment on sync_ops.signature being nullable for exactly
-// that reason — but a partial slice is always a caller bug, not a case
-// worth guessing at.
-var ErrSigsLengthMismatch = errors.New("opstore: sigs must be empty or the same length as ops")
+// ErrNoEnvelope is returned by Append for a record carrying no COSE_Sign1.
+// sync_ops.cose is NOT NULL because an operation the engine would not sign is
+// one that was never minted, not one that is merely unreplicable.
+var ErrNoEnvelope = errors.New("opstore: record has no signed envelope")
+
+// ErrBadOpID is returned when a record's id is not a 33-byte content address in
+// lowercase hex. Nothing in this package computes one, so a malformed id means
+// the record did not come from the engine — and storing it would put a row in
+// the log under an identity no other replica would ever derive.
+var ErrBadOpID = errors.New("opstore: op id is not a 33-byte content address")
+
+// opIDLen is the §18.1.5 v0 content-address length in bytes.
+const opIDLen = 33
 
 // ---------------------------------------------------------------------------
 // Kind mapping
 // ---------------------------------------------------------------------------
+
+// KindCodec translates between BeepBite's two op kinds and the numbers
+// sync_ops.kind stores, which are the shared engine's §4.2 kinds.
 //
-// sync_ops.kind stores oplog.Kind's own values (KindSet=1, KindAdd=2) rather
-// than renumbering them, so these conversions are range checks and not a
-// mapping. An earlier draft of the schema numbered them from zero, which meant
-// a translation table here that nothing prevented a later caller from
-// bypassing with a bare cast — the schema moved to match the Go constants
-// instead, which removes the class of bug rather than documenting it.
-
-// toDBKind range-checks an oplog.Kind on the way to the database.
-func toDBKind(k oplog.Kind) (int16, error) {
-	switch k {
-	case oplog.KindSet, oplog.KindAdd:
-		return int16(k), nil
-	default:
-		return 0, oplog.ErrUnknownKind
-	}
-}
-
-// fromDBKind range-checks a stored value on the way back. An unrecognised one
-// means the row did not come from this package, or the CHECK constraint has
-// drifted from these constants — either way it is worth surfacing loudly
-// rather than coercing into a valid-looking Kind.
-func fromDBKind(k int16) (oplog.Kind, error) {
-	switch oplog.Kind(k) {
-	case oplog.KindSet, oplog.KindAdd:
-		return oplog.Kind(k), nil
-	default:
-		return 0, fmt.Errorf("opstore: sync_ops row has unrecognised kind %d", k)
-	}
+// It is an interface, and the numbers are not written down in this package, for
+// one specific reason: they collide. internal/oplog's KindSet is 1 and the
+// substrate's set_add is also 1, while KindSet maps to lww_set which is 3. A
+// hard-coded 1 anywhere in this file would be silently wrong in exactly the
+// direction nothing catches — the row would store a valid kind, pass the CHECK
+// constraint, and describe the opposite operation. substrate.Engine implements
+// this by asking the engine which kind is which at startup.
+type KindCodec interface {
+	// DBKind renders an oplog.Kind as the value sync_ops.kind holds.
+	DBKind(oplog.Kind) (int16, error)
+	// OplogKind reads a stored value back, refusing one this product does not
+	// model rather than coercing it into a valid-looking Kind.
+	OplogKind(int16) (oplog.Kind, error)
 }
 
 // ---------------------------------------------------------------------------
@@ -83,56 +100,54 @@ func fromDBKind(k int16) (oplog.Kind, error) {
 
 // Store is the data-access layer for the sync_ops table.
 type Store struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	kinds KindCodec
 }
 
-// New returns a Store backed by pool.
-func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+// New returns a Store backed by pool, translating op kinds through kinds —
+// normally the *substrate.Engine this node runs.
+func New(pool *pgxpool.Pool, kinds KindCodec) *Store {
+	return &Store{pool: pool, kinds: kinds}
+}
 
 // ---------------------------------------------------------------------------
 // Append
 // ---------------------------------------------------------------------------
 
-// Append inserts a batch of ops — with parallel Ed25519 signatures over each
-// op's Canonical() encoding, or a nil/empty sigs when signing is not wired up
-// yet — into scope's organization.
+// Append inserts a batch of minted records into scope's organization and
+// returns how many rows were newly written.
 //
-// Idempotent: sync_ops.id is the primary key, so the whole batch is inserted
-// with a single `INSERT ... ON CONFLICT (id) DO NOTHING`, and the returned
-// count is exactly how many rows were newly written. A peer re-sending a
-// batch it already pushed (a retry after a dropped ack, a resumed sync round)
-// gets inserted=0 back, never an error — this is the storage half of the
-// same idempotence internal/oplog's Apply implements in memory, and it has
-// to hold for the same reason: a caller cannot tell "never arrived" from
-// "arrived, ack lost" apart, so both must be safe to resend.
+// Idempotent, and now idempotent in the same sense the engine is. sync_ops.id
+// is the operation's content address, so the whole batch goes in with a single
+// `INSERT ... ON CONFLICT (id) DO NOTHING` and a peer re-sending a batch it
+// already pushed — a retry after a dropped ack, a resumed sync round, an op
+// re-derived from the same inputs — gets inserted=0 back rather than a second
+// row. A caller cannot tell "never arrived" from "arrived, ack lost" apart, so
+// both have to be safe to resend.
 //
-// The whole batch commits or none of it does. Every op is checked against
-// oplog.Op.Validate() before any transaction opens — so a malformed op never
-// reaches Postgres, and the sync_ops_set_has_field / sync_ops_add_has_no_field
-// CHECK constraints are a backstop for a bug in this package, not the
+// The whole batch commits or none of it does. Every record is checked before
+// any transaction opens — so a malformed one never reaches Postgres, and the
+// CHECK constraints are a backstop for a bug in this package rather than the
 // primary validator — and the insert itself is one statement, so there is no
-// point at which some ops from a rejected batch could have already landed.
+// point at which some records from a rejected batch could have already landed.
 //
-// oplog.Op carries no organization identity of its own (the in-memory
-// algebra is deliberately storage- and tenant-agnostic — see oplog's package
-// doc). Every row in the batch is therefore written with organization_id =
-// scope.OrgID; there is no separate per-op value that could disagree with
-// it, so "an op belongs to a different org than the scope" cannot arise once
-// scope.OrgID is non-empty, which is exactly what is checked below.
-func (s *Store) Append(ctx context.Context, scope db.Scope, ops []oplog.Op, sigs [][]byte) (int, error) {
-	if len(ops) == 0 {
+// A record carries no organization identity of its own (the algebra is
+// deliberately tenant-agnostic; the substrate's own scoping is the §7
+// namespace, which internal/sync/substrate sets to the org id). Every row is
+// therefore written with organization_id = scope.OrgID; there is no separate
+// per-record value that could disagree with it.
+func (s *Store) Append(ctx context.Context, scope db.Scope, recs []substrate.Record) (int, error) {
+	if len(recs) == 0 {
 		return 0, nil
 	}
 	if scope.OrgID == "" {
 		return 0, ErrEmptyOrgScope
 	}
-	if len(sigs) != 0 && len(sigs) != len(ops) {
-		return 0, ErrSigsLengthMismatch
-	}
 
-	n := len(ops)
-	ids := make([]string, n)
+	n := len(recs)
+	ids := make([][]byte, n)
 	orgIDs := make([]string, n)
+	coses := make([][]byte, n)
 	entities := make([]string, n)
 	keys := make([]string, n)
 	fields := make([]string, n)
@@ -141,40 +156,40 @@ func (s *Store) Append(ctx context.Context, scope db.Scope, ops []oplog.Op, sigs
 	tsWalls := make([]int64, n)
 	tsCounters := make([]int32, n)
 	tsNodes := make([]string, n)
-	signatures := make([][]byte, n)
 
-	for i, op := range ops {
-		if err := op.Validate(); err != nil {
-			return 0, fmt.Errorf("opstore: op %d (id=%q): %w", i, op.ID, err)
+	for i, rec := range recs {
+		if err := rec.Op.Validate(); err != nil {
+			return 0, fmt.Errorf("opstore: record %d (id=%q): %w", i, rec.ID, err)
 		}
-		kind, err := toDBKind(op.Kind)
+		id, err := decodeOpID(rec.ID)
 		if err != nil {
-			// op.Validate() above already rejects any Kind other than
-			// KindSet/KindAdd, so this branch is unreachable in practice.
-			// Kept because toDBKind returning an error at all should never
-			// be silently ignored.
-			return 0, fmt.Errorf("opstore: op %d (id=%q): %w", i, op.ID, err)
+			return 0, fmt.Errorf("opstore: record %d: %w", i, err)
+		}
+		if len(rec.Cose) == 0 {
+			return 0, fmt.Errorf("opstore: record %d (id=%s): %w", i, rec.ID, ErrNoEnvelope)
+		}
+		kind, err := s.kinds.DBKind(rec.Op.Kind)
+		if err != nil {
+			return 0, fmt.Errorf("opstore: record %d (id=%s): %w", i, rec.ID, err)
 		}
 
-		ids[i] = op.ID
+		ids[i] = id
 		orgIDs[i] = scope.OrgID
-		entities[i] = op.Entity
-		keys[i] = op.Key
-		fields[i] = op.Field
+		coses[i] = rec.Cose
+		entities[i] = rec.Op.Entity
+		keys[i] = rec.Op.Key
+		fields[i] = rec.Op.Field
 		kinds[i] = kind
-		// value is NOT NULL DEFAULT '\x'::bytea; a nil Op.Value must become
-		// a zero-length (non-nil) slice, never a SQL NULL.
-		if op.Value != nil {
-			values[i] = op.Value
+		// value is NOT NULL DEFAULT '\x'::bytea; a nil payload must become a
+		// zero-length (non-nil) slice, never a SQL NULL.
+		if rec.Op.Value != nil {
+			values[i] = rec.Op.Value
 		} else {
 			values[i] = []byte{}
 		}
-		tsWalls[i] = op.TS.Wall
-		tsCounters[i] = int32(op.TS.Counter)
-		tsNodes[i] = op.TS.Node
-		if i < len(sigs) {
-			signatures[i] = sigs[i]
-		}
+		tsWalls[i] = rec.Op.TS.Wall
+		tsCounters[i] = int32(rec.Op.TS.Counter)
+		tsNodes[i] = rec.Op.TS.Node
 	}
 
 	var inserted int
@@ -182,21 +197,21 @@ func (s *Store) Append(ctx context.Context, scope db.Scope, ops []oplog.Op, sigs
 		// Casts happen in the SELECT list, not on the unnest() arguments
 		// themselves: every array parameter is sent as text/int/bytea (types
 		// pgx encodes generically from Go slices without needing a
-		// uuid-array-specific codec), and id/organization_id are cast to
-		// uuid only once they are scalar columns in the SELECT. This is one
-		// round trip and one statement regardless of batch size.
+		// uuid-array-specific codec), and organization_id is cast to uuid only
+		// once it is a scalar column in the SELECT. This is one round trip and
+		// one statement regardless of batch size.
 		tag, err := tx.Exec(ctx, `
 INSERT INTO sync_ops
-    (id, organization_id, entity, key, field, kind, value, ts_wall, ts_counter, ts_node, signature)
-SELECT t.id::uuid, t.org::uuid, t.entity, t.key, t.field, t.kind, t.value, t.ts_wall, t.ts_counter, t.ts_node, t.signature
+    (id, organization_id, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
+SELECT t.id, t.org::uuid, t.cose, t.entity, t.key, t.field, t.kind, t.value, t.ts_wall, t.ts_counter, t.ts_node
 FROM unnest(
-    $1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
-    $6::smallint[], $7::bytea[], $8::bigint[], $9::int[], $10::text[], $11::bytea[]
-) AS t(id, org, entity, key, field, kind, value, ts_wall, ts_counter, ts_node, signature)
+    $1::bytea[], $2::text[], $3::bytea[], $4::text[], $5::text[], $6::text[],
+    $7::smallint[], $8::bytea[], $9::bigint[], $10::int[], $11::text[]
+) AS t(id, org, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
 ON CONFLICT (id) DO NOTHING
 `,
-			ids, orgIDs, entities, keys, fields,
-			kinds, values, tsWalls, tsCounters, tsNodes, signatures,
+			ids, orgIDs, coses, entities, keys, fields,
+			kinds, values, tsWalls, tsCounters, tsNodes,
 		)
 		if err != nil {
 			return fmt.Errorf("opstore: insert batch: %w", err)
@@ -217,8 +232,8 @@ ON CONFLICT (id) DO NOTHING
 // Since
 // ---------------------------------------------------------------------------
 
-// Since returns every op for scope's organization that vv has not seen, in
-// total order (ts_wall, ts_counter, ts_node — migration 002's
+// Since returns every record for scope's organization that vv has not seen, in
+// total order (ts_wall, ts_counter, ts_node — migration 004's
 // sync_ops_org_order_idx), capped at limit rows.
 //
 // "Not seen" is evaluated per node, matching oplog.VersionVector's own
@@ -228,14 +243,14 @@ ON CONFLICT (id) DO NOTHING
 // both sides share the same ts_node by construction. For a node vv has no
 // entry for at all, every op from that node qualifies, because vv's implicit
 // knowledge of an unlisted node is the zero Timestamp (see
-// oplog.VersionVector.Missing's doc comment for the same rule stated over
-// two in-memory vectors rather than a vector and a log).
+// oplog.VersionVector.Missing's doc comment for the same rule stated over two
+// in-memory vectors rather than a vector and a log).
 //
-// A caller pages through a large backlog by re-deriving its VersionVector
-// from the ops it has already applied (oplog.VersionVector.Observe over each)
-// and calling Since again — not by an offset, which a concurrent Append
-// during pagination would silently desync from the log's true order.
-func (s *Store) Since(ctx context.Context, scope db.Scope, vv oplog.VersionVector, limit int) ([]oplog.Op, error) {
+// A caller pages through a large backlog by re-deriving its VersionVector from
+// the records it has already ingested and calling Since again — not by an
+// offset, which a concurrent Append during pagination would silently desync
+// from the log's true order.
+func (s *Store) Since(ctx context.Context, scope db.Scope, vv oplog.VersionVector, limit int) ([]substrate.Record, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
@@ -249,13 +264,13 @@ func (s *Store) Since(ctx context.Context, scope db.Scope, vv oplog.VersionVecto
 		counters = append(counters, int32(ts.Counter))
 	}
 
-	var out []oplog.Op
+	var out []substrate.Record
 	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
 WITH seen (node, wall, counter) AS (
     SELECT * FROM unnest($1::text[], $2::bigint[], $3::int[])
 )
-SELECT o.id, o.entity, o.key, o.field, o.kind, o.value, o.ts_wall, o.ts_counter, o.ts_node
+SELECT o.id, o.cose, o.entity, o.key, o.field, o.kind, o.value, o.ts_wall, o.ts_counter, o.ts_node
 FROM   sync_ops o
 LEFT JOIN seen s ON s.node = o.ts_node
 WHERE  s.node IS NULL
@@ -270,11 +285,11 @@ LIMIT $4
 		defer rows.Close()
 
 		for rows.Next() {
-			op, err := scanOp(rows)
+			rec, err := s.scanRecord(rows)
 			if err != nil {
 				return err
 			}
-			out = append(out, op)
+			out = append(out, rec)
 		}
 		return rows.Err()
 	})
@@ -288,16 +303,16 @@ LIMIT $4
 // VersionVector
 // ---------------------------------------------------------------------------
 
-// VersionVector derives scope's organization's current version vector by
-// taking the highest (ts_wall, ts_counter) per node — an index-ordered
-// scan of sync_ops_org_node_idx (organization_id, ts_node, ts_wall DESC,
-// ts_counter DESC), not a full-table aggregate.
+// VersionVector derives scope's organization's current version vector by taking
+// the highest (ts_wall, ts_counter) per node — an index-ordered scan of
+// sync_ops_org_node_idx (organization_id, ts_node, ts_wall DESC, ts_counter
+// DESC), not a full-table aggregate.
 //
-// This is always computed fresh, never read from a stored column, because
-// there isn't one: migration 002 deliberately has no version-vector table.
-// See that migration's package-level comment for why — a stored vector can
-// drift from the log it claims to summarise, and the failure mode when it
-// does is silent data loss on a peer's next pull.
+// This is always computed fresh, never read from a stored column, because there
+// isn't one: there is deliberately no version-vector table. A stored vector can
+// drift from the log it claims to summarise — a crash between writing the
+// vector and the op it describes, in either order — and the failure mode when
+// it does is silent data loss on a peer's next pull.
 func (s *Store) VersionVector(ctx context.Context, scope db.Scope) (oplog.VersionVector, error) {
 	vv := oplog.NewVersionVector()
 	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
@@ -332,18 +347,19 @@ ORDER  BY ts_node, ts_wall DESC, ts_counter DESC
 // OpsFor
 // ---------------------------------------------------------------------------
 
-// OpsFor returns every op touching (entity, key) within scope's organization,
-// in total order (ts_wall, ts_counter, ts_node), backed by migration 002's
-// sync_ops_entity_key_idx. A caller rebuilds that row's merged state by
-// replaying the result through a fresh oplog.State's Apply, in order — or,
-// since Apply is order-independent for a fixed set of ops (see merge.go), in
-// any order at all; total order is what makes the result reproducible and
+// OpsFor returns every record touching (entity, key) within scope's
+// organization, in total order (ts_wall, ts_counter, ts_node), backed by
+// migration 004's sync_ops_entity_key_idx.
+//
+// A caller rebuilds that row's merged state by feeding each envelope to
+// substrate.Engine.Ingest — in this order, or in any other, since the algebra
+// is order-independent. Total order is what makes the result reproducible and
 // debuggable, not what makes it correct.
-func (s *Store) OpsFor(ctx context.Context, scope db.Scope, entity, key string) ([]oplog.Op, error) {
-	var out []oplog.Op
+func (s *Store) OpsFor(ctx context.Context, scope db.Scope, entity, key string) ([]substrate.Record, error) {
+	var out []substrate.Record
 	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-SELECT id, entity, key, field, kind, value, ts_wall, ts_counter, ts_node
+SELECT id, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node
 FROM   sync_ops
 WHERE  entity = $1 AND key = $2
 ORDER BY ts_wall, ts_counter, ts_node
@@ -354,11 +370,11 @@ ORDER BY ts_wall, ts_counter, ts_node
 		defer rows.Close()
 
 		for rows.Next() {
-			op, err := scanOp(rows)
+			rec, err := s.scanRecord(rows)
 			if err != nil {
 				return err
 			}
-			out = append(out, op)
+			out = append(out, rec)
 		}
 		return rows.Err()
 	})
@@ -372,41 +388,61 @@ ORDER BY ts_wall, ts_counter, ts_node
 // Row scanning
 // ---------------------------------------------------------------------------
 
-// rowScanner is satisfied by both pgx.Rows and pgx.Row, so scanOp works for
+// rowScanner is satisfied by both pgx.Rows and pgx.Row, so scanRecord works for
 // either a multi-row Query loop or (were one ever needed) a single QueryRow.
 type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-// scanOp reads one sync_ops row (id, entity, key, field, kind, value,
+// scanRecord reads one sync_ops row (id, cose, entity, key, field, kind, value,
 // ts_wall, ts_counter, ts_node — the column list every SELECT above uses, in
-// that order) into an oplog.Op.
-func scanOp(row rowScanner) (oplog.Op, error) {
+// that order) into a substrate.Record.
+func (s *Store) scanRecord(row rowScanner) (substrate.Record, error) {
 	var (
-		id, entity, key, field, tsNode string
-		kind                           int16
-		value                          []byte
-		tsWall                         int64
-		tsCounter                      int32
+		id, cose, value            []byte
+		entity, key, field, tsNode string
+		kind                       int16
+		tsWall                     int64
+		tsCounter                  int32
 	)
-	if err := row.Scan(&id, &entity, &key, &field, &kind, &value, &tsWall, &tsCounter, &tsNode); err != nil {
-		return oplog.Op{}, fmt.Errorf("opstore: scan op row: %w", err)
+	if err := row.Scan(&id, &cose, &entity, &key, &field, &kind, &value, &tsWall, &tsCounter, &tsNode); err != nil {
+		return substrate.Record{}, fmt.Errorf("opstore: scan op row: %w", err)
 	}
-	k, err := fromDBKind(kind)
+	if len(id) != opIDLen {
+		return substrate.Record{}, fmt.Errorf("opstore: stored id is %d bytes: %w", len(id), ErrBadOpID)
+	}
+	k, err := s.kinds.OplogKind(kind)
 	if err != nil {
-		return oplog.Op{}, err
+		return substrate.Record{}, fmt.Errorf("opstore: sync_ops row %x: %w", id, err)
 	}
-	return oplog.Op{
-		ID:     id,
-		Kind:   k,
-		Entity: entity,
-		Key:    key,
-		Field:  field,
-		Value:  value,
-		TS: oplog.Timestamp{
-			Wall:    tsWall,
-			Counter: uint32(tsCounter),
-			Node:    tsNode,
+	return substrate.Record{
+		ID:   hex.EncodeToString(id),
+		Cose: cose,
+		Op: oplog.Op{
+			ID:     hex.EncodeToString(id),
+			Kind:   k,
+			Entity: entity,
+			Key:    key,
+			Field:  field,
+			Value:  value,
+			TS: oplog.Timestamp{
+				Wall:    tsWall,
+				Counter: uint32(tsCounter),
+				Node:    tsNode,
+			},
 		},
 	}, nil
+}
+
+// decodeOpID parses a content address, refusing anything that is not exactly
+// one rather than letting a short or mis-encoded value become a primary key.
+func decodeOpID(s string) ([]byte, error) {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %q is not hex", ErrBadOpID, s)
+	}
+	if len(b) != opIDLen {
+		return nil, fmt.Errorf("%w: %q decodes to %d bytes", ErrBadOpID, s, len(b))
+	}
+	return b, nil
 }
