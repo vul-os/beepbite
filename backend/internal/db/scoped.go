@@ -146,6 +146,22 @@ func setSessionVars(ctx context.Context, tx pgx.Tx, s Scope) error {
 	return nil
 }
 
+// ApplyScope writes scope's session variables onto an already-open
+// transaction, replacing whatever was set before.
+//
+// Scoped is the right tool when the scope is known before the transaction
+// starts. ApplyScope exists for the case where it is not: the public
+// marketplace checkout must read a store under the anonymous marketplace role,
+// and only then does it learn which organization the resulting order belongs
+// to. Splitting that into two transactions would let the store's row change
+// between the read and the write; re-scoping one transaction does not.
+//
+// Like Scoped, every variable is written, so a narrower scope genuinely drops
+// the privileges of the wider one rather than leaving them behind.
+func ApplyScope(ctx context.Context, tx pgx.Tx, scope Scope) error {
+	return setSessionVars(ctx, tx, scope)
+}
+
 // WithTxServiceRole elevates app.is_service_role to true for the duration of fn
 // inside an already-open transaction, then restores it to false. Use it to wrap
 // an append-only audit_log insert inside an otherwise tenant-scoped transaction:

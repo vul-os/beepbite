@@ -1,7 +1,10 @@
 // Package webhooksub manages tenant webhook-endpoint subscriptions (Wave 22).
 // It persists webhook_endpoints and exposes recent delivery attempts from
-// webhook_deliveries. Signing secrets are stored in plain text so tenants
-// can re-copy them; callers must protect this surface with TLS + auth.
+// webhook_deliveries.
+//
+// Signing secrets are encrypted at rest (internal/secretbox, AES-256-GCM) and
+// are returned to the tenant exactly once, in the response to the POST that
+// created them. They are never included in a list response — see handler.go.
 package webhooksub
 
 import (
@@ -21,11 +24,19 @@ var (
 )
 
 // Endpoint mirrors a webhook_endpoints row.
+//
+// SigningSecretCiphertext carries the stored column value — a sealed secret,
+// or, until cmd/encryptwebhooksecrets has run, a legacy plaintext one. It is
+// json:"-" on purpose. It was previously serialised on every list response, so
+// any authenticated member of the org could read every endpoint's signing
+// secret straight out of a GET; a secret that can be re-fetched at will is not
+// meaningfully a secret. The plaintext is now handed back once, at creation,
+// in createEndpointResp.SigningSecret.
 type Endpoint struct {
 	ID                      string    `json:"id"`
 	OrgID                   string    `json:"org_id"`
 	URL                     string    `json:"url"`
-	SigningSecretCiphertext string    `json:"signing_secret_ciphertext"`
+	SigningSecretCiphertext string    `json:"-"`
 	Events                  []string  `json:"events"`
 	IsActive                bool      `json:"is_active"`
 	Description             *string   `json:"description"`

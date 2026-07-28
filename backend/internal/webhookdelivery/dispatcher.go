@@ -60,15 +60,31 @@ func Emit(ctx context.Context, pool *pgxpool.Pool, orgID, eventType string, payl
 type Runner struct {
 	db     *pgxpool.Pool
 	client *http.Client
+	// codec opens the stored signing secret. Never nil after NewRunner; a
+	// keyless codec is still able to read legacy plaintext rows.
+	codec *SecretCodec
 }
 
 // NewRunner constructs a Runner backed by pool. A custom http.Client is not
 // required — the runner creates one with a 10-second timeout. Callers that need
 // custom TLS or proxy settings may set r.client after construction.
+//
+// The signing-secret key is read from the environment. A missing or malformed
+// key is NOT fatal here: it disables delivery for endpoints whose secret is
+// encrypted, and each such endpoint says so on its first attempt. Refusing to
+// construct the runner would take down every webhook in the deployment,
+// including the plaintext ones that would otherwise still work.
 func NewRunner(pool *pgxpool.Pool) *Runner {
+	codec, err := SecretCodecFromEnv()
+	if err != nil {
+		log.Printf("webhookdelivery: signing-secret key unusable (%v); deliveries for "+
+			"endpoints with encrypted secrets will fail until it is fixed", err)
+		codec = &SecretCodec{}
+	}
 	return &Runner{
 		db:     pool,
 		client: &http.Client{Timeout: httpTimeout},
+		codec:  codec,
 	}
 }
 
@@ -172,8 +188,25 @@ func (r *Runner) dispatch(ctx context.Context, row deliveryRow) {
 		_ = minNextAt // backoffDuration is available for future next_attempt_at use
 	}
 
+	secret, legacy, err := r.codec.Open(row.SigningSecretCiphertext)
+	if err != nil {
+		// Do not put the failure reason in the row verbatim — it is stored and
+		// surfaced in the UI, and a decryption error should not become a place
+		// to learn about key state. The log carries the detail.
+		log.Printf("webhookdelivery: endpoint=%s signing secret unusable: %v", row.EndpointID, err)
+		r.recordFailure(ctx, row, 0, "signing secret unavailable")
+		return
+	}
+	if legacy && shouldWarnLegacy(row.EndpointID) {
+		log.Printf("webhookdelivery: endpoint=%s signing secret is still stored as PLAINTEXT in "+
+			"signing_secret_ciphertext; run cmd/encryptwebhooksecrets to convert it", row.EndpointID)
+	}
+
+	// The delivery id is the nonce. It is stable across retries of this row on
+	// purpose: a receiver that already accepted it should be able to recognise
+	// the retry as a duplicate rather than process the order twice.
 	ts := time.Now()
-	sigHeader := Sign(row.SigningSecretCiphertext, row.Payload, ts)
+	sigHeader := Sign(secret, row.ID, row.Payload, ts)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, row.EndpointURL,
 		bytes.NewReader(row.Payload))
@@ -182,8 +215,9 @@ func (r *Runner) dispatch(ctx context.Context, row deliveryRow) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-BeepBite-Signature", sigHeader)
-	req.Header.Set("X-BeepBite-Event", row.EventType)
+	req.Header.Set(SignatureHeader, sigHeader)
+	req.Header.Set(DeliveryHeader, row.ID)
+	req.Header.Set(EventHeader, row.EventType)
 
 	resp, err := r.client.Do(req)
 	if err != nil {

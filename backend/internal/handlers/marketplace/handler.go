@@ -17,10 +17,13 @@
 package marketplace
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -63,13 +66,47 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 // CheckoutStore.buildReturnURL. returnSecret signs/verifies that URL's token
 // (in practice cfg.JWTSecret; see payments.SignReturnToken's doc comment for
 // why reusing it is fine here).
+//
+// The payment_methods row for gatewayCode is seeded HERE, because this is the
+// moment a deployment declares which code it will use. checkout.go used to say
+// this happened "once at startup"; it did not happen anywhere at all. Nothing
+// called payments.EnsureOnlineTenderSeeded, so order_payments' foreign key to
+// payment_methods(code) had no row to point at and every online checkout ended
+// in a constraint violation and a 500 — the whole gateway path was unreachable
+// in practice.
+//
+// If the seed fails the gateway is deliberately NOT enabled: an unseeded code
+// means every order would 500 at the final insert, after the customer has
+// already been charged by the provider. Falling back to the on-delivery flow is
+// worse than working online payments and far better than that.
 func (h *Handler) WithOnlinePayments(gateway payments.PaymentProvider, gatewayCode, returnSecret, apiPublicURL string) *Handler {
+	if gateway != nil {
+		if err := h.seedOnlineTender(gatewayCode); err != nil {
+			log.Printf("marketplace: online payments NOT enabled: could not seed the %q "+
+				"payment method: %v", gatewayCode, err)
+			return h
+		}
+	}
 	h.checkoutStore.gateway = gateway
 	h.checkoutStore.gatewayCode = gatewayCode
 	h.checkoutStore.returnSecret = returnSecret
 	h.checkoutStore.apiPublicURL = apiPublicURL
 	h.store.onlineAvailable = gateway != nil
 	return h
+}
+
+// seedOnlineTender upserts the payment_methods row the online tender needs.
+// It runs as the service role: payment_methods is global reference data, not
+// tenant-scoped, and this is startup wiring rather than a request.
+func (h *Handler) seedOnlineTender(gatewayCode string) error {
+	if gatewayCode == "" {
+		return errors.New("gateway code is empty")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return db.Scoped(ctx, h.pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
+		return payments.EnsureOnlineTenderSeeded(ctx, tx, gatewayCode, gatewayCode)
+	})
 }
 
 // Mount registers the public routes on r.

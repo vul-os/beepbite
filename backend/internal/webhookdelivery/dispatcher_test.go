@@ -3,9 +3,11 @@ package webhookdelivery
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,80 +17,157 @@ import (
 // Signature tests (pure, no DB)
 // ---------------------------------------------------------------------------
 
+func testSig(t *testing.T, secret, delivery string, body []byte, at time.Time) string {
+	t.Helper()
+	return Sign(secret, delivery, body, at)
+}
+
 func TestSignVerifyRoundTrip(t *testing.T) {
 	secret := "whsec_test_secret_key"
 	body := []byte(`{"event":"order.paid","order_id":"abc123"}`)
-	ts := time.Unix(1700000000, 0)
+	now := time.Unix(1700000000, 0)
 
-	header := Sign(secret, body, ts)
+	header := testSig(t, secret, "del_1", body, now)
 	if header == "" {
 		t.Fatal("Sign returned empty header")
 	}
-
-	// Header should contain t= and v1= parts.
 	if _, _, err := parseSignatureHeader(header); err != nil {
 		t.Fatalf("parseSignatureHeader(%q): %v", header, err)
 	}
-
-	if err := Verify(secret, body, header); err != nil {
+	if err := Verify(secret, "del_1", body, header, DefaultMaxSkew, now); err != nil {
 		t.Fatalf("Verify failed for valid signature: %v", err)
 	}
 }
 
 func TestVerifyRejectsWrongSecret(t *testing.T) {
 	body := []byte(`{"event":"order.paid"}`)
-	ts := time.Unix(1700000000, 0)
-	header := Sign("correct_secret", body, ts)
+	now := time.Unix(1700000000, 0)
+	header := testSig(t, "correct_secret", "del_1", body, now)
 
-	if err := Verify("wrong_secret", body, header); err == nil {
-		t.Fatal("expected Verify to fail with wrong secret, got nil")
+	if err := Verify("wrong_secret", "del_1", body, header, DefaultMaxSkew, now); !errors.Is(err, ErrSignatureMismatch) {
+		t.Fatalf("want ErrSignatureMismatch, got %v", err)
 	}
 }
 
 func TestVerifyRejectsAlteredBody(t *testing.T) {
 	secret := "my_secret"
-	originalBody := []byte(`{"event":"order.paid","amount":100}`)
-	ts := time.Unix(1700000000, 0)
-	header := Sign(secret, originalBody, ts)
+	now := time.Unix(1700000000, 0)
+	header := testSig(t, secret, "del_1", []byte(`{"event":"order.paid","amount":100}`), now)
 
-	alteredBody := []byte(`{"event":"order.paid","amount":999}`)
-	if err := Verify(secret, alteredBody, header); err == nil {
-		t.Fatal("expected Verify to fail with altered body, got nil")
+	altered := []byte(`{"event":"order.paid","amount":999}`)
+	if err := Verify(secret, "del_1", altered, header, DefaultMaxSkew, now); !errors.Is(err, ErrSignatureMismatch) {
+		t.Fatalf("want ErrSignatureMismatch, got %v", err)
+	}
+}
+
+// The defect this file was rewritten for. A signature captured once used to
+// verify forever, because Verify re-derived the MAC from the timestamp in the
+// header and then never compared that timestamp to anything.
+func TestVerifyRejectsReplayOutsideWindow(t *testing.T) {
+	secret := "s3cr3t"
+	body := []byte(`{"order_id":"ord_1"}`)
+	signedAt := time.Unix(1700000000, 0)
+	header := testSig(t, secret, "del_1", body, signedAt)
+
+	// Still good a minute later.
+	if err := Verify(secret, "del_1", body, header, DefaultMaxSkew, signedAt.Add(time.Minute)); err != nil {
+		t.Fatalf("signature should still be valid inside the window: %v", err)
+	}
+	// Refused an hour later, and a year later.
+	for _, age := range []time.Duration{time.Hour, 365 * 24 * time.Hour} {
+		err := Verify(secret, "del_1", body, header, DefaultMaxSkew, signedAt.Add(age))
+		if !errors.Is(err, ErrTimestampSkew) {
+			t.Fatalf("replay at +%s: want ErrTimestampSkew, got %v", age, err)
+		}
+	}
+}
+
+// A far-future timestamp is refused too. Accepting one lets a captured
+// delivery be parked and replayed at a moment of the attacker's choosing.
+func TestVerifyRejectsFarFutureTimestamp(t *testing.T) {
+	secret := "s3cr3t"
+	body := []byte(`{}`)
+	now := time.Unix(1700000000, 0)
+	header := testSig(t, secret, "del_1", body, now.Add(24*time.Hour))
+
+	if err := Verify(secret, "del_1", body, header, DefaultMaxSkew, now); !errors.Is(err, ErrTimestampSkew) {
+		t.Fatalf("want ErrTimestampSkew for future timestamp, got %v", err)
+	}
+}
+
+// maxSkew<=0 must be an error, not an accidental "accept everything".
+func TestVerifyRejectsNonPositiveSkew(t *testing.T) {
+	secret := "s3cr3t"
+	body := []byte(`{}`)
+	now := time.Unix(1700000000, 0)
+	header := testSig(t, secret, "del_1", body, now)
+
+	for _, skew := range []time.Duration{0, -time.Minute} {
+		if err := Verify(secret, "del_1", body, header, skew, now); err == nil {
+			t.Fatalf("maxSkew=%s was accepted; an unbounded window must not be reachable", skew)
+		}
+	}
+}
+
+// The nonce is inside the MAC, so a captured delivery cannot be re-presented
+// under a fresh id to slip past a receiver's dedupe cache.
+func TestVerifyBindsDeliveryID(t *testing.T) {
+	secret := "s3cr3t"
+	body := []byte(`{"order_id":"ord_1"}`)
+	now := time.Unix(1700000000, 0)
+	header := testSig(t, secret, "del_1", body, now)
+
+	if err := Verify(secret, "del_2", body, header, DefaultMaxSkew, now); !errors.Is(err, ErrSignatureMismatch) {
+		t.Fatalf("want ErrSignatureMismatch for swapped delivery id, got %v", err)
 	}
 }
 
 func TestSignDeterministic(t *testing.T) {
-	secret := "s3cr3t"
-	body := []byte(`{"id":"x"}`)
-	ts := time.Unix(1700000000, 0)
-
-	h1 := Sign(secret, body, ts)
-	h2 := Sign(secret, body, ts)
-	if h1 != h2 {
-		t.Fatalf("Sign is not deterministic: %q != %q", h1, h2)
+	secret, body, now := "s3cr3t", []byte(`{"id":"x"}`), time.Unix(1700000000, 0)
+	if Sign(secret, "d", body, now) != Sign(secret, "d", body, now) {
+		t.Fatal("Sign is not deterministic")
 	}
 }
 
 func TestSignDifferentTimestampsDifferentSigs(t *testing.T) {
-	secret := "s3cr3t"
-	body := []byte(`{"id":"x"}`)
-	t1 := time.Unix(1700000000, 0)
-	t2 := time.Unix(1700000001, 0)
-
-	if Sign(secret, body, t1) == Sign(secret, body, t2) {
+	secret, body := "s3cr3t", []byte(`{"id":"x"}`)
+	if Sign(secret, "d", body, time.Unix(1700000000, 0)) == Sign(secret, "d", body, time.Unix(1700000001, 0)) {
 		t.Fatal("expected different signatures for different timestamps")
 	}
 }
 
 func TestSignatureHeaderFormat(t *testing.T) {
-	secret := "k"
-	body := []byte(`{}`)
 	ts := time.Unix(1234567890, 0)
-	h := Sign(secret, body, ts)
+	h := Sign("k", "d", []byte(`{}`), ts)
+	if !strings.HasPrefix(h, fmt.Sprintf("t=%d,v1=", ts.Unix())) {
+		t.Fatalf("header %q has the wrong shape", h)
+	}
+}
 
-	expected := fmt.Sprintf("t=%d,v1=", ts.Unix())
-	if len(h) < len(expected) || h[:len(expected)] != expected {
-		t.Fatalf("header %q does not start with %q", h, expected)
+// The old parser scanned for "v1=" anywhere in the header and read the
+// timestamp with Sscanf, so reordered and junk-laden headers parsed happily.
+func TestParseSignatureHeaderRejectsMalformed(t *testing.T) {
+	good := Sign("k", "d", []byte(`{}`), time.Unix(1700000000, 0))
+	_, sig, err := parseSignatureHeader(good)
+	if err != nil {
+		t.Fatalf("well-formed header rejected: %v", err)
+	}
+
+	bad := []string{
+		"",
+		"t=1700000000",
+		"v1=" + sig,
+		"t=notanumber,v1=" + sig,
+		"v1=" + sig + ",t=1700000000",   // reordered
+		"t=1700000000,x=v1=" + sig,      // v1= present, but not as its own field
+		"t=1700000000,v1=" + sig + "ff", // too long
+		"t=1700000000,v1=" + sig[:62],   // too short
+		"t=1700000000,v1=" + strings.Repeat("z", 64), // right length, not hex
+	}
+	for _, h := range bad {
+		if _, _, err := parseSignatureHeader(h); err == nil {
+			t.Fatalf("malformed header %q was accepted", h)
+		}
 	}
 }
 
@@ -105,7 +184,9 @@ func TestDispatchSignsAndPosts(t *testing.T) {
 		callCount      int32
 	)
 
-	secret := "endpoint_secret_xyz"
+	// A legacy plaintext secret, so the keyless codec above can open it. The
+	// "whsec_" prefix is what marks it as not-yet-encrypted.
+	secret := "whsec_endpoint_secret_xyz"
 	payload := map[string]any{"order_id": "ord_1", "amount": 150}
 	payloadJSON, _ := json.Marshal(payload)
 
@@ -126,6 +207,7 @@ func TestDispatchSignsAndPosts(t *testing.T) {
 	runner := &Runner{
 		client: &http.Client{Timeout: httpTimeout},
 		db:     nil,
+		codec:  &SecretCodec{}, // keyless: the row below holds a legacy plaintext secret
 	}
 
 	row := deliveryRow{
@@ -163,7 +245,7 @@ func TestDispatchSignsAndPosts(t *testing.T) {
 	}
 
 	// The signature in the header must verify against the received body.
-	if err := Verify(secret, receivedBody, receivedSigHdr); err != nil {
+	if err := VerifyNow(secret, row.ID, receivedBody, receivedSigHdr); err != nil {
 		t.Fatalf("signature verification failed: %v\n  header: %s", err, receivedSigHdr)
 	}
 }

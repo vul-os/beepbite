@@ -199,12 +199,20 @@ nothing else, and there is no way to add one without a code change:
 
 `POST /webhook-endpoints` (JWT session only, owner/manager — **not** reachable
 with an API key; there is no route for it under `/api/v1`) registers a URL and
-a set of event types, and returns a signing secret in plaintext, every time
-you `GET` it back:
+a set of event types, and returns a signing secret **once**, in the 201
+response body as `signing_secret`:
 
 ```json
 {"url": "https://example.com/hook", "events": ["order.created", "order.paid"]}
 ```
+
+`GET /webhook-endpoints` does **not** return it. The secret is encrypted at
+rest (AES-256-GCM) and a tenant who loses it rotates the endpoint rather than
+re-reading it. Until 2026-07 the column held plaintext under the name
+`signing_secret_ciphertext` and every list response handed the secret to any
+authenticated org member; see `backend/migrations/003_webhook_secret_misnomer.sql`
+for the misnomer and `backend/cmd/encryptwebhooksecrets` for converting a
+database written before the change.
 
 Known event types: `order.created`, `order.paid`, `order.refunded`,
 `item.created`, `item.updated`, `staff.invited`.
@@ -214,10 +222,19 @@ There's a real delivery pipeline behind this: a background runner
 10 seconds, POSTs the payload with an `X-BeepBite-Signature` header —
 
 ```
-X-BeepBite-Signature: t=<unix-seconds>,v1=<hex hmac-sha256 of "<t>.<body>">
+X-BeepBite-Signature: t=<unix-seconds>,v1=<hex hmac-sha256 of "<t>.<delivery-id>.<body>">
+X-BeepBite-Delivery: <delivery-id>
+X-BeepBite-Event: <event-type>
 ```
 
-— and retries up to 5 times with backoff on failure.
+— and retries up to 5 times with backoff on failure. A retry reuses the same
+delivery id on purpose, so a receiver can recognise it as a duplicate.
+
+Verify by recomputing the HMAC over the raw body and comparing in constant
+time. The signature alone does not stop replay: also reject a `t` further than
+five minutes from your own clock, and ignore a delivery id you have already
+accepted. `webhookdelivery.Verify` does the first two and deliberately leaves
+the third to you, since only the receiver can hold that cache.
 
 > [!WARNING]
 > **Not built, despite the plumbing existing.** The only function that

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/beepbite/backend/internal/bizday"
+	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/locations"
 	"github.com/beepbite/backend/internal/money"
 	"github.com/beepbite/backend/internal/payments"
@@ -135,7 +136,8 @@ type CheckoutStore struct {
 	// gatewayCode is gateway.Code() (e.g. "stripe", "yoco"), cached so the
 	// hot path does not call it repeatedly; also the payment_methods.code
 	// / order_payments.payment_method_code value online-gateway rows use
-	// (see EnsureOnlineTenderSeeded, called once at startup).
+	// (see EnsureOnlineTenderSeeded, called from Handler.WithOnlinePayments
+	// when the gateway is wired).
 	gatewayCode string
 	// returnSecret signs/verifies the ?ott= token on the gateway return URL
 	// (see payments.SignReturnToken). In practice cfg.JWTSecret.
@@ -178,6 +180,17 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 	// --- 1. Resolve location by slug — also fetch organization_id ---
 	// organization_id is NOT NULL on orders and the RLS WITH CHECK requires it to
 	// equal current_org_id(), so we must supply it from the owning location.
+	//
+	// This read runs as the anonymous marketplace role. It used to run with no
+	// session variables set at all, which meant locations' FORCE-RLS policies
+	// all evaluated false and the lookup returned zero rows for every store
+	// that exists: the public checkout answered "store not found" for its own
+	// storefront. Every other public marketplace read (handler.go, legal,
+	// customerchat) already went through db.MarketplaceScope; this one did not.
+	if err := db.ApplyScope(ctx, tx, db.MarketplaceScope()); err != nil {
+		return nil, err
+	}
+
 	var locationID, orgID string
 	var onDeliveryMethods []string
 	err = tx.QueryRow(ctx, `
@@ -191,6 +204,16 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		return nil, ErrNotFound
 	}
 	if err != nil {
+		return nil, err
+	}
+
+	// The store is real and public, so the rest of this transaction acts for
+	// the organization that owns it: the orders/order_items/order_payments
+	// INSERTs are all gated on organization_id = current_org_id(). The org is
+	// derived from the marketplace-visible location, never from the request,
+	// so a caller cannot name an organization it has no storefront in.
+	// Narrowing to this scope also drops the marketplace read privilege.
+	if err := db.ApplyScope(ctx, tx, db.Scope{OrgID: orgID}); err != nil {
 		return nil, err
 	}
 

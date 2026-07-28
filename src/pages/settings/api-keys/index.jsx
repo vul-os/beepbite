@@ -744,13 +744,23 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
           <div className="space-y-4">
             <SecretRevealBox label="signing secret" value={createdSecret.secret} />
             <p className="text-sm text-muted-foreground">
-              Verify incoming payloads by computing{' '}
+              The{' '}
+              <code className="text-xs bg-muted px-1 py-0.5 rounded">X-BeepBite-Signature</code>{' '}
+              header is{' '}
+              <code className="text-xs bg-muted px-1 py-0.5 rounded">t=&lt;unix&gt;,v1=&lt;hex&gt;</code>
+              , where the hex is{' '}
               <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                HMAC-SHA256(raw_body, secret)
+                HMAC-SHA256(&quot;&lt;t&gt;.&lt;delivery-id&gt;.&lt;raw_body&gt;&quot;, secret)
               </code>{' '}
-              and comparing it to the{' '}
-              <code className="text-xs bg-muted px-1 py-0.5 rounded">X-Beepbite-Signature</code>{' '}
+              and the delivery id is the{' '}
+              <code className="text-xs bg-muted px-1 py-0.5 rounded">X-BeepBite-Delivery</code>{' '}
               header.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Recompute it over the raw body and compare in constant time. Also reject a{' '}
+              <code className="text-xs bg-muted px-1 py-0.5 rounded">t</code> more than five minutes
+              from your own clock, and ignore a delivery id you have already accepted — the
+              signature alone does not stop a captured request being replayed.
             </p>
           </div>
         ) : (

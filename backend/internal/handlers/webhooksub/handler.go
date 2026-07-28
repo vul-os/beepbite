@@ -9,8 +9,10 @@
 // Reads (GET list, GET deliveries) are open to any authenticated org member.
 //
 // Signing-secret format: "whsec_" + 32 random bytes as hex (64 hex chars),
-// giving 192 bits of entropy. The secret is stored in plain text and returned
-// on every GET so tenants can re-copy it. Callers must enforce TLS.
+// giving 256 bits of entropy. The secret is encrypted at rest and returned to
+// the tenant ONCE, in the 201 response to the POST that created it. A tenant
+// who loses it rotates the endpoint rather than re-reading it. Callers must
+// enforce TLS.
 package webhooksub
 
 import (
@@ -19,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -29,6 +32,7 @@ import (
 
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/webhookdelivery"
 )
 
 // knownEvents is the authoritative set of event types a tenant may subscribe
@@ -45,11 +49,27 @@ var knownEvents = map[string]struct{}{
 // Handler wires HTTP routes to the Store.
 type Handler struct {
 	store *Store
+	// codec is shared with the delivery side rather than reimplemented, so the
+	// sealing done here and the opening done there cannot drift apart. nil when
+	// no usable key is configured.
+	codec *webhookdelivery.SecretCodec
 }
 
 // NewHandler constructs a Handler backed by pool.
+//
+// The encryption key comes from the environment. Unlike the delivery runner,
+// which can still work from legacy plaintext rows, endpoint CREATION cannot
+// proceed without a key: writing a new plaintext secret into a column named
+// signing_secret_ciphertext is how this defect started. Without a key,
+// createEndpoint fails closed with a 503 naming the missing variable.
 func NewHandler(pool *pgxpool.Pool) *Handler {
-	return &Handler{store: NewStore(pool)}
+	codec, err := webhookdelivery.SecretCodecFromEnv()
+	if err != nil {
+		log.Printf("webhooksub: signing-secret encryption key unusable (%v); "+
+			"creating webhook endpoints is disabled until it is fixed", err)
+		codec = nil
+	}
+	return &Handler{store: NewStore(pool), codec: codec}
 }
 
 // Mount registers webhook-endpoint routes on r.
@@ -120,24 +140,50 @@ func (h *Handler) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fail closed. A missing key must not degrade into "store it in the clear".
+	if h.codec == nil || !h.codec.CanSeal() {
+		writeErr(w, http.StatusServiceUnavailable,
+			"webhook signing secrets cannot be encrypted: set WEBHOOK_KEY_ENCRYPTION_SECRET "+
+				"or APP_KEY_ENCRYPTION_SECRET")
+		return
+	}
+
 	secret, err := generateSigningSecret()
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to generate signing secret")
 		return
 	}
+	sealed, err := h.codec.Seal(secret)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to encrypt signing secret")
+		return
+	}
 
-	ep, err := h.store.CreateEndpoint(r.Context(), scope.OrgID, req.URL, secret, req.Events, req.Description)
+	ep, err := h.store.CreateEndpoint(r.Context(), scope.OrgID, req.URL, sealed, req.Events, req.Description)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusCreated, ep)
+
+	// The only moment the plaintext leaves this process. The frontend already
+	// expects it under this name (src/services/webhooks.js reads
+	// data.signing_secret); the field it actually used to receive was
+	// signing_secret_ciphertext, so "copy your secret" was showing undefined.
+	writeJSON(w, http.StatusCreated, createEndpointResp{Endpoint: ep, SigningSecret: secret})
+}
+
+// createEndpointResp is the 201 body: the endpoint plus the one and only copy
+// of its signing secret the tenant will ever be given.
+type createEndpointResp struct {
+	*Endpoint
+	SigningSecret string `json:"signing_secret"`
 }
 
 // GET /webhook-endpoints
 //
-// Returns all webhook endpoints for the caller's org, including signing_secret
-// so tenants can re-copy it. Access is open to any authenticated org member.
+// Returns all webhook endpoints for the caller's org. The signing secret is
+// deliberately NOT included: it is shown once at creation and cannot be
+// re-read. Access is open to any authenticated org member.
 func (h *Handler) listEndpoints(w http.ResponseWriter, r *http.Request) {
 	scope := db.ScopeFromContext(r.Context())
 	if scope.OrgID == "" {
@@ -332,7 +378,11 @@ func validateEvents(events []string) error {
 }
 
 // generateSigningSecret returns a "whsec_<64 hex chars>" secret derived from
-// 32 cryptographically random bytes (192 bits of entropy after the prefix).
+// 32 cryptographically random bytes (256 bits of entropy after the prefix).
+//
+// The "whsec_" prefix is load-bearing beyond readability: it is what
+// distinguishes a never-encrypted legacy value from a sealed one, since base64
+// has no underscore in its alphabet. See internal/webhookdelivery/secret.go.
 func generateSigningSecret() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
