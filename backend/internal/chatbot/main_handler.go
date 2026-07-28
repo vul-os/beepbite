@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beepbite/backend/internal/channel"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -393,16 +394,28 @@ func (s *Service) updateChatLastMessage(ctx context.Context, chatID, message str
 	}
 }
 
+// sendWhatsAppMessage delivers one plain-text reply over whatever ordering rail
+// is configured. The name is historical — the body has not been WhatsApp-
+// specific since the channel seam landed, and every caller in this package goes
+// through here, which is why the migration touched two lines rather than five
+// thousand.
+//
+// A missing rail is not an error worth propagating into a conversation flow:
+// callers use the bool to decide whether to record that they replied, and an
+// operator who has supplied no credentials has already been told at startup.
 func (s *Service) sendWhatsAppMessage(to, message string) bool {
-	if s.wa == nil {
-		log.Printf("WhatsApp client not configured")
+	if s.ch == nil {
+		log.Printf("chatbot: no ordering rail configured, dropping reply to %s", to)
 		return false
 	}
-	_, err := s.wa.SendText(to, message, false)
+	_, err := s.ch.Send(context.Background(), channel.Message{To: to, Body: message})
 	if err != nil {
-		log.Printf("Error sending WhatsApp message: %v", err)
+		if errors.Is(err, channel.ErrNotConfigured) {
+			log.Printf("chatbot: rail %q is not configured, dropping reply to %s", s.ch.Name(), to)
+			return false
+		}
+		log.Printf("chatbot: sending over %q failed: %v", s.ch.Name(), err)
 		return false
 	}
-	log.Printf("WhatsApp message sent successfully to %s", to)
 	return true
 }

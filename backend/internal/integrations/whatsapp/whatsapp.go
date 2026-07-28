@@ -39,6 +39,18 @@ func (c *Client) SetHTTPClient(hc *http.Client) {
 	}
 }
 
+// Configured reports whether the operator has supplied both credentials this
+// client needs. A client without them is not broken — it is a rail the shop has
+// not turned on, and callers need to tell those apart: one is worth logging
+// once at startup, the other is worth retrying.
+//
+// This exists because the channel adapter previously had to detect the
+// difference by matching the text of the errors below, which would have broken
+// silently the first time anyone reworded them.
+func (c *Client) Configured() bool {
+	return c != nil && c.accessToken != "" && c.phoneNumberID != ""
+}
+
 type SendResponse struct {
 	MessagingProduct string `json:"messaging_product,omitempty"`
 	Contacts         []struct {

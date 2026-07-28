@@ -23,6 +23,7 @@ import (
 	"github.com/beepbite/backend/internal/ai"
 	"github.com/beepbite/backend/internal/apiauth"
 	"github.com/beepbite/backend/internal/auth"
+	channelwhatsapp "github.com/beepbite/backend/internal/channel/whatsapp"
 	"github.com/beepbite/backend/internal/chatbot"
 	"github.com/beepbite/backend/internal/config"
 	"github.com/beepbite/backend/internal/db"
@@ -309,7 +310,11 @@ func main() {
 	} else {
 		mbClient = mapbox.NewClient(mapbox.Config{APIKey: mapboxToken})
 	}
-	chatSvc := chatbot.NewWithMapbox(database.Pool, wa, mbClient)
+	// The chatbot talks to the channel seam, not to Meta. WhatsApp is the rail
+	// that shipped first; adding another is an adapter beside this one rather
+	// than a second chatbot (internal/channel).
+	waChannel := channelwhatsapp.New(wa)
+	chatSvc := chatbot.NewWithMapbox(database.Pool, waChannel, mbClient)
 	waWebhookH := whatsappwebhook.NewHandler(chatSvc, cfg.WhatsAppVerifyToken, cfg.WhatsAppAppSecret)
 
 	// Payments: BeepBite records tenders, it does not process cards. The
