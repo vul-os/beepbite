@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="BeepBite">
+  <title>BeepBite</title>
+  <rect width="128" height="128" rx="28" fill="#231207"/>
+  <!-- a serving cloche: dome, plate, and knob -->
+  <path d="M30 84 a34 34 0 0 1 68 0 Z" fill="#FF6B3D"/>
+  <rect x="22" y="84" width="84" height="11" rx="5.5" fill="#FF6B3D"/>
+  <circle cx="64" cy="45" r="6" fill="#FF6B3D"/>
+</svg>
