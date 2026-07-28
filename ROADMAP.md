@@ -217,6 +217,21 @@ be re-proved above the database on that path — that is the hard part and it is
 > *"One file to copy, one process to run, one file to back up."*
 
 ### Now-5 — Multi-branch sync: HLC oplog, manual peer enrollment
+
+> **Landed so far (library only, nothing wired):** `internal/oplog` implements the
+> clock and the merge algebra this section specifies — a hybrid logical clock with
+> a drift bound that refuses a peer's far-future timestamp, `Timestamp.Compare` as
+> a total order with the node ID as tiebreak, a last-writer-wins register, an
+> add-only set, and version vectors derived from the log. A seeded convergence
+> test asserts that any permutation of the same operations reaches the same state,
+> and that `Merge` of independently-built states agrees with applying the whole
+> set. `internal/nodeid` supplies the Ed25519 identity the transport will need.
+>
+> What is **not** done is everything that makes it a feature: no persistence, no
+> `ops-<node_id>.jsonl`, no push/pull rounds, no peer enrolment, no mutual-auth
+> envelope, and no mapping from BeepBite's tables onto the ownership classes below.
+> Two instances still do not talk to each other. Per Stage 0 this engine is
+> BeepBite's own and must not be described as DMTAP-sync.
 The unit of authority is the **branch**, which is what makes this tractable at all: orders, order
 sequence numbers, the cash drawer, table state and shifts have exactly one writer, so money and
 sequencing have no conflicts to resolve. Menu, pricing and staff are group-owned and replicated down.

@@ -439,7 +439,7 @@
     </div>
   </div>
 
-  <p class="grid-note reveal">Ordering is meant to be channel-agnostic, and it is worth being exact about how far that has got: the two built channels are each their own direct integration, <strong>not yet plugins behind a shared adapter interface</strong>. One order stream is the architecture that is coming; today it is the direction, and the roadmap says so in the same words.</p>
+  <p class="grid-note reveal">Ordering is channel-agnostic at the seam now, and it is worth being exact about what that does and does not mean: <code>internal/channel</code> is one interface every rail implements, with a capability model and a shared degradation — a rail with no list widget prints the options numbered and still resolves the customer's reply to the right row. The chatbot depends on that interface and holds no Meta types. <strong>What it does not mean is that Discord, Slack or email exist</strong> — no adapter has been written. The cost of adding one changed; the feature did not.</p>
 </div></section>
 
 <!-- ======================================================================
@@ -482,7 +482,7 @@
   <div class="head reveal">
     <span class="kicker">How it works</span>
     <h2 class="balance">One order stream, <span class="grad">whatever the source</span></h2>
-    <p class="lead pretty">Orders arrive through whichever channels a restaurant has turned on and land in one stream on hardware it controls. The two built channels are direct integrations today; the shared adapter interface that makes the rest drop in is designed, not written.</p>
+    <p class="lead pretty">Orders arrive through whichever channels a restaurant has turned on and land in one stream on hardware it controls. The adapter interface the rest drop into is written and the chatbot runs on it; WhatsApp is simply the first rail through it.</p>
   </div>
 
   <div class="steps reveal" style="margin-bottom:44px">
@@ -543,7 +543,7 @@
     </div>
     <div>
       <h4>No channel is the product</h4>
-      <p>WhatsApp is simply the adapter that shipped first. The order stream, the kitchen and the books do not know or care which one an order arrived through, which is what keeps any of them replaceable.</p>
+      <p>The chatbot talks to a <code>Channel</code>, never to Meta — its 5,000 lines coupled to WhatsApp in exactly two, and now in none. The order stream, the kitchen and the books do not know which rail an order arrived through, which is what keeps every one of them replaceable.</p>
     </div>
   </div>
 </div></section>
@@ -567,7 +567,7 @@
     <div class="shape">
       <div class="ico t-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/><path d="M6.5 10v5.5A2.5 2.5 0 0 0 9 18h5"/></svg></div>
       <h3>More than one branch <span class="chip chip-planned">Planned</span></h3>
-      <p>Each branch runs its own copy and stays the single writer for its own orders, drawer and shifts; the menu and the stock ledger replicate between them. Designed in detail — hybrid-logical-clock oplog, manual peer enrolment, a USB stick as a valid transport — and <strong>not built yet</strong>. Read the design in <a href="./docs.html#roadmap">the roadmap</a>.</p>
+      <p>Each branch runs its own copy and stays the single writer for its own orders, drawer and shifts; the menu and the stock ledger replicate between them. The merge algebra and the node identity it needs are now written and convergence-tested as libraries — but nothing calls them: there is no persistence, no transport and no peer enrolment, so <strong>two instances still do not talk to each other</strong>. Read the design in <a href="./docs.html#roadmap">the roadmap</a>.</p>
     </div>
     <div class="shape">
       <div class="ico t-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3.5 8.5 12 3l8.5 5.5M3.5 15.5 12 21l8.5-5.5"/></svg></div>
