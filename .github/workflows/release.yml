@@ -4,10 +4,23 @@ name: Release
 #   - version-guard: the tag must equal the VERSION file (fails before any build)
 #   - build: the frontend is built and embedded into the single Go `beepbite`
 #     server binary (site_embed.go), cross-compiled for linux/darwin amd64+arm64
-#   - one GitHub Release with all binaries + SHA256SUMS.txt
+#   - one GitHub Release with all binaries + a SHA256SUMS manifest covering
+#     every one of them, plus a sigstore build-provenance attestation
 #
 # The guard checks only VERSION (not package.json) so the release contract has a
 # single source of truth; bump VERSION to match the tag before pushing it.
+#
+# The checksum contract (copied from vul-os/ephor's RELEASE-TEMPLATE.md, which
+# scripts/verify.sh is the matching half of):
+#   - everything published lands in release/ and NOTHING else does, so the
+#     manifest covers exactly the published set by construction rather than by
+#     two lists someone keeps in sync by hand;
+#   - the manifest is named SHA256SUMS, which is what scripts/verify.sh looks
+#     for. It was called SHA256SUMS.txt here; this repo has cut no release
+#     (zero tags), so there is nothing published under the old name to stay
+#     compatible with;
+#   - the release job runs scripts/verify.sh against its OWN output before
+#     publishing, so the producer and the consumer cannot drift apart quietly.
 
 on:
   push:
@@ -79,24 +92,126 @@ jobs:
           path: backend/dist/*.tar.gz
           if-no-files-found: error
 
+  # ===========================================================================
+  # RELEASE SIGNING — this job and scripts/verify.sh are a matched pair. This
+  # job is the only thing that writes SHA256SUMS, verify.sh is the only thing
+  # that reads it, and this job runs verify.sh against its own output before
+  # publishing.
+  #
+  # WHY ATTESTATION AND NOT A DETACHED GPG SIGNATURE
+  # -----------------------------------------------
+  # A detached signature needs a private key: somewhere to live, an owner, a
+  # rotation story, and a published public half users must obtain over some
+  # channel they already trust — and if that channel is this same repo, the
+  # signature proves nothing the TLS fetch did not. An unrotated key nobody
+  # owns is the normal end state.
+  #
+  # actions/attest-build-provenance signs with a short-lived sigstore
+  # certificate minted from this job's OIDC token: no long-lived key, no new
+  # secret, no new hosted service. The identity it binds is "this repo's
+  # release workflow at this commit" rather than "whoever holds the key".
+  #
+  # It is deliberately NOT load-bearing: verify.sh's digest path needs only
+  # curl and sha256sum, and --attest is opt-in. If this action is removed or
+  # broken, SHA256SUMS still verifies and no user's check silently becomes a
+  # no-op.
+  # ===========================================================================
   release:
-    name: publish GitHub release
+    name: publish GitHub release (checksummed + attested)
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # create the Release and upload assets
+      id-token: write       # mint the OIDC token the attestation is signed with
+      attestations: write   # record the attestation against this repo
     steps:
+      # verify.sh checks this job's own output below, so the repo must be here.
+      - uses: actions/checkout@v4
+
+      # Everything published lands in release/ and nothing else does.
       - uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: release
           merge-multiple: true
-      - name: Checksums
-        working-directory: dist
-        run: sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Emit SHA256SUMS
+        run: |
+          set -euo pipefail
+          cd release
+
+          mapfile -t ASSETS < <(find . -maxdepth 1 -type f ! -name SHA256SUMS -exec basename {} \; | LC_ALL=C sort)
+
+          # FAIL CLOSED. A build that produced nothing must be a red release,
+          # not a green one with an empty manifest — an empty SHA256SUMS
+          # vouches for nothing while looking exactly like one that vouched for
+          # everything.
+          if [ "${#ASSETS[@]}" -eq 0 ]; then
+            echo "::error::release/ contains no artifacts — refusing to publish a release whose manifest would vouch for nothing."
+            exit 1
+          fi
+
+          : > SHA256SUMS
+          for a in "${ASSETS[@]}"; do
+            sha256sum "$a" >> SHA256SUMS
+          done
+
+          # COVERAGE ASSERTION. Without this the step is trivially satisfiable:
+          # a one-line manifest "covers" a four-platform release and every
+          # later check still passes. Pin line count to asset count.
+          LINES="$(wc -l < SHA256SUMS | tr -d ' ')"
+          if [ "$LINES" -ne "${#ASSETS[@]}" ]; then
+            echo "::error::SHA256SUMS has ${LINES} line(s) for ${#ASSETS[@]} staged artifact(s) — the manifest does not cover the release."
+            exit 1
+          fi
+
+          echo "SHA256SUMS covers ${#ASSETS[@]} artifact(s):"
+          cat SHA256SUMS
+          printf '%s\n' "${ASSETS[@]}" > /tmp/release-assets.txt
+
+      # The producer checked by the consumer, before anything is published.
+      - name: Verify SHA256SUMS with the same script users run
+        run: |
+          set -euo pipefail
+          mapfile -t ASSETS < /tmp/release-assets.txt
+          bash scripts/verify.sh --dir release "${ASSETS[@]}"
+
+      # A verifier whose failure paths are never exercised is a verifier that
+      # has probably stopped failing.
+      - name: Prove the verifier still refuses broken releases
+        run: bash scripts/verify.sh --selftest
+
+      # Short-lived sigstore cert from this job's OIDC identity — no secret is
+      # referenced and none needs to exist. Attests every file in release/,
+      # SHA256SUMS included, so the attestation on the manifest transitively
+      # covers every asset it names.
+      - name: Attest build provenance (sigstore via OIDC — no long-lived key)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "release/*"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: release/*
           generate_release_notes: true
           body: |
-            Single self-contained `beepbite` server binary (frontend embedded) for each platform, plus `SHA256SUMS.txt` covering every attached file.
+            Single self-contained `beepbite` server binary (frontend embedded)
+            for each platform, plus a `SHA256SUMS` manifest covering every
+            attached file.
+
+            ### Verify before you run this
+
+            ```sh
+            curl -fsSLO https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/scripts/verify.sh
+            bash verify.sh --tag ${{ github.ref_name }} --attest beepbite_${{ github.ref_name }}_linux_amd64.tar.gz
+            ```
+
+            `verify.sh` fetches `SHA256SUMS`, looks up the exact entry for the
+            asset and compares digests. It exits non-zero, with a distinct
+            diagnostic, on a missing or malformed manifest, a missing entry, a
+            truncated download or a digest mismatch. There is no skip path.
+            `--attest` additionally checks the sigstore build provenance (needs
+            the `gh` CLI); without it, provenance is NOT checked and the script
+            says so.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

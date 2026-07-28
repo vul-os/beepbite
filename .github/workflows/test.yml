@@ -187,6 +187,34 @@ jobs:
       - name: Vitest unit tests
         run: npm run test:unit
 
+  # ---------- Release verifier ----------
+  # scripts/verify.sh is what a user runs before executing a downloaded
+  # binary, and its REFUSALS are the whole product. A checksum guard that has
+  # quietly stopped failing looks identical, from a green CI run, to one that
+  # works — so run the full synthetic-origin failure matrix on every push, not
+  # only at release time.
+  verify-script:
+    name: Release verifier — lint & failure matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check
+        run: bash -n scripts/verify.sh
+
+      - name: ShellCheck
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck scripts/verify.sh
+
+      # Each case is a synthetic origin broken in exactly one way; the matrix
+      # asserts the exit code AND that a diagnostic was printed, because
+      # "aborted with no message" was the real-world bug being guarded against.
+      - name: Failure matrix (synthetic origin)
+        run: bash scripts/verify.sh --selftest
+
   # ---------- Playwright E2E (optional) ----------
   # Runs only when a browser binary is available.
   # Disabled by default on ubuntu-latest because Playwright's bundled Chromium
