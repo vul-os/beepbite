@@ -140,6 +140,29 @@ because there is no one operator to audit.
 resolve per location from configuration. No hardcoded currency or country
 defaults remain in application logic.
 
+## Reachability — what actually needs a URL
+
+A machine on the shop's own network with a Postgres beside it is a complete
+installation. Nothing below needs a port forward, a domain or a tunnel unless a
+customer is ordering from off the premises.
+
+| Surface | Needs inbound reachability? | Why |
+|---|---|---|
+| Till, kitchen display, floor plan, back office | **No** | Ordinary LAN traffic to the binary you started |
+| Driver app and staff on the shop's Wi-Fi | **No** | Same listener, same network |
+| WhatsApp ordering | **Yes — public HTTPS** | Meta's Cloud API is webhook-only. It POSTs to `/webhooks/whatsapp`, verified against `WHATSAPP_APP_SECRET` over `X-Hub-Signature-256`. Meta offers no polling mode to switch to |
+| QR-at-table, web storefront, `/track/:token` | **Yes — public HTTPS** | A customer's phone has to reach the page, like any other web page |
+| Online-payment return | **Yes — public HTTPS** | The gateway redirects the buyer to `BEEPBITE_API_PUBLIC_URL`. Optional, and see `ONLINE-PAYMENTS.md` — never run against a live processor |
+
+**Getting a URL is a commodity problem, and not a component of BeepBite.**
+cloudflared, a Tailscale funnel, ngrok, a small VPS running nginx,
+[Ephor](https://github.com/vul-os/ephor)'s reachability broker, the Vulos relay —
+BeepBite cannot tell them apart. There is deliberately **no provider abstraction
+in the code**: no interface, no plugin registry, no vendor list. It is one
+string, `BEEPBITE_API_PUBLIC_URL`, and swapping one provider for another is
+editing a line and restarting. A string is the right size for this seam; anything
+larger would be an invented dependency.
+
 ## Installation & data ownership
 
 | Claim | State |

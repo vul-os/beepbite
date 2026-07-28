@@ -30,6 +30,14 @@ VITE_API_URL=http://localhost:8080
 
 `DATABASE_URL` and `JWT_SECRET` are the only required vars. Everything else in `.env.example` (WhatsApp, SMTP, Mapbox, Gemini) is an optional integration and the app degrades gracefully when absent.
 
+> [!NOTE]
+> **Do you need a public URL?** Not for the counter. The till, kitchen display,
+> floor plan and back office are LAN-only. WhatsApp ordering, the customer-facing
+> store/tracking pages and the optional online-payment return each need public
+> HTTPS — see [Reachability](features.md#reachability--what-actually-needs-a-url)
+> for exactly which and why, and for why BeepBite has no opinion about how you
+> get that URL.
+
 ## 3. Run migrations
 
 ```bash

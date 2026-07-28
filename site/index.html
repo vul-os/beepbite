@@ -576,6 +576,35 @@
     </div>
   </div>
 
+  <!-- What actually has to be reachable, and what you bring yourself. -->
+  <div class="seams reveal" style="margin-top:24px">
+    <div class="panel">
+      <h3>What has to be reachable</h3>
+      <p style="margin-top:14px;font-size:15.5px">A machine on the shop's own network, with a Postgres beside it, is a complete installation. Nothing here needs a port forward, a domain or a tunnel unless a customer is ordering from off the premises.</p>
+      <ul class="seam-list">
+        <li><span class="n">Till, kitchen display, floor plan, back office<small>Ordinary LAN traffic to the binary you started.</small></span><span class="v v-no">No inbound</span></li>
+        <li><span class="n">Driver app and staff on the shop's Wi-Fi<small>Same listener, same network.</small></span><span class="v v-no">No inbound</span></li>
+        <li><span class="n">WhatsApp ordering<small>Meta's Cloud API is webhook-only — it POSTs to <code>/webhooks/whatsapp</code>, verified against your app secret. That is a decision Meta made, not one BeepBite made.</small></span><span class="v v-yes">Public HTTPS</span></li>
+        <li><span class="n">QR-at-table, web storefront, tracking page<small>A customer's phone has to reach it, so it needs a URL like any other web page.</small></span><span class="v v-yes">Public HTTPS</span></li>
+        <li><span class="n">Online-payment return<small>The gateway redirects the buyer back to <code>BEEPBITE_API_PUBLIC_URL</code>. Optional, and never verified against a live processor.</small></span><span class="v v-yes">Public HTTPS</span></li>
+      </ul>
+      <p class="seam-note"><b>Getting a URL is a commodity problem.</b> cloudflared, a Tailscale funnel, ngrok, a small VPS running nginx, <a href="https://github.com/vul-os/ephor" target="_blank" rel="noopener">Ephor</a>'s reachability broker, the Vulos relay — BeepBite cannot tell them apart, and there is deliberately <b>no provider abstraction in the code</b>: no interface, no plugin registry, no vendor list. It is one string, <code>BEEPBITE_API_PUBLIC_URL</code>. Swapping ngrok for your own proxy is editing a line and restarting.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Everything optional is bring-your-own</h3>
+      <p style="margin-top:14px;font-size:15.5px">Quoting <code style="font-family:var(--font-mono);font-size:.9em">.env.example</code>: <em>"Everything below is optional. BeepBite runs without any of it."</em> Each seam takes your credentials, and each one degrades to something sensible when you skip it.</p>
+      <ul class="seam-list">
+        <li><span class="n">WhatsApp — your own Meta credentials<small>No BeepBite number pool and no shared account. Without them the channel is entirely dark and the counter is unaffected.</small></span><span class="v v-no">Optional</span></li>
+        <li><span class="n">Maps — your own Mapbox token<small>Address autocomplete for delivery. Without it the chatbot asks the customer to drop a pin instead.</small></span><span class="v v-no">Optional</span></li>
+        <li><span class="n">AI — your own Gemini key<small>Floor-plan generation and the owner assistant. Off entirely without a key.</small></span><span class="v v-no">Optional</span></li>
+        <li><span class="n">Email — SMTP by default<small>SMTP is the only transport you can point at your own server without signing up to anybody; SendGrid, Mailgun and SES are alternatives, not defaults.</small></span><span class="v v-no">Optional</span></li>
+        <li><span class="n">Online payments — your own gateway<small>Verify-on-return and fail-closed. Unit- and integration-tested, and <b>never run against a live processor</b>. Card at the counter stays your own card machine.</small></span><span class="v v-no">Optional</span></li>
+      </ul>
+      <p class="seam-note">A fresh install with none of these set makes <b>no outbound network calls at all</b>. That is the property the rest of the page depends on, and it is the reason each of these is a credential you supply rather than a service we broker.</p>
+    </div>
+  </div>
+
   <div class="ledger reveal" style="margin-top:24px">
     <div class="panel">
       <h3>There is no BeepBite cloud <span class="chip chip-built">Built</span></h3>

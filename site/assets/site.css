@@ -855,3 +855,24 @@ a:focus-visible, button:focus-visible, [tabindex]:focus-visible, input:focus-vis
 .shape h3 { font-size: 19px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .shape p { margin: 12px 0 0; color: var(--fg-muted); font-size: 15.5px; line-height: 1.6; }
 .shape p a { color: var(--primary); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ==========================================================================
+   Seam tables — what needs reachability, what you bring yourself
+   ========================================================================== */
+.seams { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 1000px) { .seams { grid-template-columns: 1fr; } }
+.seam-list { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 2px; }
+.seam-list li { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: baseline; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.seam-list li:last-child { border-bottom: none; }
+.seam-list .n { font-size: 15.5px; font-weight: 700; }
+.seam-list .n small { display: block; font-size: 14px; font-weight: 400; color: var(--fg-muted); margin-top: 5px; line-height: 1.5; }
+.seam-list .n small code { font-family: var(--font-mono); font-size: .88em; background: color-mix(in srgb, var(--fg) 6%, transparent); padding: 1px 6px; border-radius: 6px; }
+.seam-list .v { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.seam-list .v-no  { background: var(--ok-soft); color: var(--ok); }
+.seam-list .v-yes { background: var(--warn-soft); color: var(--warn); }
+.seam-note { margin: 26px 0 0; padding: 20px 22px; border-radius: 16px; background: color-mix(in srgb, var(--fg) 4%, transparent); font-size: 15.5px; line-height: 1.6; color: var(--fg-muted); }
+.seam-note b { color: var(--fg); }
+.seam-note code { font-family: var(--font-mono); font-size: .88em; background: var(--card); border: 1px solid var(--border); padding: 2px 7px; border-radius: 6px; }
+/* Env-var names are longer than a phone is wide; let them break rather than
+   push the page sideways. */
+.seam-list code, .seam-note code, .stats-note code, .head code { overflow-wrap: anywhere; }
