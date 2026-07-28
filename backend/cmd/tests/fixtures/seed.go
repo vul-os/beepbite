@@ -235,7 +235,7 @@ func SeedLocation(ctx context.Context, pool *pgxpool.Pool, orgID, name, slug str
 }
 
 // SeedLocationIn creates a location with an explicit locale posture, including
-// the timezone, tax and dial-code columns migration 056 added.
+// the timezone, tax and dial-code columns.
 //
 // currency_code is always passed explicitly: migration 056 dropped the
 // DEFAULT 'ZAR' from the column, so omitting it now writes NULL and every
@@ -244,26 +244,20 @@ func SeedLocationIn(ctx context.Context, pool *pgxpool.Pool, orgID, name, slug s
 	scope := db.ServiceRoleScope()
 
 	err = db.Scoped(ctx, pool, scope, func(tx pgx.Tx) error {
-		// The regions table predates per-location settings and does not carry a
-		// row for every country a fixture might use. A missing region is not a
-		// reason to fail the fixture — region_id is nullable and nothing under
-		// test reads it — so resolve it best-effort.
-		var regionID *string
-		var found string
-		if err2 := tx.QueryRow(ctx,
-			`SELECT id FROM regions WHERE code = $1 LIMIT 1`, loc.Country,
-		).Scan(&found); err2 == nil {
-			regionID = &found
-		}
-
+		// There is no regions table and no locations.region_id: both went with
+		// the schema fold. This used to look the region up "best-effort" and
+		// ignore the error, which was worse than failing — the failed lookup
+		// aborts the enclosing transaction, so the INSERT below then failed
+		// with "current transaction is aborted", naming neither the real cause
+		// nor the real statement.
 		if err2 := tx.QueryRow(ctx,
 			`INSERT INTO locations (
-				organization_id, region_id, name, slug, city, country, currency_code,
+				organization_id, name, slug, city, country, currency_code,
 				timezone, locale, tax_rate, tax_inclusive, tax_label, phone_country_code
 			 )
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 			 RETURNING id`,
-			orgID, regionID, name, slug, loc.City, loc.Country, loc.CurrencyCode,
+			orgID, name, slug, loc.City, loc.Country, loc.CurrencyCode,
 			loc.Timezone, loc.BCP47, loc.TaxRate, loc.TaxInclusive, loc.TaxLabel, loc.PhoneCC,
 		).Scan(&locationID); err2 != nil {
 			return fmt.Errorf("insert location (%s/%s): %w", loc.Country, loc.CurrencyCode, err2)

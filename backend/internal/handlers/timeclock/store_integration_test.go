@@ -97,20 +97,6 @@ func randStr(n int) string {
 	return string(b)
 }
 
-// zaRegionID returns the UUID for the 'ZA' region used in location inserts.
-func zaRegionID(t *testing.T) string {
-	t.Helper()
-	var id string
-	ctx := context.Background()
-	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT id FROM regions WHERE code = 'ZA' LIMIT 1`).Scan(&id)
-	})
-	if err != nil {
-		t.Skipf("ZA region not found (migrations not applied?): %v", err)
-	}
-	return id
-}
-
 // seedOrg inserts a unique organization and registers cleanup.
 func seedOrg(t *testing.T, name string) string {
 	t.Helper()
@@ -127,13 +113,13 @@ func seedOrg(t *testing.T, name string) string {
 }
 
 // seedLocation inserts a location under the given org.
-func seedLocation(t *testing.T, orgID, name, regionID string) string {
+func seedLocation(t *testing.T, orgID, name string) string {
 	t.Helper()
 	var id string
 	svcQueryRow(t, &id,
-		`INSERT INTO locations (organization_id, name, region_id, on_delivery_payment_methods)
-		 VALUES ($1, $2, $3, ARRAY['cash']::text[]) RETURNING id`,
-		orgID, name, regionID)
+		`INSERT INTO locations (organization_id, name, on_delivery_payment_methods)
+		 VALUES ($1, $2, ARRAY['cash']::text[]) RETURNING id`,
+		orgID, name)
 	return id
 }
 
@@ -195,10 +181,9 @@ func tenantCtx(orgID, userID string) context.Context {
 
 func TestIntegration_ClockInClockOutListEntries(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgID := seedOrg(t, "TC Org ClockInOut "+suffix)
-	locID := seedLocation(t, orgID, "Loc "+suffix, regionID)
+	locID := seedLocation(t, orgID, "Loc "+suffix)
 	staffID := seedStaff(t, locID, "staff_"+suffix)
 	userID := seedAuthUser(t, "tc_"+suffix+"@test.local")
 
@@ -292,10 +277,9 @@ func TestIntegration_ClockInClockOutListEntries(t *testing.T) {
 
 func TestIntegration_EditEntry_ServiceRoleElevation(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgID := seedOrg(t, "TC Org Edit "+suffix)
-	locID := seedLocation(t, orgID, "Loc Edit "+suffix, regionID)
+	locID := seedLocation(t, orgID, "Loc Edit "+suffix)
 	staffID := seedStaff(t, locID, "staff_edit_"+suffix)
 	userID := seedAuthUser(t, "tc_edit_"+suffix+"@test.local")
 
@@ -396,10 +380,9 @@ func TestIntegration_EditEntry_ServiceRoleElevation(t *testing.T) {
 
 func TestIntegration_TenantScope_UpdateBlocked_USING_False(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgID := seedOrg(t, "TC Org Block "+suffix)
-	locID := seedLocation(t, orgID, "Loc Block "+suffix, regionID)
+	locID := seedLocation(t, orgID, "Loc Block "+suffix)
 	staffID := seedStaff(t, locID, "staff_block_"+suffix)
 	userID := seedAuthUser(t, "tc_block_"+suffix+"@test.local")
 
@@ -523,11 +506,10 @@ func TestIntegration_GetEntry_ErrEntryNotFound(t *testing.T) {
 
 func TestIntegration_CrossOrg_Isolation(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	// Org A
 	orgAID := seedOrg(t, "TC Org A "+suffix)
-	locAID := seedLocation(t, orgAID, "Loc A "+suffix, regionID)
+	locAID := seedLocation(t, orgAID, "Loc A "+suffix)
 	staffAID := seedStaff(t, locAID, "staff_a_"+suffix)
 	userAID := seedAuthUser(t, "tc_a_"+suffix+"@test.local")
 

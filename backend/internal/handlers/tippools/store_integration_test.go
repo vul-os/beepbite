@@ -112,20 +112,6 @@ func rowCount(t *testing.T, table, where string, args ...any) int {
 	return n
 }
 
-// zaRegionID returns the UUID of the ZA region (seeded by migration 014).
-func zaRegionID(t *testing.T) string {
-	t.Helper()
-	var id string
-	ctx := context.Background()
-	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT id FROM regions WHERE code = 'ZA' LIMIT 1`).Scan(&id)
-	})
-	if err != nil {
-		t.Skipf("ZA region not found (migrations not fully applied?): %v", err)
-	}
-	return id
-}
-
 // seedOrg inserts a unique organization with cleanup.
 func seedOrg(t *testing.T, suffix string) string {
 	t.Helper()
@@ -144,13 +130,13 @@ func seedOrg(t *testing.T, suffix string) string {
 }
 
 // seedLocation inserts a location under the given org and region.
-func seedLocation(t *testing.T, orgID, regionID, suffix string) string {
+func seedLocation(t *testing.T, orgID, suffix string) string {
 	t.Helper()
 	var id string
 	svcQueryRow(t, &id, `
-INSERT INTO locations (organization_id, region_id, name, on_delivery_payment_methods)
-VALUES ($1, $2, $3, ARRAY['cash']::text[]) RETURNING id`,
-		orgID, regionID, "TipLoc "+suffix)
+INSERT INTO locations (organization_id, name, on_delivery_payment_methods)
+VALUES ($1, $2, ARRAY['cash']::text[]) RETURNING id`,
+		orgID, "TipLoc "+suffix)
 	return id
 }
 
@@ -205,10 +191,9 @@ func orgCtx(orgID string) context.Context {
 
 func TestIntegration_DistributePool_DoubleDistributeRejected(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgID := seedOrg(t, suffix)
-	locID := seedLocation(t, orgID, regionID, suffix)
+	locID := seedLocation(t, orgID, suffix)
 	staffID := seedStaff(t, locID, suffix, "cashier")
 
 	store := tippools.NewStore(testPool)
@@ -313,14 +298,12 @@ func TestIntegration_DistributePool_VariousConfigs(t *testing.T) {
 		},
 	}
 
-	regionID := zaRegionID(t)
-
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			suffix := randStr(6)
 			orgID := seedOrg(t, suffix+tc.name)
-			locID := seedLocation(t, orgID, regionID, suffix)
+			locID := seedLocation(t, orgID, suffix)
 			store := tippools.NewStore(testPool)
 			ctx := orgCtx(orgID)
 
@@ -395,10 +378,9 @@ func TestIntegration_DistributePool_VariousConfigs(t *testing.T) {
 
 func TestIntegration_AddContribution_ReplayIsNoOp(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgID := seedOrg(t, suffix)
-	locID := seedLocation(t, orgID, regionID, suffix)
+	locID := seedLocation(t, orgID, suffix)
 	pmID := seedOrderPayment(t, orgID, locID)
 
 	store := tippools.NewStore(testPool)
@@ -463,10 +445,9 @@ ON CONFLICT (order_payment_id) WHERE order_payment_id IS NOT NULL DO NOTHING
 
 func TestIntegration_AddContribution_NullPaymentIDAllowsDuplicates(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgID := seedOrg(t, suffix)
-	locID := seedLocation(t, orgID, regionID, suffix)
+	locID := seedLocation(t, orgID, suffix)
 
 	store := tippools.NewStore(testPool)
 	ctx := orgCtx(orgID)
@@ -498,10 +479,9 @@ func TestIntegration_AddContribution_NullPaymentIDAllowsDuplicates(t *testing.T)
 
 func TestIntegration_DistributePool_NotFound(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgID := seedOrg(t, suffix)
-	locID := seedLocation(t, orgID, regionID, suffix)
+	locID := seedLocation(t, orgID, suffix)
 	staffID := seedStaff(t, locID, suffix, "cashier")
 	_ = locID // used by seedStaff
 
@@ -532,10 +512,9 @@ func TestIntegration_DistributePool_NotFound(t *testing.T) {
 
 func TestIntegration_TipPool_TenantStamping(t *testing.T) {
 	suffix := randStr(6)
-	regionID := zaRegionID(t)
 
 	orgA := seedOrg(t, suffix+"A")
-	locA := seedLocation(t, orgA, regionID, suffix+"A")
+	locA := seedLocation(t, orgA, suffix+"A")
 	orgB := seedOrg(t, suffix+"B")
 	_ = orgB // registered for cleanup
 

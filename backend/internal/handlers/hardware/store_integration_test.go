@@ -92,30 +92,15 @@ func seedOrg(t *testing.T, pool *pgxpool.Pool) string {
 	return id
 }
 
-// zaRegionID returns the UUID of the seeded ZA region; skips if missing.
-func zaRegionID(t *testing.T, pool *pgxpool.Pool) string {
-	t.Helper()
-	var id string
-	ctx := context.Background()
-	err := db.Scoped(ctx, pool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT id FROM regions WHERE code = 'ZA' LIMIT 1`).Scan(&id)
-	})
-	if err != nil {
-		t.Skipf("ZA region not seeded (migrations not applied?): %v", err)
-	}
-	return id
-}
-
 // seedLocation inserts a test location under orgID and returns its UUID.
 func seedLocation(t *testing.T, pool *pgxpool.Pool, orgID string) string {
 	t.Helper()
-	regionID := zaRegionID(t, pool)
 	name := "HW Test Location " + randStr(8)
 	var id string
 	svcQueryRow(t, pool, &id,
-		`INSERT INTO locations (organization_id, region_id, name, on_delivery_payment_methods)
-		 VALUES ($1, $2, $3, ARRAY['cash']::text[]) RETURNING id`,
-		orgID, regionID, name)
+		`INSERT INTO locations (organization_id, name, on_delivery_payment_methods)
+		 VALUES ($1, $2, ARRAY['cash']::text[]) RETURNING id`,
+		orgID, name)
 	return id
 }
 

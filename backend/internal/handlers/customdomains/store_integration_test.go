@@ -94,20 +94,6 @@ func svcExec(t *testing.T, query string, args ...any) {
 	}
 }
 
-// zaRegionID returns the UUID of the 'ZA' region (seeded by migration 014).
-func zaRegionID(t *testing.T) string {
-	t.Helper()
-	var id string
-	ctx := context.Background()
-	err := db.Scoped(ctx, testPool, db.ServiceRoleScope(), func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT id FROM regions WHERE code = 'ZA' LIMIT 1`).Scan(&id)
-	})
-	if err != nil {
-		t.Skipf("ZA region not seeded (migrations not applied?): %v", err)
-	}
-	return id
-}
-
 // seedOrg inserts an organization and returns its UUID.
 // Registers a t.Cleanup to cascade-delete via the org row.
 func seedOrg(t *testing.T, name string) string {
@@ -129,14 +115,13 @@ func seedOrg(t *testing.T, name string) string {
 // its UUID.  on_delivery_payment_methods is required to be non-empty.
 func seedLocation(t *testing.T, orgID, name, slug string, isActive bool) string {
 	t.Helper()
-	regionID := zaRegionID(t)
 	var id string
 	svcQueryRow(t, &id,
 		`INSERT INTO locations
-		 (organization_id, name, region_id, slug, is_active, on_delivery_payment_methods)
-		 VALUES ($1, $2, $3, $4, $5, ARRAY['cash']::text[])
+		 (organization_id, name, slug, is_active, on_delivery_payment_methods)
+		 VALUES ($1, $2, $3, $4, ARRAY['cash']::text[])
 		 RETURNING id`,
-		orgID, name, regionID, slug, isActive)
+		orgID, name, slug, isActive)
 	return id
 }
 

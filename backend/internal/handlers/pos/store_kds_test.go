@@ -66,11 +66,14 @@ func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
 		t.Fatalf("insert org: %v", err)
 	}
 
-	// 2. Location — region_id is NOT NULL (added by migration-26); use the seeded ZA region.
+	// 2. Location. The pre-fold `regions` table and locations.region_id are both
+	// gone — the consolidated baseline has neither — so this inserts neither.
+	// currency_code has no default and orders carry a foreign key to it, so a
+	// location without one cannot have an order written against it.
 	var locID string
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO locations (organization_id, name, region_id)
-		VALUES ($1, 'KDS Test Location', (SELECT id FROM regions WHERE code = 'ZA' LIMIT 1))
+		INSERT INTO locations (organization_id, name, currency_code)
+		VALUES ($1, 'KDS Test Location', 'USD')
 		RETURNING id`,
 		orgID,
 	).Scan(&locID); err != nil {
@@ -80,8 +83,9 @@ func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
 	// 3. Category
 	var catID string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO categories (location_id, name) VALUES ($1, 'KDS Test Category') RETURNING id`,
-		locID,
+		`INSERT INTO categories (organization_id, location_id, name)
+		 VALUES ($1, $2, 'KDS Test Category') RETURNING id`,
+		orgID, locID,
 	).Scan(&catID); err != nil {
 		t.Fatalf("insert category: %v", err)
 	}
