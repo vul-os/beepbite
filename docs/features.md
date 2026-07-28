@@ -87,7 +87,8 @@ would mean and what isn't yet.
 | QR-at-table / web storefront | **Built.** Public store page, cart, checkout, order status. |
 | WhatsApp ordering | **Built** — a direct Meta Cloud API integration using **your own** WhatsApp Business credentials. Entirely dark without them: no BeepBite number pool, no shared account. |
 | Order-ready notifications over WhatsApp | **Built.** Replaces a buzzer/pager; sent when kitchen marks an order ready. |
-| Discord, Slack, email / DMTAP ordering | **Not built.** There is no channel-adapter abstraction yet — WhatsApp and web ordering are each their own direct integration, not plugins behind a shared interface. "Channel-agnostic" is the direction, not the current architecture. |
+| Discord, Slack, email ordering | **Not built.** There is no channel-adapter abstraction yet — WhatsApp and web ordering are each their own direct integration, not plugins behind a shared interface. "Channel-agnostic" is the direction, not the current architecture. |
+| Ordering over DMTAP / KOTVA | **Experimental.** A research direction, not a planned feature with a slot: no KOTVA code is in this tree, none is required, and the adoption is staged behind named preconditions in `ROADMAP.md`. Treat it as a thing that might not land. |
 | Delivery zones, driver portal, live tracking | **Built**, but less exercised than the POS. Zones use polygon lookup; drivers get assignments, shifts and a location-ping feed; customers get a public `/track/:token` page with a privacy-gated map. |
 | Pickup slots | **Built.** |
 
@@ -148,6 +149,9 @@ defaults remain in application logic.
 | Offline tolerance at the till | **Not implemented as a feature.** Client-side scaffolding exists (`src/offline/`) — ULIDs, an idempotency helper, a mutation queue — but nothing in the running app uses it yet. A dropped connection today behaves like it always did. |
 | Nothing phones home | **Built.** A fresh install makes no outbound network calls. WhatsApp, maps and AI are each dark until you supply your own credentials. |
 | Backups | **Your responsibility.** It's your Postgres; BeepBite has no backup service of its own to sell you. |
+| Runs on | **Linux and macOS**, x86-64 and ARM — four release binaries. Windows is not built. Beyond that the only requirement is a Postgres you can reach. |
+| A BeepBite cloud | **Does not exist, by design.** There is no hosted tier and no account. If you want the till reachable from outside the shop, that is a second machine *you* deploy — a VPS, or a reachability broker such as [Ephor](https://github.com/vul-os/ephor) that your box dials out to. It is your node either way. |
+| Vulos OS | **Optional, never required.** BeepBite is designed to also be hosted as an app by the Vulos OS, which is the long-term answer to sharing one menu and one set of books across branches. A hard runtime dependency on the OS, its control plane or KOTVA is forbidden by the product standard. |
 
 ## What is not a feature
 
@@ -160,4 +164,13 @@ defaults remain in application logic.
   at `github.com/vul-os/beepbite` are what exists.
 - **Not multiple deployments kept in sync.** Two BeepBite instances do not
   yet talk to each other — see `ROADMAP.md` for the planned branch-sync
-  design. Today, one instance is one restaurant's data.
+  design (hybrid-logical-clock oplog, manual peer enrolment, a shared folder
+  or a USB stick as a valid transport). Today, one instance is one
+  restaurant's data.
+- **Not a decentralised product.** The trust model of the core is one business
+  running its own database in its own building, and a point-of-sale has no
+  consensus problem to solve. Where decentralisation earns its keep is
+  *between* parties who do not trust each other — courier reputation across
+  shops, ordering channels that route around Meta and Google — and that work
+  is experimental and gated. `ROADMAP.md` refuses to promise decentralisation
+  value where there is none.

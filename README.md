@@ -46,9 +46,10 @@ Ordering is meant to be **channel-agnostic**: customers order from wherever
 they already are, not wherever BeepBite decided to build first. Today that
 means WhatsApp chat (built, using your own Meta credentials) and QR-at-table
 or web ordering (built). Discord, Slack, and email — including over
-[DMTAP](https://github.com/vul-os/kotva), our own decentralized mail protocol
-(the mail profile of the KOTVA substrate) and the option with no Meta or
-Google in the middle — are the intended next
+DMTAP — the mail profile of the
+[KOTVA](https://github.com/vul-os/kotva) substrate, and the option with no Meta
+or Google in the middle, though that one is **experimental** rather than
+scheduled — are the intended next
 adapters, not yet built. See [Status](#status) for exactly which is which.
 
 > [!NOTE]
@@ -201,12 +202,17 @@ worse than one that says it isn't built:
 | Gift cards, loyalty, house accounts | **Built** |
 | WhatsApp ordering | **Built** — direct Meta Cloud API integration, needs your own credentials |
 | QR-at-table / web ordering | **Built** |
-| Discord, Slack, email/DMTAP ordering | **Not built.** No channel-adapter abstraction exists yet — WhatsApp and web ordering are each their own direct integration, not plugins behind a common interface. Channel-agnostic is the intent; today it is two channels, not an open architecture. |
+| Discord, Slack, email ordering | **Not built.** No channel-adapter abstraction exists yet — WhatsApp and web ordering are each their own direct integration, not plugins behind a common interface. Channel-agnostic is the intent; today it is two channels, not an open architecture. |
+| Ordering / replication over DMTAP &amp; KOTVA | **Experimental.** A research direction, not a scheduled feature: no KOTVA code is in this tree, none is required to run anything, and each stage is gated behind named preconditions in [ROADMAP.md](ROADMAP.md). It may not land. |
 | Delivery zones, driver, tracking | **Built**, but less exercised than the POS. The customer tracking page (`/track/:token`) has a real gap: the backend returns a flat JSON shape and the frontend expects a nested one, so the order-progress stepper works but the live map and ETA never render — a genuine bug, found while building this README's screenshot tooling, not yet fixed. |
 | Payments | **Tender recording only, by design.** Card processing was deliberately removed |
 | Currency &amp; locale neutrality | **Built.** Currency, tax convention, timezone, locale and dial code all resolve per location from configuration; no hardcoded ZAR/South-Africa defaults remain in application logic |
 | Single binary + SQLite | **Planned, not done.** Postgres is required today |
 | Offline-first sync between sites | **Not implemented.** Some client-side scaffolding exists (`src/offline/`) but nothing in the app uses it yet |
+| Multi-branch sync | **Designed, not built.** Each branch would run its own copy and stay the single writer for its own orders, drawer and shifts, with the menu and stock ledger replicating between them over a hybrid-logical-clock oplog — manual peer enrolment, and a shared folder or USB stick as a valid transport. Today two instances do not talk to each other. |
+| A BeepBite cloud | **Does not exist, deliberately.** No hosted tier, no account, nothing to sign up for. If you want the till reachable from outside the shop, that is a second machine *you* deploy — a VPS, or a reachability broker such as [Ephor](https://github.com/vul-os/ephor) that your box dials out to. Your node either way. |
+| Vulos OS integration | **Optional, never required.** BeepBite runs standalone against your own Postgres; the OS is the long-term answer to sharing one menu and one set of books across branches. A hard runtime dependency on the OS, its control plane or KOTVA is forbidden. |
+| Runs on | **Linux and macOS**, x86-64 and ARM — four release binaries. Windows is not built. |
 | Screenshots | **Real**, captured from a live seeded instance — see [Screenshots](#screenshots) and [docs/screenshots.md](docs/screenshots.md) |
 
 ## Development
