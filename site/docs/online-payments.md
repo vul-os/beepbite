@@ -1,5 +1,14 @@
 # Online payments (optional)
 
+> [!WARNING]
+> **Its integration tests do not currently pass either.** The two
+> `TestOnlinePayment_CheckoutOrder_*` tests in `internal/handlers/marketplace`
+> fail with a 404 "store not found" against a store the test itself seeded and
+> marked marketplace-visible. That is a pre-existing failure, unrelated to the
+> gateway logic, and it means the "unit- and integration-tested" claim below
+> should be read as "was, and is not being re-verified today". Treat this whole
+> path as unproven until both are green.
+
 BeepBite records tenders; by default it does **not** process cards — the shop
 has its own card machine, cash drawer, or EFT, and BeepBite is never a
 facilitator (see `docs/help/payments.md`). That does not change.
