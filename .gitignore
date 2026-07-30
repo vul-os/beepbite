@@ -10,12 +10,15 @@ billingmodel/__pycache__/
 
 .firebase
 
-# Env files — commit only the .example siblings
+# Env files — commit only the .example sibling. Matched by prefix (not the
+# four exact names this used to list) so a renamed/backed-up copy — e.g. an
+# agent doing `mv .env .env.bak-sweep` to run a gate that needs .env absent —
+# is still covered instead of showing up as an untracked, unignored file that
+# a later `git add` could commit. .env.example is the one deliberately
+# tracked sibling and is re-included below.
 .env
-.env.dev
-.env.main
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Go build artifacts
 backend/bin/
