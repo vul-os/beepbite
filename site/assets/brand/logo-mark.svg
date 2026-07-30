@@ -11,6 +11,7 @@
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="112" fill="#231207"/>
   <sodipodi:namedview
      id="namedview1"
      pagecolor="#ffffff"
@@ -35,7 +36,7 @@
   <g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
-     id="layer1">
+     id="layer1" transform="translate(256 256) scale(0.8) translate(-256 -256)">
     <path
        fill="none"
        stroke="#FF6B3D"
