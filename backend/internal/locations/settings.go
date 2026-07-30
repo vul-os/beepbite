@@ -18,6 +18,7 @@ package locations
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -111,14 +112,33 @@ type settingsCacheEntry struct {
 
 var settingsCache sync.Map // locationID → settingsCacheEntry
 
+// ErrLocationNotFound reports that no locations row could be read for the
+// requested id — it does not exist, or the reading connection could not see it.
+//
+// It is deliberately an error rather than a neutral Settings value. Returning
+// neutral settings for a location nobody could find is a plausible wrong answer:
+// no currency, UTC trading days and — the expensive one — NO TAX, handed back
+// with a nil error to a caller that is about to price an order. A caller that
+// genuinely wants the neutral baseline must now say so by calling
+// SettingsOrNeutral, which makes that choice visible at the call site instead of
+// hiding it in this function.
+var ErrLocationNotFound = errors.New("locations: no such location")
+
 // SettingsFor resolves and caches a location's locale settings.
 //
-// Unlike CurrencyFor, a missing location row is not papered over with a default
-// country: the returned Settings are the neutral zero values and the caller can
-// tell (Currency.Code == "") that nothing was configured.
+// A location that exists but has configured nothing resolves to the neutral
+// baseline with a nil error — that is a real answer from a real row, and the
+// caller can tell (Currency.Code == "") that the setup is unfinished.
+//
+// A location that could not be read at all is ErrLocationNotFound. The two used
+// to be the same value.
 func SettingsFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (Settings, error) {
 	if locationID == "" {
-		return neutralSettings(""), nil
+		// There is no location to resolve, so there is no correct currency,
+		// trading day or tax rate to return. This used to answer with the
+		// neutral baseline and a nil error, which turned a caller's missing
+		// location_id into a silent 0% tax rather than a visible bug.
+		return Settings{}, fmt.Errorf("%w: empty location id", ErrLocationNotFound)
 	}
 	if v, ok := settingsCache.Load(locationID); ok {
 		if entry, ok := v.(settingsCacheEntry); ok && time.Now().Before(entry.expiresAt) {
@@ -136,6 +156,25 @@ func SettingsFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (Se
 		expiresAt: time.Now().Add(currencyCacheTTL),
 	})
 	return s, nil
+}
+
+// SettingsOrNeutral is SettingsFor for callers that genuinely want the neutral
+// baseline when a location cannot be resolved: UTC trading days, no currency,
+// root locale, no tax.
+//
+// Only ErrLocationNotFound is absorbed. A connection failure, a schema mismatch
+// or a permission error still propagates — "the location does not exist" and
+// "the database did not answer" are different facts, and defaulting around the
+// second one is how a broken deployment starts producing quietly wrong numbers.
+//
+// Do not use this on a path that prices, charges or records money. It exists for
+// presentation-only callers whose alternative is to hand-roll the same fallback.
+func SettingsOrNeutral(ctx context.Context, pool *pgxpool.Pool, locationID string) (Settings, error) {
+	s, err := SettingsFor(ctx, pool, locationID)
+	if errors.Is(err, ErrLocationNotFound) {
+		return neutralSettings(locationID), nil
+	}
+	return s, err
 }
 
 // InvalidateSettings drops the cached settings for a location. Call it after
@@ -187,10 +226,13 @@ func fetchSettingsFromDB(ctx context.Context, pool *pgxpool.Pool, locationID str
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			// No such location. Return neutral settings rather than a country:
-			// a caller formatting against these gets bare numbers and UTC days,
-			// which is obviously unconfigured instead of subtly wrong.
-			return neutralSettings(locationID), nil
+			// No locations row was readable. Under ServiceRoleScope that means
+			// the location genuinely does not exist; if this query ever loses
+			// its scope it means RLS hid the row. Both are reported, because
+			// neither can be answered correctly and the previous answer —
+			// neutral settings with a nil error — was a confident lie about a
+			// store's currency, trading day and tax.
+			return Settings{}, fmt.Errorf("%w: %s", ErrLocationNotFound, locationID)
 		}
 		return Settings{}, err
 	}

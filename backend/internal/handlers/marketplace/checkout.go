@@ -302,7 +302,7 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 	// the orders row recorded tax_inclusive from the schema default (true), so
 	// a marketplace order in a VAT country was recorded as tax-inclusive and
 	// charged as tax-exclusive: the customer paid the VAT twice.
-	taxCfg, err := taxConfigFor(ctx, cs.pool, locationID, settings)
+	taxCfg, err := taxConfigFor(ctx, tx, locationID, settings)
 	if err != nil {
 		return nil, fmt.Errorf("resolving tax configuration: %w", err)
 	}
@@ -465,14 +465,35 @@ func nullableStr(s string) interface{} {
 // enough to compute a total, and treating it as if it were is how the
 // exclusive-only formula ended up here in the first place.
 //
+// It takes the CALLER'S TRANSACTION, not the pool, and that is the whole point.
+// This used to run `pool.QueryRow` on a fresh pooled connection with none of the
+// app.* session variables set. tax_rates carries FORCE ROW LEVEL SECURITY and a
+// tenant SELECT policy keyed on current_org_id(), so the policy evaluated false
+// and the query returned pgx.ErrNoRows for a row that existed — which is
+// indistinguishable from "this location configured no named rate", so tier 1 was
+// skipped and tier 2 charged the location's own rate instead.
+//
+// That is the same defect as the bare pool.BeginTx in CreateCheckoutOrder's
+// store lookup, but with a far worse symptom: the store lookup answered "store
+// not found", which is obviously broken, whereas this answered with a real
+// -looking tax line for the wrong tax. An operator running a 25% excise
+// alongside a 15% VAT column was silently charged the VAT.
+//
+// tx is already scoped to the owning organization (db.Scope{OrgID: orgID},
+// applied above once the marketplace-visible store has been resolved), which is
+// exactly the scope tax_rates_select requires. Reading inside the caller's
+// transaction also means the rate comes from the same snapshot as the order row
+// it is written onto, rather than from a second connection that could observe a
+// mid-flight settings change.
+//
 // This is a local copy to avoid a cross-package dependency on the pos package.
-func taxConfigFor(ctx context.Context, pool *pgxpool.Pool, locationID string, settings locations.Settings) (tax.Config, error) {
+func taxConfigFor(ctx context.Context, tx pgx.Tx, locationID string, settings locations.Settings) (tax.Config, error) {
 	var (
 		rate      float64
 		inclusive bool
 		label     *string
 	)
-	err := pool.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT CAST(rate AS float8), is_inclusive, name
 		FROM tax_rates
 		WHERE location_id = $1
@@ -495,5 +516,10 @@ func taxConfigFor(ctx context.Context, pool *pgxpool.Pool, locationID string, se
 	// (migration 056). A zero rate here is a legitimate configuration —
 	// tax-exempt, or a jurisdiction with no sales tax — and charges nothing
 	// rather than inheriting some other country's rate.
+	//
+	// This tier is only trustworthy because `settings` can no longer be the
+	// neutral all-zero placeholder: locations.SettingsFor now returns
+	// locations.ErrLocationNotFound instead of inventing one, so reaching here
+	// means a real locations row really does say this.
 	return settings.Tax, nil
 }

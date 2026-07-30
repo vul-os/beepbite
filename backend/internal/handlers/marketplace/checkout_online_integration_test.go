@@ -37,16 +37,7 @@ import (
 var onlineTestPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-	pool, cleanup, err := testenv.StartPostgres(ctx)
-	if errors.Is(err, testenv.ErrSkip) {
-		fmt.Println("skipping integration tests:", err)
-		os.Exit(0)
-	}
-	if err != nil {
-		fmt.Println("testenv.StartPostgres:", err)
-		os.Exit(1)
-	}
+	pool, cleanup := testenv.MustStartPostgres(context.Background())
 	defer cleanup()
 	onlineTestPool = pool
 	os.Exit(m.Run())

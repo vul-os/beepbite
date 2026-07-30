@@ -2,9 +2,18 @@ package pos_test
 
 // Integration test: CreateOrder → KDS ticket carries recipe info.
 //
-// Prerequisites:
-//   - TEST_DATABASE_URL must point at a fully-migrated PostgreSQL instance.
-//   - The test SKIPS automatically when the env var is absent.
+// This used to open its own pool from TEST_DATABASE_URL and t.Skip when the
+// variable was absent, which in practice meant it never ran: nothing in the
+// repo, CI included, sets TEST_DATABASE_URL, so a test asserting that KDS
+// tickets carry recipe information reported SKIP forever while reading as part
+// of a green suite.
+//
+// It now uses the package's testenv pool (see tax_rls_integration_test.go's
+// TestMain), which is a migrated Postgres reached as the NON-SUPERUSER bb_app
+// role. That matters: RLS is actually enforced, so the seeds go through
+// db.ServiceRoleScope and the reads go through a scope the way production does.
+// The old TEST_DATABASE_URL pool was whatever role the developer had, usually a
+// superuser, which silently bypasses RLS under FORCE.
 //
 // Run:
 //
@@ -12,44 +21,31 @@ package pos_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+
+	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/handlers/kds"
 	"github.com/beepbite/backend/internal/handlers/pos"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-func openTestPool(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL not set — skipping integration test")
-	}
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open pool: %v", err)
-	}
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		t.Fatalf("ping: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
-}
 
 // TestCreateOrder_KDSTicketCarriesRecipeInfo seeds the minimum required rows,
 // creates a POS order, then uses kds.Store.GetTicketDetail to assert that the
 // resulting KDS ticket carries the ingredient name and prep step instruction
 // that were seeded for the item.
 func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
-	pool := openTestPool(t)
+	pool := taxTestPool
 	ctx := context.Background()
 
 	// ------------------------------------------------------------------
-	// SEED — run inside an explicit transaction so the test is isolated
-	// and the data is cleaned up automatically on rollback.
+	// SEED — one explicit transaction, scoped to the service role.
+	//
+	// The scope is not optional now that the pool is bb_app rather than a
+	// superuser: every table touched below carries FORCE ROW LEVEL SECURITY, so
+	// an unscoped INSERT fails its WITH CHECK. ServiceRoleScope is the fixture
+	// escape hatch the RLS policies provide (is_service_role()), and it is what
+	// cmd/tests/fixtures uses for exactly this reason.
 	// ------------------------------------------------------------------
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -57,6 +53,9 @@ func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
 	}
 	// Always roll back at the end so the test leaves no trace.
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if err := db.ApplyScope(ctx, tx, db.ServiceRoleScope()); err != nil {
+		t.Fatalf("scope seed tx: %v", err)
+	}
 
 	// 1. Organisation
 	var orgID string
@@ -153,21 +152,25 @@ func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
 		// Items cascade-delete recipes, prep_steps, order_items, routing, etc.
 		// Stations cascade-delete kds_tickets → kds_ticket_items.
 		// Location cascades everything under it.
-		conn, _ := pool.Acquire(context.Background())
-		if conn == nil {
-			return
-		}
-		defer conn.Release()
-		_, _ = conn.Exec(context.Background(),
-			`DELETE FROM organizations WHERE id = $1`, orgID)
+		_ = db.Scoped(context.Background(), pool, db.ServiceRoleScope(), func(ctx pgx.Tx) error {
+			_, e := ctx.Exec(context.Background(),
+				`DELETE FROM organizations WHERE id = $1`, orgID)
+			return e
+		})
 	})
 
 	// ------------------------------------------------------------------
 	// ACT — create a POS order through pos.Store
 	// ------------------------------------------------------------------
+	// pos.CreateOrder reads its scope from the context (db.ScopeFromContext) and
+	// writes it onto its own transaction, exactly as RequireOrgScope middleware
+	// arranges in production. Without this the location lookup inside CreateOrder
+	// is hidden by RLS and comes back as "location not found".
+	orderCtx := db.ContextWithScope(ctx, db.Scope{OrgID: orgID})
+
 	posStore := pos.NewStore(pool)
 	created, err := posStore.CreateOrder(
-		ctx,
+		orderCtx,
 		locID,
 		"dine_in",
 		"", // tableNumber
@@ -198,10 +201,19 @@ func TestCreateOrder_KDSTicketCarriesRecipeInfo(t *testing.T) {
 	// ------------------------------------------------------------------
 	// ASSERT — GetTicketDetail must return ingredient + prep step
 	// ------------------------------------------------------------------
+	// GetTicketDetail (the pool-based method) opens a bare pool.BeginTx with no
+	// session variables — see internal/handlers/kds/store.go and the migration
+	// note in store_tx.go. Under an RLS-enforcing role that reads zero rows. The
+	// Tx variant is the migrated path the handler already uses, so the test
+	// exercises what production exercises.
 	kdsStore := kds.NewStore(pool)
-	detail, err := kdsStore.GetTicketDetail(ctx, ticketID)
-	if err != nil {
-		t.Fatalf("GetTicketDetail(%s): %v", ticketID, err)
+	var detail *kds.TicketDetail
+	if err := db.Scoped(ctx, pool, db.Scope{OrgID: orgID}, func(tx pgx.Tx) error {
+		d, e := kdsStore.GetTicketDetailTx(ctx, tx, ticketID)
+		detail = d
+		return e
+	}); err != nil {
+		t.Fatalf("GetTicketDetailTx(%s): %v", ticketID, err)
 	}
 
 	if len(detail.Items) == 0 {

@@ -11,7 +11,13 @@ package pos
 // The chain being exercised:
 //  1. a location-specific tax_rates row, carrying its own rate AND convention
 //  2. the location's own tax_rate / tax_inclusive / tax_label (migration 056)
-//  3. zero tax
+//  3. no readable locations row → locations.ErrLocationNotFound
+//
+// Tier 3 used to be "zero tax, nil error". It is now an error, because a sale on
+// a store whose row cannot be read was completing untaxed and looking normal.
+// The real-DB coverage for that tier is in tax_rls_integration_test.go; the
+// tests here stub fetchTaxConfig, so they exercise the cache and the wrapper
+// rather than the tier boundaries.
 //
 // The old tier 2 queried a `regions` table that does not exist in the current
 // schema. A missing relation is not pgx.ErrNoRows, so instead of falling

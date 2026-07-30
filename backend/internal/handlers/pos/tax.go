@@ -13,11 +13,13 @@ package pos
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/locations"
 	"github.com/beepbite/backend/internal/tax"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,12 +51,17 @@ var (
 //     multiple named rates (reduced rates on food, say).
 //  2. The location's own tax_rate / tax_inclusive / tax_label columns
 //     (migration 056). This is the common case.
-//  3. Zero tax, warned once.
+//  3. No readable locations row → locations.ErrLocationNotFound.
 //
-// Tier 3 charges nothing rather than falling back to a jurisdiction's rate. An
-// operator who has not configured tax yet is better served by a receipt that
-// obviously shows no tax than by one that quietly applies 15% South African VAT
-// to a restaurant in Osaka.
+// A location row whose tax_rate is 0 charges nothing rather than falling back to
+// a jurisdiction's rate: an operator who has not configured tax yet is better
+// served by a receipt that obviously shows no tax than by one that quietly
+// applies 15% South African VAT to a restaurant in Osaka.
+//
+// Tier 3 is an ERROR, not a zero. It used to return 0% with a nil error and a
+// log line, which meant a sale on a location whose row could not be read was
+// silently untaxed — a plausible number on the receipt, and a shortfall to the
+// revenue service. "There is no such store" is not a tax posture.
 func TaxConfigFor(ctx context.Context, pool *pgxpool.Pool, locationID string) (tax.Config, error) {
 	taxCacheMu.Lock()
 	if entry, ok := taxCache[locationID]; ok && time.Now().Before(entry.expiresAt) {
@@ -171,10 +178,20 @@ func fetchTaxConfigFromDB(ctx context.Context, pool *pgxpool.Pool, locationID st
 	}
 
 	// --- Step 3: no location row at all ---
-	if _, warned := warnedNoTax.LoadOrStore(locationID, struct{}{}); !warned {
-		log.Printf("pos.TaxConfigFor: no tax configuration found for location %s — charging no tax", locationID)
-	}
-	return tax.Config{}, nil
+	//
+	// This used to charge no tax and log a line. A log line is not a decision a
+	// caller can act on, and "the location is not there" is not a tax posture:
+	// the sale went through at 0% on a store whose row could not be read. Under
+	// ServiceRoleScope that means the location genuinely does not exist; if this
+	// query ever loses its scope it means RLS hid it. Either way the honest
+	// answer is that the rate is unknown, and an order that cannot be taxed
+	// correctly must not be taxed at a guess.
+	//
+	// Note the asymmetry with step 2, which is deliberate: a location row that
+	// says tax_rate 0 IS a configuration (tax-exempt, or a jurisdiction with no
+	// sales tax) and still returns 0% with a nil error. Only the absence of the
+	// row is an error.
+	return tax.Config{}, fmt.Errorf("%w: %s", locations.ErrLocationNotFound, locationID)
 }
 
 func derefLabel(p *string) string {

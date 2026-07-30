@@ -803,25 +803,22 @@ func (s *Store) GetTableSessionLocationID(ctx context.Context, sessionID string)
 // setTxScope writes the request's db.Scope session variables into an already-open
 // transaction so RLS policies can evaluate current_org_id(), current_user_id(),
 // etc. Must be called immediately after BeginTx and before any DML.
+//
+// This used to be a hand-rolled third implementation of db.setSessionVars,
+// alongside db.Scoped and db.ApplyScope, and it wrote only THREE of the six
+// app.* variables — current_user_id, current_org_id, is_service_role. The three
+// it omitted (current_capabilities, current_actor_id, is_marketplace_role) came
+// out NULL, which is the safe direction, so nothing was broken; but a scoping
+// helper that covers half the variables is a trap for the next policy that
+// depends on one of the other half, and current_capabilities specifically is the
+// one db.ApplyScope defaults to '{}' precisely so has_capability() never sees a
+// NULL jsonb.
+//
+// It now delegates. Keeping the name means the six call sites still read the
+// same, while there is exactly one place where "apply a scope to an open
+// transaction" is implemented.
 func setTxScope(ctx context.Context, tx pgx.Tx, scope db.Scope) error {
-	vars := []struct{ name, val string }{
-		{"app.current_user_id", scope.UserID},
-		{"app.current_org_id", scope.OrgID},
-		{"app.is_service_role", boolStr(scope.IsServiceRole)},
-	}
-	for _, v := range vars {
-		if _, err := tx.Exec(ctx, `SELECT set_config($1, $2, true)`, v.name, v.val); err != nil {
-			return fmt.Errorf("setTxScope %s: %w", v.name, err)
-		}
-	}
-	return nil
-}
-
-func boolStr(b bool) string {
-	if b {
-		return "true"
-	}
-	return ""
+	return db.ApplyScope(ctx, tx, scope)
 }
 
 // nullStr converts an empty string to nil so optional DB columns receive NULL.

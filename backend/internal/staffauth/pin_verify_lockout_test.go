@@ -196,16 +196,11 @@ func TestVerifyWritesExactlyOneAuditRowPerBranch(t *testing.T) {
 // in Go, instead of this single UPDATE, would produce.
 func TestIntegrationIncrementFailedAttemptsIsAtomic(t *testing.T) {
 	ctx := context.Background()
-	pool, cleanup, err := testenv.StartPostgres(ctx)
-	if errors.Is(err, testenv.ErrSkip) {
-		// Loud rather than silent, and it names the property that went
-		// unchecked. This is a missing Docker daemon, not a passing test.
-		t.Skipf("no postgres backend available, so lockout atomicity was NOT verified: %v", err)
-	}
-	if err != nil {
-		t.Fatalf("testenv.StartPostgres: %v", err)
-	}
-	defer cleanup()
+	// Fails rather than skips when there is no database. The previous version
+	// skipped "loudly", but `go test` hides skip reasons without -v and CI
+	// dashboards fold skips in with passes, so the run that verified nothing was
+	// indistinguishable from the run that verified atomicity.
+	pool := testenv.RequirePostgres(t, ctx)
 
 	staffID := seedStaffRow(t, pool)
 	store := NewStore(pool)

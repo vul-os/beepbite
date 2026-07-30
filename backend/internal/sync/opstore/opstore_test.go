@@ -54,22 +54,15 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-	pool, cleanup, err := testenv.StartPostgres(ctx)
-	if errors.Is(err, testenv.ErrSkip) {
-		fmt.Println("skipping opstore integration tests:", err)
-		os.Exit(0)
-	}
-	if err != nil {
-		log.Fatal("testenv.StartPostgres:", err)
-	}
+	pool, cleanup := testenv.MustStartPostgres(context.Background())
 	defer cleanup()
 	testPool = pool
 
-	engineCacheDir, err = os.MkdirTemp("", "opstore-engine-cache")
+	dir, err := os.MkdirTemp("", "opstore-engine-cache")
 	if err != nil {
 		log.Fatal("engine cache dir:", err)
 	}
+	engineCacheDir = dir
 	defer os.RemoveAll(engineCacheDir)
 
 	os.Exit(m.Run())

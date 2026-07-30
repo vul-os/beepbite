@@ -37,16 +37,7 @@ import (
 var testPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-	pool, cleanup, err := testenv.StartPostgres(ctx)
-	if errors.Is(err, testenv.ErrSkip) {
-		fmt.Println("skipping locations integration tests:", err)
-		os.Exit(0)
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "testenv.StartPostgres: %v\n", err)
-		os.Exit(1)
-	}
+	pool, cleanup := testenv.MustStartPostgres(context.Background())
 	defer cleanup()
 	testPool = pool
 	os.Exit(m.Run())
@@ -346,14 +337,74 @@ func TestIntegrationSettingsFor_UnconfiguredIsNeutral(t *testing.T) {
 	}
 }
 
-func TestIntegrationSettingsFor_UnknownLocationIsNeutral(t *testing.T) {
+// TestIntegrationSettingsFor_UnknownLocationErrors is the replacement for a test
+// that used to assert the opposite ("an unknown id should not error").
+//
+// Returning neutral settings for a location nobody could find is a plausible
+// wrong answer, and the expensive part of it is Tax: a caller about to price an
+// order received rate 0 with a nil error. The unconfigured-but-real case above
+// still resolves to neutral, because that is a genuine answer from a genuine
+// row. Only the unreadable case changed.
+func TestIntegrationSettingsFor_UnknownLocationErrors(t *testing.T) {
 	ctx := context.Background()
-	s, err := locations.SettingsFor(ctx, testPool, "00000000-0000-0000-0000-000000000000")
-	if err != nil {
-		t.Fatalf("SettingsFor on an unknown id should not error: %v", err)
+	const unknown = "00000000-0000-0000-0000-000000000000"
+
+	s, err := locations.SettingsFor(ctx, testPool, unknown)
+	if err == nil {
+		t.Fatalf("SettingsFor on an unknown id returned %+v and a nil error; a location that "+
+			"cannot be read has no currency, trading day or TAX RATE to report, and "+
+			"answering 0%% tax with a nil error is how a wrong total looks right", s)
 	}
-	if s.Currency.Code != "" || s.Timezone != "UTC" {
-		t.Errorf("unknown location resolved to %+v; want neutral settings", s)
+	if !errors.Is(err, locations.ErrLocationNotFound) {
+		t.Errorf("err = %v, want ErrLocationNotFound — callers distinguish "+
+			"'no such location' from 'the database did not answer', and only the "+
+			"first is safe to default around", err)
+	}
+	if s.Currency.Code != "" || s.Tax.Rate != 0 || s.Timezone != "" {
+		t.Errorf("settings alongside the error = %+v, want the zero value; a half-populated "+
+			"Settings invites a caller that ignored the error to use it", s)
+	}
+}
+
+// TestIntegrationSettingsFor_EmptyLocationIDErrors covers the other silent path:
+// an empty location id used to return neutral settings and nil, turning a
+// caller's missing parameter into a 0% tax rate instead of a visible bug.
+func TestIntegrationSettingsFor_EmptyLocationIDErrors(t *testing.T) {
+	ctx := context.Background()
+	if _, err := locations.SettingsFor(ctx, testPool, ""); !errors.Is(err, locations.ErrLocationNotFound) {
+		t.Errorf("SettingsFor(\"\") err = %v, want ErrLocationNotFound", err)
+	}
+}
+
+// TestIntegrationSettingsOrNeutral_AbsorbsOnlyNotFound proves the explicit
+// opt-in exists and is narrow: a caller that genuinely wants the neutral
+// baseline asks for it by name, and still does not get it for a real DB failure.
+func TestIntegrationSettingsOrNeutral_AbsorbsOnlyNotFound(t *testing.T) {
+	ctx := context.Background()
+
+	s, err := locations.SettingsOrNeutral(ctx, testPool, "00000000-0000-0000-0000-000000000000")
+	if err != nil {
+		t.Fatalf("SettingsOrNeutral on an unknown id: %v — this is the variant that "+
+			"absorbs ErrLocationNotFound", err)
+	}
+	if s.Currency.Code != "" {
+		t.Errorf("currency = %q, want empty", s.Currency.Code)
+	}
+	if s.Timezone != "UTC" || s.Zone() != time.UTC {
+		t.Errorf("timezone = %q / zone = %v, want UTC", s.Timezone, s.Zone())
+	}
+	if s.Tax.Rate != 0 {
+		t.Errorf("tax rate = %v, want 0", s.Tax.Rate)
+	}
+
+	// A cancelled context is a DB failure, not a missing row. It must NOT be
+	// absorbed into a neutral answer — that is the difference between "this
+	// store has no tax configured" and "we never asked the database".
+	dead, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := locations.SettingsOrNeutral(dead, testPool, "00000000-0000-0000-0000-000000000001"); err == nil {
+		t.Error("SettingsOrNeutral absorbed a cancelled-context failure into neutral settings; " +
+			"only ErrLocationNotFound may be defaulted around")
 	}
 }
 
