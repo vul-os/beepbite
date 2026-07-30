@@ -334,6 +334,38 @@ func (e *Engine) SkewBoundMS() (uint64, error) {
 // op.TS is likewise supplied here rather than by the caller, from the substrate's
 // own §3 clock, so the stamp and the author key cannot disagree.
 func (e *Engine) Mint(op oplog.Op, now time.Time) (Record, error) {
+	rec, err := e.Prepare(op, now)
+	if err != nil {
+		return Record{}, err
+	}
+	// Admit our own op through the same path a peer's takes. Minting an op this
+	// replica would refuse to ingest is a divergence between what this node
+	// publishes and what it believes, and it should fail here rather than on
+	// some other branch's ingest path hours later.
+	if _, err := e.Admit(rec, time.UnixMilli(rec.Op.TS.Wall)); err != nil {
+		return Record{}, err
+	}
+	return rec, nil
+}
+
+// Prepare is Mint without the admission: it stamps, encodes, addresses, checks
+// and signs an operation, and does not touch this replica's state.
+//
+// It exists because minting and persisting an operation cannot happen in that
+// order safely. internal/sync/emit writes sync_ops inside the same Postgres
+// transaction as the row the operation describes, so that neither can exist
+// without the other — and a transaction can still roll back afterwards. An
+// operation already admitted to an in-memory replica cannot be un-admitted, so
+// a rolled-back write would leave this node's replica holding an operation that
+// is in no log, advertising a version vector it cannot serve.
+//
+// So the checking happens here and the admission happens in Admit, after the
+// commit has returned. Nothing is skipped by splitting them: the engine's
+// ValidateOp applies the same §3 skew bound and the same structural rules
+// IngestSigned would, against the same receiver clock reading, and refuses
+// without side effects — which is exactly the property that makes it usable
+// before the row is durable.
+func (e *Engine) Prepare(op oplog.Op, now time.Time) (Record, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -365,22 +397,52 @@ func (e *Engine) Mint(op oplog.Op, now time.Time) (Record, error) {
 	if err != nil {
 		return Record{}, fmt.Errorf("substrate: addressing op: %w", err)
 	}
+	// Check before signing, against this replica, without touching it. An op
+	// this node would refuse to ingest is one it must not publish either, and
+	// finding that out here rather than on another branch's ingest path hours
+	// later is the whole point.
+	if err := e.in.ValidateOp(raw, uint64(ts.Wall)); err != nil {
+		return Record{}, fmt.Errorf("substrate: validating our own op: %w", err)
+	}
 	cose, err := e.in.SignOp(raw, e.signer)
 	if err != nil {
 		return Record{}, fmt.Errorf("substrate: signing op: %w", err)
 	}
-	// Admit our own op through the same path a peer's takes. Minting an op this
-	// replica would refuse to ingest is a divergence between what this node
-	// publishes and what it believes, and it should fail here rather than on
-	// some other branch's ingest path hours later.
-	if _, err := e.eng.IngestSigned(cose, uint64(ts.Wall)); err != nil {
-		return Record{}, fmt.Errorf("substrate: ingesting our own op: %w", err)
-	}
 
 	op.ID = hex.EncodeToString(id)
 	e.minted++
-	e.ingested++
 	return Record{ID: op.ID, Cose: cose, Op: op}, nil
+}
+
+// Admit folds an operation this node prepared into this node's replica.
+//
+// It is the second half of Prepare and takes the same path a peer's operation
+// takes — the envelope, verified and ingested — rather than a shortcut that
+// trusts the record because this process built it. The bool reports whether the
+// operation was new to the replica; re-admitting one is a no-op, which is what
+// makes a retry after a crash between commit and admission safe.
+//
+// receiverNow is this node's clock reading for the §3 skew check, as on Ingest.
+func (e *Engine) Admit(rec Record, receiverNow time.Time) (bool, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if len(rec.Cose) == 0 {
+		return false, errors.New("substrate: record has no signed envelope to admit")
+	}
+	ms := receiverNow.UnixMilli()
+	if ms < 0 {
+		return false, fmt.Errorf("substrate: receiver clock %s predates the epoch", receiverNow)
+	}
+	fresh, err := e.eng.IngestSigned(rec.Cose, uint64(ms))
+	if err != nil {
+		e.refused++
+		return false, fmt.Errorf("substrate: admitting our own op %s: %w", rec.ID, err)
+	}
+	if fresh {
+		e.ingested++
+	}
+	return fresh, nil
 }
 
 // Ingest admits an operation authored elsewhere, from the envelope its author

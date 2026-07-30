@@ -23,6 +23,7 @@ import (
 
 	"github.com/beepbite/backend/internal/auth"
 	"github.com/beepbite/backend/internal/db"
+	"github.com/beepbite/backend/internal/sync/emit"
 )
 
 // formatUUIDBytes renders pgx's default uuid representation ([16]byte) as the
@@ -67,9 +68,33 @@ func entityIDFromRow(rows []map[string]any) string {
 
 type Handler struct {
 	pool *pgxpool.Pool
+
+	// emitter turns the rows this layer writes into replication operations,
+	// inside the same transaction as the write. It is nil unless a deployment
+	// has configured multi-branch sync, and a nil *emit.Emitter runs every
+	// transaction exactly as it ran before this field existed.
+	//
+	// Nil is also what keeps the engine out of the server binary: reaching
+	// internal/sync/substrate requires constructing an internal/sync/opsink
+	// Sink, and nothing in cmd/server's graph does. See
+	// internal/sync/emit/wiring_test.go, which fails if that stops being true.
+	emitter *emit.Emitter
 }
 
 func NewHandler(pool *pgxpool.Pool) *Handler { return &Handler{pool: pool} }
+
+// WithEmitter returns a copy of h that replicates the rows it writes.
+//
+// It is a copy rather than a setter so that a handler already mounted on a
+// router cannot acquire replication halfway through its life — a request that
+// wrote without emitting and a request that emitted are two different
+// behaviours, and which one a given write got should not depend on when it
+// arrived.
+func (h *Handler) WithEmitter(e *emit.Emitter) *Handler {
+	out := *h
+	out.emitter = e
+	return &out
+}
 
 func (h *Handler) Mount(r chi.Router) {
 	r.Route("/data/{table}", func(r chi.Router) {
@@ -314,7 +339,7 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	var out []map[string]any
-	if err := h.runScoped(ctx, r, func(tx pgx.Tx) error {
+	if err := h.runScopedEmitting(ctx, r, func(tx pgx.Tx, rec *emit.Recorder) error {
 		dbRows, qerr := tx.Query(ctx, sb.String(), args...)
 		if qerr != nil {
 			return qerr
@@ -324,6 +349,8 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 		if qerr != nil {
 			return qerr
 		}
+		// An insert asserts the whole row, so no column list.
+		record(rec, table, emit.Insert, out, nil)
 		return auditMutation(ctx, tx, table, opInsert, entityIDFromRow(out), nil, nil)
 	}); err != nil {
 		log.Printf("data insert %s: %v", table, err)
@@ -407,7 +434,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	var out []map[string]any
-	if err := h.runScoped(ctx, r, func(tx pgx.Tx) error {
+	if err := h.runScopedEmitting(ctx, r, func(tx pgx.Tx, rec *emit.Recorder) error {
 		rows, qerr := tx.Query(ctx, sb.String(), args...)
 		if qerr != nil {
 			return qerr
@@ -417,6 +444,10 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		if qerr != nil {
 			return qerr
 		}
+		// Only the columns this PATCH named. The values come from the returned
+		// row rather than from the request body, so a default, a cast or a
+		// trigger is what gets replicated rather than what was asked for.
+		record(rec, table, emit.Update, out, keysOf(changes))
 		return auditMutation(ctx, tx, table, opUpdate, entityIDFromRow(out), nil, changes)
 	}); err != nil {
 		log.Printf("data update %s: %v", table, err)
@@ -455,7 +486,7 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	// Use RETURNING * so we can capture the entity ID for the audit row.
 	deleteSql := fmt.Sprintf("DELETE FROM %s WHERE %s RETURNING *", quoteIdent(table), where)
 
-	if err := h.runScoped(ctx, r, func(tx pgx.Tx) error {
+	if err := h.runScopedEmitting(ctx, r, func(tx pgx.Tx, rec *emit.Recorder) error {
 		delRows, qerr := tx.Query(ctx, deleteSql, args...)
 		if qerr != nil {
 			return qerr
@@ -465,6 +496,11 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 		if qerr != nil {
 			return qerr
 		}
+		// A delete asserts only that the row is gone: one last-writer-wins
+		// write to the reserved tombstone field, addressed by the key. No
+		// column list, because a deleted row's other columns are not a claim
+		// anybody should be replicating.
+		record(rec, table, emit.Delete, deleted, []string{})
 		return auditMutation(ctx, tx, table, opDelete, entityIDFromRow(deleted), nil, nil)
 	}); err != nil {
 		log.Printf("data delete %s: %v", table, err)

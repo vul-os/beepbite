@@ -143,6 +143,42 @@ func (s *Store) Append(ctx context.Context, scope db.Scope, recs []substrate.Rec
 	if scope.OrgID == "" {
 		return 0, ErrEmptyOrgScope
 	}
+	var inserted int
+	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
+		var err error
+		inserted, err = s.AppendTx(ctx, tx, scope.OrgID, recs)
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	return inserted, nil
+}
+
+// AppendTx is Append inside a transaction the caller already opened, and it is
+// the call the write path uses.
+//
+// The distinction matters more than it looks. Append opens its own transaction,
+// which means the operation lands separately from the row it describes: a crash
+// between the two leaves either a row nothing will ever replicate or an
+// operation describing a row that does not exist, and neither produces an
+// error anywhere. AppendTx writes through the caller's transaction instead, so
+// the row and its operation commit together or not at all.
+//
+// The caller is responsible for the transaction's scoping. Append's own
+// db.Scoped sets the app.* session variables that RLS reads; a caller passing
+// its own tx has already done that (every write path in this backend runs
+// inside db.Scoped), and orgID must be that scope's organization — it is passed
+// explicitly rather than re-read from the connection so that a mismatch is a
+// compile-time argument and not a silent write into whichever org the session
+// happened to be set to.
+func (s *Store) AppendTx(ctx context.Context, tx pgx.Tx, orgID string, recs []substrate.Record) (int, error) {
+	if len(recs) == 0 {
+		return 0, nil
+	}
+	if orgID == "" {
+		return 0, ErrEmptyOrgScope
+	}
 
 	n := len(recs)
 	ids := make([][]byte, n)
@@ -174,7 +210,7 @@ func (s *Store) Append(ctx context.Context, scope db.Scope, recs []substrate.Rec
 		}
 
 		ids[i] = id
-		orgIDs[i] = scope.OrgID
+		orgIDs[i] = orgID
 		coses[i] = rec.Cose
 		entities[i] = rec.Op.Entity
 		keys[i] = rec.Op.Key
@@ -192,15 +228,13 @@ func (s *Store) Append(ctx context.Context, scope db.Scope, recs []substrate.Rec
 		tsNodes[i] = rec.Op.TS.Node
 	}
 
-	var inserted int
-	err := db.Scoped(ctx, s.pool, scope, func(tx pgx.Tx) error {
-		// Casts happen in the SELECT list, not on the unnest() arguments
-		// themselves: every array parameter is sent as text/int/bytea (types
-		// pgx encodes generically from Go slices without needing a
-		// uuid-array-specific codec), and organization_id is cast to uuid only
-		// once it is a scalar column in the SELECT. This is one round trip and
-		// one statement regardless of batch size.
-		tag, err := tx.Exec(ctx, `
+	// Casts happen in the SELECT list, not on the unnest() arguments
+	// themselves: every array parameter is sent as text/int/bytea (types pgx
+	// encodes generically from Go slices without needing a uuid-array-specific
+	// codec), and organization_id is cast to uuid only once it is a scalar
+	// column in the SELECT. This is one round trip and one statement regardless
+	// of batch size.
+	tag, err := tx.Exec(ctx, `
 INSERT INTO sync_ops
     (id, organization_id, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
 SELECT t.id, t.org::uuid, t.cose, t.entity, t.key, t.field, t.kind, t.value, t.ts_wall, t.ts_counter, t.ts_node
@@ -210,22 +244,16 @@ FROM unnest(
 ) AS t(id, org, cose, entity, key, field, kind, value, ts_wall, ts_counter, ts_node)
 ON CONFLICT (id) DO NOTHING
 `,
-			ids, orgIDs, coses, entities, keys, fields,
-			kinds, values, tsWalls, tsCounters, tsNodes,
-		)
-		if err != nil {
-			return fmt.Errorf("opstore: insert batch: %w", err)
-		}
-		// RowsAffected() on an INSERT ... ON CONFLICT DO NOTHING counts only
-		// the rows actually written — conflicting rows are not affected —
-		// which is exactly "how many were new" with no extra query needed.
-		inserted = int(tag.RowsAffected())
-		return nil
-	})
+		ids, orgIDs, coses, entities, keys, fields,
+		kinds, values, tsWalls, tsCounters, tsNodes,
+	)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("opstore: insert batch: %w", err)
 	}
-	return inserted, nil
+	// RowsAffected() on an INSERT ... ON CONFLICT DO NOTHING counts only the
+	// rows actually written — conflicting rows are not affected — which is
+	// exactly "how many were new" with no extra query needed.
+	return int(tag.RowsAffected()), nil
 }
 
 // ---------------------------------------------------------------------------

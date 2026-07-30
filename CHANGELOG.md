@@ -16,6 +16,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The delivery-marketplace partner tables (Uber Eats, DoorDash, Grubhub).
 
 ### Added
+- **Multi-branch sync: the ownership model, written down as data, and the emit
+  layer that acts on it.** `internal/sync/ownership` classifies all 149 tables of
+  the schema — 55 group-owned, 37 branch-owned, 17 append-only ledgers, 40
+  node-local — each with the reason for its class recorded next to it. Every
+  stored counter (`items.current_stock`, `gift_cards.current_balance_cents`,
+  `customers.loyalty_points`, `coupon_codes.used_count`, …) is listed against the
+  ledger that is its actual truth and is never replicated: quantities are
+  `SUM(qty)` over the union at read time, which is what makes two tills selling
+  the last steak converge at −2 instead of silently at −1. A test compares the
+  registry against a live migrated Postgres and **fails closed** on any table it
+  does not classify, on any credential-shaped column that would be emitted, and
+  on any money column that is a float.
+- `internal/sync/emit` turns a row-level write into the operations that model
+  produces, **inside the caller's own transaction**, so a row and its operation
+  commit together or neither does. Wired at the generic REST layer
+  (`internal/handlers/data`), which is this backend's one genuine write
+  chokepoint; `emit.Emitter.Scoped` is the seam the hand-written stores adopt
+  next. Peers still do not exchange anything — there is no push/pull round and no
+  apply path — but the operation log finally has content, where before nothing in
+  the product emitted a single operation.
+- BeepBite's own multi-branch merge suite under induced partition
+  (`internal/sync/opsink/converge_test.go`), covering all four properties ROADMAP
+  Stage 2 precondition 4 names, with byte-identical converged state across every
+  exchange order and the same answers from both merge engines. Named as its own
+  CI step so it cannot quietly stop running.
 - `PaymentProvider` seam with a single manual-tender implementation — cash,
   card, transfer and voucher recorded against the order and reconciled into the
   drawer at close.

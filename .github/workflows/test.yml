@@ -102,6 +102,52 @@ jobs:
         run: go test ./...
 
       # -----------------------------------------------------------------------
+      # Multi-branch merge suite (ROADMAP Stage 2, precondition 4)
+      #
+      # `go test ./...` above already runs this. It is named again here, on
+      # purpose, for the same reason the sync-vectors job asserts a count: a
+      # precondition in the ROADMAP is now recorded as met BECAUSE this suite
+      # passes, and a suite that has been renamed, moved or emptied would go on
+      # producing a green tick from the line above with nobody noticing which
+      # claim stopped being checked.
+      #
+      # The grep is the assertion, not the exit code. `-run` matching nothing
+      # exits 0, so the four properties the precondition names are checked for
+      # by name in the verbose output.
+      # -----------------------------------------------------------------------
+      - name: Merge suite under induced partition
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          go test ./internal/sync/opsink/ -run 'TestConcurrent|TestTwoSales|TestOrderNumbers|TestHealed|TestConverged' -v \
+            | tee /tmp/merge.out
+          for want in \
+            TestConcurrentSalesOfTheLastUnitConvergeAtMinusTwo \
+            TestConcurrentMenuEditsResolveIdenticallyOnBothEngines \
+            TestOrderNumbersDoNotCollideAcrossBranches \
+            TestHealedPartitionMatchesAnUnpartitionedDrawer \
+            TestConvergedStateIsByteIdenticalOverEveryExchangeOrder
+          do
+            if ! grep -q "^--- PASS: ${want} " /tmp/merge.out; then
+              echo "::error::${want} did not run and pass. ROADMAP Stage 2 precondition 4 records this suite as met; it is not." >&2
+              exit 1
+            fi
+          done
+          echo "all five merge properties ran and passed"
+
+      # The ownership registry is only worth what its agreement with the schema
+      # is worth, and that agreement is a fail-closed test rather than a habit.
+      # Named separately for the same reason as above: it is the gate that stops
+      # a new migration from introducing an unclassified table.
+      - name: Ownership registry vs. the live schema
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          go test ./internal/sync/ownership/ -v | tee /tmp/ownership.out
+          grep -q "^--- PASS: TestRegistryCoversTheSchema " /tmp/ownership.out \
+            || { echo "::error::the registry/schema totality check did not run" >&2; exit 1; }
+
+      # -----------------------------------------------------------------------
       # HTTP smoke suites
       #
       # Steps:
