@@ -1,5 +1,9 @@
 name: Release
 
+# no-broker-dep:allow-file: line 13 below attributes the checksum-contract pattern to
+# vul-os/ephor's RELEASE-TEMPLATE.md — a copied-pattern credit, not a dependency; this workflow
+# does not fetch from, build against, or otherwise depend on ephor.
+#
 # On a vX.Y.Z tag:
 #   - version-guard: the tag must equal the VERSION file (fails before any build)
 #   - build: the frontend is built and embedded into the single Go `beepbite`
