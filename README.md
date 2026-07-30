@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/icon.svg" alt="BeepBite" width="96" />
+<img src="brand/logo.svg" alt="BeepBite" width="96" />
 
 # BeepBite
 
@@ -248,6 +248,16 @@ cd backend && go run ./cmd/tests     # integration + pentest suites
 Issues and pull requests welcome. Read [ROADMAP.md](ROADMAP.md) first — some
 gaps are deliberate design choices and some are simply unbuilt, and the
 difference matters.
+
+## Brand
+
+The mark in [`brand/`](brand/) is the source of truth. Every icon this repo
+ships — favicon, PWA and app icons, the mark in the README and on the site — is
+rendered from `brand/logo.svg` rather than redrawn, so there is one approved
+drawing and no second copy to drift.
+
+Copy it outward, never edit a derived copy, and never edit `brand/` to match
+something downstream.
 
 ## License
 
