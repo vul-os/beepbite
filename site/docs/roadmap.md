@@ -243,7 +243,41 @@ be re-proved above the database on that path — that is the hard part and it is
 > package may carry the name — the `sync-vectors` CI job drives all 24 frozen SYNC
 > conformance vectors through the engine it links — and `internal/oplog` still may not.
 > It changes nothing about Stage 2's status: the two engines are not selectable at
-> boot, no merge suite compares them, and the default is unchanged.
+> boot and the default is unchanged.
+>
+> **The ownership mapping and the emit layer have landed.** The paragraph below used
+> to describe an intention; it is now `backend/internal/sync/ownership/tables.go`,
+> which classifies all **149** tables of the schema — 55 group-owned, 37 branch-owned,
+> 17 append-only ledgers and 40 node-local — each with the §4.10 selection-test answer
+> for its class written next to it, and each stored counter listed against the ledger
+> that is its actual truth. A test compares the registry against a live migrated
+> Postgres and **fails closed** on any table the schema has and the registry does not,
+> so a new migration cannot introduce a table that silently replicates everything or
+> silently replicates nothing.
+>
+> `internal/sync/emit` turns a row-level write into the operations that registry
+> says it produces, **inside the caller's own transaction**, so a row and its
+> operation commit together or neither does. It is wired at the one genuine write
+> chokepoint this backend has — `internal/handlers/data`'s generic REST
+> insert/update/delete, three functions covering about a hundred tables. The other
+> **343 hand-written statements across 78 files** have no such seam; `emit.Emitter.Scoped`
+> is the seam offered to them (it is `db.Scoped` with a recorder passed alongside the
+> transaction) and converting them is follow-on work, deliberately not raced against
+> settling the ownership model.
+>
+> Still **not** done, and still what stands between this and a feature: **no push/pull
+> round, no peer enrolment flow, and no apply path** — a peer's operations arriving and
+> being written back into BeepBite's tables is the other direction and is its own piece
+> of work. Two instances still do not sync. What changed is that the log now has
+> something in it.
+>
+> The engine also stays **out of the server binary**, which is Stage 0's standing
+> property: `emit` speaks to a `Sink` interface, the implementation lives in
+> `internal/sync/opsink`, and a deployment with no sync configured holds a nil
+> `*emit.Emitter`. `internal/sync/emit/wiring_test.go` fails if `cmd/server`'s
+> transitive imports ever reach the engine. Measured: the server binary went
+> 25,474,402 → 25,596,258 bytes (**+119 KiB, +0.5%**) — the registry and the mapping,
+> not the 4.31 MiB engine.
 The unit of authority is the **branch**, which is what makes this tractable at all: orders, order
 sequence numbers, the cash drawer, table state and shifts have exactly one writer, so money and
 sequencing have no conflicts to resolve. Menu, pricing and staff are group-owned and replicated down.
@@ -455,6 +489,35 @@ degrades to what it was before: whatever the shop recorded about its own courier
    concurrent offline sales of the last unit converge to −2 (not −1); concurrent menu edits resolve
    identically on both engines; an order sequence never collides across branches; and a partition
    healed after N minutes produces the same drawer total as one that never partitioned.
+
+   **The suite now exists and passes: `backend/internal/sync/opsink/converge_test.go`.** All four
+   named properties are covered, driven through `internal/sync/emit` from the ownership decisions in
+   `internal/sync/ownership` rather than from hand-written ops — hand-written ops prove the engine
+   merges and prove nothing about whether BeepBite hands it the right ones. It runs under
+   `go test ./...` on every push, and `.github/workflows/test.yml` names it as its own step with a
+   count assertion so a rename cannot make it quietly stop running.
+
+   **One clause of this precondition is not satisfiable as written, and is not being quietly ticked.**
+   "Byte-identical converged state versus the HLC oplog" is not a computable comparison:
+   `internal/oplog` has no state root, and the two engines encode nothing in common to compare bytes
+   of. What the suite proves instead, at two different strengths, is stated here so nobody has to
+   read the tests to know which claim they are relying on:
+
+   - **Byte-identical, between DMTAP replicas.** Every exchange order of the same operation set
+     converges to the same §6.1 state root — the content address of the *whole* observable state,
+     covering registers and set members no assertion reads. That is asserted for each of the four
+     properties and again over a mixed workload.
+   - **Answer-identical, between the two engines.** Fed the same operation sequence, the substrate
+     and `internal/oplog` return the same last-writer-wins winner for every register the suite reads
+     and the same member set for every ledger, and `internal/oplog` reaches an `Equal` state under
+     every exchange order. Where the two are *documented* to differ — an exact `(wall, counter)` tie
+     between two authors on one register, which they break on different bytes — the suite asserts no
+     such tie is present rather than comparing two answers neither of which is wrong.
+
+   So: **the merge suite is met; the byte-identity clause is met between DMTAP replicas and replaced
+   by answer-identity against the HLC oplog.** Preconditions 1, 2 and 3 are unchanged by this work.
+   3 in particular is about the kotva repo's correction log and nothing here touches it, so **this
+   stage stays gated.**
 5. Adopting it costs **no cgo**: `github.com/vul-os/kotva/bindings/go` embeds the Rust core as WASM
    under wazero (its `go.mod` requires `github.com/tetratelabs/wazero` and nothing else). The moment
    reaching DMTAP-SYNC requires cgo, the single static binary is gone and the price is too high.
@@ -471,9 +534,9 @@ degrades to what it was before: whatever the shop recorded about its own courier
    `.github/workflows/test.yml`'s `sync-vectors` job drives all 24 of them through the engine
    BeepBite links on every push. Whether that satisfies 1's "generated by something other than the
    document's own script" is a question about the kotva repo, not this one — the vectors file names
-   `gen_sync_vectors.py` in that repo as its generator — and 3 and 4 are untouched. **4 in particular
-   does not exist**: there is no BeepBite merge suite comparing the two engines under induced
-   partition, and until there is, this stage stays gated.
+   `gen_sync_vectors.py` in that repo as its generator. **3 is untouched**, and it is about the kotva
+   repo's correction log rather than about anything in this one, so it is the precondition that keeps
+   this stage gated. **4 has moved and its own entry above says exactly how far.**
 
 **Scope.** A second implementation behind the `store.Merger` seam introduced with Now-5, chosen at boot.
 The seam is a Now-5 deliverable, not something that exists today.
