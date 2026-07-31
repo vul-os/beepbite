@@ -567,6 +567,21 @@
     }
     .card-interactive { transition: none !important; }
     .card-interactive:hover { transform: none !important; }
+
+    /* Global fallback for tailwindcss-animate's data-[state]:animate-in /
+       animate-out utilities (fade-in-0, zoom-in-95, slide-in-from-*, …).
+       Every Dialog, AlertDialog, Sheet, Select, DropdownMenu, Tooltip, Toast
+       and the KDS ticket card's slide-in-from-bottom drive their open/close
+       motion through these utility classes, none of which carry a
+       motion-reduce: variant individually — so collapse the timing here once
+       for the whole app instead of patching every call site. Only durations
+       are floored (not disabled outright) so data-driven state, like a
+       dialog's open/closed position, still resolves correctly. */
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

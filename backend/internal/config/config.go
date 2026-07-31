@@ -126,6 +126,17 @@ func Load(env string) (*Config, error) {
 	if c.JWTSecret == "" {
 		return nil, fmt.Errorf("JWT_SECRET is required")
 	}
+	// In production, an unset WHATSAPP_APP_SECRET silently disables
+	// X-Hub-Signature-256 verification on the inbound webhook (see
+	// internal/handlers/whatsappwebhook/handler.go), letting anyone POST
+	// spoofed WhatsApp messages that the chatbot processes as if they came
+	// from the trusted "from" phone number. Refuse to boot in that
+	// configuration rather than degrade a payment/PII-adjacent surface
+	// silently. Non-production envs may still leave it unset for local
+	// testing without WhatsApp credentials.
+	if env == "main" && c.WhatsAppAppSecret == "" {
+		return nil, fmt.Errorf("WHATSAPP_APP_SECRET is required when APP_ENV=main (production) — without it, inbound WhatsApp webhook signature verification is disabled and any caller can inject messages as any phone number")
+	}
 	return c, nil
 }
 

@@ -230,6 +230,52 @@ describe('parseMoney', () => {
   });
 });
 
+describe('parseMoney — round-trip fuzz across representative amounts', () => {
+  // Rather than round-tripping through formatMoney's *grouped* Intl output
+  // (which parseMoney is not designed to re-ingest — a thousands-separator
+  // comma and a decimal comma are genuinely ambiguous without locale
+  // context), this builds the plain major-unit string an operator would
+  // type — e.g. minor=1234, decimals=2 → "12.34" — and checks parseMoney
+  // reconstructs the exact original integer. This is the property that
+  // must hold for every currency shape: a cent must never be lost or
+  // invented by the parse path, for zero-, two- and three-decimal
+  // currencies alike, at small amounts, large amounts, and amounts that
+  // are exact powers of ten.
+  const CURRENCIES = [
+    ['USD', 2],
+    ['ZAR', 2],
+    ['JPY', 0],
+    ['KRW', 0],
+    ['KWD', 3],
+    ['BHD', 3],
+  ];
+
+  const MINOR_AMOUNTS = [
+    0, 1, 2, 5, 9, 10, 11, 49, 50, 99, 100, 101, 199, 999, 1000, 1001,
+    9999, 10000, 12345, 99999, 100000, 999999, 1234567, 100000000,
+  ];
+
+  for (const [currency, decimals] of CURRENCIES) {
+    it(`reconstructs every test amount exactly for ${currency} (${decimals}-decimal)`, () => {
+      const scale = 10 ** decimals;
+      for (const minor of MINOR_AMOUNTS) {
+        const majorStr = (minor / scale).toFixed(decimals);
+        expect(parseMoney(majorStr, currency)).toBe(minor);
+      }
+    });
+  }
+
+  it('the fuzz would actually catch a wrong scale (sanity check on the harness itself)', () => {
+    // If parseMoney used a hardcoded /100 instead of the currency's real
+    // scale, "1.234" for KWD would parse to 123 (cents), not 1234 (fils).
+    // Confirm the two diverge, so the loop above is not vacuously true.
+    const wrongScale = Math.round(Number('1.234') * 100);
+    const actual = parseMoney('1.234', 'KWD');
+    expect(actual).not.toBe(wrongScale);
+    expect(actual).toBe(1234);
+  });
+});
+
 describe('formatPrice — legacy shim', () => {
   it('still formats existing call sites', () => {
     expect(norm(formatPrice(1250, 'USD', 'en-US'))).toContain('12.50');

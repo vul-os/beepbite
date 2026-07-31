@@ -18,6 +18,12 @@ billingmodel/__pycache__/
 # tracked sibling and is re-included below.
 .env
 .env.*
+# `.env.*` needs a literal dot, so vim/emacs tilde backups (.env~, .env.local~)
+# slipped through as untracked-but-unignored files a `git add .` would commit.
+# Editing .env over SSH with vim's default backup setting is exactly how a
+# self-hosting operator produces one.
+*.env~
+.env*~
 !.env.example
 
 # Go build artifacts

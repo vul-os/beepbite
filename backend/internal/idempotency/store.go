@@ -38,8 +38,14 @@ func (s *store) acquireOrFetch(
 ) (inserted bool, row keyRow, err error) {
 	expiresAt := time.Now().UTC().Add(48 * time.Hour)
 
-	// Try insert first.
-	_, err = s.pool.Exec(ctx, `
+	// Try insert first. ON CONFLICT DO NOTHING is atomic at the DB level: under
+	// concurrent callers racing the same (scope, key), Postgres guarantees at
+	// most one of them gets RowsAffected() == 1. We use that directly to decide
+	// "did I insert" rather than re-reading the row and guessing from a
+	// locked_at freshness window — the previous approach let two concurrent
+	// callers within ~1s of each other both conclude they were the fresh
+	// insert and both proceed to run the handler (e.g. a duplicate charge).
+	tag, err := s.pool.Exec(ctx, `
 INSERT INTO idempotency_keys (scope, key, request_hash, status, locked_at, expires_at)
 VALUES ($1, $2, $3, 'in_progress', now(), $4)
 ON CONFLICT (scope, key) DO NOTHING
@@ -47,8 +53,10 @@ ON CONFLICT (scope, key) DO NOTHING
 	if err != nil {
 		return false, keyRow{}, err
 	}
+	inserted = tag.RowsAffected() == 1
 
-	// Check if we actually inserted by reading the current row.
+	// Read back the current row either way — the caller needs it to decide
+	// between replay / conflict / takeover when inserted is false.
 	r := s.pool.QueryRow(ctx, `
 SELECT request_hash, status, response_status, response_body, locked_at, expires_at
 FROM idempotency_keys
@@ -77,17 +85,6 @@ WHERE scope = $1 AND key = $2
 		ResponseBody:   rb,
 		LockedAt:       la,
 		ExpiresAt:      ea,
-	}
-
-	// We inserted if the row's locked_at is very recent (within 1 second) and
-	// status is in_progress and the request_hash matches what we just wrote.
-	// The reliable signal: if status == 'in_progress' AND response_status IS NULL
-	// AND the hash matches ours AND locked_at is within the last second.
-	if row.Status == "in_progress" &&
-		row.ResponseStatus == nil &&
-		row.RequestHash != nil && *row.RequestHash == requestHash &&
-		row.LockedAt != nil && time.Since(*row.LockedAt) < time.Second {
-		inserted = true
 	}
 
 	return inserted, row, nil

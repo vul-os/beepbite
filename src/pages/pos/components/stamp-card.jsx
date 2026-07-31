@@ -183,7 +183,7 @@ export default function StampCard({ customerId, onReward, className }) {
         size="sm"
         onClick={handleAccrue}
         disabled={accruing}
-        className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+        className="w-full gap-2"
       >
         {accruing
           ? <><Loader2 className="h-4 w-4 animate-spin" />Adding stamp…</>

@@ -33,7 +33,7 @@ Where an internal doc and the tree disagree, **the tree wins** and the disagreem
 ```
                        ┌───────────────────────────────────┐
    Customer orders ──▶ │   WhatsApp (shop's own Meta keys) │
-   from wherever       │   QR at table / web storefront    │──┐
+   from wherever       │   QR code / web storefront        │──┐
    they already are    │   the till itself                 │  │
                        └───────────────────────────────────┘  │
                                                               ▼
@@ -93,7 +93,7 @@ narrowed here.
 | Engagement | **Built.** Promotions, coupons, gift cards, store credit, house accounts, loyalty (incl. stamps), reservations and waitlist. |
 | Staff | **Built.** PIN actor-overlay on top of a member session, 5-strike / 15-minute lockout, per-member capability flags, time clock, tip pools, payroll export. |
 | WhatsApp ordering | **Built** — direct Meta Cloud API integration using the **shop's own** credentials. Off entirely without them. |
-| QR-at-table / web storefront | **Built.** Public store page, cart, checkout, order status. |
+| QR / web storefront | **Built.** Public store page, cart, checkout, order status. Narrower than the name once implied: a scanned QR opens the public storefront, nothing more — there is no `table_number`/`table_id` anywhere in `src/pages/store` or `src/pages/checkout`, and fulfilment is `delivery` or `collection` only. It does not bind an order to a floor-plan table or session. |
 | Delivery, driver portal, tracking | **Built.** Zones with polygon lookup, driver assignments and shifts, location pings, public `/track/:token` page with a privacy-gated map. Less exercised than the POS. |
 | Payments | **Tender recording only.** `internal/payments/manual.go` is the only `PaymentProvider` wired into the POS and checkout paths. |
 | Currency, tax and locale neutrality | **Built.** Currency, tax convention, timezone, locale and dial code all resolve per location from configuration. No hardcoded ZAR/South-Africa defaults remain in application logic. |
@@ -152,10 +152,12 @@ A feature that silently does nothing is worse than one that says it isn't built.
 
 Recorded rather than quietly fixed, because a stale doc that nobody flags is how a roadmap rots.
 
-- **`README.md` Status table understates `/track`.** It reports the flat-vs-nested payload mismatch as
-  a live bug. It was fixed in `7739452` by `normalizeTracking()` in `src/services/tracking.js`, which
-  also corrected the page's status vocabulary (`canceled` → `cancelled`) and replaced the hidden-div
-  map fallback with a real empty state. The README line needs updating; this document does not own it.
+- **`README.md` Status table understated `/track` — resolved.** It reported the flat-vs-nested payload
+  mismatch as a live bug after the bug itself was gone: `7739452`'s `normalizeTracking()`
+  (`src/services/tracking.js`) fixed it, corrected the page's status vocabulary (`canceled` →
+  `cancelled`), and replaced the hidden-div map fallback with a real empty state. The README's Status
+  table has since been corrected to match `7739452`. Left here as the record of the drift and its fix —
+  this document does not own the README line, but it does own recording that the gap existed and closed.
 - **`docs/internal/tasks.md` describes the platform era.** Its wave plan (central marketplace, wallet
   and quotas, USD billing via FX, platform admin, custom domains) is the direction this document
   replaces. It survives as a **domain spec for POS behaviour** and as the historical record of how the
@@ -257,19 +259,28 @@ be re-proved above the database on that path — that is the hard part and it is
 >
 > `internal/sync/emit` turns a row-level write into the operations that registry
 > says it produces, **inside the caller's own transaction**, so a row and its
-> operation commit together or neither does. It is wired at the one genuine write
-> chokepoint this backend has — `internal/handlers/data`'s generic REST
-> insert/update/delete, three functions covering about a hundred tables. The other
-> **343 hand-written statements across 78 files** have no such seam; `emit.Emitter.Scoped`
-> is the seam offered to them (it is `db.Scoped` with a recorder passed alongside the
-> transaction) and converting them is follow-on work, deliberately not raced against
-> settling the ownership model.
+> operation commit together or neither does. It is built to sit at the one genuine
+> write chokepoint this backend has — `internal/handlers/data`'s generic REST
+> insert/update/delete, three functions covering about a hundred tables — but it is
+> not attached there in the running server. `data.Handler.WithEmitter`, the only way
+> a `*Handler` acquires an emitter, is called from exactly one place in the whole
+> repo: `emit_integration_test.go`. `backend/cmd/server/main.go` never calls it, so
+> `h.emitter` is nil in production and the chokepoint emits **zero** operations
+> today — the wiring is proven in a test, not in the server. The other
+> **343 hand-written statements across 78 files** have no such seam either;
+> `emit.Emitter.Scoped` is the seam offered to them (it is `db.Scoped` with a
+> recorder passed alongside the transaction) and converting them is follow-on
+> work, deliberately not raced against settling the ownership model — and moot
+> until the REST chokepoint itself is attached to a live emitter.
 >
-> Still **not** done, and still what stands between this and a feature: **no push/pull
-> round, no peer enrolment flow, and no apply path** — a peer's operations arriving and
-> being written back into BeepBite's tables is the other direction and is its own piece
-> of work. Two instances still do not sync. What changed is that the log now has
-> something in it.
+> Still **not** done, and still what stands between this and a feature: **no
+> production emitter, no push/pull round, no peer enrolment flow, and no apply
+> path** — a peer's operations arriving and being written back into BeepBite's tables
+> is the other direction and is its own piece
+> of work. Two instances still do not sync, and today, neither does one write to its
+> own log: what changed is that the log has something in it *when the integration
+> test drives it* — `backend/cmd/server/main.go` attaches no emitter, so a real,
+> running BeepBite still produces zero operations.
 >
 > The engine also stays **out of the server binary**, which is Stage 0's standing
 > property: `emit` speaks to a `Sink` interface, the implementation lives in
@@ -749,8 +760,9 @@ Each maps to a Shipped line or a Now item above. Nothing here is aspirational.
    AI are each dark until you supply your own credentials.
 3. **Your money stays yours.** BeepBite records what was tendered and never touches the money. Your
    card machine is still your card machine.
-4. **Customers order from wherever they already are.** WhatsApp with your own Meta credentials, a QR
-   code on the table, or your own web storefront — all into one order stream.
+4. **Customers order from wherever they already are.** WhatsApp with your own Meta credentials, or
+   your own web storefront — reachable by its own link or by a QR code that opens it — all into one
+   order stream.
 5. **The kitchen sees it instantly.** Per-station routing, an expo screen, fire timers, live over
    server-sent events — no message broker to operate.
 6. **The database itself refuses to leak.** Row-level security is on from the first table, scoped

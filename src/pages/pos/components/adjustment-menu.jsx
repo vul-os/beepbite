@@ -82,7 +82,11 @@ const TYPE_META = {
     label: 'Comp Item',
     short: 'Comp',
     icon: Gift,
-    colorClass: 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200',
+    // These three are one axis — how much money leaves the till — so they run
+    // as a severity ramp rather than three unrelated hues: red voids the whole
+    // order, orange comps an item away at full value, amber takes some of the
+    // price off. Purple said nothing about which of those was happening.
+    colorClass: 'text-orange-700 bg-orange-50 hover:bg-orange-100 border-orange-200',
     capability: 'can_comp',
   },
   price_override: {

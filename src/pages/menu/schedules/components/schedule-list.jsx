@@ -177,7 +177,7 @@ export default function ScheduleList({ schedules, selectedId, onSelect, onDelete
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="flex-1">
                 Cancel
               </Button>
-              <Button onClick={handleCreate} disabled={saving} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white">
+              <Button onClick={handleCreate} disabled={saving} className="flex-1">
                 {saving ? 'Creating…' : 'Create'}
               </Button>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { X, Banknote, CreditCard, CheckCircle2, Loader2, Delete } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
@@ -58,12 +58,71 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
     });
   };
 
+  // Hand-rolled full-screen overlay (not the Dialog primitive — a kiosk
+  // needs a bespoke layout at every breakpoint) so the focus trap, Escape
+  // handling and focus restoration that Radix's Dialog gives for free have
+  // to be wired up here by hand. Without this, a keyboard/screen-reader
+  // user (or an accessibility-switch device driving the kiosk) could tab
+  // straight through the "modal" into the menu grid behind it mid-payment.
+  const modalRef = useRef(null);
+  const previouslyFocusedRef = useRef(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose?.();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = modalRef.current?.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocusedRef.current?.focus?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Move focus into whichever view is currently showing (method picker vs.
+  // the success screen) — they're different DOM subtrees, not just a class
+  // toggle, so this has to re-run on that transition, not only on mount.
+  useEffect(() => {
+    const focusable = modalRef.current?.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    focusable?.[0]?.focus();
+  }, [lastOrderNumber]);
+
   // Success state
   if (lastOrderNumber) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div className="bg-card border-2 border-border rounded-2xl shadow-2xl p-10 flex flex-col items-center gap-4 max-w-sm w-full animate-in zoom-in-95 duration-200">
-          <CheckCircle2 className="w-20 h-20 text-success" />
+        <div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-live="polite"
+          aria-label={`Order placed, number ${lastOrderNumber}`}
+          className="bg-card border-2 border-border rounded-2xl shadow-2xl p-10 flex flex-col items-center gap-4 max-w-sm w-full animate-in zoom-in-95 duration-200"
+        >
+          <CheckCircle2 className="w-20 h-20 text-success" aria-hidden="true" />
           <h2 className="text-3xl font-bold text-foreground">Order Placed!</h2>
           <p className="text-xl text-muted-foreground font-medium">#{lastOrderNumber}</p>
           <button
@@ -79,15 +138,22 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md flex flex-col max-h-[95vh] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tender"
+        className="bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md flex flex-col max-h-[95vh] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-2xl font-bold text-foreground">Tender</h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-muted/70 transition-colors"
           >
-            <X className="w-5 h-5 text-muted-foreground" />
+            <X className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
 

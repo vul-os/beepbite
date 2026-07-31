@@ -131,6 +131,73 @@ var reportViews = map[string]struct{}{
 	"revenue_by_payment_method":  {},
 }
 
+// sensitiveColumns lists columns that must never leave this generic REST
+// layer, in either the HTTP response or the sync/webhook emitter, even
+// though the table itself is otherwise selectable/insertable/updatable.
+//
+// staff.pin_hash and staff.password_hash are bcrypt hashes of the POS PIN
+// and portal password. The frontend never renders or edits them directly,
+// but nothing enforced that at the API: the "staff" table carries only the
+// blanket Select/Insert/Update/Delete allowlist entry (allowlist.go) with no
+// capability gate and no column allowlist, so any authenticated org member —
+// down to a bare cashier account with no capabilities — could call
+// GET /data/staff (or GET /data/staff?select=id,pin_hash,password_hash) and
+// recover bcrypt hashes for every staff member in the org, including
+// managers/owners. POS PINs are 4-6 digit numeric, so bcrypt cost 10 is a
+// small offline search — a straightforward privilege-escalation path from a
+// low-privilege session to a manager's PIN. Redact instead of relying on a
+// capability check because the UI has no legitimate use for these values at
+// all, from any role.
+var sensitiveColumns = map[string]map[string]struct{}{
+	"staff": {"pin_hash": {}, "password_hash": {}},
+}
+
+// credentialWriteColumns lists per-table columns that must never be settable
+// through the generic POST/PATCH REST layer, because a dedicated,
+// capability-gated endpoint exists to mutate them (internal/staffauth's
+// managerSetPIN / managerSetPassword / setPassword) and it bcrypt-hashes the
+// caller's PIN/password server-side, restricted to org owner/manager roles.
+// /data has no per-table capability gate (see package doc) — without this
+// block, any authenticated org member, including a bare cashier account
+// with zero capabilities, could POST/PATCH /data/staff with a
+// self-chosen pin_hash/password_hash value (a hash of a PIN/password they
+// already know the plaintext of) and silently take over — or create — any
+// staff credential in the org, bypassing managerSetPIN's authorization
+// entirely.
+var credentialWriteColumns = map[string][]string{
+	"staff": {"pin_hash", "password_hash"},
+}
+
+// rejectCredentialColumn writes a 403 and returns true if any column in
+// credentialWriteColumns[table] is present in keys.
+func rejectCredentialColumn(w http.ResponseWriter, table string, has func(col string) bool) bool {
+	for _, col := range credentialWriteColumns[table] {
+		if has(col) {
+			writeErr(w, http.StatusForbidden, "column "+col+" cannot be set via this endpoint")
+			return true
+		}
+	}
+	return false
+}
+
+// redactSensitive deletes columns listed in sensitiveColumns[table] from
+// every row, in place. A no-op for tables with no entry. Applied to
+// SELECT/INSERT/UPDATE results before they reach either the HTTP response
+// or the sync/webhook emitter (record), so a hash can't leak through
+// select=*, an explicit select=pin_hash, or an INSERT/UPDATE ... RETURNING *
+// echo.
+func redactSensitive(table string, rows []map[string]any) {
+	deny, ok := sensitiveColumns[table]
+	if !ok {
+		return
+	}
+	for _, row := range rows {
+		for col := range deny {
+			delete(row, col)
+		}
+	}
+}
+
 // tablesWithOrgID is the set of tables that have an organization_id column.
 // When a caller omits organization_id from an INSERT payload and the request
 // scope has a resolved OrgID, the handler auto-injects it so that RLS INSERT
@@ -260,6 +327,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "request could not be completed")
 		return
 	}
+	redactSensitive(table, out)
 
 	if q.Get("single") == "true" {
 		if len(out) == 0 {
@@ -293,6 +361,11 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 	if len(rows) == 0 {
 		writeErr(w, http.StatusBadRequest, "empty body")
 		return
+	}
+	for _, row := range rows {
+		if rejectCredentialColumn(w, table, func(col string) bool { _, found := row[col]; return found }) {
+			return
+		}
 	}
 
 	// Auto-inject organization_id when the table has that column and the
@@ -349,6 +422,7 @@ func (h *Handler) insert(w http.ResponseWriter, r *http.Request) {
 		if qerr != nil {
 			return qerr
 		}
+		redactSensitive(table, out)
 		// An insert asserts the whole row, so no column list.
 		record(rec, table, emit.Insert, out, nil)
 		return auditMutation(ctx, tx, table, opInsert, entityIDFromRow(out), nil, nil)
@@ -398,6 +472,9 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	if rejectCredentialColumn(w, table, func(col string) bool { _, found := changes[col]; return found }) {
+		return
+	}
 
 	where, whereArgs, err := buildWhere(r.URL.Query(), 0)
 	if err != nil {
@@ -444,6 +521,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		if qerr != nil {
 			return qerr
 		}
+		redactSensitive(table, out)
 		// Only the columns this PATCH named. The values come from the returned
 		// row rather than from the request body, so a default, a cast or a
 		// trigger is what gets replicated rather than what was asked for.

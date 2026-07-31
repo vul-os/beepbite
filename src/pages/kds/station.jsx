@@ -292,7 +292,7 @@ export default function StationPage() {
           </div>
           {/* Ticket count pill */}
           {!loading && sorted.length > 0 && (
-            <span className="rounded-full bg-orange-500 px-2.5 py-0.5 text-sm font-bold tabular-nums text-white">
+            <span className="rounded-full bg-primary px-2.5 py-0.5 text-sm font-bold tabular-nums text-primary-foreground">
               {sorted.length}
             </span>
           )}
@@ -389,7 +389,7 @@ export default function StationPage() {
                     className={cn(
                       'absolute -top-2.5 -left-2.5 z-10 flex size-6 items-center justify-center rounded-full text-xs font-extrabold tabular-nums ring-2 ring-gray-950',
                       i === focusedIndex
-                        ? 'bg-orange-500 text-white'
+                        ? 'bg-primary text-primary-foreground'
                         : 'bg-gray-700 text-gray-300',
                     )}
                   >

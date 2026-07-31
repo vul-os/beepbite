@@ -67,7 +67,7 @@ function SpecialCard({ special, onSelect, currency }) {
           </div>
         )}
         {hasDiscount && (
-          <span className="absolute top-1 right-1 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+          <span className="absolute top-1 right-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground leading-none">
             DEAL
           </span>
         )}

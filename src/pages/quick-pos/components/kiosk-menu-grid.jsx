@@ -233,7 +233,7 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
                       {!soldOutToday && (
                         <span
                           aria-hidden="true"
-                          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white shrink-0 group-hover:scale-110 group-hover:bg-primary/90 transition-all"
+                          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0 group-hover:scale-110 group-hover:bg-primary/90 transition-all"
                         >
                           <Plus className="w-5 h-5" strokeWidth={2.5} />
                         </span>

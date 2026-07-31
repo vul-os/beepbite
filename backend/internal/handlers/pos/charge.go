@@ -159,6 +159,14 @@ func (s *Store) ChargeOrder(ctx context.Context, orderID string, processedBy str
 	// --- 1. Look up order; check payment status ---
 	// payment_status moved off orders in the schema consolidation; an order is
 	// "paid" when it already has a completed order_payments row.
+	//
+	// FOR UPDATE OF o locks the orders row for the rest of this transaction.
+	// Without it, two concurrent charge requests for the same order both read
+	// alreadyPaid=false under READ COMMITTED and both proceed to insert a
+	// completed order_payments row — a double charge. With the lock, a second
+	// concurrent transaction blocks here until the first commits, then
+	// re-evaluates the EXISTS subquery against the now-committed payment and
+	// correctly sees alreadyPaid=true.
 	var alreadyPaid bool
 	var tableSessionID *string
 	err = tx.QueryRow(ctx, `
@@ -167,6 +175,7 @@ func (s *Store) ChargeOrder(ctx context.Context, orderID string, processedBy str
 		              WHERE op.order_id = o.id AND op.payment_status = 'completed')
 		FROM orders o
 		WHERE o.id = $1
+		FOR UPDATE OF o
 	`, orderID).Scan(&tableSessionID, &alreadyPaid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrOrderNotFound

@@ -203,8 +203,14 @@ func NewHandler(svc *chatbot.Service, verifyToken string, appSecret string) http
 								continue
 							}
 
-							log.Printf("Processing message from=%s type=%s body=%q phone=%s displayName=%s",
-								from, m.Type, messageBody, phoneNumberID, displayName)
+							// Deliberately no message body, sender phone number, or
+							// display name in this line — those are customer PII/PHI
+							// and this log ships to stdout on a self-hosted box that
+							// often has minimal log-access controls. Log volume/shape
+							// only; ProcessMessage below is where any content-specific
+							// logging with its own redaction should happen, if needed.
+							log.Printf("Processing message id=%s type=%s bodyLen=%d",
+								messageID, m.Type, len(messageBody))
 
 							if err := svc.ProcessMessage(r.Context(), phoneNumberID, from, messageID, messageBody, displayName); err != nil {
 								log.Printf("Error processing message: %v", err)

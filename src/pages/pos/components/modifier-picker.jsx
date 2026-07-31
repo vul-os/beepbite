@@ -300,9 +300,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
           <Button
             className={cn(
               'flex-1 h-11 text-sm font-bold',
-              isValid
-                ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed',
+              !isValid && 'bg-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-200',
             )}
             disabled={!isValid || loading}
             onClick={handleConfirm}

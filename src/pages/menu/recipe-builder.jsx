@@ -512,8 +512,17 @@ const RecipeBuilder = ({
               filteredAvailableItems.map((availableItem) => (
                 <div
                   key={availableItem.id}
-                  className="flex items-center justify-between p-3 border border-border rounded-lg hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  className="flex items-center justify-between p-3 border border-border rounded-lg hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer focus-ring-strong"
                   onClick={() => addComponent(availableItem)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      addComponent(availableItem);
+                    }
+                  }}
+                  aria-label={`Add ${availableItem.name} as a recipe component`}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {getItemTypeIcon(availableItem.recipe_type)}

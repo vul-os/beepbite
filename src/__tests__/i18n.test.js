@@ -84,6 +84,58 @@ describe('locale key parity (all locales vs en.json)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 1b. Interpolation placeholders — a locale must keep the same {{vars}} as en
+// ---------------------------------------------------------------------------
+//
+// Key parity (above) only proves a translated string EXISTS; it says nothing
+// about whether a translator dropped an interpolation token while
+// translating the surrounding text. i18next does not throw when that
+// happens — it just renders the literal "{{count}}" (or silently drops the
+// value) to the user, which is a real, silent, locale-only bug. This checks
+// every key in en.json that uses `{{...}}` interpolation and asserts each
+// locale's value for that key references exactly the same variable names.
+
+function getPath(obj, path) {
+  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+function placeholderVars(str) {
+  if (typeof str !== 'string') return [];
+  return [...str.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]).sort();
+}
+
+describe('interpolation placeholders (every locale vs en.json)', () => {
+  const interpolatedKeys = enTranslationKeys.filter((k) => {
+    // i18next's singular plural form ("_one") describes exactly count === 1,
+    // and a language is free to express "exactly one" in words rather than
+    // with a numeral — Arabic's sync.queued_one ("تغيير واحد في الانتظار",
+    // "one change waiting") legitimately drops {{count}} this way. Every
+    // other plural form (_other, _many, _few, ...) and every non-plural key
+    // is still checked strictly: those must show the actual count.
+    if (/_one$/.test(k)) return false;
+    return placeholderVars(getPath(en, k)).length > 0;
+  });
+
+  // Guards against this whole describe block going silently vacuous if
+  // en.json is ever rewritten without any interpolated strings.
+  it('found at least one interpolated key in en.json to check', () => {
+    expect(interpolatedKeys.length).toBeGreaterThan(0);
+  });
+
+  Object.entries(LOCALES).forEach(([code, resource]) => {
+    describe(`locale: ${code}`, () => {
+      interpolatedKeys.forEach((key) => {
+        it(`keeps the same {{vars}} as en for "${key}"`, () => {
+          const enVars = placeholderVars(getPath(en, key));
+          const localeVars = placeholderVars(getPath(resource, key));
+          expect(localeVars).toEqual(enVars);
+        });
+      });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2. i18n instance initialises with fallback language 'en'
 // ---------------------------------------------------------------------------
 

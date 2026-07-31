@@ -309,15 +309,29 @@ const RecipeBreakdown = ({ activeLocation }) => {
                 
                 return (
                   <div key={parentId} className="border border-border rounded-lg overflow-hidden">
-                    {/* Parent Recipe Header */}
-                    <div 
-                      className="flex items-center gap-3 p-4 bg-muted hover:bg-muted cursor-pointer transition-colors"
+                    {/* Parent Recipe Header — the whole row toggles, so it carries the
+                        single accessible name + keyboard handling; the chevron button
+                        inside is decorative only (no separate tab stop / name). */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-label={`${group.parentInfo.name} recipe breakdown`}
+                      className="flex items-center gap-3 p-4 bg-muted hover:bg-muted cursor-pointer transition-colors focus-ring-strong"
                       onClick={() => toggleExpanded(parentId)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleExpanded(parentId);
+                        }
+                      }}
                     >
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                        className="h-6 w-6 p-0 pointer-events-none"
                       >
                         {isExpanded ? (
                           <ChevronDown className="h-4 w-4" />

@@ -99,7 +99,7 @@ function AddSlotInline({ dayIso, onAdd }) {
             size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="h-6 text-xs bg-orange-500 hover:bg-orange-600 text-white px-2"
+            className="h-6 text-xs px-2"
           >
             {saving ? '…' : 'Save'}
           </Button>

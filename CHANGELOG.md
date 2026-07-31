@@ -30,12 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on any money column that is a float.
 - `internal/sync/emit` turns a row-level write into the operations that model
   produces, **inside the caller's own transaction**, so a row and its operation
-  commit together or neither does. Wired at the generic REST layer
-  (`internal/handlers/data`), which is this backend's one genuine write
-  chokepoint; `emit.Emitter.Scoped` is the seam the hand-written stores adopt
-  next. Peers still do not exchange anything — there is no push/pull round and no
-  apply path — but the operation log finally has content, where before nothing in
-  the product emitted a single operation.
+  commit together or neither does, and `data.Handler.WithEmitter` gives the
+  generic REST layer (`internal/handlers/data` — this backend's one genuine
+  write chokepoint) a seam to adopt it; `emit.Emitter.Scoped` is the seam the
+  hand-written stores adopt next. Proven end-to-end against a real migrated
+  Postgres in `emit_integration_test.go`. **Not wired into the running
+  server**: `cmd/server` never calls `WithEmitter`, so the emitter is nil in
+  production and, exactly as before this landed, nothing in the product
+  emits a single operation today. Peers still do not exchange anything —
+  there is no push/pull round and no apply path above this either.
 - BeepBite's own multi-branch merge suite under induced partition
   (`internal/sync/opsink/converge_test.go`), covering all four properties ROADMAP
   Stage 2 precondition 4 names, with byte-identical converged state across every

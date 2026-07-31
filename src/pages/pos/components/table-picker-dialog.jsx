@@ -196,7 +196,7 @@ export function TablePickerDialog({
                 className={cn(
                   "px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors",
                   sectionFilter === sec.id
-                    ? "bg-orange-500 border-orange-500 text-white"
+                    ? "bg-primary border-primary text-primary-foreground"
                     : "bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600",
                 )}
               >
@@ -215,7 +215,7 @@ export function TablePickerDialog({
               className={cn(
                 "px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors",
                 statusFilter === f
-                  ? "bg-orange-500 border-orange-500 text-white"
+                  ? "bg-primary border-primary text-primary-foreground"
                   : "bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600",
               )}
             >

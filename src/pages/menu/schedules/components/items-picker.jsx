@@ -156,7 +156,7 @@ export default function ItemsPicker({
                   <div className="h-3 w-3 rounded-full border-2 border-orange-500 border-t-transparent animate-spin shrink-0" />
                 )}
                 {isLinked && !isToggling && (
-                  <Badge className="text-xs bg-orange-500 text-white shrink-0">On</Badge>
+                  <Badge className="text-xs shrink-0">On</Badge>
                 )}
               </div>
             );

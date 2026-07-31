@@ -56,9 +56,12 @@ const STATION_STATUS = {
     label: 'Fired',
     cls:   'bg-orange-900/60 text-orange-300 border border-orange-700/50',
   },
+  // Neutral on purpose. Colour on this screen means "act on me": amber is
+  // fired and waiting, green is ready to leave. Something merely cooking is
+  // the normal state and should not compete for a cook's eye across the pass.
   in_progress: {
     label: 'Cooking',
-    cls:   'bg-sky-900/60 text-sky-300 border border-sky-700/50',
+    cls:   'bg-slate-800 text-slate-300 border border-slate-600/50',
   },
   ready: {
     label: 'Ready',
@@ -77,15 +80,22 @@ const STATION_STATUS = {
 // Per-item dot colors
 const ITEM_STATUS_DOT = {
   fired:       'bg-orange-500',
-  in_progress: 'bg-sky-400',
+  in_progress: 'bg-slate-400',
   ready:       'bg-emerald-400',
 };
 
 // ---- Order type badge -------------------------------------------------------
+// Deliberately colourless. Order type and station status were both spending
+// colour, on the same card, from unrelated palettes — and they collided:
+// orange meant "Fired" as a status and "Dine-In" as a type, so the one hue a
+// cook most needs to trust meant two different things depending on which
+// corner of the ticket it was in. Type is a short word and reads fine as
+// text; giving the whole axis back to status is what makes an actually late
+// ticket jump out. This also retires the last purple and blue on this screen.
 const ORDER_TYPE_BADGE = {
-  dine_in:    { label: 'Dine-In',    cls: 'bg-orange-500/20 text-orange-300 border border-orange-600/40' },
-  collection: { label: 'Collection', cls: 'bg-blue-500/20 text-blue-300 border border-blue-600/40'       },
-  delivery:   { label: 'Delivery',   cls: 'bg-purple-500/20 text-purple-300 border border-purple-600/40' },
+  dine_in:    { label: 'Dine-In',    cls: 'bg-slate-800 text-slate-300 border border-slate-600/50' },
+  collection: { label: 'Collection', cls: 'bg-slate-800 text-slate-300 border border-slate-600/50' },
+  delivery:   { label: 'Delivery',   cls: 'bg-slate-800 text-slate-300 border border-slate-600/50' },
 };
 
 // ---- Helpers ----------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { hasCapability } from '@/services/pos';
@@ -37,6 +37,14 @@ const TopBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
+
+  // Focus management for the side nav below — it's a hand-rolled panel (not
+  // Radix Dialog, since it's a persistent drawer rather than a centered
+  // modal), so the trap/restore/Escape behaviour Radix gives Dialog/Sheet
+  // for free has to be wired up by hand here. This panel sits on every
+  // authenticated page, so a missing trap here is a missing trap everywhere.
+  const menuTriggerRef = useRef(null);
+  const sideNavRef = useRef(null);
 
   /**
    * Derive the best slug for /s/:slug staff-PIN login.
@@ -89,6 +97,44 @@ const TopBar = () => {
   const toggleSideNav = () => {
     setIsSideNavOpen(!isSideNavOpen);
   };
+
+  // Escape closes the panel; Tab/Shift+Tab is trapped inside it while open
+  // so a keyboard user can't tab into the (still-visible, click-blocked-only)
+  // page content behind the backdrop. On close, focus returns to the avatar
+  // button that opened it rather than being dropped back to <body>.
+  useEffect(() => {
+    if (!isSideNavOpen) return;
+
+    const panel = sideNavRef.current;
+    const focusable = panel?.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    focusable?.[0]?.focus();
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSideNav();
+        return;
+      }
+      if (e.key !== 'Tab' || !focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      menuTriggerRef.current?.focus();
+    };
+  }, [isSideNavOpen]);
 
   // Top navigation items (2-3 most accessed)
   const topNavigationItems = [
@@ -262,6 +308,7 @@ const TopBar = () => {
 
                   {/* User Menu Button */}
                   <Button
+                    ref={menuTriggerRef}
                     variant="outline"
                     className="h-11 w-11 rounded-md p-0"
                     aria-label={t('auth.openNavMenu')}
@@ -312,6 +359,7 @@ const TopBar = () => {
 
           {/* Side Navigation Panel */}
           <div
+            ref={sideNavRef}
             role="dialog"
             aria-modal="true"
             aria-label={t('auth.openNavMenu')}

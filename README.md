@@ -44,8 +44,8 @@ BeepBite takes nothing and holds nothing, because there is no BeepBite service
 
 Ordering is meant to be **channel-agnostic**: customers order from wherever
 they already are, not wherever BeepBite decided to build first. Today that
-means WhatsApp chat (built, using your own Meta credentials) and QR-at-table
-or web ordering (built). Discord, Slack, and email — including over
+means WhatsApp chat (built, using your own Meta credentials) and a QR code
+that opens your public storefront, or web ordering directly (built). Discord, Slack, and email — including over
 DMTAP — the mail profile of the
 [KOTVA](https://github.com/vul-os/kotva) substrate, and the option with no Meta
 or Google in the middle, though that one is **experimental** rather than
@@ -89,7 +89,7 @@ adapters, not yet built. See [Status](#status) for exactly which is which.
 
 | Money &amp; people | Ordering &amp; delivery |
 |---|---|
-| Cash drawer sessions and reconciliation | WhatsApp ordering, and QR-at-table / web ordering |
+| Cash drawer sessions and reconciliation | WhatsApp ordering, and a QR-code storefront / web ordering |
 | Tenders — cash, card, transfer, voucher | Delivery zones, driver app, live tracking |
 | Promotions, coupons, loyalty | Pickup slots and order status |
 | Invoicing and house-account billing | Public customer tracking page |
@@ -154,7 +154,7 @@ cd backend && go run ./cmd/seedcopper --env=local --clean   # full demo restaura
 flowchart LR
   subgraph Customer
     W["WhatsApp"]
-    Q["QR at table / web"]
+    Q["QR code / web storefront"]
     T["Tracking page"]
   end
   subgraph "Your hardware"
@@ -171,7 +171,7 @@ flowchart LR
   API --> T
 ```
 
-Orders arrive from WhatsApp, a table QR code / web storefront, or the till,
+Orders arrive from WhatsApp, a QR code that opens the web storefront, or the till,
 and land in one order stream. They route to the right kitchen station and, if
 they're going out, to a driver — with a tracking link for the customer. Live
 updates are server-sent events, so there is no polling and no message broker
@@ -201,11 +201,11 @@ worse than one that says it isn't built:
 | Inventory, purchasing, recipes | **Built** |
 | Gift cards, loyalty, house accounts | **Built** |
 | WhatsApp ordering | **Built** — direct Meta Cloud API integration, needs your own credentials |
-| QR-at-table / web ordering | **Built** |
+| QR-code storefront / web ordering | **Built.** A QR code opens the public storefront; it does not bind an order to a floor-plan table or session — there is no `table_number` or `table_id` anywhere in the ordering flow, and fulfilment is delivery or collection only. |
 | Channel-adapter seam | **Built.** `internal/channel` is one interface every ordering rail implements, with a capability model and a shared text degradation. The chatbot depends on it and holds no Meta types; `internal/channel/whatsapp` is the first adapter. |
 | Discord, Slack, email ordering | **Not built.** The seam makes each one an adapter rather than a second integration — that lowers the cost of adding one, it does not add the feature. |
 | Ordering / replication over DMTAP &amp; KOTVA | **Experimental.** A research direction, not a scheduled feature. The KOTVA sync engine is now in the tree — `backend/internal/sync/substrate` runs it, and CI drives all 24 frozen SYNC conformance vectors through it — but nothing reaches it: the server never imports it, no runtime path depends on it, and the default merge engine is unchanged. Every further stage is gated behind named preconditions in [ROADMAP.md](ROADMAP.md), and the one that matters (a merge suite comparing the two engines under partition) does not exist. It may still not land. |
-| Delivery zones, driver, tracking | **Built**, but less exercised than the POS. The customer tracking page (`/track/:token`) has a real gap: the backend returns a flat JSON shape and the frontend expects a nested one, so the order-progress stepper works but the live map and ETA never render — a genuine bug, found while building this README's screenshot tooling, not yet fixed. |
+| Delivery zones, driver, tracking | **Built.** The customer tracking page (`/track/:token`) works end to end — the order-progress stepper and the ETA both render. The flat-vs-nested payload mismatch that used to break this was fixed in `7739452` by `normalizeTracking()` (`src/services/tracking.js`). The map only renders once an order reaches `out_for_delivery`, and the driver's own live position is withheld from anonymous (no-login) tracking links by a server-side privacy gate. |
 | Payments | **Tender recording only, by design.** Card processing was deliberately removed |
 | Currency &amp; locale neutrality | **Built.** Currency, tax convention, timezone, locale and dial code all resolve per location from configuration; no hardcoded ZAR/South-Africa defaults remain in application logic |
 | Single binary + SQLite | **Planned, not done.** Postgres is required today |
@@ -216,6 +216,7 @@ worse than one that says it isn't built:
 | A BeepBite cloud | **Does not exist, deliberately.** No hosted tier, no account, nothing to sign up for. If you want the till reachable from outside the shop, that is a second machine *you* deploy — a VPS, or a reachability broker such as [Ephor](https://github.com/vul-os/ephor) that your box dials out to. Your node either way. |
 | Vulos OS integration | **Optional, never required.** BeepBite runs standalone against your own Postgres; the OS is the long-term answer to sharing one menu and one set of books across branches. A hard runtime dependency on the OS, its control plane or KOTVA is forbidden. |
 | Runs on | **Linux and macOS**, x86-64 and ARM — four release binaries. Windows is not built. |
+| Receipt/kitchen printing | **Network ESC/POS printers work today** — `backend/internal/escpos` sends real ESC/POS over TCP to the printer's IP (port 9100), including the cash-drawer kick. **USB is a stub**: the handler always reports `{sent: true, error: "usb: send via pos agent"}` and no "pos agent" component exists anywhere in the repo. Browser `window.print()` is a working fallback for any printer your OS already knows about. |
 | Screenshots | **Real**, captured from a live seeded instance — see [Screenshots](#screenshots) and [docs/screenshots.md](docs/screenshots.md) |
 
 ## Development

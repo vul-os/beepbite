@@ -21,6 +21,13 @@ feature in it is in every copy.
 - Gift cards, store credit, and house accounts (with account-level invoicing).
 - Loyalty, including stamp cards.
 - Promotions and coupon codes.
+- Receipt/kitchen printing to **network (TCP/IP) ESC/POS printers**, plus the
+  ESC/POS cash-drawer kick over that same connection — both genuinely send
+  bytes to the printer's IP on port 9100, no agent or driver needed. **USB
+  printing is a stub**: the handler always reports success with "usb: send
+  via pos agent," and no such agent exists in this repository — don't rely on
+  it. Every receipt can also print from the browser via `window.print()` as a
+  fallback, network or USB, using whatever the OS already knows about.
 
 ## Kitchen
 
@@ -84,13 +91,13 @@ would mean and what isn't yet.
 
 | Channel | State |
 |---|---|
-| QR-at-table / web storefront | **Built.** Public store page, cart, checkout, order status. |
+| Web storefront / "QR at the table" | **Built, with a caveat.** Public store page, cart, checkout, order status — delivery or collection only. There is no table-number field and no floor-plan binding: a QR code just opens this same public menu on a phone. "QR at the table" today means a printed QR, not an order tied to a seat. |
 | WhatsApp ordering | **Built** — a direct Meta Cloud API integration using **your own** WhatsApp Business credentials. Entirely dark without them: no BeepBite number pool, no shared account. |
 | Order-ready notifications over WhatsApp | **Built.** Replaces a buzzer/pager; sent when kitchen marks an order ready. |
 | Channel-adapter seam | **Built.** `internal/channel` defines one interface every ordering rail implements, with a capability model and a shared text degradation — a rail that cannot render a list prints it numbered and still resolves the customer's reply back to the right row ID. The chatbot depends on the interface and holds no Meta types. `internal/channel/whatsapp` is the first adapter. |
 | Discord, Slack, email ordering | **Not built.** The seam above makes each one an adapter rather than a second integration, but no adapter exists yet. What changed is the cost of adding one, not the feature. |
 | Ordering over DMTAP / KOTVA | **Experimental.** A research direction, not a planned feature with a slot: no KOTVA code is in this tree, none is required, and the adoption is staged behind named preconditions in `ROADMAP.md`. Treat it as a thing that might not land. |
-| Delivery zones, driver portal, live tracking | **Built**, but less exercised than the POS. Zones use polygon lookup; drivers get assignments, shifts and a location-ping feed; customers get a public `/track/:token` page with a privacy-gated map. |
+| Delivery zones, driver portal, order tracking | **Built**, but less exercised than the POS. Zones use polygon lookup; drivers get assignments, shifts and a location-ping feed; customers get a public `/track/:token` page with a progress stepper and ETA. The map only appears once an order reaches `out_for_delivery`, and a server-side privacy gate withholds the driver's live position from that anonymous link before then — this is not a live driver-tracking map for the whole trip. |
 | Pickup slots | **Built.** |
 
 ## Customer engagement
@@ -107,11 +114,14 @@ not a separate marketing platform.
 
 ## Reporting
 
-**Built**, as read-only database views, gated by a `can_view_reports`
-capability: daily sales summary, hourly sales heatmap, menu engineering (which
-items earn their keep), labor hours, theoretical-vs-actual cost of goods, and
-revenue by payment method. There is no separate analytics product — these are
-the same Postgres your orders live in, queried directly.
+**Built, but partial**, as read-only database views, gated by a
+`can_view_reports` capability. Six views exist in Postgres; the app has a
+screen for two of them: daily sales summary and hourly sales heatmap. Menu
+engineering (which items earn their keep), labor hours, theoretical-vs-actual
+cost of goods, and revenue by payment method are real, queryable views with
+**no screen wired up to them yet** — `src/services/analytics.js` doesn't fetch
+them. There is no separate analytics product — these are the same Postgres
+your orders live in, queried directly, once a screen queries them.
 
 Multi-location reporting across a three-currency operation is **built as an
 off-by-default conversion seam** (`internal/fx`): it makes no network call
@@ -152,7 +162,7 @@ customer is ordering from off the premises.
 | Till, kitchen display, floor plan, back office | **No** | Ordinary LAN traffic to the binary you started |
 | Driver app and staff on the shop's Wi-Fi | **No** | Same listener, same network |
 | WhatsApp ordering | **Yes — public HTTPS** | Meta's Cloud API is webhook-only. It POSTs to `/webhooks/whatsapp`, verified against `WHATSAPP_APP_SECRET` over `X-Hub-Signature-256`. Meta offers no polling mode to switch to |
-| QR-at-table, web storefront, `/track/:token` | **Yes — public HTTPS** | A customer's phone has to reach the page, like any other web page |
+| Web storefront (incl. printed "QR at the table"), `/track/:token` | **Yes — public HTTPS** | A customer's phone has to reach the page, like any other web page |
 | Online-payment return | **Yes — public HTTPS** | The gateway redirects the buyer to `BEEPBITE_API_PUBLIC_URL`. Optional, and see `ONLINE-PAYMENTS.md` — never run against a live processor |
 
 **Getting a URL is a commodity problem, and not a component of BeepBite.**
@@ -175,6 +185,7 @@ larger would be an invented dependency.
 | Backups | **Your responsibility.** It's your Postgres; BeepBite has no backup service of its own to sell you. |
 | Node identity (Ed25519) | **Library only, unwired.** `internal/nodeid` generates and persists a node keypair (atomic write, mode 0600 enforced, refuses a group-readable key) and signs over a length-prefixed domain-separated envelope. Nothing in the running server calls it yet; it is a prerequisite for multi-branch sync and for courier identity. |
 | Merge algebra (HLC oplog) | **Library only, unwired.** `internal/oplog` implements a hybrid logical clock with a drift bound, a last-writer-wins register, an add-only set and version vectors, with a seeded convergence test asserting any permutation of the same ops reaches the same state. It has no persistence, no transport and no wire protocol, nothing in the server calls it, and it is explicitly **not** an implementation of any external sync specification. |
+| Ownership registry & emit layer | **Real and tested, switched off.** `internal/sync/ownership` classifies every table (branch-owned, group-owned, ledger, local) and `internal/sync/emit` turns a row write into the operation that registry implies. `internal/handlers/data` calls it on every insert/update/delete — but only once `WithEmitter` has attached a live `*emit.Emitter`, and the only place in this repository that calls `WithEmitter` is its own integration test. `cmd/server` never calls it, so the shipped binary always runs with a nil emitter and produces **zero** sync operations at runtime. |
 | Runs on | **Linux and macOS**, x86-64 and ARM — four release binaries. Windows is not built. Beyond that the only requirement is a Postgres you can reach. |
 | A BeepBite cloud | **Does not exist, by design.** There is no hosted tier and no account. If you want the till reachable from outside the shop, that is a second machine *you* deploy — a VPS, or a reachability broker such as [Ephor](https://github.com/vul-os/ephor) that your box dials out to. It is your node either way. |
 | Vulos OS | **Optional, never required.** BeepBite is designed to also be hosted as an app by the Vulos OS, which is the long-term answer to sharing one menu and one set of books across branches. A hard runtime dependency on the OS, its control plane or KOTVA is forbidden by the product standard. |
