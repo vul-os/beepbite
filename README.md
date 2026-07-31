@@ -90,7 +90,7 @@ adapters, not yet built. See [Status](#status) for exactly which is which.
 | Money &amp; people | Ordering &amp; delivery |
 |---|---|
 | Cash drawer sessions and reconciliation | WhatsApp ordering, and a QR-code storefront / web ordering |
-| Tenders — cash, card, transfer, voucher | Delivery zones, driver app, live tracking |
+| Tenders — cash, card, transfer, voucher | Delivery zones, driver app, order tracking |
 | Promotions, coupons, loyalty | Pickup slots and order status |
 | Invoicing and house-account billing | Public customer tracking page |
 | Time clock, payroll, tip pools | Discord, Slack, email/DMTAP ordering — planned, not built |
@@ -233,16 +233,38 @@ cd backend && go run ./cmd/tests     # integration + pentest suites
 
 ## Documentation
 
+The published viewer groups these the same way, owner-facing chapters first and
+the developer material last. Nothing here is written by hand into the site —
+`npm run docs:sync` copies `docs/` into `site/docs/`, and CI fails if the two
+drift apart.
+
+**Start here — running a restaurant with it**
+
 | Doc | |
 |---|---|
-| [Setup](docs/setup.md) | Install, configure, deploy |
-| [User guide](docs/user-guide.md) | Running a service day to day |
-| [Features](docs/features.md) | What each surface does |
-| [API](docs/api.md) | HTTP contract |
-| [Development](docs/development.md) | Working on the code |
+| [Setup](docs/setup.md) | What you are signing up for, install, first login, backups |
+| [User guide](docs/user-guide.md) | Running a service day to day, front to back |
+| [FAQ](docs/faq.md) | Cost, hosting, countries and currencies, hardware, support |
+| [Features](docs/features.md) | What each surface does, and what is deliberately not a feature |
+
+**Your data and obligations**
+
+| Doc | |
+|---|---|
+| [Security](SECURITY.md) | Reporting a vulnerability, verifying a release |
+| [Sub-processors](docs/sub-processors.md) | What each optional integration sends, and where |
+
+**Developers and advanced**
+
+| Doc | |
+|---|---|
+| [API](docs/api.md) | HTTP contract, pagination, idempotency, webhooks |
+| [Development](docs/development.md) | Architecture, RLS, the ownership model, adding a surface |
+| [Online payments](docs/ONLINE-PAYMENTS.md) | The opt-in gateway path, and why it is off by default |
+| [Troubleshooting](docs/troubleshooting.md) | Operator runbook for when it misbehaves |
 | [Screenshots](docs/screenshots.md) | How the gallery is generated, and what's excluded and why |
-| [Troubleshooting](docs/troubleshooting.md) | When it misbehaves |
 | [Roadmap](ROADMAP.md) | Gap analysis and what's next |
+| [Changelog](CHANGELOG.md) | What changed, and why |
 
 ## Contributing
 
