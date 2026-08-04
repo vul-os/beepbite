@@ -19,7 +19,7 @@ const MainLayout = () => {
         description: `You need the ${capability} permission. Ask a manager.`,
       });
     });
-    return unsub;
+    return () => { unsub(); };
   }, [toast]);
   const isLandingPage = location.pathname === '/';
   const isDocsPage = location.pathname === '/docs' || location.pathname.startsWith('/docs/');
