@@ -15,13 +15,21 @@
 //   submitLabel string   label for the submit button (default 'Sign In')
 
 import { Loader2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 
+interface KeyButtonProps {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  variant?: 'digit' | 'action';
+}
+
 // eslint-disable-next-line react/prop-types
-function KeyButton({ children, onClick, disabled, variant = 'digit' }) {
+function KeyButton({ children, onClick, disabled, variant = 'digit' }: KeyButtonProps) {
   const base =
     'flex items-center justify-center rounded-2xl text-xl font-semibold transition-all duration-100 select-none touch-manipulation';
-  const variants = {
+  const variants: Record<'digit' | 'action', string> = {
     digit:
       'w-[72px] h-[72px] bg-card border border-border shadow-sm hover:bg-muted active:scale-95 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed sm:w-20 sm:h-20',
     action:
@@ -41,8 +49,13 @@ function KeyButton({ children, onClick, disabled, variant = 'digit' }) {
   );
 }
 
+interface PinDotsProps {
+  length: number;
+  maxLength: number;
+}
+
 // eslint-disable-next-line react/prop-types
-function PinDots({ length, maxLength }) {
+function PinDots({ length, maxLength }: PinDotsProps) {
   return (
     <div className="flex items-center justify-center gap-3 my-4" aria-label={`${length} of ${maxLength} digits entered`}>
       {Array.from({ length: maxLength }).map((_, i) => (
@@ -65,6 +78,19 @@ const ROWS = [
   ['7', '8', '9'],
 ];
 
+interface PinKeypadProps {
+  pin?: string;
+  maxLength?: number;
+  minLength?: number;
+  onDigit: (digit: string) => void;
+  onDelete: () => void;
+  onClear: () => void;
+  onSubmit: () => void;
+  loading?: boolean;
+  error?: string | null;
+  submitLabel?: string;
+}
+
 // eslint-disable-next-line react/prop-types
 const PinKeypad = ({
   pin = '',
@@ -77,7 +103,7 @@ const PinKeypad = ({
   loading = false,
   error = null,
   submitLabel = 'Sign In',
-}) => {
+}: PinKeypadProps) => {
   const canSubmit = pin.length >= minLength && !loading;
 
   return (
