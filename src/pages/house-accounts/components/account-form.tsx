@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,22 +20,44 @@ const EMPTY = {
   contact_email: '',
 };
 
-export function AccountFormDialog({ open, onOpenChange, orgId, onCreate }) {
+// Mirrors backend/internal/handlers/houseaccounts/handler.go createAccountReq
+// -- note the request shape (org_id/name) differs from the HouseAccount
+// response DTO (organization_id/account_name).
+export interface CreateHouseAccountInput {
+  org_id: string;
+  name: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  billing_address?: string;
+  credit_limit_cents?: number;
+  net_terms_days?: number;
+  notes?: string;
+}
+
+interface AccountFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  orgId: string;
+  onCreate: (body: CreateHouseAccountInput) => Promise<unknown>;
+}
+
+export function AccountFormDialog({ open, onOpenChange, orgId, onCreate }: AccountFormDialogProps) {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState(null);
+  const [err, setErr] = useState<string | null>(null);
 
-  function set(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  function set(field: keyof typeof EMPTY) {
+    return (e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!form.name.trim()) { setErr('Name is required'); return; }
     setSaving(true);
     setErr(null);
     try {
-      const body = {
+      const body: CreateHouseAccountInput = {
         org_id: orgId,
         name: form.name.trim(),
         net_terms_days: form.net_terms_days ? parseInt(form.net_terms_days, 10) : undefined,
@@ -49,7 +71,7 @@ export function AccountFormDialog({ open, onOpenChange, orgId, onCreate }) {
       setForm(EMPTY);
       onOpenChange(false);
     } catch (e) {
-      setErr(e.message || 'Failed to create account');
+      setErr(e instanceof Error ? e.message : 'Failed to create account');
     } finally {
       setSaving(false);
     }
