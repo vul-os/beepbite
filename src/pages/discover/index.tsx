@@ -10,8 +10,8 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { getStores } from '@/services/marketplace';
-import StoreCard from './components/store-card';
+import { getStores, type GetStoresParams } from '@/services/marketplace';
+import StoreCard, { type DiscoverStoreView } from './components/store-card';
 
 const DISTANCES = [
   { label: 'Any distance', value: '' },
@@ -42,29 +42,33 @@ export default function DiscoverPage() {
   const [query, setQuery] = useState('');
   const [city, setCity] = useState('');
   const [distance, setDistance] = useState('');
-  const [stores, setStores] = useState([]);
+  const [stores, setStores] = useState<DiscoverStoreView[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
   // Debounced search ref
-  const debounceTimer = useRef(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchStores = useCallback(async (params) => {
+  const fetchStores = useCallback(async (params: GetStoresParams) => {
     setLoading(true);
     setError(null);
     try {
       const { data, error: err } = await getStores(params);
       if (err) throw new Error(err.message || 'Failed to load stores');
-      // API may return { stores: [...] } or a plain array
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.stores)
-          ? data.stores
+      // API may return { stores: [...] } or a plain array. Store is cast to
+      // DiscoverStoreView here — see store-card.tsx's note: the real DTO
+      // (services/marketplace.ts Store) doesn't carry most of the fields
+      // this page/card have always assumed.
+      const wrapped = data as unknown as { stores?: DiscoverStoreView[] } | DiscoverStoreView[] | null;
+      const list: DiscoverStoreView[] = Array.isArray(wrapped)
+        ? wrapped
+        : Array.isArray(wrapped?.stores)
+          ? wrapped.stores
           : [];
       setStores(list);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load stores');
       // Fall back to empty demo list so the UI is still usable during dev
       setStores([]);
     } finally {
@@ -74,7 +78,7 @@ export default function DiscoverPage() {
 
   // Initial load + re-fetch when filters change
   useEffect(() => {
-    clearTimeout(debounceTimer.current);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       fetchStores({
         query: query.trim() || undefined,
@@ -82,7 +86,9 @@ export default function DiscoverPage() {
         distance: distance ? Number(distance) : undefined,
       });
     }, 350);
-    return () => clearTimeout(debounceTimer.current);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, [query, city, distance, fetchStores]);
 
   const clearSearch = () => {

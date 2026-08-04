@@ -15,7 +15,25 @@ export interface GetStoresParams {
   limit?: number;
 }
 
+// Mirrors backend/internal/handlers/marketplace/store.go StoreListItem — the
+// real shape of each element GET /stores actually returns. NOTE: several
+// fields the discover-page UI reads (cuisine_type, rating, review_count,
+// distance_km, is_open, cover_image_url, logo_url, currency variants,
+// min/max_price_cents, delivery_time_min/max) do NOT exist on this DTO —
+// the backend never sends them (avg_rating is the closest analog to
+// `rating`, and is `null` whenever no visible reviews exist). This mismatch
+// predates this migration; the index signature below preserves the existing
+// defensive reads (always `unknown`/undefined at runtime) without asserting
+// they're real, per project policy (flag, don't fix).
 export interface Store {
+  id: string;
+  name: string;
+  slug: string | null;
+  city: string | null;
+  country: string | null;
+  address: string | null;
+  description: string | null;
+  avg_rating: number | null;
   [key: string]: unknown;
 }
 

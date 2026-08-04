@@ -3,15 +3,35 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, Clock, Navigation } from 'lucide-react';
 import { formatPrice } from '@/lib/currency';
 
-/**
- * StoreCard — compact card shown in the /discover grid.
- *
- * Props:
- *   store: { slug, name, description, city, cuisine_type, rating, review_count,
- *             distance_km, is_open, cover_image_url, logo_url,
- *             currency, min_price_cents, max_price_cents }
- */
-export default function StoreCard({ store }) {
+// NOTE: none of the fields below except id/name/slug/city/description exist
+// on the real backend/internal/handlers/marketplace/store.go StoreListItem
+// DTO returned by GET /stores (see services/marketplace.ts's `Store` type
+// for the real shape + gap note) — this card has always assumed a richer
+// shape than the API sends. Flagged, not fixed, per project policy; these
+// fields render blank/undefined today exactly as before the migration.
+export interface DiscoverStoreView {
+  id?: string;
+  slug?: string;
+  name?: string;
+  description?: string;
+  city?: string;
+  cuisine_type?: string;
+  rating?: number | string;
+  review_count?: number;
+  distance_km?: number;
+  is_open?: boolean;
+  cover_image_url?: string;
+  logo_url?: string;
+  currency?: string;
+  default_currency_code?: string;
+  currency_code?: string;
+  min_price_cents?: number;
+  max_price_cents?: number;
+  delivery_time_min?: number;
+  delivery_time_max?: number;
+}
+
+export default function StoreCard({ store }: { store: DiscoverStoreView }) {
   const currency = store?.currency || store?.default_currency_code || store?.currency_code || 'USD';
   const navigate = useNavigate();
 
