@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,19 +7,25 @@ import { Truck, Loader2, Mail, X, CheckCircle, AlertCircle, UserMinus } from 'lu
 import {
   listDriverInvites, inviteDriver, revokeDriverInvite,
   listActiveDrivers, removeDriver,
+  type DriverInvite, type Driver,
 } from '@/services/driver-invites';
+
+interface StatusMessage {
+  kind: 'ok' | 'err';
+  text: string;
+}
 
 // DriverInvitesPanel — owner/manager surface to invite drivers by email and
 // manage pending invites. Drop it on the Staff management page.
 export default function DriverInvitesPanel() {
-  const [invites, setInvites] = useState([]);
+  const [invites, setInvites] = useState<DriverInvite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [drivers, setDrivers] = useState([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
-  const [removingId, setRemovingId] = useState(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [msg, setMsg] = useState(null); // { kind: 'ok'|'err', text }
+  const [msg, setMsg] = useState<StatusMessage | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,7 +52,7 @@ export default function DriverInvitesPanel() {
 
   useEffect(() => { load(); loadDrivers(); }, [load, loadDrivers]);
 
-  const handleRemoveDriver = async (driver) => {
+  const handleRemoveDriver = async (driver: Driver) => {
     if (!window.confirm(`Remove driver access for ${driver.email}? They will lose access to the Driver Portal.`)) return;
     setRemovingId(driver.profile_id);
     setMsg(null);
@@ -55,13 +61,13 @@ export default function DriverInvitesPanel() {
       setMsg({ kind: 'ok', text: `Removed driver access for ${driver.email}.` });
       await loadDrivers();
     } catch (err) {
-      setMsg({ kind: 'err', text: err.message || 'Failed to remove driver' });
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to remove driver' });
     } finally {
       setRemovingId(null);
     }
   };
 
-  const handleInvite = async (e) => {
+  const handleInvite = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const value = email.trim();
     if (!value) return;
@@ -73,18 +79,18 @@ export default function DriverInvitesPanel() {
       setEmail('');
       await load();
     } catch (err) {
-      setMsg({ kind: 'err', text: err.message || 'Failed to invite driver' });
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to invite driver' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleRevoke = async (id) => {
+  const handleRevoke = async (id: string) => {
     try {
       await revokeDriverInvite(id);
       await load();
     } catch (err) {
-      setMsg({ kind: 'err', text: err.message || 'Failed to revoke invite' });
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to revoke invite' });
     }
   };
 

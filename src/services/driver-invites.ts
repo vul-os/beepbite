@@ -9,15 +9,24 @@
 // auto-accepts (AcceptMatchingInvites), granting driver-role + can_drive.
 import { api } from '@/lib/api-client';
 
+// Mirrors backend/internal/handlers/driverinvite/store.go DriverInvite.
 export interface DriverInvite {
   id: string;
+  organization_id: string;
   email: string;
-  [key: string]: unknown;
+  role: string;
+  status: string;
+  invited_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
+// Mirrors backend/internal/handlers/driverinvite/store.go ActiveDriver.
 export interface Driver {
-  id: string;
-  [key: string]: unknown;
+  profile_id: string;
+  email: string;
+  full_name: string;
+  joined_at: string;
 }
 
 interface FetchError extends Error {
