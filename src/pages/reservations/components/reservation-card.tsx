@@ -5,7 +5,31 @@ import { Button } from '@/components/ui/button';
 import { Clock, Users, Phone, Mail, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api-client';
 
-function formatTime(iso) {
+// Mirrors backend/migrations/001_baseline.sql `reservations` table.
+export type ReservationStatus = 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
+
+export interface Reservation {
+  id: string;
+  organization_id: string;
+  location_id: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  party_size: number;
+  reservation_at: string;
+  duration_minutes: number;
+  table_id: string | null;
+  section_id: string | null;
+  status: ReservationStatus;
+  special_requests: string | null;
+  confirmation_sent_at: string | null;
+  created_by_staff_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function formatTime(iso?: string | null) {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -17,7 +41,7 @@ function formatTime(iso) {
 // glance, but seated is the solid/definitive form ("they're here now") while
 // confirmed is a soft tint ("booked, not arrived yet") so the two states
 // stay visually distinguishable next to each other.
-const STATUS_STYLES = {
+const STATUS_STYLES: Record<string, string> = {
   pending:   'bg-warning/15 text-warning border-warning/30',
   confirmed: 'bg-primary/10 text-primary border-primary/25',
   seated:    'bg-success text-success-foreground border-transparent',
@@ -31,11 +55,16 @@ const STATUS_STYLES = {
 // the destructive one.
 const LATE_THRESHOLD_MIN = 15;
 
-export default function ReservationCard({ reservation, onRefresh }) {
+interface ReservationCardProps {
+  reservation: Reservation;
+  onRefresh?: () => void;
+}
+
+export default function ReservationCard({ reservation, onRefresh }: ReservationCardProps) {
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  const act = async (path) => {
+  const act = async (path: string) => {
     setBusy(true);
     try {
       const { error } = await api.request('POST', `/reservations/${reservation.id}/${path}`, { body: {} });
