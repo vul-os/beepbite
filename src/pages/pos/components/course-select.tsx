@@ -14,14 +14,22 @@
 /* eslint-disable react/prop-types */
 import { cn } from '@/lib/utils';
 
-/**
- * @param {object}   props
- * @param {string}   [props.courseId]     - currently assigned course id (or null)
- * @param {Array}    [props.courses]      - [{id, name, sort_order}] for this location
- * @param {Function} props.onChange       - (courseId: string | null) => void
- * @param {string}   [props.className]
- */
-export default function CourseSelect({ courseId, courses = [], onChange, className }) {
+// Mirrors backend/migrations/001_baseline.sql `courses` table (subset used here).
+export interface Course {
+  id: string;
+  name: string;
+  sort_order?: number;
+  fire_on_previous_course_bumped?: boolean;
+}
+
+interface CourseSelectProps {
+  courseId?: string | null;
+  courses?: Course[];
+  onChange: (courseId: string | null) => void;
+  className?: string;
+}
+
+export default function CourseSelect({ courseId, courses = [], onChange, className }: CourseSelectProps) {
   if (!courses || courses.length === 0) return null;
 
   return (
