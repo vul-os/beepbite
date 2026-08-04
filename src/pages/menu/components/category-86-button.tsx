@@ -24,15 +24,30 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { eightySixCategory, unEightySixCategory } from '@/services/category86';
 
+interface CategoryLite {
+  id: string;
+  name: string;
+}
+
+interface ItemLite {
+  is_86ed?: boolean;
+  [key: string]: unknown;
+}
+
+interface Category86ButtonProps {
+  category: CategoryLite;
+  allItems?: ItemLite[];
+  onComplete?: (payload: { items_affected: number; is_86ed: boolean }) => void;
+  disabled?: boolean;
+}
+
 /**
  * A button that 86s or un-86s the entire category after a confirmation dialog.
- *
- * @param {{ category: {id: string, name: string}, allItems: Array, onComplete?: Function, disabled?: boolean }} props
  */
-export function Category86Button({ category, allItems = [], onComplete, disabled = false }) {
+export function Category86Button({ category, allItems = [], onComplete, disabled = false }: Category86ButtonProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Derive whether the category is "currently 86'd" by checking if ALL active
   // items in the list are marked is_86ed. If there are no items we fall back to
