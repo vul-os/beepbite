@@ -25,15 +25,34 @@ import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 
+// Mirrors backend/migrations/001_baseline.sql `locations` table (subset used
+// by this page). supabase.from(...) goes through the untyped api.from(...)
+// query builder (the one documented `any` in the codebase), so this
+// interface is applied locally to keep this page's own state honestly typed.
+interface OrgLocation {
+  id: string;
+  name: string;
+  address?: string | null;
+  is_active: boolean;
+  accepts_delivery: boolean;
+  accepts_pickup: boolean;
+  whatsapp_number?: string | null;
+}
+
+interface OrgFormData {
+  name: string;
+  is_active: boolean;
+}
+
 const OrganizationSettings = () => {
-  const { activeOrganization, user, fetchOrganizations } = useAuth();
+  const { activeOrganization, fetchOrganizations } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [activeTab, setActiveTab] = useState('organization');
-  const [locations, setLocations] = useState([]);
-  const [formData, setFormData] = useState({
+  const [locations, setLocations] = useState<OrgLocation[]>([]);
+  const [formData, setFormData] = useState<OrgFormData>({
     // Organization data
     name: '',
     is_active: true
@@ -85,7 +104,7 @@ const OrganizationSettings = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = <K extends keyof OrgFormData>(field: K, value: OrgFormData[K]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -134,7 +153,7 @@ const OrganizationSettings = () => {
 
     } catch (error) {
       console.error('Error saving settings:', error);
-      setSaveMessage(error.message || 'Failed to save settings. Please try again.');
+      setSaveMessage(error instanceof Error ? error.message : 'Failed to save settings. Please try again.');
 
       setTimeout(() => {
         setSaveMessage('');
