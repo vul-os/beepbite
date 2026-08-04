@@ -14,11 +14,17 @@ import { useMoney } from '@/context/locale-context';
  * coins, so with no currency resolved there is nothing to count and the grid
  * renders empty rather than offering somebody else's banknotes.
  */
-export function DenominationGrid({ counts = {}, onChange, readOnly = false }) {
+interface DenominationGridProps {
+  counts?: Record<string, number>;
+  onChange?: (counts: Record<string, number>, totalCents: number) => void;
+  readOnly?: boolean;
+}
+
+export function DenominationGrid({ counts = {}, onChange, readOnly = false }: DenominationGridProps) {
   const { format, currency } = useMoney();
   const denominations = denominationRows(currency);
 
-  const handleChange = (key, rawValue) => {
+  const handleChange = (key: string, rawValue: string) => {
     const n = Math.max(0, parseInt(rawValue, 10) || 0);
     const next = { ...counts, [key]: n };
     const totalCents = denominations.reduce(
