@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useDateTime } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
-import ReservationCard from './components/reservation-card';
+import ReservationCard, { type Reservation } from './components/reservation-card';
 import ReservationForm from './components/reservation-form';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
@@ -26,7 +26,7 @@ export default function ReservationsPage() {
   // The store's local trading date, not `new Date().toISOString().slice(0, 10)`
   // (the UTC date — wrong for most of the day in most timezones).
   const [date, setDate] = useState(today());
-  const [reservations, setReservations] = useState([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -36,14 +36,14 @@ export default function ReservationsPage() {
     setLoading(true);
     setError('');
     try {
-      const { data, error: apiErr } = await api.request(
+      const { data, error: apiErr } = await api.request<Reservation[]>(
         'GET',
         `/reservations?location_id=${locationId}&date=${date}`
       );
       if (apiErr) throw new Error(apiErr.message);
       setReservations(Array.isArray(data) ? data : []);
     } catch (e) {
-      setError(e.message || 'Failed to load reservations');
+      setError(e instanceof Error ? e.message : 'Failed to load reservations');
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ export default function ReservationsPage() {
     );
   }
 
-  const grouped = {
+  const grouped: Record<'pending' | 'confirmed' | 'seated' | 'other', Reservation[]> = {
     pending:   reservations.filter((r) => r.status === 'pending'),
     confirmed: reservations.filter((r) => r.status === 'confirmed'),
     seated:    reservations.filter((r) => r.status === 'seated'),
@@ -126,12 +126,14 @@ export default function ReservationsPage() {
       {/* Groups */}
       {!error && reservations.length > 0 && (
         <div className="space-y-6">
-          {[
-            { label: 'Pending', key: 'pending', color: 'text-warning' },
-            { label: 'Confirmed', key: 'confirmed', color: 'text-primary' },
-            { label: 'Seated', key: 'seated', color: 'text-success' },
-            { label: 'Past / Cancelled', key: 'other', color: 'text-muted-foreground' },
-          ].map(({ label, key, color }) =>
+          {(
+            [
+              { label: 'Pending', key: 'pending', color: 'text-warning' },
+              { label: 'Confirmed', key: 'confirmed', color: 'text-primary' },
+              { label: 'Seated', key: 'seated', color: 'text-success' },
+              { label: 'Past / Cancelled', key: 'other', color: 'text-muted-foreground' },
+            ] as { label: string; key: 'pending' | 'confirmed' | 'seated' | 'other'; color: string }[]
+          ).map(({ label, key, color }) =>
             grouped[key].length > 0 ? (
               <section key={key}>
                 <h2 className={`text-sm font-semibold uppercase tracking-wide mb-2 ${color}`}>
@@ -153,8 +155,8 @@ export default function ReservationsPage() {
         open={showForm}
         onClose={() => setShowForm(false)}
         onCreated={load}
-        organizationId={activeLocation?.organization_id}
-        locationId={locationId}
+        organizationId={activeLocation?.organization_id ?? ''}
+        locationId={locationId ?? ''}
       />
     </PageContainer>
   );
