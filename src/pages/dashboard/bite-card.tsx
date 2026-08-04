@@ -12,14 +12,48 @@ import {
   Eye
 } from 'lucide-react';
 
-const BiteCard = ({ 
-  bite: order, 
-  currentTime, 
-  onStatusUpdate, 
-  onCompleteOrder, 
-  formatTimeWithSeconds 
-}) => {
-  const getStatusIcon = (status) => {
+// Mirrors backend/migrations/001_baseline.sql `orders` (subset) + the
+// `customers` relation this card reads through. Note: this component is
+// not currently imported anywhere in the app (dead code) — typed against
+// the real schema regardless, in case it's wired back up.
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'preparing'
+  | 'ready'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'completed'
+  | 'cancelled'
+  | 'pending_on_delivery';
+
+export interface BiteOrder {
+  id: string;
+  order_number: string;
+  status: OrderStatus;
+  created_at: string;
+  ready_at?: string | null;
+  customers?: {
+    whatsapp_number?: string | null;
+  } | null;
+}
+
+interface BiteCardProps {
+  bite: BiteOrder;
+  currentTime: Date;
+  onStatusUpdate: (orderId: string, status: OrderStatus) => void;
+  onCompleteOrder: (orderId: string, orderNumber: string) => void;
+  formatTimeWithSeconds: (iso: string) => string;
+}
+
+const BiteCard = ({
+  bite: order,
+  currentTime,
+  onStatusUpdate,
+  onCompleteOrder,
+  formatTimeWithSeconds
+}: BiteCardProps) => {
+  const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
       case 'confirmed':
@@ -36,7 +70,7 @@ const BiteCard = ({
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
       case 'confirmed':
