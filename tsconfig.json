@@ -18,6 +18,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   "include": ["src/**/*"],
