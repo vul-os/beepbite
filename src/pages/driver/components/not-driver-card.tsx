@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
  * Props:
  *   userEmail {string|undefined}
  */
-export default function NotDriverCard({ userEmail }) {
+export default function NotDriverCard({ userEmail }: { userEmail?: string }) {
   return (
     <Card className="border-border/70 shadow-sm">
       <CardContent className="p-6 flex flex-col items-center text-center gap-4">
