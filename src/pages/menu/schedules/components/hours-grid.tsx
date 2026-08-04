@@ -1,10 +1,12 @@
-// hours-grid.jsx — 7-row grid (Mon-Sun) of time-window slots per day.
+// hours-grid.tsx — 7-row grid (Mon-Sun) of time-window slots per day.
 // day_of_week follows ISO: 1=Monday … 7=Sunday (matches the DB CHECK constraint).
 
 import { useCallback, useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { MenuSchedule, MenuScheduleSlot, AddSlotInput } from '../hooks/use-schedules';
 
 const DAYS = [
   { label: 'Monday',    iso: 1 },
@@ -16,7 +18,13 @@ const DAYS = [
   { label: 'Sunday',    iso: 7 },
 ];
 
-function SlotRow({ slot, onDelete, deleting }) {
+interface SlotRowProps {
+  slot: MenuScheduleSlot;
+  onDelete: (id: string) => void;
+  deleting: string | null;
+}
+
+function SlotRow({ slot, onDelete, deleting }: SlotRowProps) {
   return (
     <div className="flex items-center gap-2 py-1">
       <span className="text-sm tabular-nums text-foreground w-20">{slot.start_time}</span>
@@ -38,7 +46,12 @@ function SlotRow({ slot, onDelete, deleting }) {
   );
 }
 
-function AddSlotInline({ dayIso, onAdd }) {
+interface AddSlotInlineProps {
+  dayIso: number;
+  onAdd: (input: { dayOfWeek: number; startTime: string; endTime: string }) => Promise<void>;
+}
+
+function AddSlotInline({ dayIso, onAdd }: AddSlotInlineProps) {
   const [open, setOpen] = useState(false);
   const [start, setStart] = useState('09:00');
   const [end, setEnd] = useState('11:00');
@@ -53,7 +66,7 @@ function AddSlotInline({ dayIso, onAdd }) {
       await onAdd({ dayOfWeek: dayIso, startTime: start, endTime: end });
       setOpen(false);
     } catch (e) {
-      setErr(e.message || 'Failed to add slot');
+      setErr(e instanceof Error ? e.message : 'Failed to add slot');
     } finally {
       setSaving(false);
     }
@@ -123,10 +136,17 @@ function AddSlotInline({ dayIso, onAdd }) {
   );
 }
 
-export default function HoursGrid({ schedule, fetchSlots, addSlot, deleteSlot }) {
-  const [slots, setSlots] = useState([]);
+interface HoursGridProps {
+  schedule: MenuSchedule;
+  fetchSlots: (scheduleId: string) => Promise<MenuScheduleSlot[]>;
+  addSlot: (input: AddSlotInput) => Promise<MenuScheduleSlot | null>;
+  deleteSlot: (id: string) => Promise<void>;
+}
+
+export default function HoursGrid({ schedule, fetchSlots, addSlot, deleteSlot }: HoursGridProps) {
+  const [slots, setSlots] = useState<MenuScheduleSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -136,7 +156,7 @@ export default function HoursGrid({ schedule, fetchSlots, addSlot, deleteSlot })
       const data = await fetchSlots(schedule.id);
       setSlots(data);
     } catch (e) {
-      setError(e.message || 'Failed to load slots');
+      setError(e instanceof Error ? e.message : 'Failed to load slots');
     } finally {
       setLoading(false);
     }
@@ -144,18 +164,18 @@ export default function HoursGrid({ schedule, fetchSlots, addSlot, deleteSlot })
 
   useEffect(() => { load(); }, [load]);
 
-  const handleAdd = useCallback(async ({ dayOfWeek, startTime, endTime }) => {
+  const handleAdd = useCallback(async ({ dayOfWeek, startTime, endTime }: { dayOfWeek: number; startTime: string; endTime: string }) => {
     await addSlot({ menuScheduleId: schedule.id, dayOfWeek, startTime, endTime });
     await load();
   }, [schedule.id, addSlot, load]);
 
-  const handleDelete = useCallback(async (id) => {
+  const handleDelete = useCallback(async (id: string) => {
     setDeleting(id);
     try {
       await deleteSlot(id);
       setSlots((prev) => prev.filter((s) => s.id !== id));
     } catch (e) {
-      alert(e.message || 'Failed to delete slot');
+      alert(e instanceof Error ? e.message : 'Failed to delete slot');
     } finally {
       setDeleting(null);
     }
@@ -183,7 +203,7 @@ export default function HoursGrid({ schedule, fetchSlots, addSlot, deleteSlot })
     );
   }
 
-  const slotsByDay = DAYS.reduce((acc, d) => {
+  const slotsByDay = DAYS.reduce<Record<number, MenuScheduleSlot[]>>((acc, d) => {
     acc[d.iso] = slots.filter((s) => s.day_of_week === d.iso);
     return acc;
   }, {});
