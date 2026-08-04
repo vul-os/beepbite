@@ -15,7 +15,7 @@ import { api } from '../lib/api-client.js';
  * @param {'cash'|'card_machine'} method
  * @returns {Promise<{ data: object, error: object }>}
  */
-export async function markPaidOnDelivery(orderId, method) {
+export async function markPaidOnDelivery(orderId: string, method: 'cash' | 'card_machine') {
   return api.request('POST', `/orders/${encodeURIComponent(orderId)}/mark-paid-on-delivery`, {
     body: { method },
   });

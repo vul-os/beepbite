@@ -9,37 +9,52 @@
 // auto-accepts (AcceptMatchingInvites), granting driver-role + can_drive.
 import { api } from '@/lib/api-client';
 
-export async function listDriverInvites() {
-  const { data, error } = await api.request('GET', '/driver-invites');
+export interface DriverInvite {
+  id: string;
+  email: string;
+  [key: string]: unknown;
+}
+
+export interface Driver {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface FetchError extends Error {
+  status?: number;
+}
+
+export async function listDriverInvites(): Promise<DriverInvite[]> {
+  const { data, error } = await api.request<DriverInvite[] | { invites: DriverInvite[] }>('GET', '/driver-invites');
   if (error) throw new Error(error.message || 'Failed to load driver invites');
   return Array.isArray(data) ? data : (data?.invites ?? []);
 }
 
-export async function inviteDriver(email) {
-  const { data, error } = await api.request('POST', '/driver-invites', {
+export async function inviteDriver(email: string) {
+  const { data, error } = await api.request<DriverInvite>('POST', '/driver-invites', {
     body: { email: String(email || '').trim() },
   });
   if (error) {
-    const e = new Error(error.message || 'Failed to invite driver');
+    const e: FetchError = new Error(error.message || 'Failed to invite driver');
     e.status = error.status;
     throw e;
   }
   return data;
 }
 
-export async function revokeDriverInvite(id) {
+export async function revokeDriverInvite(id: string) {
   const { error } = await api.request('POST', `/driver-invites/${id}/revoke`);
   if (error) throw new Error(error.message || 'Failed to revoke invite');
 }
 
 // Active drivers (accepted members with role=driver).
-export async function listActiveDrivers() {
-  const { data, error } = await api.request('GET', '/drivers');
+export async function listActiveDrivers(): Promise<Driver[]> {
+  const { data, error } = await api.request<Driver[] | { drivers: Driver[] }>('GET', '/drivers');
   if (error) throw new Error(error.message || 'Failed to load drivers');
   return Array.isArray(data) ? data : (data?.drivers ?? []);
 }
 
-export async function removeDriver(profileId) {
+export async function removeDriver(profileId: string) {
   const { error } = await api.request('DELETE', `/drivers/${profileId}`);
   if (error) throw new Error(error.message || 'Failed to remove driver');
 }

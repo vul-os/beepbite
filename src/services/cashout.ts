@@ -6,13 +6,22 @@
 
 import { api } from '@/lib/api-client';
 
+export interface CashOutReport {
+  opening_float: number;
+  cash_sales: number;
+  movements: unknown[];
+  expected: number;
+  counted: number;
+  variance: number;
+  [key: string]: unknown;
+}
+
 /**
  * Fetch the cash-out report for a cash drawer session.
  *
- * @param {string} sessionId - UUID of the cash_drawer_session
- * @returns {Promise<{ data: import('./cashout').CashOutReport|null, error: Error|null }>}
+ * @param sessionId - UUID of the cash_drawer_session
  */
-export async function fetchCashOut(sessionId) {
-  const { data, error } = await api.request('GET', `/cash-out/${sessionId}`);
+export async function fetchCashOut(sessionId: string) {
+  const { data, error } = await api.request<CashOutReport>('GET', `/cash-out/${sessionId}`);
   return { data: data ?? null, error: error ?? null };
 }

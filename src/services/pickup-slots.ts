@@ -4,20 +4,27 @@
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
+export interface PickupSlot {
+  /** ISO-8601 UTC timestamp of slot start */
+  slot_time: string;
+  /** max orders (0 = unlimited) */
+  capacity: number;
+  /** orders already booked in this slot */
+  scheduled: number;
+  /** true when capacity > 0 && scheduled >= capacity */
+  is_full: boolean;
+}
+
 /**
  * Fetch available pickup time slots for a location on a given date.
  *
- * @param {string} locationId   — UUID of the location
- * @param {string} date         — ISO date string "YYYY-MM-DD"
- * @returns {Promise<{ data: PickupSlot[], error: { message: string } | null }>}
- *
- * @typedef {Object} PickupSlot
- * @property {string}  slot_time   — ISO-8601 UTC timestamp of slot start
- * @property {number}  capacity    — max orders (0 = unlimited)
- * @property {number}  scheduled   — orders already booked in this slot
- * @property {boolean} is_full     — true when capacity > 0 && scheduled >= capacity
+ * @param locationId   — UUID of the location
+ * @param date         — ISO date string "YYYY-MM-DD"
  */
-export async function fetchPickupSlots(locationId, date) {
+export async function fetchPickupSlots(
+  locationId: string,
+  date: string,
+): Promise<{ data: PickupSlot[] | null; error: { message: string; status?: number } | null }> {
   if (!locationId || !date) {
     return { data: null, error: { message: 'locationId and date are required' } };
   }
@@ -31,7 +38,7 @@ export async function fetchPickupSlots(locationId, date) {
     });
 
     const text = await res.text();
-    let payload = null;
+    let payload: any = null;
     if (text) {
       try { payload = JSON.parse(text); } catch { payload = text; }
     }
@@ -43,6 +50,6 @@ export async function fetchPickupSlots(locationId, date) {
 
     return { data: payload, error: null };
   } catch (err) {
-    return { data: null, error: { message: err.message || 'network error' } };
+    return { data: null, error: { message: (err as Error)?.message || 'network error' } };
   }
 }

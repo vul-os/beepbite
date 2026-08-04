@@ -4,40 +4,46 @@
 
 import { api } from '../lib/api-client.js';
 
+export interface TenantSummary {
+  org_id: string;
+  name: string;
+  slug: string;
+  owner_email: string;
+  status: string;
+  created_at: string;
+}
+
+export interface TenantDetail {
+  org: unknown;
+  alarms: unknown;
+}
+
 /**
  * Search tenants by name/slug/email.
- * @param {string} q  - search query (may be empty for all)
- * @returns {Promise<{ data: Array, error: object }>}
- *   Each item: { org_id, name, slug, owner_email, status, created_at }
+ * @param q  - search query (may be empty for all)
  */
 export async function searchTenants(q = '') {
   const qs = q ? `?q=${encodeURIComponent(q)}` : '';
-  return api.request('GET', `/admin/tenants${qs}`);
+  return api.request<TenantSummary[]>('GET', `/admin/tenants${qs}`);
 }
 
 /**
  * Fetch full detail for a single tenant.
- * @param {string} orgId
- * @returns {Promise<{ data: { org, alarms }, error: object }>}
  */
-export async function getTenant(orgId) {
-  return api.request('GET', `/admin/tenants/${encodeURIComponent(orgId)}`);
+export async function getTenant(orgId: string) {
+  return api.request<TenantDetail>('GET', `/admin/tenants/${encodeURIComponent(orgId)}`);
 }
 
 /**
  * Pause a tenant (suspend all activity).
- * @param {string} orgId
- * @returns {Promise<{ data: object, error: object }>}
  */
-export async function pauseTenant(orgId) {
+export async function pauseTenant(orgId: string) {
   return api.request('POST', `/admin/tenants/${encodeURIComponent(orgId)}/pause`);
 }
 
 /**
  * Un-pause (resume) a previously paused tenant.
- * @param {string} orgId
- * @returns {Promise<{ data: object, error: object }>}
  */
-export async function unpauseTenant(orgId) {
+export async function unpauseTenant(orgId: string) {
   return api.request('POST', `/admin/tenants/${encodeURIComponent(orgId)}/unpause`);
 }

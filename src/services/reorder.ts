@@ -13,25 +13,49 @@
 
 import { api } from '@/lib/api-client';
 
+export interface RecentOrderModifier {
+  modifier_id: string;
+  name: string;
+  price_cents: number;
+}
+
+export interface RecentOrderItem {
+  item_id: string;
+  item_name: string;
+  quantity: number;
+  modifiers: RecentOrderModifier[];
+}
+
+export interface RecentOrder {
+  id: string;
+  order_number: string;
+  created_at: string;
+  total_cents: number;
+  items: RecentOrderItem[];
+}
+
+interface FetchError extends Error {
+  status?: number;
+}
+
 /**
  * Fetch the most recent orders for a customer so staff can clone one into cart.
  *
- * @param {string} customerId  - UUID of the customer
- * @param {number} [limit=3]   - Number of past orders to return (1–20)
- * @returns {Promise<Array>}   - Array of RecentOrder objects, newest first
- * @throws {Error}             - On HTTP error or network failure
+ * @param customerId  - UUID of the customer
+ * @param limit   - Number of past orders to return (1–20)
+ * @throws {Error} - On HTTP error or network failure
  */
-export async function fetchRecentOrders(customerId, limit = 3) {
+export async function fetchRecentOrders(customerId: string, limit = 3): Promise<RecentOrder[]> {
   if (!customerId) throw new Error('customerId is required');
 
   const qs = new URLSearchParams({ limit: String(limit) });
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<RecentOrder[]>(
     'GET',
     `/customers/${encodeURIComponent(customerId)}/recent-orders?${qs}`,
   );
 
   if (error) {
-    const e = new Error(error.message || 'Failed to fetch recent orders');
+    const e: FetchError = new Error(error.message || 'Failed to fetch recent orders');
     e.status = error.status;
     throw e;
   }

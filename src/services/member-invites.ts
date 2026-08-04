@@ -12,40 +12,56 @@
 // default capabilities.
 import { api } from '@/lib/api-client';
 
-export async function listMemberInvites() {
-  const { data, error } = await api.request('GET', '/member-invites');
+export interface MemberInvite {
+  id: string;
+  email: string;
+  role: string;
+  [key: string]: unknown;
+}
+
+export interface Member {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface FetchError extends Error {
+  status?: number;
+}
+
+export async function listMemberInvites(): Promise<MemberInvite[]> {
+  const { data, error } = await api.request<MemberInvite[] | { invites: MemberInvite[] }>('GET', '/member-invites');
   if (error) throw new Error(error.message || 'Failed to load member invites');
   return Array.isArray(data) ? data : (data?.invites ?? []);
 }
 
-export async function inviteMember(email, role) {
-  const { data, error } = await api.request('POST', '/member-invites', {
+export async function inviteMember(email: string, role: string) {
+  const { data, error } = await api.request<MemberInvite>('POST', '/member-invites', {
     body: {
       email: String(email || '').trim(),
       role: String(role || '').trim(),
     },
   });
   if (error) {
-    const e = new Error(error.message || 'Failed to invite member');
+    const e: FetchError = new Error(error.message || 'Failed to invite member');
     e.status = error.status;
     throw e;
   }
   return data;
 }
 
-export async function revokeMemberInvite(id) {
+export async function revokeMemberInvite(id: string) {
   const { error } = await api.request('POST', `/member-invites/${id}/revoke`);
   if (error) throw new Error(error.message || 'Failed to revoke invite');
 }
 
 // Active members (accepted, role != driver).
-export async function listActiveMembers() {
-  const { data, error } = await api.request('GET', '/members');
+export async function listActiveMembers(): Promise<Member[]> {
+  const { data, error } = await api.request<Member[] | { members: Member[] }>('GET', '/members');
   if (error) throw new Error(error.message || 'Failed to load members');
   return Array.isArray(data) ? data : (data?.members ?? []);
 }
 
-export async function removeMember(profileId) {
+export async function removeMember(profileId: string) {
   const { error } = await api.request('DELETE', `/members/${profileId}`);
   if (error) throw new Error(error.message || 'Failed to remove member');
 }

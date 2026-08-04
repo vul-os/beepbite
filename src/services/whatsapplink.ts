@@ -8,44 +8,58 @@
 
 import { api } from '@/lib/api-client';
 
+export interface PendingPhone {
+  token: string;
+  phone_e164: string;
+  expires_at: string;
+}
+
+export interface AccountLink {
+  id: string;
+  profile_id: string;
+  phone_e164: string;
+  bound_at: string;
+}
+
+export interface BoundPhone {
+  id: string;
+  profile_id: string;
+  phone_e164: string;
+  bound_at: string;
+}
+
 /**
  * Fetch the pending phone number for a link token.
  * Public — no auth required.
  *
- * @param {string} token — the short link token from the URL
- * @returns {Promise<{ data: { token, phone_e164, expires_at } | null, error: any }>}
+ * @param token — the short link token from the URL
  */
-export async function fetchPendingPhone(token) {
+export async function fetchPendingPhone(token: string) {
   if (!token) {
     return { data: null, error: { message: 'token is required' } };
   }
-  return api.request('GET', `/link-whatsapp/${encodeURIComponent(token)}`, { auth: false });
+  return api.request<PendingPhone>('GET', `/link-whatsapp/${encodeURIComponent(token)}`, { auth: false });
 }
 
 /**
  * Bind the phone associated with a token to the authenticated user's profile.
  * Requires the user to be signed in (bearer token sent automatically).
  *
- * @param {string} token — the short link token
- * @returns {Promise<{ data: { id, profile_id, phone_e164, bound_at } | null, error: any }>}
+ * @param token — the short link token
  *   error.status === 409  — phone already linked or 3-number cap reached
  *   error.status === 410  — token expired or already consumed
  */
-export async function bindPhone(token) {
+export async function bindPhone(token: string) {
   if (!token) {
     return { data: null, error: { message: 'token is required' } };
   }
-  return api.request('POST', `/link-whatsapp/${encodeURIComponent(token)}`, {});
+  return api.request<BoundPhone>('POST', `/link-whatsapp/${encodeURIComponent(token)}`, {});
 }
 
 /**
  * List all WhatsApp numbers bound to the authenticated user's profile.
  * Requires the user to be signed in.
- *
- * @returns {Promise<{ data: { links: AccountLink[] } | null, error: any }>}
- *
- * @typedef {{ id: string, profile_id: string, phone_e164: string, bound_at: string }} AccountLink
  */
 export async function listLinkedNumbers() {
-  return api.request('GET', '/link-whatsapp', {});
+  return api.request<{ links: AccountLink[] }>('GET', '/link-whatsapp', {});
 }

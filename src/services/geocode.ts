@@ -13,16 +13,28 @@
 
 import { api } from '../lib/api-client.js';
 
+export interface AddressSuggestion {
+  place_name: string;
+  street: string;
+  suburb: string;
+  city: string;
+  postcode: string;
+  lat: number;
+  lng: number;
+}
+
+interface SuggestResponse {
+  suggestions: AddressSuggestion[];
+}
+
 /**
  * Fetch address suggestions for a free-text query.
- * @param {string} query
- * @returns {Promise<Array<{place_name:string, street:string, suburb:string, city:string, postcode:string, lat:number, lng:number}>>}
  */
-export async function suggestAddress(query) {
+export async function suggestAddress(query: string): Promise<AddressSuggestion[]> {
   const q = (query || '').trim();
   if (!q) return [];
   try {
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<SuggestResponse>(
       'GET',
       '/geocode/suggest?q=' + encodeURIComponent(q),
       { auth: false },
