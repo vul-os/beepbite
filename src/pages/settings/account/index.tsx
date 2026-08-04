@@ -21,9 +21,9 @@ const AccountSettings = () => {
   const { today } = useDateTime();
   const isDeleted = Boolean(activeOrganization?.deleted_at);
 
-  const [deleteState, setDeleteState]   = useState('idle');   // idle | confirm | loading | done
-  const [restoreState, setRestoreState] = useState('idle');   // idle | loading | done
-  const [exportState, setExportState]   = useState('idle');   // idle | loading | done | error
+  const [deleteState, setDeleteState]   = useState<string>('idle');   // idle | confirm | loading | done
+  const [restoreState, setRestoreState] = useState<string>('idle');   // idle | loading | done
+  const [exportState, setExportState]   = useState<string>('idle');   // idle | loading | done | error
   const [exportError, setExportError]   = useState('');
   const [deleteError, setDeleteError]   = useState('');
   const [restoreError, setRestoreError] = useState('');
@@ -200,9 +200,9 @@ const AccountSettings = () => {
                   <Button
                     variant="destructive"
                     onClick={handleDeleteConfirm}
-                    disabled={deleteState === 'loading'}
+                    disabled={(deleteState as string) === 'loading'}
                   >
-                    {deleteState === 'loading' ? (
+                    {(deleteState as string) === 'loading' ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                       <Trash2 className="h-4 w-4 mr-2" />
@@ -212,7 +212,7 @@ const AccountSettings = () => {
                   <Button
                     variant="outline"
                     onClick={handleDeleteCancel}
-                    disabled={deleteState === 'loading'}
+                    disabled={(deleteState as string) === 'loading'}
                   >
                     Cancel
                   </Button>
