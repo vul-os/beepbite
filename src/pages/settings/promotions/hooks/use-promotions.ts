@@ -1,10 +1,58 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
 
-export function usePromotions(locationId) {
-  const [promotions, setPromotions] = useState([]);
+// Mirrors backend/migrations/001_baseline.sql `promotions` table.
+export interface Promotion {
+  id: string;
+  organization_id: string;
+  location_id?: string | null;
+  name: string;
+  description?: string | null;
+  promo_type: string;
+  scope: string;
+  percent_off?: number | null;
+  fixed_off_cents?: number | null;
+  happy_hour_price_cents?: number | null;
+  bogo_buy_qty: number;
+  bogo_get_qty: number;
+  bogo_get_discount_percent: number;
+  free_item_id?: string | null;
+  min_spend_cents: number;
+  max_discount_cents?: number | null;
+  stackable: boolean;
+  requires_coupon_code: boolean;
+  active_from?: string | null;
+  active_until?: string | null;
+  dayparts?: unknown;
+  customer_segment?: string | null;
+  usage_limit_total?: number | null;
+  usage_limit_per_customer?: number | null;
+  is_active: boolean;
+  priority: number;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `coupon_codes` table.
+export interface CouponCode {
+  id: string;
+  promotion_id: string;
+  code: string;
+  max_uses: number;
+  used_count: number;
+  assigned_to_customer_id?: string | null;
+  active_from?: string | null;
+  active_until?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function usePromotions(locationId: string | undefined) {
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchPromotions = useCallback(async () => {
     if (!locationId) { setPromotions([]); return; }
@@ -19,7 +67,7 @@ export function usePromotions(locationId) {
       if (err) throw new Error(err.message);
       setPromotions(data || []);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load promotions.');
     } finally {
       setLoading(false);
     }
@@ -27,14 +75,14 @@ export function usePromotions(locationId) {
 
   useEffect(() => { fetchPromotions(); }, [fetchPromotions]);
 
-  const createPromotion = useCallback(async (body) => {
+  const createPromotion = useCallback(async (body: Partial<Promotion>) => {
     const { data, error: err } = await api.from('promotions').insert(body);
     if (err) throw new Error(err.message);
     await fetchPromotions();
     return data;
   }, [fetchPromotions]);
 
-  const updatePromotion = useCallback(async (id, body) => {
+  const updatePromotion = useCallback(async (id: string, body: Partial<Promotion>) => {
     const { data, error: err } = await api
       .from('promotions')
       .update(body)
@@ -44,13 +92,13 @@ export function usePromotions(locationId) {
     return data;
   }, [fetchPromotions]);
 
-  const deletePromotion = useCallback(async (id) => {
+  const deletePromotion = useCallback(async (id: string) => {
     const { error: err } = await api.from('promotions').delete().eq('id', id);
     if (err) throw new Error(err.message);
     await fetchPromotions();
   }, [fetchPromotions]);
 
-  const toggleActive = useCallback(async (promotion) => {
+  const toggleActive = useCallback(async (promotion: Promotion) => {
     return updatePromotion(promotion.id, { is_active: !promotion.is_active });
   }, [updatePromotion]);
 
@@ -66,8 +114,8 @@ export function usePromotions(locationId) {
   };
 }
 
-export function useCouponCodes(promotionId) {
-  const [codes, setCodes] = useState([]);
+export function useCouponCodes(promotionId: string | undefined) {
+  const [codes, setCodes] = useState<CouponCode[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchCodes = useCallback(async () => {
@@ -88,7 +136,7 @@ export function useCouponCodes(promotionId) {
 
   useEffect(() => { fetchCodes(); }, [fetchCodes]);
 
-  const addCode = useCallback(async (body) => {
+  const addCode = useCallback(async (body: Partial<CouponCode>) => {
     const { data, error: err } = await api.from('coupon_codes').insert({
       ...body,
       promotion_id: promotionId,
@@ -98,7 +146,7 @@ export function useCouponCodes(promotionId) {
     return data;
   }, [promotionId, fetchCodes]);
 
-  const deleteCode = useCallback(async (id) => {
+  const deleteCode = useCallback(async (id: string) => {
     const { error: err } = await api.from('coupon_codes').delete().eq('id', id);
     if (err) throw new Error(err.message);
     await fetchCodes();

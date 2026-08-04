@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { Plus, Trash2, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,37 +22,49 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCouponCodes } from '../hooks/use-promotions';
+import { useCouponCodes, type CouponCode } from '../hooks/use-promotions';
 
-const EMPTY_CODE = { code: '', max_uses: 1, per_customer_limit: '' };
+interface CodeFormState {
+  code: string;
+  max_uses: number | string;
+  per_customer_limit: number | string;
+}
 
-export default function CouponManager({ promotionId, promotionName }) {
+const EMPTY_CODE: CodeFormState = { code: '', max_uses: 1, per_customer_limit: '' };
+
+export default function CouponManager({ promotionId, promotionName }: {
+  promotionId: string;
+  promotionName?: string;
+}) {
   const { codes, loading, addCode, deleteCode } = useCouponCodes(promotionId);
   const { toast } = useToast();
-  const [form, setForm] = useState(EMPTY_CODE);
+  const [form, setForm] = useState<CodeFormState>(EMPTY_CODE);
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState('');
-  const [codeToDelete, setCodeToDelete] = useState(null);
+  const [codeToDelete, setCodeToDelete] = useState<CouponCode | null>(null);
 
-  const handleChange = (field, value) =>
+  const handleChange = <K extends keyof CodeFormState>(field: K, value: CodeFormState[K]) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const handleAdd = async (e) => {
+  const handleAdd = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.code.trim()) { setAddError('Code is required.'); return; }
     setSaving(true);
     setAddError('');
     try {
+      // NOTE: per_customer_limit is not a column on coupon_codes (see
+      // backend/migrations/001_baseline.sql) — the backend silently ignores
+      // it. Pre-existing behavior; not fixed here (out of scope).
       await addCode({
         code: form.code.trim().toUpperCase(),
-        max_uses: form.max_uses ? parseInt(form.max_uses, 10) : 1,
+        max_uses: form.max_uses ? parseInt(String(form.max_uses), 10) : 1,
         ...(form.per_customer_limit
-          ? { per_customer_limit: parseInt(form.per_customer_limit, 10) }
+          ? { per_customer_limit: parseInt(String(form.per_customer_limit), 10) }
           : {}),
-      });
+      } as Partial<CouponCode> & { per_customer_limit?: number });
       setForm(EMPTY_CODE);
     } catch (err) {
-      setAddError(err.message);
+      setAddError(err instanceof Error ? err.message : 'Failed to add coupon code.');
     } finally {
       setSaving(false);
     }
@@ -63,7 +76,7 @@ export default function CouponManager({ promotionId, promotionName }) {
       await deleteCode(codeToDelete.id);
       toast({ title: 'Coupon code deleted.' });
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+      toast({ variant: 'destructive', title: 'Delete failed', description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setCodeToDelete(null);
     }

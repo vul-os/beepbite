@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import type { Promotion } from '../hooks/use-promotions';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -45,7 +47,62 @@ const SEGMENTS = [
   { value: 'lapsed',     label: 'Lapsed' },
 ];
 
-function buildEmpty() {
+interface PromotionFormState {
+  name: string;
+  description: string;
+  promo_type: string;
+  scope: string;
+  percent_off: string;
+  fixed_off_dollars: string;
+  happy_hour_price_dollars: string;
+  bogo_buy_qty: number | string;
+  bogo_get_qty: number | string;
+  bogo_get_discount_percent: number | string;
+  min_spend_dollars: string;
+  max_discount_dollars: string;
+  customer_segment: string;
+  usage_limit_total: number | string;
+  usage_limit_per_customer: number | string;
+  active_from: Date | null;
+  active_until: Date | null;
+  dayparts_raw: string;
+  stackable: boolean;
+  requires_coupon_code: boolean;
+  priority: number | string;
+  is_active: boolean;
+}
+
+// Payload sent to createPromotion/updatePromotion — a superset of Promotion's
+// writable fields (plus location_id/organization_id, which aren't part of the
+// Promotion row type itself since they're foreign keys set at create time).
+interface PromotionPayload {
+  name: string;
+  description: string | null;
+  promo_type: string;
+  scope: string;
+  location_id?: string;
+  organization_id?: string;
+  stackable: boolean;
+  requires_coupon_code: boolean;
+  priority: number;
+  is_active: boolean;
+  customer_segment: string;
+  active_from: string | null;
+  active_until: string | null;
+  min_spend_cents: number;
+  max_discount_cents: number | null;
+  usage_limit_total: number | null;
+  usage_limit_per_customer: number;
+  dayparts?: unknown;
+  percent_off?: number | null;
+  fixed_off_cents?: number | null;
+  happy_hour_price_cents?: number | null;
+  bogo_buy_qty?: number;
+  bogo_get_qty?: number;
+  bogo_get_discount_percent?: number;
+}
+
+function buildEmpty(): PromotionFormState {
   return {
     name: '',
     description: '',
@@ -79,7 +136,7 @@ function buildEmpty() {
   };
 }
 
-function populateFromRow(row) {
+function populateFromRow(row: Promotion): PromotionFormState {
   return {
     name: row.name || '',
     description: row.description || '',
@@ -120,8 +177,8 @@ function populateFromRow(row) {
   };
 }
 
-function buildPayload(form, locationId, organizationId) {
-  const payload = {
+function buildPayload(form: PromotionFormState, locationId?: string, organizationId?: string): PromotionPayload {
+  const payload: PromotionPayload = {
     name: form.name.trim(),
     description: form.description.trim() || null,
     promo_type: form.promo_type,
@@ -130,7 +187,7 @@ function buildPayload(form, locationId, organizationId) {
     organization_id: organizationId,
     stackable: form.stackable,
     requires_coupon_code: form.requires_coupon_code,
-    priority: parseInt(form.priority, 10) || 0,
+    priority: parseInt(String(form.priority), 10) || 0,
     is_active: form.is_active,
     customer_segment: form.customer_segment || 'all',
     active_from: form.active_from ? form.active_from.toISOString() : null,
@@ -142,10 +199,10 @@ function buildPayload(form, locationId, organizationId) {
       ? Math.round(parseFloat(form.max_discount_dollars) * 100)
       : null,
     usage_limit_total: form.usage_limit_total
-      ? parseInt(form.usage_limit_total, 10)
+      ? parseInt(String(form.usage_limit_total), 10)
       : null,
     usage_limit_per_customer: form.usage_limit_per_customer
-      ? parseInt(form.usage_limit_per_customer, 10)
+      ? parseInt(String(form.usage_limit_per_customer), 10)
       : 1,
   };
 
@@ -178,10 +235,10 @@ function buildPayload(form, locationId, organizationId) {
         : null;
       break;
     case 'bogo':
-      payload.bogo_buy_qty = parseInt(form.bogo_buy_qty, 10) || 1;
-      payload.bogo_get_qty = parseInt(form.bogo_get_qty, 10) || 1;
+      payload.bogo_buy_qty = parseInt(String(form.bogo_buy_qty), 10) || 1;
+      payload.bogo_get_qty = parseInt(String(form.bogo_get_qty), 10) || 1;
       payload.bogo_get_discount_percent =
-        parseFloat(form.bogo_get_discount_percent) ?? 100;
+        parseFloat(String(form.bogo_get_discount_percent)) ?? 100;
       break;
     default:
       break;
@@ -190,7 +247,11 @@ function buildPayload(form, locationId, organizationId) {
   return payload;
 }
 
-function DateField({ label, value, onChange }) {
+function DateField({ label, value, onChange }: {
+  label: string;
+  value: Date | null;
+  onChange: (date: Date | null) => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -211,7 +272,7 @@ function DateField({ label, value, onChange }) {
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"
-            selected={value}
+            selected={value ?? undefined}
             onSelect={(d) => { onChange(d || null); setOpen(false); }}
             initialFocus
           />
@@ -240,8 +301,15 @@ export default function PromotionForm({
   onSubmit,
   onCancel,
   saving,
+}: {
+  initial?: Promotion | null;
+  locationId?: string;
+  organizationId?: string;
+  onSubmit: (payload: PromotionPayload) => void;
+  onCancel: () => void;
+  saving: boolean;
 }) {
-  const [form, setForm] = useState(() =>
+  const [form, setForm] = useState<PromotionFormState>(() =>
     initial ? populateFromRow(initial) : buildEmpty(),
   );
   const [validationError, setValidationError] = useState('');
@@ -251,10 +319,11 @@ export default function PromotionForm({
     setValidationError('');
   }, [initial]);
 
-  const set = (field, value) =>
+  function set<K extends keyof PromotionFormState>(field: K, value: PromotionFormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.name.trim()) { setValidationError('Name is required.'); return; }
     if (form.dayparts_raw.trim()) {

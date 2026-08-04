@@ -40,13 +40,13 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader, PageContainer } from '@/components/ui/page-header';
-import { usePromotions } from './hooks/use-promotions';
+import { usePromotions, type Promotion } from './hooks/use-promotions';
 import PromotionForm from './components/promotion-form';
 import CouponManager from './components/coupon-manager';
 
 // ---- helpers ----
 
-const TYPE_LABELS = {
+const TYPE_LABELS: Record<string, string> = {
   percent_off:      'Percent off',
   fixed_off:        'Fixed off',
   bogo:             'BOGO',
@@ -55,19 +55,19 @@ const TYPE_LABELS = {
   free_delivery:    'Free delivery',
 };
 
-const SCOPE_LABELS = {
+const SCOPE_LABELS: Record<string, string> = {
   order:    'Order',
   item:     'Item',
   category: 'Category',
   delivery: 'Delivery',
 };
 
-function fmtDate(iso) {
+function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   try { return format(parseISO(iso), 'dd MMM yyyy'); } catch { return iso; }
 }
 
-function statusBadge(promo) {
+function statusBadge(promo: Promotion) {
   if (!promo.is_active) return <Badge variant="secondary">Inactive</Badge>;
   const now = new Date();
   if (promo.active_from && parseISO(promo.active_from) > now)
@@ -94,18 +94,18 @@ export default function PromotionsPage() {
   } = usePromotions(activeLocation?.id);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = new, obj = edit
+  const [editing, setEditing] = useState<Promotion | null>(null); // null = new, obj = edit
   const [saving, setSaving] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
-  const [expandedCoupons, setExpandedCoupons] = useState(new Set());
+  const [toDelete, setToDelete] = useState<Promotion | null>(null);
+  const [expandedCoupons, setExpandedCoupons] = useState<Set<string>>(new Set());
 
   // ---- sheet actions ----
 
   const openNew = () => { setEditing(null); setSheetOpen(true); };
-  const openEdit = (promo) => { setEditing(promo); setSheetOpen(true); };
+  const openEdit = (promo: Promotion) => { setEditing(promo); setSheetOpen(true); };
   const closeSheet = () => { setSheetOpen(false); setEditing(null); };
 
-  const handleSubmit = async (payload) => {
+  const handleSubmit = async (payload: Partial<Promotion>) => {
     setSaving(true);
     try {
       if (editing?.id) {
@@ -116,7 +116,7 @@ export default function PromotionsPage() {
       closeSheet();
       toast({ title: editing?.id ? 'Promotion updated.' : 'Promotion created.' });
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Save failed', description: err.message });
+      toast({ variant: 'destructive', title: 'Save failed', description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setSaving(false);
     }
@@ -130,7 +130,7 @@ export default function PromotionsPage() {
       await deletePromotion(toDelete.id);
       toast({ title: 'Promotion deleted.' });
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+      toast({ variant: 'destructive', title: 'Delete failed', description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setToDelete(null);
     }
@@ -138,7 +138,7 @@ export default function PromotionsPage() {
 
   // ---- coupon accordion toggle ----
 
-  const toggleCoupons = (id) => {
+  const toggleCoupons = (id: string) => {
     setExpandedCoupons((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
