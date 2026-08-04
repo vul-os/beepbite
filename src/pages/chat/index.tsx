@@ -1,6 +1,16 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useMoney } from '@/context/locale-context';
-import { sendChatMessage } from '../../services/customerchat';
+import {
+  sendChatMessage,
+  type ChatMessage as ApiChatMessage,
+  type ChatToolResult,
+  type ChatStoreResult,
+  type ChatMenuCategory,
+  type ChatItemDetail,
+  type ChatCartView,
+  type ChatOrderConfirmation,
+  type ChatOrderStatus,
+} from '../../services/customerchat';
 import { Button } from '@/components/ui/button';
 
 // ── Simple ID generator ────────────────────────────────────────────────────────
@@ -11,16 +21,20 @@ function newId() {
 // The customer-chat API returns prices as major-unit decimals ("12.50"), not
 // minor units, so each is parsed against the active currency before display —
 // a fixed two decimals reads ¥1000 as "1000.00" and drops a dinar's third.
-function moneyRenderer({ format, parse }) {
-  return (value) => {
-    const minor = parse(value);
+function moneyRenderer({ format, parse }: { format: (minor: number | string) => string; parse: (text: string | number) => number | null }) {
+  return (value: number | string | undefined) => {
+    const minor = parse(value ?? '');
     return minor == null ? '' : format(minor);
   };
 }
 
-// ── Tool result renderers ──────────────────────────────────────────────────────
+// ── Tool result renderers — each `data` shape is defensively typed as
+// Partial<...>: on tool failure the backend returns `{ error }` instead
+// (see backend/internal/handlers/customerchat/tools.go jsonErr), which none
+// of these components besides AddToCartResult account for. That's existing
+// behavior (optional chaining throughout), not changed here. ─────────────────
 
-function StoreCard({ store }) {
+function StoreCard({ store }: { store: Partial<ChatStoreResult> }) {
   return (
     <div className="store-card border rounded p-3 mb-2 bg-card shadow-sm">
       <div className="font-semibold text-foreground">{store.name}</div>
@@ -35,7 +49,7 @@ function StoreCard({ store }) {
   );
 }
 
-function StoresResult({ data }) {
+function StoresResult({ data }: { data: Partial<{ stores: ChatStoreResult[]; count: number }> }) {
   if (!data?.stores?.length) return <p className="text-sm text-muted-foreground">No stores found.</p>;
   return (
     <div className="tool-stores mt-1">
@@ -44,7 +58,7 @@ function StoresResult({ data }) {
   );
 }
 
-function MenuResult({ data }) {
+function MenuResult({ data }: { data: Partial<{ categories: ChatMenuCategory[] }> }) {
   const money = moneyRenderer(useMoney());
   if (!data?.categories?.length) return <p className="text-sm text-muted-foreground">No menu items found.</p>;
   return (
@@ -64,7 +78,7 @@ function MenuResult({ data }) {
   );
 }
 
-function CartResult({ data }) {
+function CartResult({ data }: { data: Partial<ChatCartView> }) {
   const money = moneyRenderer(useMoney());
   if (!data?.lines?.length) return <p className="text-sm text-muted-foreground">Cart is empty.</p>;
   return (
@@ -83,7 +97,7 @@ function CartResult({ data }) {
   );
 }
 
-function OrderConfirmationResult({ data }) {
+function OrderConfirmationResult({ data }: { data: Partial<ChatOrderConfirmation> }) {
   const money = moneyRenderer(useMoney());
   return (
     <div className="tool-confirm mt-1 border border-success/25 rounded p-3 bg-success/10">
@@ -94,7 +108,7 @@ function OrderConfirmationResult({ data }) {
   );
 }
 
-function TrackResult({ data }) {
+function TrackResult({ data }: { data: Partial<ChatOrderStatus> }) {
   return (
     <div className="tool-track mt-1 border border-primary/20 rounded p-2 bg-primary/10 text-sm">
       <span className="font-medium text-primary">Order #{data.order_number}</span>
@@ -103,14 +117,14 @@ function TrackResult({ data }) {
   );
 }
 
-function ItemDetailResult({ data }) {
+function ItemDetailResult({ data }: { data: Partial<ChatItemDetail> }) {
   const money = moneyRenderer(useMoney());
   return (
     <div className="tool-item mt-1 border rounded p-2 bg-card text-sm">
       <div className="font-semibold">{data.name}</div>
       {data.description && <div className="text-muted-foreground text-xs mt-0.5">{data.description}</div>}
       <div className="mt-1">Price: {money(data.price)}</div>
-      {data.variations?.length > 0 && (
+      {data.variations && data.variations.length > 0 && (
         <div className="mt-1">
           {data.variations.map((v) => (
             <div key={v.id} className="mt-1">
@@ -124,27 +138,27 @@ function ItemDetailResult({ data }) {
   );
 }
 
-function AddToCartResult({ data }) {
+function AddToCartResult({ data }: { data: Partial<{ error: string; success: boolean; message: string }> }) {
   if (data?.error) return <p className="text-sm text-destructive">{data.error}</p>;
   return <p className="text-sm text-success">{data?.message || 'Added to cart'}</p>;
 }
 
-function ToolResultCard({ tool, data }) {
+function ToolResultCard({ tool, data }: { tool: string; data: unknown }) {
   switch (tool) {
     case 'search_stores':
-      return <StoresResult data={data} />;
+      return <StoresResult data={data as Partial<{ stores: ChatStoreResult[]; count: number }>} />;
     case 'get_store_menu':
-      return <MenuResult data={data} />;
+      return <MenuResult data={data as Partial<{ categories: ChatMenuCategory[] }>} />;
     case 'get_item_details':
-      return <ItemDetailResult data={data} />;
+      return <ItemDetailResult data={data as Partial<ChatItemDetail>} />;
     case 'add_to_cart':
-      return <AddToCartResult data={data} />;
+      return <AddToCartResult data={data as Partial<{ error: string; success: boolean; message: string }>} />;
     case 'view_cart':
-      return <CartResult data={data} />;
+      return <CartResult data={data as Partial<ChatCartView>} />;
     case 'confirm_order':
-      return <OrderConfirmationResult data={data} />;
+      return <OrderConfirmationResult data={data as Partial<ChatOrderConfirmation>} />;
     case 'track_order':
-      return <TrackResult data={data} />;
+      return <TrackResult data={data as Partial<ChatOrderStatus>} />;
     default:
       return (
         <pre className="text-xs bg-muted rounded p-2 overflow-auto">
@@ -156,7 +170,14 @@ function ToolResultCard({ tool, data }) {
 
 // ── Message bubble ─────────────────────────────────────────────────────────────
 
-function MessageBubble({ message }) {
+interface UiChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  toolResults?: ChatToolResult[];
+}
+
+function MessageBubble({ message }: { message: UiChatMessage }) {
   const isUser = message.role === 'user';
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
@@ -168,7 +189,7 @@ function MessageBubble({ message }) {
         }`}
       >
         {message.content}
-        {!isUser && message.toolResults?.length > 0 && (
+        {!isUser && message.toolResults && message.toolResults.length > 0 && (
           <div className="mt-2 space-y-1">
             {message.toolResults.map((tr, i) => (
               <ToolResultCard key={i} tool={tr.tool} data={tr.data} />
@@ -183,7 +204,7 @@ function MessageBubble({ message }) {
 // ── Chat panel ─────────────────────────────────────────────────────────────────
 
 export default function CustomerChatPage() {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<UiChatMessage[]>([
     {
       id: newId(),
       role: 'assistant',
@@ -193,8 +214,8 @@ export default function CustomerChatPage() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const bottomRef = useRef(null);
+  const [error, setError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const conversationId = useRef(newId());
 
   // Scroll to bottom whenever messages change.
@@ -206,14 +227,14 @@ export default function CustomerChatPage() {
     const text = input.trim();
     if (!text || loading) return;
 
-    const userMsg = { id: newId(), role: 'user', content: text };
+    const userMsg: UiChatMessage = { id: newId(), role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
     setError(null);
 
     // Build history in the format the backend expects (role + content only).
-    const history = [...messages, userMsg].map((m) => ({
+    const history: ApiChatMessage[] = [...messages, userMsg].map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -226,7 +247,7 @@ export default function CustomerChatPage() {
       return;
     }
 
-    const assistantMsg = {
+    const assistantMsg: UiChatMessage = {
       id: newId(),
       role: 'assistant',
       content: data?.reply || '',
@@ -235,7 +256,7 @@ export default function CustomerChatPage() {
     setMessages((prev) => [...prev, assistantMsg]);
   }, [input, loading, messages]);
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       send();
