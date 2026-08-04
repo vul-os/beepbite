@@ -14,12 +14,17 @@ import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 
+interface AccountFormData {
+  full_name: string;
+  username: string;
+}
+
 const Account = () => {
   const { user, fetchUserProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AccountFormData>({
     full_name: '',
     username: ''
   });
@@ -56,7 +61,7 @@ const Account = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof AccountFormData, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -114,8 +119,8 @@ const Account = () => {
       
     } catch (error) {
       console.error('Error saving account:', error);
-      
-      if (error.code === '23505') {
+
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
         setSaveMessage('Username is already taken. Please choose a different one.');
       } else {
         setSaveMessage('Failed to update account. Please try again.');
@@ -129,7 +134,7 @@ const Account = () => {
     }
   };
 
-  const getInitials = (name, username, email) => {
+  const getInitials = (name?: string | null, username?: string | null, email?: string | null) => {
     if (name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
@@ -345,7 +350,7 @@ Must be at least 3 characters long and unique
             <div>
               <label className="text-sm font-medium text-foreground">Member Since</label>
               <p className="text-sm text-muted-foreground mt-1">
-                {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+                {typeof user?.created_at === 'string' ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
               </p>
             </div>
           </div>
