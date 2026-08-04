@@ -1,4 +1,4 @@
-// use-scale.js — WebSerial weight scale hook (Wave 29 / Now-19)
+// use-scale.ts — WebSerial weight scale hook (Wave 29 / Now-19)
 //
 // Reads weight readings from a serial USB scale via the Web Serial API
 // (navigator.serial). The hook returns the current weight in grams and
@@ -34,7 +34,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Extract the first numeric value (grams) from a scale output line. */
-function parseWeightLine(line) {
+function parseWeightLine(line: string): number | null {
   // Match patterns like "125.3", "0125.30", possibly preceded by letters/spaces.
   const m = line.match(/(\d+\.?\d*)\s*g/i);
   if (m) return parseFloat(m[1]);
@@ -59,10 +59,10 @@ export function useScale() {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [weightGrams, setWeightGrams] = useState(0);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const portRef = useRef(null);
-  const readerRef = useRef(null);
+  const portRef = useRef<SerialPort | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<string> | null>(null);
   const readLoopActiveRef = useRef(false);
 
   const disconnect = useCallback(async () => {
@@ -105,7 +105,11 @@ export function useScale() {
       // Start read loop.
       readLoopActiveRef.current = true;
       const decoder = new TextDecoderStream();
-      port.readable.pipeTo(decoder.writable).catch(() => {});
+      // TextDecoderStream's writable is typed WritableStream<BufferSource>, which
+      // accepts Uint8Array chunks at runtime (BufferSource's ArrayBufferView case)
+      // but isn't structurally identical to WritableStream<Uint8Array> under TS's
+      // stream generics — hence the narrowing cast rather than a loosened type.
+      port.readable?.pipeTo(decoder.writable as WritableStream<Uint8Array>).catch(() => {});
       const reader = decoder.readable.getReader();
       readerRef.current = reader;
 
@@ -132,14 +136,14 @@ export function useScale() {
           }
         } catch (err) {
           if (readLoopActiveRef.current) {
-            setError('Scale read error: ' + (err?.message ?? String(err)));
+            setError('Scale read error: ' + (err instanceof Error ? err.message : String(err)));
           }
         } finally {
           setConnected(false);
         }
       })();
     } catch (err) {
-      setError(err?.message ?? 'Failed to connect to scale.');
+      setError(err instanceof Error ? err.message : 'Failed to connect to scale.');
     } finally {
       setConnecting(false);
     }
@@ -156,7 +160,7 @@ export function useScale() {
    * @returns {number} total price
    */
   const priceForWeight = useCallback(
-    (pricePerGram) => weightGrams * pricePerGram,
+    (pricePerGram: number) => weightGrams * pricePerGram,
     [weightGrams],
   );
 
