@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 // h-10 default (was h-9) — counter staff use this with a finger or a barcode
 // scanner, not a mouse pointer; ring-2 focus is loud enough to track on a
 // scanned/tabbed form under kitchen-window glare.
-const Input = React.forwardRef(({ className, type, ...props }, ref) => {
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(({ className, type, ...props }, ref) => {
   return (
     (<input
       type={type}
