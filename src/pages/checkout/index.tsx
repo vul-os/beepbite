@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,28 @@ import {
   ShoppingBag,
   Truck,
 } from 'lucide-react';
-import { createOrder, clearCart, getStore } from '@/services/marketplace';
+import { createOrder, clearCart, getStore, type CartItem } from '@/services/marketplace';
 import { formatPrice, currencyScale } from '@/lib/currency';
 import { useLocale } from '@/context/locale-context';
 import ReceiptModal from '@/pages/pos/components/receipt-modal';
 import AddressAutocomplete from '@/components/address-autocomplete';
+
+interface CheckoutLocationState {
+  slug?: string;
+  storeName?: string;
+  items?: CartItem[];
+  subtotal?: number;
+  currency?: string;
+}
+
+interface DeliveryAddress {
+  street: string;
+  suburb: string;
+  city: string;
+  notes: string;
+  lat?: number | null;
+  lng?: number | null;
+}
 
 const TIP_OPTIONS = [
   { label: '0%', value: 0 },
@@ -51,13 +68,13 @@ export default function CheckoutPage() {
     // The store page always passes its own currency; the active location is
     // only a fallback for a stale/incomplete navigation state.
     currency = activeCurrency || '',
-  } = location.state || {};
+  } = (location.state || {}) as CheckoutLocationState;
 
   // Cart prices are held as MAJOR units (floats), but formatPrice takes minor
   // units. The conversion factor is a property of the currency — 1 for JPY,
   // 100 for USD, 1000 for KWD — so a literal *100 renders ¥1,000 as ¥100,000
   // and KD 1.000 as KD 0.100.
-  const toMinor = (major) => Math.round(Number(major ?? 0) * currencyScale(currency));
+  const toMinor = (major: number | string | null | undefined) => Math.round(Number(major ?? 0) * currencyScale(currency));
 
   // Fallback: recalculate subtotal in case state was stale
   const subtotal =
@@ -66,9 +83,9 @@ export default function CheckoutPage() {
       : passedSubtotal;
 
   // ── Store payment config ───────────────────────────────────────────────────
-  const [paymentMode, setPaymentMode] = useState('loading');
-  const [onDeliveryMethods, setOnDeliveryMethods] = useState([]); // ['cash', 'card_machine']
-  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState(null);
+  const [paymentMode, setPaymentMode] = useState<'loading' | 'online' | 'on_delivery' | 'none'>('loading');
+  const [onDeliveryMethods, setOnDeliveryMethods] = useState<string[]>([]);
+  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState<string | null>(null);
 
   useEffect(() => {
     if (!slug) {
@@ -82,11 +99,15 @@ export default function CheckoutPage() {
         setPaymentMode('none');
         return;
       }
-      const methods = Array.isArray(data.on_delivery_payment_methods)
-        ? data.on_delivery_payment_methods
+      // NOTE: neither field below exists on the real StoreDetail DTO — see
+      // services/marketplace.ts's gap note. Preserved via a defensive cast
+      // so paymentMode keeps resolving to 'none' exactly as before.
+      const loose = data as unknown as { on_delivery_payment_methods?: string[]; payment_credentials?: { is_active: boolean }[] };
+      const methods = Array.isArray(loose.on_delivery_payment_methods)
+        ? loose.on_delivery_payment_methods
         : [];
       const hasOnline =
-        Array.isArray(data.payment_credentials) && data.payment_credentials.some((c) => c.is_active);
+        Array.isArray(loose.payment_credentials) && loose.payment_credentials.some((c) => c.is_active);
 
       if (hasOnline) {
         setPaymentMode('online');
@@ -102,8 +123,8 @@ export default function CheckoutPage() {
   }, [slug]);
 
   // ── Form state ────────────────────────────────────────────────────────────
-  const [fulfillment, setFulfillment] = useState('delivery'); // 'delivery' | 'collection'
-  const [address, setAddress] = useState({
+  const [fulfillment, setFulfillment] = useState<'delivery' | 'collection'>('delivery');
+  const [address, setAddress] = useState<DeliveryAddress>({
     street: '',
     suburb: '',
     city: '',
@@ -117,9 +138,9 @@ export default function CheckoutPage() {
   // ── Submission state ──────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
-  const [confirmedMethod, setConfirmedMethod] = useState(null); // for confirmation message
-  const [orderRef, setOrderRef] = useState(null);
-  const [submitError, setSubmitError] = useState(null);
+  const [confirmedMethod, setConfirmedMethod] = useState<string | null>(null);
+  const [orderRef, setOrderRef] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // ── Receipt modal state ───────────────────────────────────────────────────
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -136,7 +157,7 @@ export default function CheckoutPage() {
   const hasItems = items.length > 0;
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitError(null);
     setSubmitting(true);
@@ -200,7 +221,10 @@ export default function CheckoutPage() {
       return;
     }
 
-    const ref = data?.order_number || data?.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
+    // `data?.id` doesn't exist on the real response (the field is
+    // `order_id`) — see services/marketplace.ts's Order gap note. Preserved
+    // via a defensive cast rather than corrected to `order_id`.
+    const ref = data?.order_number || (data as unknown as { id?: string })?.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
     clearCart(slug);
     setOrderRef(ref);
     setConfirmedMethod(isOnDelivery ? selectedDeliveryMethod : null);
@@ -293,7 +317,7 @@ export default function CheckoutPage() {
 
         {/* Receipt modal — shown immediately after order placement */}
         <ReceiptModal
-          orderId={orderRef}
+          orderId={orderRef ?? ''}
           open={receiptOpen}
           onClose={handleReceiptClose}
           onNewOrder={handleReceiptNewOrder}
@@ -356,7 +380,7 @@ export default function CheckoutPage() {
             <CardTitle className="text-sm font-semibold">How would you like it?</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs value={fulfillment} onValueChange={setFulfillment}>
+            <Tabs value={fulfillment} onValueChange={(v) => setFulfillment(v as 'delivery' | 'collection')}>
               <TabsList className="w-full p-1 bg-muted rounded-xl h-auto">
                 <TabsTrigger
                   value="delivery"

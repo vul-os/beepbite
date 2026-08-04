@@ -37,15 +37,104 @@ export interface Store {
   [key: string]: unknown;
 }
 
+export interface MarketplaceVariationOption {
+  id: string;
+  name: string;
+  price_modifier: number;
+}
+
+export interface MarketplaceItemVariation {
+  id: string;
+  name: string;
+  is_required: boolean;
+  options: MarketplaceVariationOption[];
+}
+
+export interface MarketplaceMenuItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  /** decimal string, e.g. "12.50" — kept as a string to avoid float noise. */
+  price: string;
+  image_url?: string | null;
+  preparation_time_minutes: number;
+  calories?: number | null;
+  spice_level?: number | null;
+  sort_order: number;
+  remaining_today?: number | null;
+}
+
+export interface MarketplaceMenuCategory {
+  id: string;
+  name: string;
+  description?: string | null;
+  sort_order: number;
+  items: MarketplaceMenuItem[];
+}
+
+// Mirrors backend/internal/handlers/marketplace/store.go StoreProfile — the
+// real shape GET /stores/{slug} returns. NOTE: checkout (pages/checkout/
+// index.tsx) reads `on_delivery_payment_methods` (array) and
+// `payment_credentials` (array of {is_active}) to decide the payment mode —
+// NEITHER field exists on this DTO. The only payment-related field the
+// backend actually sends is `online_payment_available: boolean`
+// (deployment-wide, not per-method). Since those two fields are always
+// undefined, checkout's `paymentMode` resolves to 'none' for every store in
+// production — a pre-existing defect, flagged not fixed. The index
+// signature preserves that exact (dead) read.
 export interface StoreDetail {
+  id: string;
+  name: string;
+  slug: string | null;
+  city: string | null;
+  country: string | null;
+  address: string | null;
+  description: string | null;
+  offers_delivery: boolean;
+  offers_collection: boolean;
+  estimated_prep_time_minutes: number;
+  currency_code: string | null;
+  avg_rating: number | null;
+  review_count: number;
+  categories: MarketplaceMenuCategory[];
+  online_payment_available: boolean;
   [key: string]: unknown;
 }
 
+// Mirrors backend/internal/handlers/marketplace/checkout.go CheckoutResp —
+// the real response of POST /stores/{slug}/orders. NOTE: this page's
+// createOrder() actually POSTs to `/orders` (see below), a route that is
+// NOT registered anywhere in the Go backend — confirmed by grepping every
+// `r.Post(...)` route table. That 404 is expected and already handled by
+// checkout/index.tsx's own "Placeholder success for dev — real endpoint not
+// yet wired up" fallback (its comment, not this one). Even if `/orders`
+// were later pointed at this handler, checkout reads `data?.id`, but the
+// real field is `order_id` — another latent mismatch preserved via the
+// index signature rather than fixed.
 export interface Order {
+  order_id: string;
+  order_number: string;
+  status: string;
+  payment_method: string;
+  total: number;
+  pay_url?: string;
   [key: string]: unknown;
 }
 
+// Client-only concept (localStorage cart) — no backend schema. Derived from
+// actual usage: pages/store/[slug]/components/cart-widget.jsx and
+// checkout/index.tsx read {id, name, price, quantity}, but
+// favorites-row.jsx's quick-add instead pushes {item_id, name, price_cents,
+// image_url} — a different shape under the same array. Both are typed
+// permissively (index signature) since neither call site validates a cart
+// item's shape before use.
 export interface CartItem {
+  id?: string;
+  item_id?: string;
+  name?: string;
+  price?: number;
+  price_cents?: number;
+  quantity?: number;
   [key: string]: unknown;
 }
 
