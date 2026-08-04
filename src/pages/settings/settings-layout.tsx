@@ -11,11 +11,25 @@ import {
   ChefHat,
   UserCircle,
   Settings2,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
-const SECTIONS = [
+interface SettingsNavItem {
+  label: string;
+  to: string;
+  icon: LucideIcon;
+  // Additional path prefixes this item explicitly claims own it (drill-downs).
+  matchPaths?: string[];
+}
+
+interface SettingsSection {
+  title: string;
+  items: SettingsNavItem[];
+}
+
+const SECTIONS: SettingsSection[] = [
   {
     title: 'Business',
     items: [
@@ -55,7 +69,7 @@ const SECTIONS = [
   },
 ];
 
-function isItemActive(item, currentPath, currentSearch) {
+function isItemActive(item: SettingsNavItem, currentPath: string, currentSearch: string): boolean {
   // Any additional path prefixes the item explicitly claims own it (drill-downs).
   if (item.matchPaths?.some((p) => currentPath === p.replace(/\/$/, '') || currentPath.startsWith(p))) {
     return true;
