@@ -1,17 +1,32 @@
-import { ShoppingBag, DollarSign, Users, BarChart2 } from 'lucide-react';
+import { ShoppingBag, DollarSign, Users, BarChart2, type LucideIcon } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { Stagger, StaggerItem } from '@/components/ui/motion';
 import { formatPrice } from '@/lib/currency';
+import type { StatsKPIs } from '@/services/stats';
 
-function pctDelta(current, previous) {
+function pctDelta(current: number, previous: number): number | null {
   if (!previous || previous === 0) return null;
   return ((current - previous) / previous) * 100;
 }
 
-export default function KpiCards({ kpis, previous, currency = 'USD', loading }) {
-  const fmt = (cents) => formatPrice(cents ?? 0, currency);
+interface KpiCardsProps {
+  kpis?: Partial<StatsKPIs> | null;
+  previous?: Partial<StatsKPIs> | null;
+  currency?: string;
+  loading?: boolean;
+}
 
-  const cards = [
+interface KpiCard {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  delta: number | null;
+}
+
+export default function KpiCards({ kpis, previous, currency = 'USD', loading }: KpiCardsProps) {
+  const fmt = (cents?: number) => formatPrice(cents ?? 0, currency);
+
+  const cards: KpiCard[] = [
     {
       icon: DollarSign,
       label: 'Gross Sales',
