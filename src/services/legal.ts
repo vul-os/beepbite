@@ -5,31 +5,60 @@ import { api } from '../lib/api-client.js';
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
+export interface LegalDocument {
+  id: string;
+  kind: string;
+  version: string;
+  body_md: string;
+  effective_at: string;
+}
+
+export interface AcceptedDocument {
+  id: string;
+  profile_id: string;
+  document_id: string;
+  accepted_at: string;
+}
+
 /**
  * Fetch the current (latest effective) legal document for a given kind.
- *
- * @param {'terms'|'privacy'} kind
- * @returns {Promise<{ data: { id: string, kind: string, version: string, body_md: string, effective_at: string }, error: any }>}
  */
-export async function getCurrentDocument(kind) {
-  return api.request('GET', `/legal/${encodeURIComponent(kind)}/current`, { auth: false });
+export async function getCurrentDocument(kind: 'terms' | 'privacy') {
+  return api.request<LegalDocument>('GET', `/legal/${encodeURIComponent(kind)}/current`, { auth: false });
 }
 
 /**
  * Record the authenticated user's acceptance of a specific document version.
  * Requires a valid JWT (the api client attaches the bearer token automatically).
  *
- * @param {string} documentId  UUID of the legal_documents row being accepted.
- * @returns {Promise<{ data: { id: string, profile_id: string, document_id: string, accepted_at: string } | { already_accepted: true }, error: any }>}
+ * @param documentId  UUID of the legal_documents row being accepted.
  */
-export async function acceptDocument(documentId) {
-  return api.request('POST', '/legal/accept', {
+export async function acceptDocument(documentId: string) {
+  return api.request<AcceptedDocument | { already_accepted: true }>('POST', '/legal/accept', {
     body: { document_id: documentId },
     auth: true,
   });
 }
 
 // ── Per-tenant privacy policy generator ──────────────────────────────────────
+
+export interface StoreOrganization {
+  name: string;
+  default_currency_code?: string;
+  address?: string;
+  country?: string;
+  contact_email?: string;
+  data_residency?: string;
+  [key: string]: unknown;
+}
+
+export interface TaxProfile {
+  legal_name?: string;
+  registered_address?: string;
+  country?: string;
+  vat_number?: string;
+  contact_email?: string;
+}
 
 /**
  * Generates a per-store privacy policy string from the store's business info.
@@ -43,28 +72,20 @@ export async function acceptDocument(documentId) {
  * The function is purely functional — it performs no network requests and
  * requires no new endpoint.
  *
- * @param {{
- *   name: string,
- *   default_currency_code?: string,
- *   [key: string]: any
- * }} organization  Row from the `organizations` table.
- *
- * @param {{
- *   legal_name?: string,
- *   registered_address?: string,
- *   country?: string,
- *   vat_number?: string,
- *   contact_email?: string,
- * } | null} [taxProfile]  Row from `tax_profiles` if available; null/undefined degrades gracefully.
- *
- * @param {string} [timeZone]  IANA zone for the "effective date" stamp. This
+ * @param organization  Row from the `organizations` table.
+ * @param taxProfile  Row from `tax_profiles` if available; null/undefined degrades gracefully.
+ * @param timeZone  IANA zone for the "effective date" stamp. This
  *   module is a plain function with no React context, so it cannot call
  *   useDateTime(); callers that know the store's timezone should pass it.
  *   Defaults to 'UTC' so behaviour is unchanged for callers that don't.
  *
- * @returns {string}  Markdown-formatted privacy policy string.
+ * @returns Markdown-formatted privacy policy string.
  */
-export function generateStorePolicyMd(organization, taxProfile = null, timeZone = 'UTC') {
+export function generateStorePolicyMd(
+  organization: StoreOrganization,
+  taxProfile: TaxProfile | null = null,
+  timeZone = 'UTC',
+): string {
   if (!organization || !organization.name) {
     throw new Error('generateStorePolicyMd: organization.name is required');
   }

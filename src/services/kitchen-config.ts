@@ -20,7 +20,7 @@ import { api } from '@/lib/api-client';
 // ---- stations ----------------------------------------------------------------
 
 /** Fetch all kitchen stations for a location, ordered by sort_order. */
-export async function fetchStations(locationId) {
+export async function fetchStations(locationId: string) {
   const { data, error } = await api
     .from('kitchen_stations')
     .select('*')
@@ -31,7 +31,7 @@ export async function fetchStations(locationId) {
 }
 
 /** Create a new kitchen station. Returns the created row. */
-export async function createStation(payload) {
+export async function createStation(payload: Record<string, unknown>) {
   const { data, error } = await api
     .from('kitchen_stations')
     .insert(payload)
@@ -41,7 +41,7 @@ export async function createStation(payload) {
 }
 
 /** Update a kitchen station by id. */
-export async function updateStation(id, changes) {
+export async function updateStation(id: string, changes: Record<string, unknown>) {
   const { data, error } = await api
     .from('kitchen_stations')
     .update(changes)
@@ -52,7 +52,7 @@ export async function updateStation(id, changes) {
 }
 
 /** Delete a kitchen station by id. */
-export async function deleteStation(id) {
+export async function deleteStation(id: string) {
   const { error } = await api
     .from('kitchen_stations')
     .delete()
@@ -63,7 +63,7 @@ export async function deleteStation(id) {
 // ---- category → station routing ----------------------------------------------
 
 /** Fetch all category→station routing rows visible to the current org (RLS scoped). */
-export async function fetchCategoryRoutings(locationId) {
+export async function fetchCategoryRoutings(locationId: string) {
   // category_station_routing has no location_id column; RLS scopes via station_id→kitchen_stations.
   // We still need locationId to fetch stations for the UI but don't filter here.
   void locationId;
@@ -79,7 +79,7 @@ export async function fetchCategoryRoutings(locationId) {
  * If a row already exists for category_id it is deleted first (RLS enforces org scope),
  * then re-inserted with the new station_id. Pass station_id = null to clear.
  */
-export async function setCategoryRouting(locationId, categoryId, stationId) {
+export async function setCategoryRouting(locationId: string, categoryId: string, stationId: string | null) {
   void locationId; // no location_id column — RLS scopes transitively via station_id
   // Delete any existing row for this category (org-scoped by RLS).
   await api
@@ -97,7 +97,7 @@ export async function setCategoryRouting(locationId, categoryId, stationId) {
 }
 
 /** Delete a category routing row by its own id. */
-export async function deleteCategoryRouting(id) {
+export async function deleteCategoryRouting(id: string) {
   const { error } = await api
     .from('category_station_routing')
     .delete()
@@ -108,7 +108,7 @@ export async function deleteCategoryRouting(id) {
 // ---- item → station routing --------------------------------------------------
 
 /** Fetch all item→station routing rows visible to the current org (RLS scoped). */
-export async function fetchItemRoutings(locationId) {
+export async function fetchItemRoutings(locationId: string) {
   // item_station_routing has no location_id column; RLS scopes via station_id→kitchen_stations.
   void locationId;
   const { data, error } = await api
@@ -123,7 +123,7 @@ export async function fetchItemRoutings(locationId) {
  * Deletes any existing row for item_id (org-scoped by RLS) then inserts the new one.
  * Pass station_id = null to clear.
  */
-export async function setItemRouting(locationId, itemId, stationId) {
+export async function setItemRouting(locationId: string, itemId: string, stationId: string | null) {
   void locationId; // no location_id column — RLS scopes transitively via station_id
   await api
     .from('item_station_routing')
@@ -140,7 +140,7 @@ export async function setItemRouting(locationId, itemId, stationId) {
 }
 
 /** Delete an item routing row by its own id. */
-export async function deleteItemRouting(id) {
+export async function deleteItemRouting(id: string) {
   const { error } = await api
     .from('item_station_routing')
     .delete()
@@ -151,7 +151,7 @@ export async function deleteItemRouting(id) {
 // ---- KDS display groups (migration 031) -------------------------------------
 
 /** Fetch all display groups for a location, ordered by display_order. */
-export async function fetchDisplayGroups(locationId) {
+export async function fetchDisplayGroups(locationId: string) {
   const { data, error } = await api
     .from('kds_display_groups')
     .select('*')
@@ -162,7 +162,7 @@ export async function fetchDisplayGroups(locationId) {
 }
 
 /** Create a new display group. */
-export async function createDisplayGroup(payload) {
+export async function createDisplayGroup(payload: Record<string, unknown>) {
   const { data, error } = await api
     .from('kds_display_groups')
     .insert(payload)
@@ -172,7 +172,7 @@ export async function createDisplayGroup(payload) {
 }
 
 /** Update a display group by id. */
-export async function updateDisplayGroup(id, changes) {
+export async function updateDisplayGroup(id: string, changes: Record<string, unknown>) {
   const { data, error } = await api
     .from('kds_display_groups')
     .update(changes)
@@ -183,7 +183,7 @@ export async function updateDisplayGroup(id, changes) {
 }
 
 /** Delete a display group by id. */
-export async function deleteDisplayGroup(id) {
+export async function deleteDisplayGroup(id: string) {
   const { error } = await api
     .from('kds_display_groups')
     .delete()
@@ -194,7 +194,7 @@ export async function deleteDisplayGroup(id) {
 // ---- helper: fetch categories & items for the routing pickers ---------------
 
 /** Fetch menu categories for a location (for the routing picker labels). */
-export async function fetchCategories(locationId) {
+export async function fetchCategories(locationId: string) {
   const { data, error } = await api
     .from('categories')
     .select('id, name')
@@ -205,7 +205,7 @@ export async function fetchCategories(locationId) {
 }
 
 /** Fetch menu items for a location (for the routing picker labels). */
-export async function fetchItems(locationId) {
+export async function fetchItems(locationId: string) {
   const { data, error } = await api
     .from('items')
     .select('id, name, category_id')

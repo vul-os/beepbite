@@ -4,6 +4,21 @@
 
 import { api } from '@/lib/api-client';
 
+interface FetchError extends Error {
+  status?: number;
+}
+
+export interface CheckSplit {
+  label: string;
+  [key: string]: unknown;
+}
+
+export interface CheckSplitItem {
+  order_item_id: string;
+  quantity: number;
+  [key: string]: unknown;
+}
+
 // ---- Table & section lookups ------------------------------------------------
 
 /**
@@ -11,7 +26,7 @@ import { api } from '@/lib/api-client';
  * Route: GET /data/tables?eq=location_id,X&order=label.asc
  * Note: the tables schema has no `table_number` column — the display field is `label`.
  */
-export async function listTables(locationId) {
+export async function listTables(locationId: string): Promise<any[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -24,7 +39,7 @@ export async function listTables(locationId) {
  * List all floor sections for a location.
  * Route: GET /data/sections?eq=location_id,X
  */
-export async function listSections(locationId) {
+export async function listSections(locationId: string): Promise<any[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -39,7 +54,7 @@ export async function listSections(locationId) {
  * List all currently-open table sessions for a location.
  * Route: GET /data/table_sessions?eq=location_id,X&eq=status,open
  */
-export async function listOpenSessions(locationId) {
+export async function listOpenSessions(locationId: string): Promise<any[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -52,14 +67,14 @@ export async function listOpenSessions(locationId) {
  * Fetch a single session with its seats and linked orders.
  * Route: GET /sessions/{session_id}
  */
-export async function getSessionDetail(sessionId) {
+export async function getSessionDetail(sessionId: string) {
   if (!sessionId) throw new Error('sessionId required');
   const { data, error } = await api.request(
     'GET',
     `/sessions/${encodeURIComponent(sessionId)}`,
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to fetch session');
+    const e: FetchError = new Error(error.message || 'Failed to fetch session');
     e.status = error.status;
     throw e;
   }
@@ -72,9 +87,15 @@ export async function getSessionDetail(sessionId) {
  * Open a new session on a table.
  * Route: POST /tables/{table_id}/open-session
  */
-export async function openTableSession({ tableId, locationId, partySize, openedBy, notes }) {
+export async function openTableSession({ tableId, locationId, partySize, openedBy, notes }: {
+  tableId: string;
+  locationId: string;
+  partySize: number;
+  openedBy?: string;
+  notes?: string;
+}) {
   if (!tableId) throw new Error('tableId required');
-  const body = {
+  const body: { location_id: string; party_size: number; opened_by: string; notes?: string } = {
     location_id: locationId,
     party_size: partySize,
     opened_by: openedBy || '',
@@ -87,7 +108,7 @@ export async function openTableSession({ tableId, locationId, partySize, openedB
     { body },
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to open table session');
+    const e: FetchError = new Error(error.message || 'Failed to open table session');
     e.status = error.status;
     throw e;
   }
@@ -98,9 +119,9 @@ export async function openTableSession({ tableId, locationId, partySize, openedB
  * Close an open session. Optionally update party size and add closing notes.
  * Route: POST /sessions/{session_id}/close
  */
-export async function closeTableSession(sessionId, { partySize, notes } = {}) {
+export async function closeTableSession(sessionId: string, { partySize, notes }: { partySize?: number; notes?: string } = {}) {
   if (!sessionId) throw new Error('sessionId required');
-  const body = {};
+  const body: { party_size?: number; notes?: string } = {};
   if (partySize != null) body.party_size = partySize;
   if (notes) body.notes = notes;
 
@@ -110,7 +131,7 @@ export async function closeTableSession(sessionId, { partySize, notes } = {}) {
     { body },
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to close session');
+    const e: FetchError = new Error(error.message || 'Failed to close session');
     e.status = error.status;
     throw e;
   }
@@ -121,10 +142,15 @@ export async function closeTableSession(sessionId, { partySize, notes } = {}) {
  * Transfer a session to a different table.
  * Route: POST /sessions/{session_id}/transfer
  */
-export async function transferSession(sessionId, { toTableId, openedBy, partySize, notes } = {}) {
+export async function transferSession(sessionId: string, { toTableId, openedBy, partySize, notes }: {
+  toTableId?: string;
+  openedBy?: string;
+  partySize?: number;
+  notes?: string;
+} = {}) {
   if (!sessionId) throw new Error('sessionId required');
   if (!toTableId) throw new Error('toTableId required');
-  const body = {
+  const body: { to_table_id: string; opened_by: string; party_size?: number; notes?: string } = {
     to_table_id: toTableId,
     opened_by: openedBy || '',
   };
@@ -137,7 +163,7 @@ export async function transferSession(sessionId, { toTableId, openedBy, partySiz
     { body },
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to transfer session');
+    const e: FetchError = new Error(error.message || 'Failed to transfer session');
     e.status = error.status;
     throw e;
   }
@@ -149,40 +175,39 @@ export async function transferSession(sessionId, { toTableId, openedBy, partySiz
 /**
  * Create check_splits + check_split_items for a session (split-by-seat).
  * Route: POST /sessions/{session_id}/split-check
- *
- * @param {string} sessionId
- * @param {Array<{label: string, items: Array<{order_item_id: string, quantity: number}>}>} splits
- * @param {string} [createdBy]
- * @returns {Promise<{splits: CheckSplit[], items: CheckSplitItem[]}>}
  */
-export async function splitCheck(sessionId, splits, createdBy) {
+export async function splitCheck(
+  sessionId: string,
+  splits: Array<{ label: string; items: Array<{ order_item_id: string; quantity: number }> }>,
+  createdBy?: string,
+): Promise<{ splits: CheckSplit[]; items: CheckSplitItem[] }> {
   if (!sessionId) throw new Error('sessionId required');
   const body = { splits, created_by: createdBy || '' };
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<{ splits: CheckSplit[]; items: CheckSplitItem[] }>(
     'POST',
     `/sessions/${encodeURIComponent(sessionId)}/split-check`,
     { body },
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to split check');
+    const e: FetchError = new Error(error.message || 'Failed to split check');
     e.status = error.status;
     throw e;
   }
-  return data;
+  return data!;
 }
 
 /**
  * List seats for a session.
  * Route: GET /sessions/{session_id}/seats
  */
-export async function listSeats(sessionId) {
+export async function listSeats(sessionId: string): Promise<any[]> {
   if (!sessionId) return [];
   const { data, error } = await api.request(
     'GET',
     `/sessions/${encodeURIComponent(sessionId)}/seats`,
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to list seats');
+    const e: FetchError = new Error(error.message || 'Failed to list seats');
     e.status = error.status;
     throw e;
   }
