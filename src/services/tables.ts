@@ -8,15 +8,25 @@ interface FetchError extends Error {
   status?: number;
 }
 
+// Mirrors backend/internal/handlers/tables/types.go CheckSplit. The previous
+// version of this type declared a `label` field that the wire never actually
+// sends (the real field is `split_label`, see below) — callers already read
+// `split_label`/`id` correctly, so this is a type-only correction.
 export interface CheckSplit {
-  label: string;
-  [key: string]: unknown;
+  id: string;
+  table_session_id: string;
+  split_label: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
+// Mirrors backend/internal/handlers/tables/types.go CheckSplitItem.
 export interface CheckSplitItem {
+  id: string;
+  check_split_id: string;
   order_item_id: string;
   quantity: number;
-  [key: string]: unknown;
 }
 
 // Mirrors backend/migrations/001_baseline.sql public.tables.

@@ -34,8 +34,52 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useMoney } from '@/context/locale-context';
-import { splitCheck } from '@/services/tables';
+import { splitCheck, type CheckSplit, type CheckSplitItem } from '@/services/tables';
 import TenderModal from './tender-modal';
+import type { TenderLeg } from '@/services/payment';
+
+// ---------------------------------------------------------------------------
+// Domain shapes — the ticket is assembled client-side in workspace.jsx;
+// these mirror only the fields this component reads.
+// ---------------------------------------------------------------------------
+
+interface SplitOrderItem {
+  order_item_id: string;
+  item_name?: string;
+  name?: string;
+  quantity?: number;
+  total_cents?: number;
+  unit_price?: string | number;
+}
+
+interface SplitTicketOrder {
+  id: string;
+  items?: SplitOrderItem[];
+}
+
+interface SplitTicket {
+  sessionId?: string;
+  sentOrders?: SplitTicketOrder[];
+  table_number?: number | string;
+}
+
+interface Seat {
+  id: string;
+  label: string;
+}
+
+interface ItemRow {
+  key: string;
+  orderId: string;
+  orderItemId: string;
+  name: string;
+  quantity: number;
+  unitCents: number;
+  totalCents: number;
+}
+
+// {itemKey: {seatId: qty}}
+type Assignments = Record<string, Record<string, number>>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,9 +92,9 @@ import TenderModal from './tender-modal';
  * because `unit_price` arrives from the API as a major-unit decimal string, and
  * a literal 100 turns a ¥500 item into ¥50 000.
  */
-function buildItemList(ticket, scale) {
+function buildItemList(ticket: SplitTicket | null, scale: number): ItemRow[] {
   if (!ticket) return [];
-  const rows = [];
+  const rows: ItemRow[] = [];
   for (const order of ticket.sentOrders || []) {
     for (const item of order.items || []) {
       rows.push({
@@ -61,9 +105,9 @@ function buildItemList(ticket, scale) {
         quantity: item.quantity || 1,
         unitCents: item.total_cents
           ? Math.round(item.total_cents / (item.quantity || 1))
-          : Math.round((parseFloat(item.unit_price || 0)) * scale),
+          : Math.round((parseFloat(String(item.unit_price ?? 0))) * scale),
         totalCents: item.total_cents
-          || Math.round((parseFloat(item.unit_price || 0) * (item.quantity || 1)) * scale),
+          || Math.round((parseFloat(String(item.unit_price ?? 0)) * (item.quantity || 1)) * scale),
       });
     }
   }
@@ -71,7 +115,7 @@ function buildItemList(ticket, scale) {
 }
 
 /** Compute the total cents allocated to a given seat from the assignments map. */
-function seatTotalCents(seatId, assignments, allItems) {
+function seatTotalCents(seatId: string, assignments: Assignments, allItems: ItemRow[]): number {
   let total = 0;
   for (const item of allItems) {
     const qty = assignments[item.key]?.[seatId] || 0;
@@ -84,7 +128,13 @@ function seatTotalCents(seatId, assignments, allItems) {
 // Sub-component: seat column header
 // ---------------------------------------------------------------------------
 
-function SeatHeader({ seat, onRemove, canRemove }) {
+interface SeatHeaderProps {
+  seat: Seat;
+  onRemove: (seatId: string) => void;
+  canRemove: boolean;
+}
+
+function SeatHeader({ seat, onRemove, canRemove }: SeatHeaderProps) {
   return (
     <div className="flex items-center gap-1 min-w-0">
       <UserRound className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -110,25 +160,39 @@ function SeatHeader({ seat, onRemove, canRemove }) {
 let _seatCounter = 0;
 const nextSeatId = () => `seat-${++_seatCounter}`;
 
+interface SplitBySeatProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  ticket: SplitTicket | null;
+  onChargeSplit?: (splitId: string, legs: TenderLeg[]) => Promise<void>;
+  staffId?: string;
+}
+
+interface TenderingSplit {
+  splitId: string;
+  label: string;
+  amountCents: number;
+}
+
 export default function SplitBySeat({
   open,
   onOpenChange,
   ticket,
   onChargeSplit,
   staffId,
-}) {
+}: SplitBySeatProps) {
   // ------ Local state -------------------------------------------------------
-  const [seats, setSeats] = useState([]);
-  const [assignments, setAssignments] = useState({});  // {itemKey: {seatId: qty}}
+  const [seats, setSeats] = useState<Seat[]>([]);
+  const [assignments, setAssignments] = useState<Assignments>({});  // {itemKey: {seatId: qty}}
   const [applying, setApplying] = useState(false);
-  const [appliedSplits, setAppliedSplits] = useState(null); // SplitCheckResult | null
+  const [appliedSplits, setAppliedSplits] = useState<{ splits: CheckSplit[]; items: CheckSplitItem[] } | null>(null);
   const [error, setError] = useState('');
 
   // Tender sub-modal state — which split is being tendered
-  const [tenderingSplit, setTenderingSplit] = useState(null); // { splitId, amountCents, label }
+  const [tenderingSplit, setTenderingSplit] = useState<TenderingSplit | null>(null);
   const [tenderBusy, setTenderBusy] = useState(false);
   const [tenderError, setTenderError] = useState('');
-  const [paidSplits, setPaidSplits] = useState(new Set());
+  const [paidSplits, setPaidSplits] = useState<Set<string>>(new Set());
 
   const { format, scale } = useMoney();
 
@@ -161,11 +225,11 @@ export default function SplitBySeat({
     setSeats((prev) => [...prev, { id: nextSeatId(), label: `Seat ${n}` }]);
   };
 
-  const handleRemoveSeat = (seatId) => {
+  const handleRemoveSeat = (seatId: string) => {
     setSeats((prev) => prev.filter((s) => s.id !== seatId));
     // Clear assignments for removed seat
     setAssignments((prev) => {
-      const next = {};
+      const next: Assignments = {};
       for (const [itemKey, seatMap] of Object.entries(prev)) {
         const rest = { ...seatMap };
         delete rest[seatId];
@@ -175,14 +239,14 @@ export default function SplitBySeat({
     });
   };
 
-  const handleRenameSeat = (seatId, label) => {
+  const handleRenameSeat = (seatId: string, label: string) => {
     setSeats((prev) => prev.map((s) => s.id === seatId ? { ...s, label } : s));
   };
 
   // ------ Assignment --------------------------------------------------------
 
-  const handleAssign = useCallback((itemKey, seatId, qty) => {
-    const q = Math.max(0, Math.min(parseInt(qty, 10) || 0, allItems.find((i) => i.key === itemKey)?.quantity || 0));
+  const handleAssign = useCallback((itemKey: string, seatId: string, qty: string | number) => {
+    const q = Math.max(0, Math.min(parseInt(String(qty), 10) || 0, allItems.find((i) => i.key === itemKey)?.quantity || 0));
     setAssignments((prev) => {
       const seatMap = { ...(prev[itemKey] || {}) };
       if (q === 0) {
@@ -194,7 +258,7 @@ export default function SplitBySeat({
     });
   }, [allItems]);
 
-  const handleToggleAssign = useCallback((itemKey, seatId) => {
+  const handleToggleAssign = useCallback((itemKey: string, seatId: string) => {
     const item = allItems.find((i) => i.key === itemKey);
     if (!item) return;
     const current = assignments[itemKey]?.[seatId] || 0;
@@ -243,7 +307,7 @@ export default function SplitBySeat({
       setAppliedSplits(result);
     } catch (err) {
       console.error('Split check failed:', err);
-      setError(err.message || 'Failed to split check');
+      setError(err instanceof Error ? err.message : 'Failed to split check');
     } finally {
       setApplying(false);
     }
@@ -251,7 +315,7 @@ export default function SplitBySeat({
 
   // ------ Tender per split --------------------------------------------------
 
-  const handleTenderSplit = (split) => {
+  const handleTenderSplit = (split: CheckSplit) => {
     // Calculate the split's subtotal from assignments
     const seat = seats.find((s) => s.label === split.split_label);
     const amountCents = seat ? seatTotalCents(seat.id, assignments, allItems) : 0;
@@ -259,7 +323,7 @@ export default function SplitBySeat({
     setTenderError('');
   };
 
-  const handleTenderConfirm = async (legs) => {
+  const handleTenderConfirm = async (legs: TenderLeg[]) => {
     if (!tenderingSplit || !onChargeSplit) return;
     setTenderBusy(true);
     setTenderError('');
@@ -269,7 +333,7 @@ export default function SplitBySeat({
       setTenderingSplit(null);
     } catch (err) {
       console.error('Split tender failed:', err);
-      setTenderError(err.message || 'Payment failed');
+      setTenderError(err instanceof Error ? err.message : 'Payment failed');
     } finally {
       setTenderBusy(false);
     }
