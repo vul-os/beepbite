@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -29,12 +29,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { markPaidOnDelivery } from '@/services/payments';
 import { hasCapability } from '@/services/pos';
 import { useMoney } from '@/context/locale-context';
+import type { HomeOrder, HomeOrderDetails, HomeOrderEditFormData } from '../types';
 
 // ── Status colour helpers (kept in this file so they stay co-located) ───────
 
 // Shorter label for CTA buttons
-function getStatusLabelShort(status) {
-  const labels = {
+function getStatusLabelShort(status: string): string {
+  const labels: Record<string, string> = {
     pending:          'Pending',
     confirmed:        'Confirmed',
     preparing:        'Preparing',
@@ -71,7 +72,13 @@ function OrderCardSkeleton() {
 
 // ── Info row (used in detail / edit panels) ───────────────────────────────────
 
-function InfoRow({ label, children, className }) {
+interface InfoRowProps {
+  label: string;
+  children?: ReactNode;
+  className?: string;
+}
+
+function InfoRow({ label, children, className }: InfoRowProps) {
   return (
     <div className={cn('flex items-start justify-between gap-3 py-2 border-b border-border last:border-0', className)}>
       <span className="text-xs font-medium text-muted-foreground flex-shrink-0 pt-0.5">{label}</span>
@@ -82,7 +89,14 @@ function InfoRow({ label, children, className }) {
 
 // ── Panel header (back + title + badge) ───────────────────────────────────────
 
-function PanelHeader({ onBack, title, orderNumber, statusBadge }) {
+interface PanelHeaderProps {
+  onBack: () => void;
+  title: string;
+  orderNumber: string;
+  statusBadge?: ReactNode;
+}
+
+function PanelHeader({ onBack, title, orderNumber, statusBadge }: PanelHeaderProps) {
   return (
     <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-border bg-card">
       <Button
@@ -108,6 +122,18 @@ function PanelHeader({ onBack, title, orderNumber, statusBadge }) {
 
 // ── Order Details View ─────────────────────────────────────────────────────────
 
+interface OrderDetailsViewProps {
+  order: HomeOrder;
+  selectedOrderDetails: HomeOrderDetails | null;
+  loadingOrderDetails: boolean;
+  onBack: () => void;
+  onEdit: (order: HomeOrder) => void;
+  updateOrderStatus: (orderId: string, newStatus: string) => void;
+  getStatusColor: (status: string) => string;
+  getNextStatus: (status: string) => string | undefined;
+  getStatusLabel: (status: string) => string;
+}
+
 function OrderDetailsView({
   order,
   selectedOrderDetails,
@@ -118,11 +144,11 @@ function OrderDetailsView({
   getStatusColor,
   getNextStatus,
   getStatusLabel,
-}) {
+}: OrderDetailsViewProps) {
   // Line prices arrive as major-unit floats; `scale` is 1 in JPY and 1000 in
   // KWD, so a literal 100 would misplace the decimal point.
   const { format, scale } = useMoney();
-  const toMinor = (major) => Math.round(parseFloat(major || 0) * scale);
+  const toMinor = (major: number | string | null | undefined) => Math.round(parseFloat(String(major || 0)) * scale);
 
   return (
     <div className="absolute inset-0 flex flex-col">
@@ -182,7 +208,7 @@ function OrderDetailsView({
                             {format(toMinor(item.total_price))}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {item.quantity % 1 === 0 ? item.quantity : parseFloat(item.quantity).toFixed(2)} × {format(toMinor(item.unit_price))}
+                            {Number(item.quantity) % 1 === 0 ? item.quantity : parseFloat(String(item.quantity)).toFixed(2)} × {format(toMinor(item.unit_price))}
                           </p>
                         </div>
                       </div>
@@ -308,15 +334,18 @@ function OrderDetailsView({
 
             {/* Actions */}
             <div className="flex gap-2 pt-2">
-              {getNextStatus(order.status) && (
-                <Button
-                  onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                  className="flex-1 h-11 rounded-xl text-sm font-semibold"
-                >
-                  {getStatusLabelShort(getNextStatus(order.status))}
-                  <ChevronRight className="w-4 h-4 ml-1" aria-hidden="true" />
-                </Button>
-              )}
+              {(() => {
+                const nextStatus = getNextStatus(order.status);
+                return nextStatus && (
+                  <Button
+                    onClick={() => updateOrderStatus(order.id, nextStatus)}
+                    className="flex-1 h-11 rounded-xl text-sm font-semibold"
+                  >
+                    {getStatusLabelShort(nextStatus)}
+                    <ChevronRight className="w-4 h-4 ml-1" aria-hidden="true" />
+                  </Button>
+                );
+              })()}
               <Button
                 variant="outline"
                 onClick={() => onEdit(order)}
@@ -342,6 +371,16 @@ function OrderDetailsView({
 
 // ── Order Edit View ────────────────────────────────────────────────────────────
 
+interface OrderEditViewProps {
+  order: HomeOrder;
+  editFormData: HomeOrderEditFormData;
+  onInputChange: (field: keyof HomeOrderEditFormData, value: string | number) => void;
+  onSave: () => void;
+  onBack: () => void;
+  getStatusColor: (status: string) => string;
+  getStatusLabel: (status: string) => string;
+}
+
 function OrderEditView({
   order,
   editFormData,
@@ -350,7 +389,7 @@ function OrderEditView({
   onBack,
   getStatusColor,
   getStatusLabel,
-}) {
+}: OrderEditViewProps) {
   return (
     <div className="absolute inset-0 flex flex-col">
       <PanelHeader
@@ -484,6 +523,21 @@ function OrderEditView({
 
 // ── Orders List View ───────────────────────────────────────────────────────────
 
+type MarkPaidMethod = 'cash' | 'card_machine';
+
+interface OrderCardProps {
+  order: HomeOrder;
+  getStatusColor: (status: string) => string;
+  getNextStatus: (status: string) => string | undefined;
+  getStatusLabel: (status: string) => string;
+  updateOrderStatus: (orderId: string, newStatus: string) => void;
+  onViewDetails: (order: HomeOrder) => void;
+  onEditOrder: (order: HomeOrder) => void;
+  canSettle: boolean;
+  markingPaid: Record<string, MarkPaidMethod | null | undefined>;
+  onMarkPaid: (orderId: string, method: MarkPaidMethod) => void;
+}
+
 function OrderCard({
   order,
   getStatusColor,
@@ -495,7 +549,7 @@ function OrderCard({
   canSettle,
   markingPaid,
   onMarkPaid,
-}) {
+}: OrderCardProps) {
   const nextStatus = getNextStatus(order.status);
 
   return (
@@ -621,6 +675,26 @@ function OrderCard({
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
+interface OrdersSectionProps {
+  orders: HomeOrder[];
+  loadingOrders: boolean;
+  orderSearchTerm: string;
+  setOrderSearchTerm: (term: string) => void;
+  orderStatusFilter: string;
+  setOrderStatusFilter: (filter: string) => void;
+  filteredOrders: HomeOrder[];
+  updateOrderStatus: (orderId: string, newStatus: string) => void;
+  setEditingOrder: (order: HomeOrder | null) => void;
+  setIsOrderEditModalOpen: (open: boolean) => void;
+  viewOrderDetails: (order: HomeOrder) => void;
+  getStatusColor: (status: string) => string;
+  getNextStatus: (status: string) => string | undefined;
+  getStatusLabel: (status: string) => string;
+  isOrdersExpanded: boolean;
+}
+
+type OrdersSectionView = 'list' | 'details' | 'edit';
+
 const OrdersSection = ({
   orders,
   loadingOrders,
@@ -637,21 +711,21 @@ const OrdersSection = ({
   getNextStatus,
   getStatusLabel,
   isOrdersExpanded,
-}) => {
+}: OrdersSectionProps) => {
   // Local state for inline views
-  const [currentView, setCurrentView] = useState('list'); // 'list' | 'details' | 'edit'
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const [currentView, setCurrentView] = useState<OrdersSectionView>('list');
+  const [selectedOrder, setSelectedOrder] = useState<HomeOrder | null>(null);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<HomeOrderDetails | null>(null);
   const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
-  const [editFormData, setEditFormData] = useState({});
+  const [editFormData, setEditFormData] = useState<HomeOrderEditFormData>({});
 
   // Mark-paid-on-delivery state
-  const [markingPaid, setMarkingPaid] = useState({}); // { [orderId]: 'cash'|'card_machine'|null }
-  const [markPaidError, setMarkPaidError] = useState(null);
+  const [markingPaid, setMarkingPaid] = useState<Record<string, MarkPaidMethod | null | undefined>>({});
+  const [markPaidError, setMarkPaidError] = useState<string | null>(null);
 
   const canSettle = hasCapability('can_settle');
 
-  const handleMarkPaid = async (orderId, method) => {
+  const handleMarkPaid = async (orderId: string, method: MarkPaidMethod) => {
     if (!canSettle) {
       setMarkPaidError("You need the 'Mark paid' permission. Ask a manager.");
       return;
@@ -677,7 +751,7 @@ const OrdersSection = ({
     }
   };
 
-  const handleViewDetails = async (order) => {
+  const handleViewDetails = async (order: HomeOrder) => {
     setSelectedOrder(order);
     setCurrentView('details');
     setLoadingOrderDetails(true);
@@ -728,7 +802,7 @@ const OrdersSection = ({
     }
   };
 
-  const handleEditOrder = (order) => {
+  const handleEditOrder = (order: HomeOrder) => {
     setSelectedOrder(order);
     setEditFormData({
       delivery_address: order.delivery_address || '',
@@ -749,11 +823,11 @@ const OrdersSection = ({
   };
 
   const handleSaveEdit = async () => {
-    console.log('Saving order edit:', selectedOrder.id, editFormData);
+    console.log('Saving order edit:', selectedOrder?.id, editFormData);
     handleBackToList();
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof HomeOrderEditFormData, value: string | number) => {
     setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
 
