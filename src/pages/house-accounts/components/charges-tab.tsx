@@ -12,12 +12,29 @@ import {
 import { FileText, Loader2, Receipt } from 'lucide-react';
 import { useMoney } from '@/context/locale-context';
 
-export function ChargesTab({ accountId, generateInvoice, fetchCharges }) {
+// Mirrors backend/migrations/001_baseline.sql `house_account_charges` table.
+export interface HouseAccountCharge {
+  id: string;
+  house_account_id: string;
+  order_id: string;
+  customer_id: string | null;
+  amount_cents: number;
+  house_account_invoice_id: string | null;
+  created_at: string;
+}
+
+interface ChargesTabProps {
+  accountId: string;
+  generateInvoice: () => Promise<void>;
+  fetchCharges: () => Promise<HouseAccountCharge[]>;
+}
+
+export function ChargesTab({ accountId, generateInvoice, fetchCharges }: ChargesTabProps) {
   const { format: centsToDisplay } = useMoney();
-  const [charges, setCharges] = useState([]);
+  const [charges, setCharges] = useState<HouseAccountCharge[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [err, setErr] = useState(null);
+  const [err, setErr] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -26,7 +43,7 @@ export function ChargesTab({ accountId, generateInvoice, fetchCharges }) {
       setCharges(data);
       setErr(null);
     } catch (e) {
-      setErr(e.message || 'Failed to load charges');
+      setErr(e instanceof Error ? e.message : 'Failed to load charges');
     } finally {
       setLoading(false);
     }
@@ -45,7 +62,7 @@ export function ChargesTab({ accountId, generateInvoice, fetchCharges }) {
       await generateInvoice();
       await load();
     } catch (e) {
-      setErr(e.message || 'Failed to generate invoice');
+      setErr(e instanceof Error ? e.message : 'Failed to generate invoice');
     } finally {
       setGenerating(false);
     }
