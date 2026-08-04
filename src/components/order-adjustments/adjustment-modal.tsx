@@ -44,7 +44,7 @@ import { useAdjustmentReasons } from './use-adjustment-reasons';
 
 const STORAGE_KEY = 'bb.auth';
 
-function readStaffId() {
+function readStaffId(): string | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -56,14 +56,28 @@ function readStaffId() {
   }
 }
 
-const TYPE_LABELS = {
+type AdjustmentType = 'void' | 'comp' | 'price_override' | 'refund';
+
+const TYPE_LABELS: Record<AdjustmentType, string> = {
   void: 'Void Order',
   comp: 'Comp Item',
   price_override: 'Price Override',
   refund: 'Refund Order',
 };
 
-function buildEndpoint(type, orderId, itemId) {
+// Mirrors backend/migrations/001_baseline.sql `staff` table columns
+// (raw rows from GET /staff via the generic /data/{table} endpoint).
+interface Manager {
+  id: string;
+  first_name: string;
+  last_name: string;
+  display_name?: string | null;
+  email?: string | null;
+  role: string;
+  [key: string]: unknown;
+}
+
+function buildEndpoint(type: AdjustmentType, orderId: string, itemId: string | null): string {
   switch (type) {
     case 'void':
       return `/orders/${orderId}/void`;
@@ -83,6 +97,17 @@ function buildEndpoint(type, orderId, itemId) {
 const STEP_REASON = 'reason';
 const STEP_PIN = 'pin';
 
+interface AdjustmentModalProps {
+  open: boolean;
+  onClose: () => void;
+  orderId: string;
+  itemId?: string | null;
+  type: AdjustmentType;
+  currentPriceCents?: number | null;
+  onSuccess?: (data: unknown) => void;
+  locationId: string;
+}
+
 export default function AdjustmentModal({
   open,
   onClose,
@@ -92,7 +117,7 @@ export default function AdjustmentModal({
   currentPriceCents = null,
   onSuccess,
   locationId,
-}) {
+}: AdjustmentModalProps) {
   const { toast } = useToast();
   const { format: formatMoneyValue, symbol } = useMoney();
 
@@ -109,7 +134,7 @@ export default function AdjustmentModal({
   const [appliedByStaffId, setAppliedByStaffId] = useState('');
 
   // Async state
-  const [managers, setManagers] = useState([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pinError, setPinError] = useState('');
@@ -138,7 +163,7 @@ export default function AdjustmentModal({
   const fetchManagers = useCallback(async () => {
     if (!locationId) return;
     setLoadingManagers(true);
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<Manager[]>(
       'GET',
       `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`
     );
@@ -171,7 +196,13 @@ export default function AdjustmentModal({
     setPinError('');
     setSubmitting(true);
 
-    const body = {
+    const body: {
+      reason_code: string;
+      applied_by_staff_id: string;
+      approver_staff_id: string;
+      approver_pin: string;
+      new_price_cents?: number;
+    } = {
       reason_code: reasonCode,
       applied_by_staff_id: appliedByStaffId,
       approver_staff_id: approverStaffId,
@@ -268,7 +299,7 @@ export default function AdjustmentModal({
                 <SelectContent>
                   {reasons.map((r) => (
                     <SelectItem key={r.code ?? r.id} value={r.code ?? r.id}>
-                      {r.label ?? r.name ?? r.code ?? r.id}
+                      {r.label ?? r.code ?? r.id}
                     </SelectItem>
                   ))}
                   {!loadingReasons && reasons.length === 0 && (
@@ -335,7 +366,10 @@ export default function AdjustmentModal({
                 <SelectContent>
                   {managers.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.name ?? m.full_name ?? m.email ?? m.id}
+                      {/* .name / .full_name aren't real `staff` table columns (see
+                          Manager above) — read defensively via the index signature,
+                          same as the pre-conversion untyped access. */}
+                      {(m.name as string | undefined) ?? (m.full_name as string | undefined) ?? m.email ?? m.id}
                     </SelectItem>
                   ))}
                 </SelectContent>
