@@ -19,5 +19,7 @@ export interface CustomerSearchResult {
  */
 export async function searchCustomers(q: string, limit = 20) {
   const params = new URLSearchParams({ q, limit: String(limit) });
-  return api.request<CustomerSearchResult[]>('GET', `/customers/search?${params.toString()}`);
+  // Wire shape per backend/internal/handlers/customersearch/handler.go:
+  // 200 -> { "customers": [...] } — NOT a bare array.
+  return api.request<{ customers: CustomerSearchResult[] }>('GET', `/customers/search?${params.toString()}`);
 }

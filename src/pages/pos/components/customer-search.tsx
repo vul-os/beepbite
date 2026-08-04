@@ -1,4 +1,4 @@
-// customer-search.jsx — POS customer lookup widget.
+// customer-search.tsx — POS customer lookup widget.
 // Renders a debounced search input that queries GET /customers/search and
 // shows matching customers as a card list. Clicking a customer fires
 // onSelect(customer) so the parent can open detail or attach to an order.
@@ -8,17 +8,17 @@ import { Loader2, Search, UserX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { searchCustomers } from '@/services/customers';
+import { searchCustomers, type CustomerSearchResult } from '@/services/customers';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /** Format last_order_date as a short human-readable string, or dash. */
-function fmtDate(iso) {
+function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   const d = new Date(iso);
-  if (isNaN(d)) return '—';
+  if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -38,21 +38,29 @@ function fmtDate(iso) {
  *   className          — extra class on the root wrapper
  *   debounceMs         — debounce delay in ms (default: 300)
  */
+interface CustomerSearchProps {
+  onSelect?: (customer: CustomerSearchResult) => void;
+  placeholder?: string;
+  limit?: number;
+  className?: string;
+  debounceMs?: number;
+}
+
 export default function CustomerSearch({
   onSelect,
   placeholder = 'Search by name or phone…',
   limit = 20,
   className,
   debounceMs = 300,
-}) {
+}: CustomerSearchProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<CustomerSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const timerRef = useRef(null);
+  const [error, setError] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestQueryRef = useRef('');
 
-  const runSearch = useCallback(async (q) => {
+  const runSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
       setResults([]);
       setError(null);
@@ -74,7 +82,7 @@ export default function CustomerSearch({
 
   useEffect(() => {
     latestQueryRef.current = query;
-    clearTimeout(timerRef.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
     if (!query.trim()) {
       setResults([]);
       setError(null);
@@ -82,10 +90,12 @@ export default function CustomerSearch({
       return;
     }
     timerRef.current = setTimeout(() => runSearch(query), debounceMs);
-    return () => clearTimeout(timerRef.current);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [query, runSearch, debounceMs]);
 
-  const handleSelect = (customer) => {
+  const handleSelect = (customer: CustomerSearchResult) => {
     if (typeof onSelect === 'function') onSelect(customer);
   };
 

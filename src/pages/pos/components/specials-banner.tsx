@@ -1,4 +1,4 @@
-// specials-banner.jsx — pinned horizontal banner of today's daily specials.
+// specials-banner.tsx — pinned horizontal banner of today's daily specials.
 //
 // Given a locationId, fetches GET /specials and renders a horizontally-
 // scrollable row of special item cards. The banner hides itself when there
@@ -25,18 +25,24 @@ import { Star, ChevronRight } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
-import { fetchSpecials } from '@/services/specials';
+import { fetchSpecials, type Special } from '@/services/specials';
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+interface SpecialCardProps {
+  special: Special;
+  onSelect?: (special: Special) => void;
+  currency: string;
+}
 
 /**
  * A single special item card. Shows the item image (or a placeholder),
  * its name, and the pricing line (struck-through base price + special price
  * when a promotional price is set, or just the base price otherwise).
  */
-function SpecialCard({ special, onSelect, currency }) {
+function SpecialCard({ special, onSelect, currency }: SpecialCardProps) {
   const hasDiscount =
     special.special_price_cents != null &&
     special.special_price_cents < special.price_cents;
@@ -82,7 +88,7 @@ function SpecialCard({ special, onSelect, currency }) {
           {hasDiscount ? (
             <>
               <span className="block text-[11px] text-orange-600 font-bold">
-                {formatPrice(special.special_price_cents, currency)}
+                {formatPrice(special.special_price_cents!, currency)}
               </span>
               <span className="block text-[10px] text-gray-400 line-through">
                 {formatPrice(special.price_cents, currency)}
@@ -109,10 +115,17 @@ function SpecialCard({ special, onSelect, currency }) {
  * Fetches specials on mount (and when locationId changes). Renders nothing
  * when the fetch succeeds but returns an empty list.
  */
-export function SpecialsBanner({ locationId, onSelect, currency = 'USD', className }) {
-  const [specials, setSpecials] = useState([]);
+interface SpecialsBannerProps {
+  locationId?: string | null;
+  onSelect?: (special: Special) => void;
+  currency?: string;
+  className?: string;
+}
+
+export function SpecialsBanner({ locationId, onSelect, currency = 'USD', className }: SpecialsBannerProps) {
+  const [specials, setSpecials] = useState<Special[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!locationId) return;
@@ -122,7 +135,7 @@ export function SpecialsBanner({ locationId, onSelect, currency = 'USD', classNa
       const data = await fetchSpecials(locationId);
       setSpecials(data);
     } catch (err) {
-      setError(err.message || 'Failed to load specials');
+      setError(err instanceof Error ? err.message : 'Failed to load specials');
     } finally {
       setLoading(false);
     }

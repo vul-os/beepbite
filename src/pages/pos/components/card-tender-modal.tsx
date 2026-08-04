@@ -14,6 +14,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import { useMoney } from "@/context/locale-context"
 
+interface CardTenderModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  amountDueCents: number;
+  submitting?: boolean;
+  errorMessage?: string | null;
+  onConfirm: (payload: { amountCents: number; reference: string }) => void;
+}
+
 export function CardTenderModal({
   open,
   onOpenChange,
@@ -21,7 +30,7 @@ export function CardTenderModal({
   submitting = false,
   errorMessage,
   onConfirm,
-}) {
+}: CardTenderModalProps) {
   const [reference, setReference] = useState("")
   const [confirmed, setConfirmed] = useState(false)
   const { format } = useMoney()
