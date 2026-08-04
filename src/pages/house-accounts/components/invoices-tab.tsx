@@ -29,7 +29,7 @@ function statusBadge(status: HouseAccountInvoice['status']) {
 interface InvoicesTabProps {
   accountId: string;
   fetchInvoices: () => Promise<HouseAccountInvoice[]>;
-  payInvoice: (invoiceId: string, cents: number) => Promise<void>;
+  payInvoice: (invoiceId: string, cents: number) => Promise<unknown>;
 }
 
 export function InvoicesTab({ accountId, fetchInvoices, payInvoice }: InvoicesTabProps) {

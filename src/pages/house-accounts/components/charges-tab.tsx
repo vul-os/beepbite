@@ -25,7 +25,7 @@ export interface HouseAccountCharge {
 
 interface ChargesTabProps {
   accountId: string;
-  generateInvoice: () => Promise<void>;
+  generateInvoice: () => Promise<unknown>;
   fetchCharges: () => Promise<HouseAccountCharge[]>;
 }
 

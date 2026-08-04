@@ -17,7 +17,7 @@ export default function HouseAccountDetailPage() {
   const navigate = useNavigate();
   const { activeOrganization } = useAuth();
   const { format: formatMoneyValue } = useMoney();
-  const centsToDisplay = (cents) => (cents == null ? '—' : formatMoneyValue(cents));
+  const centsToDisplay = (cents: number | null | undefined) => (cents == null ? '—' : formatMoneyValue(cents));
 
   const {
     account,
@@ -141,7 +141,7 @@ export default function HouseAccountDetailPage() {
 
         <TabsContent value="charges" className="mt-4">
           <ChargesTab
-            accountId={id}
+            accountId={account.id}
             fetchCharges={fetchCharges}
             generateInvoice={generateInvoice}
           />
@@ -149,7 +149,7 @@ export default function HouseAccountDetailPage() {
 
         <TabsContent value="invoices" className="mt-4">
           <InvoicesTab
-            accountId={id}
+            accountId={account.id}
             fetchInvoices={fetchInvoices}
             payInvoice={payInvoice}
           />
