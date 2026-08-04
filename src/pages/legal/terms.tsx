@@ -2,16 +2,16 @@
 // Renders the current Terms of Service fetched from GET /legal/terms/current.
 // Route: /legal/terms
 import React from 'react';
-import { getCurrentDocument } from '../../services/legal';
+import { getCurrentDocument, type LegalDocument } from '../../services/legal';
 
 // Minimal Markdown-to-HTML renderer for safe, predictable rendering.
 // Handles headings (h1–h4), bold, italic, inline code, horizontal rules,
 // paragraphs, and unordered lists. External sanitiser not required because
 // body_md is server-controlled content, not user input.
-function renderMarkdown(md) {
+function renderMarkdown(md?: string | null) {
   if (!md) return '';
   const lines = md.split('\n');
-  const html = [];
+  const html: string[] = [];
   let inList = false;
   let inTable = false;
   let tableHeaderDone = false;
@@ -21,7 +21,7 @@ function renderMarkdown(md) {
     if (inTable) { html.push('</tbody></table>'); inTable = false; tableHeaderDone = false; }
   };
 
-  const inline = (t) =>
+  const inline = (t: string) =>
     t
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -33,7 +33,7 @@ function renderMarkdown(md) {
     // Headings
     if (/^#{1,4} /.test(line)) {
       flush();
-      const level = line.match(/^(#{1,4}) /)[1].length;
+      const level = line.match(/^(#{1,4}) /)![1].length;
       const text = inline(line.replace(/^#{1,4} /, ''));
       html.push(`<h${level} class="legal-h${level}">${text}</h${level}>`);
       continue;
@@ -98,9 +98,9 @@ function renderMarkdown(md) {
 }
 
 const TermsPage = () => {
-  const [doc, setDoc] = React.useState(null);
+  const [doc, setDoc] = React.useState<LegalDocument | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
