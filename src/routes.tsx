@@ -1,15 +1,22 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/auth/protected-route';
 
-import { Progress as LoadingComponent } from './components/ui/progress';
+import { Progress } from './components/ui/progress';
+// components/ui/progress.jsx isn't converted yet, so its exported `Progress`
+// infers only RefAttributes<any> (no `message` prop). The call below has
+// always passed `message`, which Progress silently spreads onto the
+// underlying DOM node rather than rendering — pre-existing dead prop, not
+// something this migration changes. Bridge the boundary explicitly so it
+// keeps compiling; revisit when components/ui/progress is converted.
+const LoadingComponent = Progress as ComponentType<{ message: string }>;
 // Layouts
 import BlankLayout from './components/layout/blank-layout';
 import MainLayout from './components/layout/main-layout';
 import LandingPage from './pages/landing';
 
 // Loading message mapping
-const getLoadingMessage = (pathname) => {
+const getLoadingMessage = (pathname: string) => {
   if (pathname.includes('/signin')) return 'Loading sign in...';
   if (pathname.includes('/signup')) return 'Loading sign up...';
   if (pathname.includes('/home')) return 'Loading home...';
@@ -40,7 +47,7 @@ const getLoadingMessage = (pathname) => {
 };
 
 // Custom Suspense wrapper with dynamic message
-const CustomSuspense = ({ children }) => {
+const CustomSuspense = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const message = getLoadingMessage(location.pathname);
   
@@ -52,7 +59,9 @@ const CustomSuspense = ({ children }) => {
 };
 
 // Lazy imports
-const lazyImport = (importFn) => {
+const lazyImport = <T extends ComponentType<unknown>>(
+  importFn: () => Promise<{ default: T }>
+): LazyExoticComponent<T> => {
   const Component = lazy(importFn);
   return Component;
 };
@@ -158,7 +167,7 @@ const CustomerTracking = lazyImport(() => import('./pages/track'));
 // Other pages
 const NotFound = lazyImport(() => import('./pages/not-found'));
 
-const Protected = ({ children }) => (
+const Protected = ({ children }: { children: ReactNode }) => (
   <ProtectedRoute>{children}</ProtectedRoute>
 );
 

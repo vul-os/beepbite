@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/auth-context';
 import { ActorTokenProvider } from './context/actor-token-context';
@@ -22,7 +23,7 @@ import { useAuth } from './context/auth-context';
 // back to its neutral defaults: no currency, UTC, no tax. Amounts then render
 // as bare numbers, which reads as "not configured yet" rather than silently
 // picking a country.
-const LocaleBridge = ({ children }) => {
+const LocaleBridge = ({ children }: { children: ReactNode }) => {
   const { activeLocation } = useAuth();
   return <LocaleProvider location={activeLocation}>{children}</LocaleProvider>;
 };

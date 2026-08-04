@@ -11,7 +11,7 @@ import '@fontsource-variable/archivo/wdth.css';
 import '@fontsource-variable/jetbrains-mono';
 import './index.css';
 import './i18n'; // initialise i18next — must precede render (Wave 30)
-import App from './App.jsx';
+import App from './App';
 import { StoreProvider } from '@/context/StoreContext'; // Wave 23 host→store resolution
 import CookieConsent from '@/components/cookie-consent'; // Wave 42 cookie consent
 
@@ -24,7 +24,9 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-const root = createRoot(document.getElementById('root'));
+// index.html always ships a <div id="root"> — this is a genuine invariant,
+// not an unchecked assumption; createRoot would throw on null regardless.
+const root = createRoot(document.getElementById('root')!);
 root.render(
   <StrictMode>
     <StoreProvider>
