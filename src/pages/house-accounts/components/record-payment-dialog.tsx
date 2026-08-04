@@ -13,14 +13,25 @@ import {
 import { DollarSign, Loader2 } from 'lucide-react';
 import { useMoney } from '@/context/locale-context';
 
-// Mirrors backend/migrations/001_baseline.sql `house_account_invoices` table (subset).
+// Mirrors backend/migrations/001_baseline.sql `house_account_invoices` table.
 export interface HouseAccountInvoice {
   id: string;
+  house_account_id: string;
   invoice_number: string;
+  period_start: string;
+  period_end: string;
+  subtotal_cents: number;
+  tax_cents: number;
   total_cents: number;
-  paid_amount_cents: number;
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'partial';
-  [key: string]: unknown;
+  due_date: string | null;
+  sent_at: string | null;
+  paid_at: string | null;
+  paid_amount_cents: number;
+  pdf_url: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface RecordPaymentDialogProps {
