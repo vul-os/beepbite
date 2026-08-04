@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,21 @@ import { MapPin, Loader2 } from 'lucide-react';
 import AddressAutocomplete from '@/components/address-autocomplete';
 import { countryOptions } from '@/lib/locale-data';
 
-const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
+// Mirrors backend/migrations/001_baseline.sql `regions` table (subset).
+interface LocationRegion {
+  id: string;
+  name: string;
+  code?: string;
+  currency: string;
+}
+
+interface AddLocationModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: (location: { id: string; [key: string]: unknown }) => void;
+}
+
+const AddLocationModal = ({ open, onOpenChange, onSuccess }: AddLocationModalProps) => {
   const { activeOrganization, fetchLocations } = useAuth();
   const { toast } = useToast();
 
@@ -41,7 +55,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
   // outright — locations.country carries a CHECK of ^[A-Z]{2}$.
   const [country, setCountry] = useState('');
   const [regionId, setRegionId] = useState('');
-  const [regions, setRegions] = useState([]);
+  const [regions, setRegions] = useState<LocationRegion[]>([]);
   const [loadingRegions, setLoadingRegions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -81,7 +95,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
     setSubmitting(false);
   };
 
-  const handleOpenChange = (v) => {
+  const handleOpenChange = (v: boolean) => {
     if (!v) reset();
     onOpenChange(v);
   };
@@ -90,7 +104,7 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
 
   const countries = useMemo(() => countryOptions(), []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isValid || submitting || !activeOrganization?.id) return;
 
@@ -128,7 +142,8 @@ const AddLocationModal = ({ open, onOpenChange, onSuccess }) => {
       onOpenChange(false);
       if (onSuccess) onSuccess(data);
     } catch (err) {
-      const msg = err?.message || err?.error || 'Failed to create location';
+      const e = err as { message?: string; error?: string } | null;
+      const msg = e?.message || e?.error || 'Failed to create location';
       toast({
         title: 'Could not add location',
         description: msg,

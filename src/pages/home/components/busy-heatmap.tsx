@@ -4,6 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { Flame } from 'lucide-react';
+import type { HeatmapCell } from '@/services/stats';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -15,13 +16,13 @@ const HOURS = Array.from({ length: 24 }, (_, h) => {
 });
 
 // Map a normalised value [0,1] to an rgba orange colour.
-function cellBg(norm) {
+function cellBg(norm: number): string {
   if (norm === 0) return 'hsl(var(--muted))';
   const alpha = 0.15 + norm * 0.85;
   return `hsl(var(--primary) / ${alpha.toFixed(2)})`;
 }
 
-function cellText(norm) {
+function cellText(norm: number): string {
   return norm > 0.55 ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))';
 }
 
@@ -38,13 +39,26 @@ function HeatmapSkeleton() {
   );
 }
 
-export default function BusyHeatmap({ cells = [], currency = 'USD', loading }) {
+interface BusyHeatmapProps {
+  cells?: HeatmapCell[];
+  currency?: string;
+  loading?: boolean;
+}
+
+interface HeatmapTooltipState {
+  dow: number;
+  hour: number;
+  count: number;
+  sales: number;
+}
+
+export default function BusyHeatmap({ cells = [], currency = 'USD', loading }: BusyHeatmapProps) {
   const tooltipId = useId();
-  const [tooltip, setTooltip] = useState(null); // { dow, hour, count, sales }
+  const [tooltip, setTooltip] = useState<HeatmapTooltipState | null>(null);
 
   // Build a 7×24 lookup and find max for normalisation.
   const { grid, maxCount } = useMemo(() => {
-    const map = new Map();
+    const map = new Map<string, HeatmapCell>();
     let max = 0;
     for (const c of cells) {
       const key = `${c.dow}_${c.hour}`;

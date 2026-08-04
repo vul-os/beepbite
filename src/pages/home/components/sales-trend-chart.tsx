@@ -13,12 +13,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice } from '@/lib/currency';
 import { useLocale } from '@/context/locale-context';
 import { TrendingUp } from 'lucide-react';
+import type { StatsSeriesPoint } from '@/services/stats';
+import type { StatsPeriod } from './period-filter';
 
 // `locale` is threaded in from useLocale() rather than read here — this is a
 // plain helper, not a component, so hooks aren't available. An empty/absent
 // locale falls through to `undefined`, which means "use the reader's own",
 // exactly as Intl intends; it must never be hardcoded to 'en-US'.
-function bucketLabel(bucket, period, locale) {
+function bucketLabel(bucket: string | undefined, period: StatsPeriod, locale: string): string {
   if (!bucket) return '';
   // bucket is an ISO string like "2024-01-15T00:00:00Z" or just "2024-01-15"
   const d = new Date(bucket);
@@ -48,9 +50,16 @@ function bucketLabel(bucket, period, locale) {
   }
 }
 
-function CustomTooltip({ active, payload, label, currency }) {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: { payload: StatsSeriesPoint }[];
+  label?: string;
+  currency: string;
+}
+
+function CustomTooltip({ active, payload, label, currency }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
-  const { sales_cents, order_count } = payload[0]?.payload ?? {};
+  const { sales_cents, order_count } = payload[0]?.payload ?? ({} as Partial<StatsSeriesPoint>);
   return (
     <div
       role="tooltip"
@@ -80,7 +89,14 @@ function ChartSkeleton() {
   );
 }
 
-export default function SalesTrendChart({ series = [], period = 'week', currency = 'USD', loading }) {
+interface SalesTrendChartProps {
+  series?: StatsSeriesPoint[];
+  period?: StatsPeriod;
+  currency?: string;
+  loading?: boolean;
+}
+
+export default function SalesTrendChart({ series = [], period = 'week', currency = 'USD', loading }: SalesTrendChartProps) {
   const { locale } = useLocale();
   const data = useMemo(
     () =>
@@ -92,7 +108,7 @@ export default function SalesTrendChart({ series = [], period = 'week', currency
   );
 
   const maxVal = useMemo(() => Math.max(...data.map((d) => d.sales_cents ?? 0), 1), [data]);
-  const tickFormatter = (v) => {
+  const tickFormatter = (v: number) => {
     if (maxVal >= 100_000) return `${(v / 100_00).toFixed(0)}k`;
     return formatPrice(v, currency);
   };
