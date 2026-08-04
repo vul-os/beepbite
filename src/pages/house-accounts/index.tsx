@@ -18,7 +18,7 @@ import { AccountFormDialog } from './components/account-form';
 import { Plus, Loader2, Building2, AlertCircle } from 'lucide-react';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
-function statusBadge(isActive) {
+function statusBadge(isActive: boolean) {
   return isActive
     ? <Badge variant="default">active</Badge>
     : <Badge variant="secondary">inactive</Badge>;
@@ -30,7 +30,7 @@ export default function HouseAccountsPage() {
   const orgId = activeOrganization?.id;
   const { format: formatMoneyValue } = useMoney();
 
-  const centsToDisplay = (cents) => (cents == null ? '—' : formatMoneyValue(cents));
+  const centsToDisplay = (cents: number | null | undefined) => (cents == null ? '—' : formatMoneyValue(cents));
 
   const { accounts, loading, error, createAccount } = useHouseAccounts(orgId);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -122,7 +122,7 @@ export default function HouseAccountsPage() {
       <AccountFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        orgId={orgId}
+        orgId={activeOrganization.id}
         onCreate={createAccount}
       />
     </PageContainer>
