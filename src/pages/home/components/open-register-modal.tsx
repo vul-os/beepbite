@@ -18,17 +18,26 @@ import {
   openRegisterSession,
   persistRegister,
   getStaff,
+  type CashDrawer,
 } from '@/services/pos';
 import { denominationRows, denominationTotal } from '@/lib/denominations';
 import { useMoney } from '@/context/locale-context';
 
+type Denomination = { key: string; minor: number };
+
+interface DenomRowProps {
+  denom: Denomination;
+  count: number;
+  onChange: (value: number) => void;
+}
+
 // Single denomination row with +/- steppers and a per-denom subtotal.
-function DenomRow({ denom, count, onChange }) {
+function DenomRow({ denom, count, onChange }: DenomRowProps) {
   const { format } = useMoney();
   // The tile's own label — a drawer in Tokyo holds ¥1,000 notes, not R10 ones.
   const label = format(denom.minor);
   const subtotal = (count || 0) * denom.minor;
-  const setSafe = (val) => onChange(Math.max(0, val | 0));
+  const setSafe = (val: number) => onChange(Math.max(0, val | 0));
 
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-primary/20 bg-card p-3 shadow-sm">
@@ -77,17 +86,24 @@ function DenomRow({ denom, count, onChange }) {
  * calls POST /cash-drawers/{drawer}/sessions/open. On success, persists the
  * session id via persistRegister() and invokes onOpened with the new session.
  */
-export default function OpenRegisterModal({ open, onOpenChange, locationId, onOpened }) {
+interface OpenRegisterModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  locationId?: string;
+  onOpened?: (result: { session: unknown; drawerId: string }) => void;
+}
+
+export default function OpenRegisterModal({ open, onOpenChange, locationId, onOpened }: OpenRegisterModalProps) {
   const { format, currency } = useMoney();
   // Which notes and coins exist is a property of the currency, not of the app.
   const denoms = denominationRows(currency);
 
-  const [drawers, setDrawers] = useState([]);
+  const [drawers, setDrawers] = useState<CashDrawer[]>([]);
   const [drawerId, setDrawerId] = useState('');
   const [drawersLoading, setDrawersLoading] = useState(false);
   const [drawersError, setDrawersError] = useState('');
 
-  const [counts, setCounts] = useState({});
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [openingNote, setOpeningNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -124,7 +140,7 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
 
   const totalCents = denominationTotal(counts, currency);
 
-  const handleCountChange = (key, v) => {
+  const handleCountChange = (key: string, v: number) => {
     setCounts((prev) => ({ ...prev, [key]: v }));
   };
 
@@ -137,22 +153,27 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
     setSubmitting(true);
     try {
       const staff = getStaff();
-      const session = await openRegisterSession({
+      // openRegisterSession() returns the raw api.request() payload, which is
+      // `unknown` by default (see api-client.ts's Builder comment on the one
+      // documented `any` in this repo — that exception is _run()'s return
+      // type, not this call) — narrowed here to what persistRegister/onOpened
+      // actually read off it.
+      const session = (await openRegisterSession({
         drawerId,
         openingFloatCents: totalCents,
         openedByStaffId: staff?.id || '',
         denominations: counts,
         note: openingNote,
-      });
+      })) as { id?: string; opened_at?: string } | undefined;
       persistRegister({
-        sessionId: session?.id,
+        sessionId: session?.id ?? null,
         drawerId,
         openedAt: session?.opened_at || new Date().toISOString(),
       });
       onOpened?.({ session, drawerId });
       onOpenChange(false);
     } catch (err) {
-      setSubmitError(err.message || 'Failed to open register');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to open register');
     } finally {
       setSubmitting(false);
     }

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, Utensils, Filter, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
+import type { HomeMenuItem, HomeCategory } from '../types';
 
 // Pick a food emoji for an item. Tries name keywords first, then falls back
 // to the item's category name. A new keyword takes a few seconds to add —
@@ -51,14 +52,27 @@ const CATEGORY_EMOJI = {
   coffee: '☕',
   alcohol: '🍺',
 };
-function emojiForItem(item) {
+function emojiForItem(item: HomeMenuItem): string {
   const name = item?.name || '';
   for (const { match, emoji } of ITEM_EMOJI_KEYWORDS) {
     if (match.test(name)) return emoji;
   }
   const cat = (item?.categories?.name || '').toLowerCase().trim();
-  if (CATEGORY_EMOJI[cat]) return CATEGORY_EMOJI[cat];
+  if (CATEGORY_EMOJI[cat as keyof typeof CATEGORY_EMOJI]) return CATEGORY_EMOJI[cat as keyof typeof CATEGORY_EMOJI];
   return '🍽️';
+}
+
+interface POSSectionProps {
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  categories: HomeCategory[];
+  selectedCategory: string;
+  setSelectedCategory: (id: string) => void;
+  filteredItems: HomeMenuItem[];
+  loadingItems: boolean;
+  isOrdersExpanded: boolean;
+  addToCart: (item: HomeMenuItem) => void;
+  currency?: string;
 }
 
 const POSSection = ({
@@ -72,18 +86,18 @@ const POSSection = ({
   isOrdersExpanded,
   addToCart,
   currency = 'USD',
-}) => {
+}: POSSectionProps) => {
   const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(false);
-  const categoriesContainerRef = useRef(null);
-  const allCategoriesRef = useRef(null);
+  const categoriesContainerRef = useRef<HTMLDivElement>(null);
+  const allCategoriesRef = useRef<HTMLDivElement>(null);
 
   // Check if categories overflow and need expand/collapse functionality
   useEffect(() => {
     const checkOverflow = () => {
       if (categoriesContainerRef.current && allCategoriesRef.current) {
         // Create a temporary container to measure the full height
-        const tempContainer = allCategoriesRef.current.cloneNode(true);
+        const tempContainer = allCategoriesRef.current.cloneNode(true) as HTMLDivElement;
         tempContainer.style.position = 'absolute';
         tempContainer.style.visibility = 'hidden';
         tempContainer.style.height = 'auto';
@@ -270,7 +284,7 @@ const POSSection = ({
                           "font-bold text-foreground tabular-nums",
                           isOrdersExpanded ? "text-xl" : "text-base"
                         )}>
-                          {formatPrice(parseFloat(item.price || 0) * 100, currency)}
+                          {formatPrice(parseFloat(String(item.price || 0)) * 100, currency)}
                         </span>
                       </div>
 

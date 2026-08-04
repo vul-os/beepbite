@@ -1,6 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Radio } from 'lucide-react';
 import OrdersSection from './orders-section';
+import type { HomeOrder } from '../types';
+
+interface LiveOrdersPanelProps {
+  orders: HomeOrder[];
+  loadingOrders: boolean;
+  orderSearchTerm: string;
+  setOrderSearchTerm: (term: string) => void;
+  orderStatusFilter: string;
+  setOrderStatusFilter: (filter: string) => void;
+  filteredOrders: HomeOrder[];
+  updateOrderStatus: (orderId: string, newStatus: string) => void;
+}
 
 /**
  * Live Orders Panel
@@ -18,13 +30,13 @@ export default function LiveOrdersPanel({
   setOrderStatusFilter,
   filteredOrders,
   updateOrderStatus,
-}) {
+}: LiveOrdersPanelProps) {
   // Status progression reads as a gradient of meaning, not six arbitrary
   // hues: "needs attention" (warning) → "acknowledged, in flow" (primary,
   // deepening as it advances) → "positive, past the kitchen" (success). This
   // keeps every status on a token that also tracks dark mode, instead of a
   // grab-bag of literal Tailwind colors with no shared logic.
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':             return 'bg-warning/15 text-warning border-warning/30';
       case 'confirmed':           return 'bg-primary/10 text-primary border-primary/20';
@@ -36,8 +48,8 @@ export default function LiveOrdersPanel({
     }
   };
 
-  const getNextStatus = (currentStatus) => {
-    const flow = {
+  const getNextStatus = (currentStatus: string): string | undefined => {
+    const flow: Record<string, string> = {
       pending:          'confirmed',
       confirmed:        'preparing',
       preparing:        'ready',
@@ -47,8 +59,8 @@ export default function LiveOrdersPanel({
     return flow[currentStatus];
   };
 
-  const getStatusLabel = (status) => {
-    const labels = {
+  const getStatusLabel = (status: string): string => {
+    const labels: Record<string, string> = {
       pending:            'Pending',
       confirmed:          'Confirmed',
       preparing:          'Preparing',
