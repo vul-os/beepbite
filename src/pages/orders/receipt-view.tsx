@@ -8,12 +8,11 @@
 // layout, and provides a "Print" button that calls window.print(). Styling is
 // intentionally minimal and monochrome so it renders well on receipt paper.
 
-/* eslint-disable react/prop-types */
 import { useEffect, useState } from 'react';
 import { Printer, Loader2, AlertCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { fetchReceipt } from '@/services/receipts';
+import { fetchReceipt, type Receipt } from '@/services/receipts';
 import { formatPrice } from '@/lib/currency';
 import { useLocale } from '@/context/locale-context';
 
@@ -21,7 +20,7 @@ import { useLocale } from '@/context/locale-context';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(iso) {
+function formatDate(iso?: string | null) {
   if (!iso) return '';
   try {
     return new Date(iso).toLocaleString(undefined, {
@@ -36,7 +35,7 @@ function formatDate(iso) {
   }
 }
 
-function humaniseMethod(code) {
+function humaniseMethod(code?: string | null) {
   return (code || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -52,7 +51,15 @@ function Divider() {
   return <hr className="ticket-perforation my-2 print:border-muted-foreground" />;
 }
 
-function Row({ label, value, bold = false, indent = false, accent = false }) {
+interface RowProps {
+  label: string;
+  value: string;
+  bold?: boolean;
+  indent?: boolean;
+  accent?: boolean;
+}
+
+function Row({ label, value, bold = false, indent = false, accent = false }: RowProps) {
   return (
     <div
       className={`flex justify-between text-sm gap-2 ${indent ? 'pl-4' : ''} ${
@@ -87,11 +94,11 @@ function Row({ label, value, bold = false, indent = false, accent = false }) {
  *
  * @param {{ orderId: string, onClose?: () => void }} props
  */
-export default function ReceiptView({ orderId, onClose }) {
+export default function ReceiptView({ orderId, onClose }: { orderId: string; onClose?: () => void }) {
   const { currency: activeCurrency } = useLocale();
-  const [receipt, setReceipt] = useState(null);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orderId) {
@@ -143,7 +150,7 @@ export default function ReceiptView({ orderId, onClose }) {
   // The order's own currency wins; the active location is only a fallback
   // for older receipts that predate the currency_code column.
   const currency = receipt.currency_code || activeCurrency || '';
-  const fmt = (cents) => formatPrice(cents, currency);
+  const fmt = (cents: number) => formatPrice(cents, currency);
 
   return (
     <div className="receipt-view-root">
