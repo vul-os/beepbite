@@ -9,7 +9,7 @@
  *   /invoices/:id/edit   — edit draft
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -48,9 +48,26 @@ import { currencyOptions } from '@/lib/locale-data';
 // backend `currencies` table (there is no endpoint that lists it — see that
 // file's KNOWN GAP note); it is not re-declared here.
 
-const EMPTY_LINE = { description: '', qty: 1, unit_cents: 0 };
+interface FormLine {
+  description: string;
+  qty: number;
+  unit_cents: number;
+}
 
-const EMPTY_FORM = {
+interface InvoiceFormState {
+  issuer: 'platform' | 'tenant';
+  recipient_org_id: string;
+  recipient_customer_id: string;
+  recipient_name: string;
+  recipient_address: string;
+  currency: string;
+  vat_rate_pct: number | string;
+  lines: FormLine[];
+}
+
+const EMPTY_LINE: FormLine = { description: '', qty: 1, unit_cents: 0 };
+
+const EMPTY_FORM: InvoiceFormState = {
   issuer:                'tenant',
   recipient_org_id:      '',
   recipient_customer_id: '',
@@ -65,18 +82,18 @@ const EMPTY_FORM = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function centsFromInput(val) {
+function centsFromInput(val: string) {
   const n = parseFloat(val);
   if (isNaN(n)) return 0;
   return Math.round(n * 100);
 }
 
-function inputFromCents(cents) {
+function inputFromCents(cents: number | null | undefined) {
   if (!cents) return '';
   return (cents / 100).toFixed(2);
 }
 
-function subtotal(lines) {
+function subtotal(lines: FormLine[]) {
   return lines.reduce((acc, l) => acc + l.qty * l.unit_cents, 0);
 }
 
@@ -97,12 +114,12 @@ export default function InvoiceFormPage() {
   const currencyChoices = useMemo(() => currencyOptions(locale), [locale]);
   // fmtCents needs the reader's locale, which only the hook can supply, so it
   // lives inside the component rather than as a module-level helper.
-  const fmtCents = (cents, currency) => formatMoney(cents ?? 0, { currency, locale });
+  const fmtCents = (cents: number | null | undefined, currency: string) => formatMoney(cents ?? 0, { currency, locale });
 
-  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, currency: activeCurrency || '' }));
+  const [form, setForm] = useState<InvoiceFormState>(() => ({ ...EMPTY_FORM, currency: activeCurrency || '' }));
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // ── Load existing invoice (edit mode) ────────────────────────────────────
 
@@ -138,12 +155,12 @@ export default function InvoiceFormPage() {
 
   // ── Field helpers ─────────────────────────────────────────────────────────
 
-  function setField(name, value) {
+  function setField<K extends keyof InvoiceFormState>(name: K, value: InvoiceFormState[K]) {
     setForm((prev) => ({ ...prev, [name]: value }));
     setError(null);
   }
 
-  function setLine(idx, field, value) {
+  function setLine<K extends keyof FormLine>(idx: number, field: K, value: FormLine[K]) {
     setForm((prev) => {
       const lines = [...prev.lines];
       lines[idx] = { ...lines[idx], [field]: value };
@@ -155,7 +172,7 @@ export default function InvoiceFormPage() {
     setForm((prev) => ({ ...prev, lines: [...prev.lines, { ...EMPTY_LINE }] }));
   }
 
-  function removeLine(idx) {
+  function removeLine(idx: number) {
     setForm((prev) => ({
       ...prev,
       lines: prev.lines.filter((_, i) => i !== idx),
@@ -164,7 +181,7 @@ export default function InvoiceFormPage() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
-  async function handleSave(e) {
+  async function handleSave(e: FormEvent) {
     e.preventDefault();
     if (form.lines.length === 0) {
       setError('Add at least one line item.');
@@ -180,18 +197,18 @@ export default function InvoiceFormPage() {
       ...(recipient_org_id      ? { recipient_org_id }      : {}),
       ...(recipient_customer_id ? { recipient_customer_id } : {}),
       lines,
-      vat_rate_pct: parseFloat(vat_rate_pct) || 0,
+      vat_rate_pct: parseFloat(String(vat_rate_pct)) || 0,
     };
 
     let result;
-    if (isEdit) {
+    if (isEdit && id) {
       result = await updateInvoice(id, body);
     } else {
       result = await createInvoice(body);
     }
 
-    if (result.error) {
-      setError(result.error.message || 'Failed to save invoice.');
+    if (result.error || !result.data) {
+      setError(result.error?.message || 'Failed to save invoice.');
       setSaving(false);
       return;
     }
@@ -202,8 +219,8 @@ export default function InvoiceFormPage() {
   // ── Computed ──────────────────────────────────────────────────────────────
 
   const sub = subtotal(form.lines);
-  const vatCents = form.vat_rate_pct > 0
-    ? Math.round(sub * parseFloat(form.vat_rate_pct) / 100)
+  const vatCents = Number(form.vat_rate_pct) > 0
+    ? Math.round(sub * parseFloat(String(form.vat_rate_pct)) / 100)
     : 0;
   const totalCents = sub + vatCents;
   const currency = form.currency || activeCurrency || '';
@@ -250,7 +267,7 @@ export default function InvoiceFormPage() {
               <Label>Issuer</Label>
               <Select
                 value={form.issuer}
-                onValueChange={(v) => setField('issuer', v)}
+                onValueChange={(v) => setField('issuer', v as 'platform' | 'tenant')}
                 disabled={isEdit}
               >
                 <SelectTrigger>
