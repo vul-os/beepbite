@@ -56,7 +56,7 @@ function readStaffId(): string | null {
   }
 }
 
-type AdjustmentType = 'void' | 'comp' | 'price_override' | 'refund';
+export type AdjustmentType = 'void' | 'comp' | 'price_override' | 'refund';
 
 const TYPE_LABELS: Record<AdjustmentType, string> = {
   void: 'Void Order',

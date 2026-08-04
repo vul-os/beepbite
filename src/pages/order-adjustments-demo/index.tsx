@@ -8,12 +8,12 @@
  */
 
 import { useState } from 'react';
-import AdjustmentModal from '@/components/order-adjustments/adjustment-modal';
+import AdjustmentModal, { type AdjustmentType } from '@/components/order-adjustments/adjustment-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-const ADJUSTMENT_TYPES = ['void', 'comp', 'price_override', 'refund'];
+const ADJUSTMENT_TYPES: AdjustmentType[] = ['void', 'comp', 'price_override', 'refund'];
 
 export default function OrderAdjustmentsDemo() {
   // Configurable test values
@@ -23,10 +23,10 @@ export default function OrderAdjustmentsDemo() {
   const [currentPriceCents, setCurrentPriceCents] = useState(1299);
 
   // Modal state
-  const [modalType, setModalType] = useState(null);
-  const [lastResult, setLastResult] = useState(null);
+  const [modalType, setModalType] = useState<AdjustmentType | null>(null);
+  const [lastResult, setLastResult] = useState<unknown>(null);
 
-  function openModal(type) {
+  function openModal(type: AdjustmentType) {
     setModalType(type);
     setLastResult(null);
   }
@@ -35,7 +35,7 @@ export default function OrderAdjustmentsDemo() {
     setModalType(null);
   }
 
-  function handleSuccess(data) {
+  function handleSuccess(data: unknown) {
     setLastResult(data);
     setModalType(null);
   }
@@ -114,7 +114,7 @@ export default function OrderAdjustmentsDemo() {
         </div>
 
         {/* Last result */}
-        {lastResult && (
+        {lastResult != null && (
           <div className="rounded-lg border p-4">
             <h2 className="mb-2 font-medium">Last Success Response</h2>
             <pre className="overflow-x-auto text-xs text-muted-foreground whitespace-pre-wrap">
