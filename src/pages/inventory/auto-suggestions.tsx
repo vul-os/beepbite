@@ -1,0 +1,235 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, Zap, ShoppingCart } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import { useMoney } from '@/context/locale-context';
+import { api } from '@/lib/api-client';
+import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import type { POSuggestion, AutoPOSuggestionsResponse } from './types';
+
+interface CreateResult {
+  supplier: string;
+  ok: boolean;
+  po_number?: string;
+  message?: string;
+}
+
+export default function AutoSuggestionsPage() {
+  const { activeLocation } = useAuth();
+  // Suggestions are drafts for this location and carry no currency of their
+  // own, so the location's currency is the right one.
+  const { format: fmtCents } = useMoney();
+  const [suggestions, setSuggestions] = useState<POSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  // selected: Set of supplier_id keys (one PO per supplier)
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [creating, setCreating] = useState(false);
+  const [createResults, setCreateResults] = useState<CreateResult[]>([]);
+
+  const fetchSuggestions = useCallback(async () => {
+    if (!activeLocation) return;
+    setLoading(true);
+    setError('');
+    setCreateResults([]);
+    try {
+      const { data, error: err } = await api.request<AutoPOSuggestionsResponse>(
+        'GET',
+        `/inventory/auto-po-suggestions?location_id=${activeLocation.id}`
+      );
+      if (err) throw new Error(err.message);
+      const list = data?.suggestions || [];
+      setSuggestions(list);
+      // Pre-select all
+      setSelected(new Set(list.map((_, i) => i)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load suggestions');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeLocation]);
+
+  useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
+
+  function toggleSelect(idx: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
+
+  async function createSelected() {
+    const toCreate = suggestions.filter((_, i) => selected.has(i));
+    if (toCreate.length === 0) return;
+    setCreating(true);
+    const results: CreateResult[] = [];
+    for (const sug of toCreate) {
+      const poNumber = `AUTO-${sug.supplier_id.slice(0, 6).toUpperCase()}-${Date.now()}`;
+      try {
+        const { data, error: err } = await api.request<{ po_number?: string }>('POST', '/inventory/purchase-orders', {
+          body: {
+            location_id: sug.location_id,
+            supplier_id: sug.supplier_id,
+            po_number: poNumber,
+            lines: sug.lines.map((l) => ({
+              inventory_item_id: l.inventory_item_id,
+              ordered_quantity: l.ordered_quantity,
+              ordered_unit: l.ordered_unit,
+              ordered_unit_price_cents: l.ordered_unit_price_cents,
+            })),
+          },
+        });
+        if (err) throw new Error(err.message);
+        results.push({ supplier: sug.supplier_name, ok: true, po_number: data?.po_number });
+      } catch (e) {
+        results.push({ supplier: sug.supplier_name, ok: false, message: e instanceof Error ? e.message : 'Failed to create PO' });
+      }
+    }
+    setCreateResults(results);
+    setCreating(false);
+    // Refresh suggestions — items may no longer be low-stock after the order
+    await fetchSuggestions();
+  }
+
+  if (!activeLocation) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Select a location to view auto-PO suggestions.</p>
+      </div>
+    );
+  }
+
+  return (
+    <PageContainer>
+      <PageHeader
+        icon={Zap}
+        title="Auto-PO Suggestions"
+        description={`Low-stock items at ${activeLocation.name} with a preferred supplier`}
+        actions={
+          <Button
+            onClick={createSelected}
+            disabled={creating || selected.size === 0 || suggestions.length === 0}
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            {creating ? 'Creating…' : `Create ${selected.size} selected PO${selected.size !== 1 ? 's' : ''}`}
+          </Button>
+        }
+      />
+
+      {/* Create results */}
+      {createResults.length > 0 && (
+        <div className="space-y-1">
+          {createResults.map((r, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-2 rounded p-2 text-sm ${r.ok ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}
+            >
+              {r.ok
+                ? <span>Created PO <strong>{r.po_number}</strong> for {r.supplier}</span>
+                : <span>Failed for {r.supplier}: {r.message}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading && (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-32 bg-muted rounded-lg animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
+          <AlertCircle className="w-4 h-4" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {!loading && !error && suggestions.length === 0 && (
+        <Card>
+          <CardContent className="p-10 text-center">
+            <Zap className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">No low-stock items with a preferred supplier found.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !error && suggestions.length > 0 && (
+        <div className="space-y-4">
+          {suggestions.map((sug, idx) => (
+            <Card key={idx} className={`border-2 transition-colors ${selected.has(idx) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id={`sug-${idx}`}
+                    checked={selected.has(idx)}
+                    onCheckedChange={() => toggleSelect(idx)}
+                  />
+                  <label htmlFor={`sug-${idx}`} className="cursor-pointer flex-1">
+                    <CardTitle className="text-base">{sug.supplier_name}</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Estimated total: {fmtCents(sug.estimated_total_cents)} &middot; {sug.lines.length} line{sug.lines.length !== 1 ? 's' : ''}
+                    </p>
+                  </label>
+                  {/* Every suggestion on this page is a not-yet-created draft
+                      PO — a neutral secondary badge, not a status that needs
+                      attention. */}
+                  <Badge variant="secondary">Draft</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-muted-foreground border-b border-border">
+                      <th className="text-left py-1">Item ID</th>
+                      <th className="text-right py-1">Qty</th>
+                      <th className="text-left py-1 pl-2">Unit</th>
+                      <th className="text-right py-1">Unit Price</th>
+                      <th className="text-right py-1">Line Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sug.lines.map((line, li) => {
+                      // Stay in minor units: quantity may be fractional (2.5 kg),
+                      // so round to a whole minor unit rather than dividing first.
+                      const lineTotal = Math.round(
+                        line.ordered_quantity * (line.ordered_unit_price_cents ?? 0)
+                      );
+                      return (
+                        <tr key={li} className="border-b border-border/60 last:border-0">
+                          <td className="py-1 text-foreground font-mono text-xs truncate max-w-[120px]">{line.inventory_item_id}</td>
+                          <td className="py-1 text-right text-foreground tabular-nums">{line.ordered_quantity}</td>
+                          <td className="py-1 pl-2 text-muted-foreground">{line.ordered_unit}</td>
+                          <td className="py-1 text-right text-foreground tabular-nums">{fmtCents(line.ordered_unit_price_cents)}</td>
+                          <td className="py-1 text-right font-medium tabular-nums">{fmtCents(lineTotal)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          ))}
+
+          <div className="flex justify-end">
+            <Button
+              onClick={createSelected}
+              disabled={creating || selected.size === 0}
+            >
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              {creating ? 'Creating…' : `Create ${selected.size} selected PO${selected.size !== 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </div>
+      )}
+    </PageContainer>
+  );
+}
