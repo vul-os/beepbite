@@ -7,13 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { ItemIdRow, ItemTagRow } from '../hooks/use-dashboard';
 
-export default function CoverageCard({ allItems, itemAllergens, itemDietaryTags, loading }) {
+interface CoverageCardProps {
+  allItems: ItemIdRow[];
+  itemAllergens: ItemTagRow[];
+  itemDietaryTags: ItemTagRow[];
+  loading: boolean;
+}
+
+export default function CoverageCard({ allItems, itemAllergens, itemDietaryTags, loading }: CoverageCardProps) {
   const navigate = useNavigate();
 
   const stats = useMemo(() => {
     const total = allItems.length;
-    if (total === 0) return { total: 0, allergenPct: 0, dietaryPct: 0 };
+    if (total === 0) return { total: 0, allergenPct: 0, dietaryPct: 0, withAllergen: 0, withDietary: 0 };
 
     const withAllergen = new Set(itemAllergens.map(r => r.item_id)).size;
     const withDietary = new Set(itemDietaryTags.map(r => r.item_id)).size;
