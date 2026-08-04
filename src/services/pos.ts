@@ -121,12 +121,42 @@ export function clearStoredRegister() {
   persistRegister({ sessionId: null, drawerId: null, openedAt: null });
 }
 
+// Mirrors backend/migrations/001_baseline.sql public.cash_drawers.
+export interface CashDrawer {
+  id: string;
+  location_id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+// Mirrors backend/migrations/001_baseline.sql public.cash_drawer_sessions.
+export interface CashDrawerSession {
+  id: string;
+  cash_drawer_id: string;
+  opened_by: string | null;
+  closed_by: string | null;
+  opening_float_cents: number;
+  declared_closing_cents: number | null;
+  expected_closing_cents: number | null;
+  over_short_cents: number | null;
+  is_blind_close: boolean;
+  status: string;
+  opened_at: string;
+  closed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  [key: string]: unknown;
+}
+
 // ---- Cash drawer / register-session API ------------------------------------
 
 /**
  * List active drawers for a location.
  */
-export async function listDrawers(locationId: string): Promise<any[]> {
+export async function listDrawers(locationId: string): Promise<CashDrawer[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -139,7 +169,7 @@ export async function listDrawers(locationId: string): Promise<any[]> {
  * Fetch the open session (if any) for a drawer.
  * Backend route: GET /cash-drawers/{drawer_id}/sessions?status=open
  */
-export async function getOpenSession(drawerId: string): Promise<any | null> {
+export async function getOpenSession(drawerId: string): Promise<CashDrawerSession | null> {
   if (!drawerId) return null;
   const { data, error } = await api.request(
     'GET',
