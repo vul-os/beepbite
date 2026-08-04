@@ -7,12 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { getRoleColor } from '@/lib/role-colors';
+import type { Staff } from '../types';
 
-function getInitials(first, last) {
+function getInitials(first?: string | null, last?: string | null) {
   return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
 }
 
-export function StaffList({ staffList, loading, selectedStaff, onSelect }) {
+interface StaffListProps {
+  staffList: Staff[];
+  loading: boolean;
+  selectedStaff: Staff | null;
+  onSelect: (member: Staff) => void;
+}
+
+export function StaffList({ staffList, loading, selectedStaff, onSelect }: StaffListProps) {
   const [query, setQuery] = useState('');
 
   const filtered = staffList.filter((m) => {

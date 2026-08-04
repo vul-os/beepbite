@@ -12,13 +12,21 @@ import {
   CheckCircle,
   XCircle,
   AtSign,
+  type LucideIcon,
 } from 'lucide-react';
+import type { Staff } from '../types';
 
-function getInitials(first, last) {
+function getInitials(first?: string | null, last?: string | null) {
   return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
 }
 
-function Field({ icon: Icon, label, value }) {
+interface FieldProps {
+  icon: LucideIcon;
+  label: string;
+  value?: string | null;
+}
+
+function Field({ icon: Icon, label, value }: FieldProps) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-3">
@@ -33,7 +41,11 @@ function Field({ icon: Icon, label, value }) {
   );
 }
 
-export function ProfileTab({ staff }) {
+interface ProfileTabProps {
+  staff: Staff;
+}
+
+export function ProfileTab({ staff }: ProfileTabProps) {
   const hireDate = staff.hire_date
     ? new Date(staff.hire_date).toLocaleDateString(undefined, {
         year: 'numeric',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,10 +11,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { KeyRound, Hash, AlertTriangle } from 'lucide-react';
+import type { Staff } from '../types';
+
+type ActionResult = { data?: unknown; error: { message: string } | null };
 
 // ── Password reset dialog ────────────────────────────────────────────────────
 
-function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
+interface ResetPasswordDialogProps {
+  staff: Staff;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (pw: string) => Promise<ActionResult>;
+}
+
+function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }: ResetPasswordDialogProps) {
   const [pw, setPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
@@ -23,7 +33,7 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
 
   const reset = () => { setPw(''); setConfirm(''); setError(''); setSuccess(false); };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (pw.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (pw !== confirm) { setError('Passwords do not match.'); return; }
@@ -127,7 +137,14 @@ function ResetPasswordDialog({ staff, open, onOpenChange, onSubmit }) {
 
 // ── PIN reset dialog ─────────────────────────────────────────────────────────
 
-function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
+interface ResetPinDialogProps {
+  staff: Staff;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (pin: string) => Promise<ActionResult>;
+}
+
+function ResetPinDialog({ staff, open, onOpenChange, onSubmit }: ResetPinDialogProps) {
   const [pin, setPin] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -135,7 +152,7 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
 
   const reset = () => { setPin(''); setError(''); setSuccess(false); };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
       setError('PIN must be 4–6 digits.');
@@ -228,15 +245,21 @@ function ResetPinDialog({ staff, open, onOpenChange, onSubmit }) {
 
 // ── Tab ──────────────────────────────────────────────────────────────────────
 
-export function SecurityTab({ staff, resetPassword, resetPin }) {
+interface SecurityTabProps {
+  staff: Staff;
+  resetPassword: (staffId: string, newPassword: string, setBy?: string | null) => Promise<ActionResult>;
+  resetPin: (staffId: string, newPin: string, setBy?: string | null) => Promise<ActionResult>;
+}
+
+export function SecurityTab({ staff, resetPassword, resetPin }: SecurityTabProps) {
   const [pwOpen, setPwOpen] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
 
-  const handleResetPassword = async (newPassword) => {
+  const handleResetPassword = async (newPassword: string) => {
     return resetPassword(staff.id, newPassword, null /* set_by: pass manager id when available */);
   };
 
-  const handleResetPin = async (newPin) => {
+  const handleResetPin = async (newPin: string) => {
     return resetPin(staff.id, newPin, null);
   };
 

@@ -17,9 +17,8 @@ export default function StaffManagePage() {
   const { activeLocation } = useAuth();
 
   const {
-    staffList, loadingList, listError, refreshList,
-    selectedStaff, selectStaff,
-    rates, loadingRates, ratesError, fetchRates, createRate, patchRate,
+    staffList, loadingList, selectedStaff, selectStaff,
+    rates, loadingRates, ratesError, createRate,
     shifts, loadingShifts, shiftsError, fetchShifts, createShift, deleteShift,
     resetPassword, resetPin,
   } = useStaffDetail(activeLocation?.id);
@@ -110,7 +109,6 @@ export default function StaffManagePage() {
                     loading={loadingRates}
                     error={ratesError}
                     createRate={createRate}
-                    patchRate={patchRate}
                   />
                 </TabsContent>
 

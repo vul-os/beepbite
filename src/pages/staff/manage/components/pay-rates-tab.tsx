@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useDateTime } from '@/context/locale-context';
 import { Plus, TrendingUp, Clock } from 'lucide-react';
+import type { Staff, PayRate } from '../types';
 
 const RATE_TYPES = [
   { value: 'hourly',         label: 'Hourly' },
@@ -32,18 +33,18 @@ const RATE_TYPES = [
 ];
 
 // cents → major-unit string e.g. 4500 → "45.00"
-function centsToMajor(cents) {
+function centsToMajor(cents: number) {
   return (cents / 100).toFixed(2);
 }
 
 // major-unit string → cents integer
-function majorToCents(str) {
+function majorToCents(str: string) {
   const n = parseFloat(str);
   if (isNaN(n)) return null;
   return Math.round(n * 100);
 }
 
-function RateCard({ rate }) {
+function RateCard({ rate }: { rate: PayRate }) {
   const label = RATE_TYPES.find((t) => t.value === rate.rate_type)?.label ?? rate.rate_type;
   const amount = `${rate.currency} ${centsToMajor(rate.amount_cents)}`;
   const effectiveRange =
@@ -92,7 +93,22 @@ function RateCard({ rate }) {
   );
 }
 
-function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
+interface RatePayload {
+  rate_type: string;
+  rate_cents: number;
+  effective_from?: string;
+  overtime_multiplier?: number;
+  notes?: string;
+}
+
+interface AddRateDialogProps {
+  staffId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (staffId: string, payload: RatePayload) => Promise<{ data: PayRate | null; error: { message: string } | null }>;
+}
+
+function AddRateDialog({ staffId, open, onOpenChange, onSubmit }: AddRateDialogProps) {
   const { today } = useDateTime();
   const [form, setForm] = useState({
     rate_type: 'hourly',
@@ -106,9 +122,9 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const cents = majorToCents(form.amount);
     if (cents === null || cents < 0) {
@@ -117,7 +133,7 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
     }
     setSaving(true);
     setError('');
-    const payload = {
+    const payload: RatePayload = {
       rate_type: form.rate_type,
       rate_cents: cents,
       effective_from: form.effective_from || undefined,
@@ -237,7 +253,15 @@ function AddRateDialog({ staffId, open, onOpenChange, onSubmit }) {
   );
 }
 
-export function PayRatesTab({ staff, rates, loading, error, createRate }) {
+interface PayRatesTabProps {
+  staff: Staff;
+  rates: PayRate[];
+  loading: boolean;
+  error: string | null;
+  createRate: AddRateDialogProps['onSubmit'];
+}
+
+export function PayRatesTab({ staff, rates, loading, error, createRate }: PayRatesTabProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const currentRates = rates.filter((r) => r.is_current);

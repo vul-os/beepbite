@@ -1,24 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
+import type { Staff, PayRate, StaffShift, StaffShiftInput } from '../types';
 
 /**
  * Fetches staff list for a location, and lazily fetches per-staff details
  * (pay rates, shifts) when a staff member is selected.
  */
-export function useStaffDetail(locationId) {
-  const [staffList, setStaffList] = useState([]);
+export function useStaffDetail(locationId: string | undefined) {
+  const [staffList, setStaffList] = useState<Staff[]>([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [listError, setListError] = useState(null);
+  const [listError, setListError] = useState<string | null>(null);
 
-  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
 
-  const [rates, setRates] = useState([]);
+  const [rates, setRates] = useState<PayRate[]>([]);
   const [loadingRates, setLoadingRates] = useState(false);
-  const [ratesError, setRatesError] = useState(null);
+  const [ratesError, setRatesError] = useState<string | null>(null);
 
-  const [shifts, setShifts] = useState([]);
+  const [shifts, setShifts] = useState<StaffShift[]>([]);
   const [loadingShifts, setLoadingShifts] = useState(false);
-  const [shiftsError, setShiftsError] = useState(null);
+  const [shiftsError, setShiftsError] = useState<string | null>(null);
 
   // ── staff list ──────────────────────────────────────────────────────────────
   const fetchStaffList = useCallback(async () => {
@@ -37,18 +38,18 @@ export function useStaffDetail(locationId) {
   useEffect(() => { fetchStaffList(); }, [fetchStaffList]);
 
   // ── pay rates ───────────────────────────────────────────────────────────────
-  const fetchRates = useCallback(async (staffId) => {
+  const fetchRates = useCallback(async (staffId?: string) => {
     if (!staffId) return;
     setLoadingRates(true);
     setRatesError(null);
-    const { data, error } = await api.request('GET', `/payroll/staff/${staffId}/rates`);
+    const { data, error } = await api.request<PayRate[]>('GET', `/payroll/staff/${staffId}/rates`);
     setLoadingRates(false);
     if (error) { setRatesError(error.message); return; }
     setRates(data ?? []);
   }, []);
 
   // ── shifts (week range) ─────────────────────────────────────────────────────
-  const fetchShifts = useCallback(async (staffId, weekStart, weekEnd) => {
+  const fetchShifts = useCallback(async (staffId: string | undefined, weekStart: string, weekEnd: string) => {
     if (!staffId) return;
     setLoadingShifts(true);
     setShiftsError(null);
@@ -63,7 +64,7 @@ export function useStaffDetail(locationId) {
     setShifts(data ?? []);
   }, []);
 
-  const createShift = useCallback(async (payload) => {
+  const createShift = useCallback(async (payload: StaffShiftInput) => {
     const { data, error } = await api.from('staff_shifts').insert(payload);
     if (!error) await fetchShifts(
       payload.staff_id,
@@ -73,23 +74,23 @@ export function useStaffDetail(locationId) {
     return { data, error };
   }, [fetchShifts]);
 
-  const deleteShift = useCallback(async (shiftId, staffId, weekStart, weekEnd) => {
+  const deleteShift = useCallback(async (shiftId: string, staffId: string, weekStart: string, weekEnd: string) => {
     const { error } = await api.from('staff_shifts').delete().eq('id', shiftId);
     if (!error) await fetchShifts(staffId, weekStart, weekEnd);
     return { error };
   }, [fetchShifts]);
 
   // ── create / patch rate helpers ─────────────────────────────────────────────
-  const createRate = useCallback(async (staffId, payload) => {
-    const { data, error } = await api.request('POST', `/payroll/staff/${staffId}/rates`, {
+  const createRate = useCallback(async (staffId: string, payload: unknown) => {
+    const { data, error } = await api.request<PayRate>('POST', `/payroll/staff/${staffId}/rates`, {
       body: payload,
     });
     if (!error) await fetchRates(staffId);
     return { data, error };
   }, [fetchRates]);
 
-  const patchRate = useCallback(async (staffId, rateId, payload) => {
-    const { data, error } = await api.request('PATCH', `/payroll/rates/${rateId}`, {
+  const patchRate = useCallback(async (staffId: string, rateId: string, payload: unknown) => {
+    const { data, error } = await api.request<PayRate>('PATCH', `/payroll/rates/${rateId}`, {
       body: payload,
     });
     if (!error) await fetchRates(staffId);
@@ -97,7 +98,7 @@ export function useStaffDetail(locationId) {
   }, [fetchRates]);
 
   // ── security actions ────────────────────────────────────────────────────────
-  const resetPassword = useCallback(async (staffId, newPassword) => {
+  const resetPassword = useCallback(async (staffId: string, newPassword: string, _setBy?: string | null) => {
     const { data, error } = await api.request(
       'POST',
       `/staff/${staffId}/manager-set-password`,
@@ -106,7 +107,7 @@ export function useStaffDetail(locationId) {
     return { data, error };
   }, []);
 
-  const resetPin = useCallback(async (staffId, newPin) => {
+  const resetPin = useCallback(async (staffId: string, newPin: string, _setBy?: string | null) => {
     const { data, error } = await api.request(
       'POST',
       `/staff/${staffId}/set-pin`,
@@ -116,7 +117,7 @@ export function useStaffDetail(locationId) {
   }, []);
 
   // ── select a staff member ───────────────────────────────────────────────────
-  const selectStaff = useCallback((member) => {
+  const selectStaff = useCallback((member: Staff | null) => {
     setSelectedStaff(member);
     setRates([]);
     setShifts([]);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,17 +14,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useDateTime } from '@/context/locale-context';
 import { ChevronLeft, ChevronRight, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import type { Staff, StaffShift, StaffShiftInput } from '../types';
 
 // ── date helpers ─────────────────────────────────────────────────────────────
 
-function startOfWeek(date) {
+function startOfWeek(date: Date) {
   const d = new Date(date);
   const day = d.getDay(); // 0=Sun
   d.setDate(d.getDate() - day);
   return d;
 }
 
-function addDays(date, n) {
+function addDays(date: Date, n: number) {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
@@ -35,24 +36,30 @@ function addDays(date, n) {
 // directly. `date.toISOString().slice(0, 10)` would instead render the UTC
 // date — for roughly half the globe that silently shifts every day in this
 // week grid (and the shift_date sent to the API) by one.
-function toISO(date) {
+function toISO(date: Date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
-function fmt(date) {
+function fmt(date: Date) {
   return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-function fmtShort(date) {
+function fmtShort(date: Date) {
   return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
 }
 
 // ── shift cell ───────────────────────────────────────────────────────────────
 
-function ShiftCell({ shift, onDelete, deleting }) {
+interface ShiftCellProps {
+  shift: StaffShift;
+  onDelete: (shift: StaffShift) => void;
+  deleting: boolean;
+}
+
+function ShiftCell({ shift, onDelete, deleting }: ShiftCellProps) {
   return (
     <div className="relative group flex flex-col gap-0.5 rounded-md bg-primary/10 border border-primary/20 px-2 py-1.5 text-xs">
       <span className="font-semibold text-primary leading-tight">
@@ -89,19 +96,28 @@ function ShiftCell({ shift, onDelete, deleting }) {
 
 // ── create dialog ─────────────────────────────────────────────────────────────
 
-function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubmit }) {
+interface CreateShiftDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  date: string;
+  staff: Staff;
+  locationId?: string;
+  onSubmit: (payload: StaffShiftInput) => Promise<{ data?: unknown; error: { message: string } | null }>;
+}
+
+function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubmit }: CreateShiftDialogProps) {
   const [form, setForm] = useState({ start: '09:00', end: '17:00', notes: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (form.start >= form.end) { setError('End time must be after start time.'); return; }
     setSaving(true);
     setError('');
-    const payload = {
+    const payload: StaffShiftInput = {
       staff_id: staff.id,
       location_id: locationId,
       shift_date: date,
@@ -193,11 +209,22 @@ function CreateShiftDialog({ open, onOpenChange, date, staff, locationId, onSubm
 
 // ── Tab ──────────────────────────────────────────────────────────────────────
 
-export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchShifts, createShift, deleteShift }) {
+interface ScheduleTabProps {
+  staff: Staff;
+  locationId?: string;
+  shifts: StaffShift[];
+  loading: boolean;
+  error: string | null;
+  fetchShifts: (staffId: string | undefined, weekStart: string, weekEnd: string) => Promise<void>;
+  createShift: CreateShiftDialogProps['onSubmit'];
+  deleteShift: (shiftId: string, staffId: string, weekStart: string, weekEnd: string) => Promise<{ error: { message: string } | null }>;
+}
+
+export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchShifts, createShift, deleteShift }: ScheduleTabProps) {
   const { today } = useDateTime();
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeek(new Date()));
-  const [createDate, setCreateDate] = useState(null);
-  const [deleting, setDeleting] = useState(null);
+  const [createDate, setCreateDate] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekAnchor, i));
   const weekStart = toISO(weekAnchor);
@@ -208,13 +235,13 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staff?.id, weekStart]);
 
-  const shiftsByDate = shifts.reduce((acc, s) => {
+  const shiftsByDate = shifts.reduce<Record<string, StaffShift[]>>((acc, s) => {
     acc[s.shift_date] = acc[s.shift_date] ?? [];
     acc[s.shift_date].push(s);
     return acc;
   }, {});
 
-  const handleDelete = async (shift) => {
+  const handleDelete = async (shift: StaffShift) => {
     if (!confirm('Delete this shift?')) return;
     setDeleting(shift.id);
     await deleteShift(shift.id, staff.id, weekStart, weekEnd);
