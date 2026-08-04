@@ -1,7 +1,8 @@
-// items-picker.jsx — checkbox list of all location items; toggling links/unlinks
+// items-picker.tsx — checkbox list of all location items; toggling links/unlinks
 // an item to the selected menu schedule via item_menu_schedules.
 
 import { useCallback, useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { Search, AlertCircle, Utensils } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,6 +10,20 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useMoney } from '@/context/locale-context';
+import type {
+  MenuSchedule,
+  ItemMenuSchedule,
+  ScheduleMenuItem,
+  AddItemScheduleInput,
+} from '../hooks/use-schedules';
+
+interface ItemsPickerProps {
+  schedule: MenuSchedule;
+  fetchItems: () => Promise<ScheduleMenuItem[]>;
+  fetchItemSchedules: (scheduleId: string) => Promise<ItemMenuSchedule[]>;
+  addItemSchedule: (input: AddItemScheduleInput) => Promise<ItemMenuSchedule | null>;
+  deleteItemSchedule: (id: string) => Promise<void>;
+}
 
 export default function ItemsPicker({
   schedule,
@@ -16,14 +31,14 @@ export default function ItemsPicker({
   fetchItemSchedules,
   addItemSchedule,
   deleteItemSchedule,
-}) {
+}: ItemsPickerProps) {
   const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
-  const [items, setItems] = useState([]);
-  const [linked, setLinked] = useState([]); // item_menu_schedules rows for this schedule
+  const [items, setItems] = useState<ScheduleMenuItem[]>([]);
+  const [linked, setLinked] = useState<ItemMenuSchedule[]>([]); // item_menu_schedules rows for this schedule
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [toggling, setToggling] = useState(null); // item id being toggled
+  const [toggling, setToggling] = useState<string | null>(null); // item id being toggled
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,7 +51,7 @@ export default function ItemsPicker({
       setItems(allItems);
       setLinked(schedLinks);
     } catch (e) {
-      setError(e.message || 'Failed to load items');
+      setError(e instanceof Error ? e.message : 'Failed to load items');
     } finally {
       setLoading(false);
     }
@@ -46,12 +61,12 @@ export default function ItemsPicker({
 
   const linkedSet = new Set(linked.map((l) => l.item_id));
 
-  const handleToggle = useCallback(async (item) => {
+  const handleToggle = useCallback(async (item: ScheduleMenuItem) => {
     setToggling(item.id);
     try {
       if (linkedSet.has(item.id)) {
         const row = linked.find((l) => l.item_id === item.id);
-        await deleteItemSchedule(row.id);
+        if (row) await deleteItemSchedule(row.id);
         setLinked((prev) => prev.filter((l) => l.item_id !== item.id));
       } else {
         const created = await addItemSchedule({ itemId: item.id, menuScheduleId: schedule.id });
@@ -59,12 +74,15 @@ export default function ItemsPicker({
         if (newRow) {
           setLinked((prev) => [...prev, newRow]);
         } else {
-          // fallback: optimistic local update
-          setLinked((prev) => [...prev, { item_id: item.id, menu_schedule_id: schedule.id }]);
+          // fallback: optimistic local update. Pre-existing behavior: this
+          // placeholder row omits `id`/`created_at` (unlike a real API row),
+          // so it's cast rather than given synthetic values that would change
+          // what's actually stored — a later refresh() replaces it anyway.
+          setLinked((prev) => [...prev, { item_id: item.id, menu_schedule_id: schedule.id } as ItemMenuSchedule]);
         }
       }
     } catch (e) {
-      alert(e.message || 'Failed to update item schedule');
+      alert(e instanceof Error ? e.message : 'Failed to update item schedule');
     } finally {
       setToggling(null);
     }
