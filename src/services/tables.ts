@@ -129,13 +129,34 @@ export async function listOpenSessions(locationId: string): Promise<TableSession
   return Array.isArray(data) ? data : [];
 }
 
+// Mirrors backend/internal/handlers/tables/types.go Order — the LIGHTWEIGHT
+// view returned as SessionDetail.orders (see store.go's GetSessionDetail,
+// which SELECTs only these 5 columns). It does NOT carry order_number,
+// payment_status, total_amount_cents/total, or items — callers hydrating a
+// ticket from this must not assume those fields exist (see workspace.tsx).
+export interface SessionOrderLite {
+  id: string;
+  order_type: string;
+  status: string;
+  course_number: number | null;
+  created_at: string;
+}
+
+// Mirrors backend/internal/handlers/tables/types.go SessionDetail, which Go
+// struct-embeds TableSession — its fields are flattened at the JSON top level
+// alongside `seats`/`orders`, not nested under a `session` key.
+export interface SessionDetail extends TableSession {
+  seats: Seat[];
+  orders: SessionOrderLite[];
+}
+
 /**
  * Fetch a single session with its seats and linked orders.
  * Route: GET /sessions/{session_id}
  */
-export async function getSessionDetail(sessionId: string) {
+export async function getSessionDetail(sessionId: string): Promise<SessionDetail> {
   if (!sessionId) throw new Error('sessionId required');
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<SessionDetail>(
     'GET',
     `/sessions/${encodeURIComponent(sessionId)}`,
   );
@@ -144,7 +165,7 @@ export async function getSessionDetail(sessionId: string) {
     e.status = error.status;
     throw e;
   }
-  return data;
+  return data!;
 }
 
 // ---- Session lifecycle ------------------------------------------------------
@@ -159,7 +180,7 @@ export async function openTableSession({ tableId, locationId, partySize, openedB
   partySize: number;
   openedBy?: string;
   notes?: string;
-}) {
+}): Promise<TableSession> {
   if (!tableId) throw new Error('tableId required');
   const body: { location_id: string; party_size: number; opened_by: string; notes?: string } = {
     location_id: locationId,
@@ -168,7 +189,7 @@ export async function openTableSession({ tableId, locationId, partySize, openedB
   };
   if (notes) body.notes = notes;
 
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<TableSession>(
     'POST',
     `/tables/${encodeURIComponent(tableId)}/open-session`,
     { body },
@@ -178,7 +199,7 @@ export async function openTableSession({ tableId, locationId, partySize, openedB
     e.status = error.status;
     throw e;
   }
-  return data;
+  return data!;
 }
 
 /**
@@ -213,7 +234,7 @@ export async function transferSession(sessionId: string, { toTableId, openedBy, 
   openedBy?: string;
   partySize?: number;
   notes?: string;
-} = {}) {
+} = {}): Promise<TableSession> {
   if (!sessionId) throw new Error('sessionId required');
   if (!toTableId) throw new Error('toTableId required');
   const body: { to_table_id: string; opened_by: string; party_size?: number; notes?: string } = {
@@ -223,7 +244,7 @@ export async function transferSession(sessionId: string, { toTableId, openedBy, 
   if (partySize != null) body.party_size = partySize;
   if (notes) body.notes = notes;
 
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<TableSession>(
     'POST',
     `/sessions/${encodeURIComponent(sessionId)}/transfer`,
     { body },
@@ -233,7 +254,7 @@ export async function transferSession(sessionId: string, { toTableId, openedBy, 
     e.status = error.status;
     throw e;
   }
-  return data;
+  return data!;
 }
 
 // ---- Check splits -----------------------------------------------------------

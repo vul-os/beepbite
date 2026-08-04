@@ -1,4 +1,4 @@
-// workspace.jsx — dedicated POS cashier workspace (multi-ticket model).
+// workspace.tsx — dedicated POS cashier workspace (multi-ticket model).
 //
 // Toast/Square-style flow:
 //   1. Top "tables strip" lists every table for the active location + walk-in
@@ -49,6 +49,7 @@ import {
   persistRegister,
   readStoredRegister,
   submitPosOrder,
+  type CashDrawerSession,
 } from '@/services/pos';
 import {
   listOpenSessions,
@@ -57,22 +58,110 @@ import {
   openTableSession,
   transferSession,
   getSessionDetail,
+  type RestaurantTable,
+  type Section,
+  type TableSession,
 } from '@/services/tables';
-import { chargeOrdersWithLegs } from '@/services/payment';
+import { chargeOrdersWithLegs, type TenderLeg, type UnpaidOrder } from '@/services/payment';
 
 import { OfflineBanner } from '@/components/ui/sync-status';
 import OpenRegisterModal from '@/pages/home/components/open-register-modal';
 import ReturnModal from '@/pages/home/components/return-modal';
-import { TablesStrip } from './components/tables-strip';
+import { TablesStrip, type TableTileData } from './components/tables-strip';
 import ActiveTicketPanel from './components/active-ticket-panel';
+import type { Course } from './components/course-select';
 import CashTenderModal from './components/cash-tender-modal';
 import { CardTenderModal } from './components/card-tender-modal';
 import { TablePickerDialog } from './components/table-picker-dialog';
-import AdjustmentModal from '@/components/order-adjustments/adjustment-modal';
+import AdjustmentModal, { type AdjustmentType } from '@/components/order-adjustments/adjustment-modal';
 import TenderModal from './components/tender-modal';
 import SplitBySeat from './components/split-by-seat';
-import ModifierPicker, { useItemHasModifiers } from './components/modifier-picker';
+import ModifierPicker, { useItemHasModifiers, type Modifier } from './components/modifier-picker';
 import ReceiptModal from './components/receipt-modal';
+
+// ---------------------------------------------------------------------------
+// Domain types — the POS workspace assembles its own client-side shapes from
+// several sources (menu items, table sessions, orders); these mirror the
+// backend rows this page actually reads (see per-field comments) and the
+// shapes the already-typed child components below expect.
+// ---------------------------------------------------------------------------
+
+// Mirrors backend/migrations/001_baseline.sql `items` (subset selected below)
+// plus the joined `categories(id, name)` relation.
+interface MenuItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | string;
+  category_id: string;
+  is_86ed: boolean;
+  daily_quantity?: number | null;
+  daily_sold_count?: number | null;
+  daily_counter_date?: string | null;
+  categories?: { id: string; name: string } | null;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `categories` (subset selected below).
+interface MenuCategory {
+  id: string;
+  name: string;
+}
+
+// A single unsent cart line on the active ticket.
+interface CartLineItem {
+  id: string;
+  item_id: string;
+  name: string;
+  price: number;
+  qty: number;
+  variation_option_ids: string[];
+  modifier_ids: string[];
+  modifier_names: string[];
+  course_id?: string | null;
+  notes?: string;
+}
+
+interface WorkspaceSentOrderItem {
+  order_item_id: string;
+  item_name: string;
+  quantity: number;
+  unit_price: number | string;
+  total_cents: number;
+  item_status: string;
+  notes?: string;
+}
+
+interface WorkspaceSentOrder {
+  id: string;
+  order_number?: string;
+  created_at?: string;
+  payment_status: string;
+  total_cents: number;
+  items: WorkspaceSentOrderItem[];
+  // Index signature so this satisfies UnpaidOrder (services/payment.ts),
+  // which chargeOrdersWithLegs() requires.
+  [key: string]: unknown;
+}
+
+interface WorkspaceTicket {
+  id: string;
+  kind: 'walkin' | 'table';
+  label?: string;
+  sessionId?: string;
+  tableId?: string;
+  table_number?: string;
+  section_name?: string;
+  party_size?: number;
+  newItems: CartLineItem[];
+  sentOrders: WorkspaceSentOrder[];
+}
+
+interface WalkInTileData {
+  id: string;
+  label: string;
+  subtotal_cents: number;
+  item_count: number;
+}
 
 // ---------------------------------------------------------------------------
 // Service-style helpers
@@ -87,7 +176,7 @@ import ReceiptModal from './components/receipt-modal';
  * Default: 'dine_in' (preserve existing behaviour for locations that have
  * already set up a floor plan; takeaway-only users switch explicitly).
  */
-function getServiceStyle(locationId) {
+function getServiceStyle(locationId?: string): 'dine_in' | 'takeaway' {
   if (!locationId) return 'dine_in';
   try {
     const v = localStorage.getItem(`bb_service_style_${locationId}`);
@@ -115,7 +204,7 @@ const uuid = () =>
  * would roll over to tomorrow's counters at 16:00 and show today's sold-out
  * items as available again.
  */
-function computeRemainingToday(item, todayStr) {
+function computeRemainingToday(item: MenuItem, todayStr: string): number | null {
   if (item.daily_quantity == null) return null;
   const soldToday =
     item.daily_counter_date === todayStr
@@ -128,7 +217,7 @@ function computeRemainingToday(item, todayStr) {
  * Small inline pill showing the daily countdown for an item tile.
  * Defensive: renders nothing when remaining is null/undefined.
  */
-function ItemCountdownPill({ remaining }) {
+function ItemCountdownPill({ remaining }: { remaining: number | null }) {
   if (remaining === null || remaining === undefined) return null;
   if (remaining === 0) {
     return (
@@ -148,7 +237,7 @@ function ItemCountdownPill({ remaining }) {
 }
 
 // Build a fresh client-side ticket for a walk-in / takeaway.
-function makeWalkInTicket(n) {
+function makeWalkInTicket(n: number): WorkspaceTicket {
   return {
     id: `walkin-${uuid()}`,
     kind: 'walkin',
@@ -159,7 +248,12 @@ function makeWalkInTicket(n) {
 }
 
 // Build a ticket from a server-side table_session row + a table row.
-function ticketFromSession({ session, table, section, orders = [] }) {
+function ticketFromSession({ session, table, section, orders = [] }: {
+  session: TableSession;
+  table?: RestaurantTable;
+  section?: Section;
+  orders?: WorkspaceSentOrder[];
+}): WorkspaceTicket {
   return {
     id: session.id,                 // ticket id == session id
     kind: 'table',
@@ -206,7 +300,11 @@ export default function PosWorkspacePage() {
         reason: reason || capability,
         isManagerOverride: true,
       });
-      return token;
+      // requestPin's declared return type (Actor | string, see use-pin-modal.ts)
+      // covers both the plain PIN-login and manager-override paths; with
+      // isManagerOverride: true the resolved value is always the override
+      // token string. Cast reflects that call-site guarantee, not a new any.
+      return token as string | null | undefined;
     });
     return unregister;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -222,8 +320,18 @@ export default function PosWorkspacePage() {
   // ----- auth gate -------------------------------------------------------
   const staff = useMemo(() => getStaff(), []);
   const staffName = useMemo(() => getStaffDisplayName(), []);
-  const displayName = actorDisplayName || staffName || userProfile?.first_name
-    || user?.user_metadata?.name || user?.email || 'User';
+  // NOTE (found by this TS conversion, not fixed — out of scope): both
+  // `userProfile.first_name` and `user.user_metadata.name` are leftovers from
+  // the pre-migration Supabase auth. The real DTOs (backend/migrations/
+  // 001_baseline.sql `profiles` has only `full_name`, no first/last split;
+  // AuthUser in auth-context.tsx has no user_metadata at all) never populate
+  // either field, so both branches have always been dead — an owner/admin's
+  // display name falls straight through to their bare email. Casts below
+  // preserve that exact (already-broken) runtime behavior.
+  const displayName = actorDisplayName || staffName
+    || (userProfile as unknown as { first_name?: string } | null)?.first_name
+    || (user as unknown as { user_metadata?: { name?: string } } | null)?.user_metadata?.name
+    || user?.email || 'User';
   // The device is authed if: (a) actor overlay set, (b) legacy staff session, or (c) member JWT.
   const isAuthed = Boolean(actor || staff || user);
   useEffect(() => { if (!isAuthed) navigate('/pos/login', { replace: true }); }, [isAuthed, navigate]);
@@ -234,7 +342,7 @@ export default function PosWorkspacePage() {
   //   2. Legacy staff PIN session → its role string.
   //   3. No staff/actor at all → an owner/admin Supabase email login (full access).
   const isOwnerManager = useMemo(() => {
-    const elevated = (r) => ['owner', 'manager', 'admin'].includes(String(r || '').toLowerCase());
+    const elevated = (r?: string) => ['owner', 'manager', 'admin'].includes(String(r || '').toLowerCase());
     if (actor) return elevated(actor.role);
     if (staff) return elevated(staff.role);
     // Supabase email session with no staff overlay == owner/admin.
@@ -247,7 +355,7 @@ export default function PosWorkspacePage() {
   // typically don't have a physical till in front of them anyway.
   const isStaffSession = Boolean(staff);
   const stored = useMemo(() => readStoredRegister(), []);
-  const [registerSession, setRegisterSession] = useState(null);
+  const [registerSession, setRegisterSession] = useState<CashDrawerSession | null>(null);
   const [registerLoading, setRegisterLoading] = useState(isStaffSession);
   const [isOpenRegisterOpen, setIsOpenRegisterOpen] = useState(false);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
@@ -257,7 +365,7 @@ export default function PosWorkspacePage() {
 
   // ----- courses (Wave 11 — T11.2/T11.3) -----------------------------------
   // Loaded once per location; passed down to ticket lines for course assignment.
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   useEffect(() => {
     if (!activeLocation?.id) { setCourses([]); return; }
     let cancelled = false;
@@ -276,21 +384,21 @@ export default function PosWorkspacePage() {
   }, [activeLocation?.id]);
 
   // ----- menu state ------------------------------------------------------
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('all');
 
   // ----- tables / sessions ----------------------------------------------
-  const [tables, setTables] = useState([]);
-  const [sections, setSections] = useState([]);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [tablesLoading, setTablesLoading] = useState(true);
 
   // Map<ticketId, Ticket> — both table-bound and walk-in tickets.
   // Using an object (plain map) for predictable React equality.
-  const [tickets, setTickets] = useState({});
-  const [activeTicketId, setActiveTicketId] = useState(null);
+  const [tickets, setTickets] = useState<Record<string, WorkspaceTicket>>({});
+  const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [walkInCounter, setWalkInCounter] = useState(1);
   const [openingTable, setOpeningTable] = useState(false);
 
@@ -316,7 +424,7 @@ export default function PosWorkspacePage() {
   // Assign a course to a new (unsent) item on the active ticket.
   // Defined here (after tickets/activeTicketId state) to avoid a temporal
   // dead-zone error from the parallel Wave 11 edits.
-  const handleSetCourse = useCallback((clientId, courseId) => {
+  const handleSetCourse = useCallback((clientId: string, courseId: string | null) => {
     if (!activeTicketId) return;
     setTickets((prev) => {
       const t = prev[activeTicketId];
@@ -335,7 +443,7 @@ export default function PosWorkspacePage() {
 
   // ----- send/charge state ----------------------------------------------
   const [sending, setSending] = useState(false);
-  const [chargeMethod, setChargeMethod] = useState(null); // 'cash' | 'card' | null
+  const [chargeMethod, setChargeMethod] = useState<'cash' | 'card_in_person' | null>(null);
   const [chargeError, setChargeError] = useState('');
   const [chargeBusy, setChargeBusy] = useState(false);
   const [showMethodPicker, setShowMethodPicker] = useState(false);
@@ -345,13 +453,13 @@ export default function PosWorkspacePage() {
   const [assigningTable, setAssigningTable] = useState(false);
 
   // ----- modifier picker state --------------------------------------------
-  const [modifierPickerItem, setModifierPickerItem] = useState(null); // item being customised
+  const [modifierPickerItem, setModifierPickerItem] = useState<MenuItem | null>(null); // item being customised
   const { check: checkHasModifiers } = useItemHasModifiers();
 
   // ----- adjustment modal state -------------------------------------------
-  const [adjustmentModal, setAdjustmentModal] = useState(null); // { orderId, type } | null
+  const [adjustmentModal, setAdjustmentModal] = useState<{ orderId: string; type: string } | null>(null);
 
-  const handleOpenAdjustment = useCallback(({ orderId, type }) => {
+  const handleOpenAdjustment = useCallback(({ orderId, type }: { orderId: string; type: string }) => {
     setAdjustmentModal({ orderId, type });
   }, []);
 
@@ -379,7 +487,7 @@ export default function PosWorkspacePage() {
 
   // ----- receipt modal state ----------------------------------------------
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [receiptOrderId, setReceiptOrderId] = useState(null);
+  const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
 
   // ----- split-by-seat state ----------------------------------------------
   const [showSplitBySeat, setShowSplitBySeat] = useState(false);
@@ -461,7 +569,7 @@ export default function PosWorkspacePage() {
         setItems(rows || []);
       } catch (err) {
         console.error('Menu load failed:', err);
-        if (!cancelled) toast({ variant: 'destructive', title: 'Menu failed to load', description: err.message });
+        if (!cancelled) toast({ variant: 'destructive', title: 'Menu failed to load', description: err instanceof Error ? err.message : 'Unknown error' });
       } finally {
         if (!cancelled) setLoadingMenu(false);
       }
@@ -504,14 +612,48 @@ export default function PosWorkspacePage() {
         const tbls = await listTables(activeLocation.id);
         const secs = await listSections(activeLocation.id);
         if (cancelled) return;
-        const next = {};
+        const next: Record<string, WorkspaceTicket> = {};
         detailFetches.forEach((detail) => {
           if (!detail) return;
-          const session = detail.session || detail;
+          // NOTE (found by this TS conversion, not fixed — out of scope):
+          // `detail.session` is checked defensively but SessionDetail
+          // (backend/internal/handlers/tables/types.go) struct-embeds
+          // TableSession, so its fields are FLAT — there is no nested
+          // `.session`. That branch is always undefined and the `|| detail`
+          // fallback always fires (harmless — just dead code). More
+          // seriously, `detail.orders` is the LIGHTWEIGHT view store.go's
+          // GetSessionDetail actually SELECTs: only
+          // { id, order_type, status, course_number, created_at }. It never
+          // has order_number, payment_status, total_amount_cents/total, or
+          // items — so reopening a table with previously-sent orders
+          // hydrates them with a blank order number, "pending" status
+          // regardless of the real one, a $0 total, and NO line items. The
+          // cast below preserves those exact (already-broken) reads.
+          const raw = detail as unknown as {
+            orders?: Array<{
+              id: string;
+              order_number?: string;
+              created_at?: string;
+              payment_status?: string;
+              total_amount_cents?: number;
+              total?: number;
+              items?: Array<{
+                id: string;
+                item_name?: string;
+                name?: string;
+                quantity?: number;
+                unit_price?: string | number;
+                total_cents?: number;
+                item_status?: string;
+                notes?: string;
+              }>;
+            }>;
+          };
+          const session = (raw as { session?: TableSession }).session || detail;
           const table = tbls.find((t) => t.id === session.table_id);
           const section = secs.find((s) => s.id === table?.section_id);
           // Hydrate orders attached to this session into "sent" form.
-          const sentOrders = (detail.orders || []).map((o) => ({
+          const sentOrders: WorkspaceSentOrder[] = (raw.orders || []).map((o) => ({
             id: o.id,
             order_number: o.order_number,
             created_at: o.created_at,
@@ -521,12 +663,12 @@ export default function PosWorkspacePage() {
               : (typeof o.total === 'number' ? Math.round(o.total * scale) : 0),
             items: (o.items || []).map((it) => ({
               order_item_id: it.id,
-              item_name: it.item_name || it.name,
-              quantity: it.quantity,
-              unit_price: it.unit_price,
+              item_name: it.item_name || it.name || '',
+              quantity: it.quantity || 0,
+              unit_price: it.unit_price || 0,
               total_cents: typeof it.total_cents === 'number'
                 ? it.total_cents
-                : Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * scale),
+                : Math.round((parseFloat(String(it.unit_price || 0)) * (it.quantity || 0)) * scale),
               item_status: it.item_status || 'fired',
               notes: it.notes,
             })),
@@ -557,7 +699,7 @@ export default function PosWorkspacePage() {
   const activeTicket = activeTicketId ? tickets[activeTicketId] : null;
 
   // Decorate table tiles with the active ticket subtotal
-  const tableTiles = useMemo(() => {
+  const tableTiles: TableTileData[] = useMemo(() => {
     return tables.map((t) => {
       const ticket = Object.values(tickets).find((x) => x.kind === 'table' && x.tableId === t.id);
       const subtotal = ticket
@@ -574,12 +716,12 @@ export default function PosWorkspacePage() {
     });
   }, [tables, sections, tickets, scale]);
 
-  const walkInTiles = useMemo(() => {
+  const walkInTiles: WalkInTileData[] = useMemo(() => {
     return Object.values(tickets)
       .filter((t) => t.kind === 'walkin')
       .map((t) => ({
         id: t.id,
-        label: t.label,
+        label: t.label || '',
         subtotal_cents: subtotalCentsOfTicket(t, scale),
         item_count: t.newItems.reduce((s, it) => s + it.qty, 0)
                   + t.sentOrders.reduce((s, o) => s + (o.items?.length || 0), 0),
@@ -588,7 +730,7 @@ export default function PosWorkspacePage() {
 
   // ===== handlers ========================================================
 
-  const updateTicket = (ticketId, patch) => {
+  const updateTicket = (ticketId: string, patch: Partial<WorkspaceTicket> | ((t: WorkspaceTicket) => WorkspaceTicket)) => {
     setTickets((prev) => {
       const t = prev[ticketId];
       if (!t) return prev;
@@ -596,7 +738,7 @@ export default function PosWorkspacePage() {
     });
   };
 
-  const handleSelectTile = useCallback(async (ticketId, kind) => {
+  const handleSelectTile = useCallback(async (ticketId: string, kind: 'table' | 'walkin') => {
     if (kind === 'walkin') {
       setActiveTicketId(ticketId);
       return;
@@ -614,7 +756,7 @@ export default function PosWorkspacePage() {
     try {
       const session = await openTableSession({
         tableId: ticketId,
-        locationId: activeLocation.id,
+        locationId: activeLocation!.id,
         partySize: 1,
         openedBy: staff?.id || undefined,
       });
@@ -624,14 +766,14 @@ export default function PosWorkspacePage() {
       setTickets((prev) => ({ ...prev, [newTicket.id]: newTicket }));
       setActiveTicketId(newTicket.id);
       // mark the table as occupied locally
-      setTables((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: 'occupied' } : t));
+      setTables((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: 'occupied' as const } : t));
       toast({ title: `Opened ${table?.label ? `Table ${table.label}` : 'table'}` });
     } catch (err) {
       console.error('Open session failed:', err);
       toast({
         variant: 'destructive',
         title: 'Could not open this table',
-        description: err.message || 'Try again.',
+        description: err instanceof Error ? err.message : 'Try again.',
       });
     } finally {
       setOpeningTable(false);
@@ -646,12 +788,16 @@ export default function PosWorkspacePage() {
   }, [walkInCounter]);
 
   // commitAddItem — called directly (no modifiers) or after modifier picker confirms.
-  const commitAddItem = useCallback((item, { extraCents = 0, selectedModifiers = [], linePriceCents = null } = {}) => {
-    const basePrice = parseFloat(item.price || 0);
+  const commitAddItem = useCallback((item: MenuItem, { extraCents = 0, selectedModifiers = [], linePriceCents = null }: {
+    extraCents?: number;
+    selectedModifiers?: Modifier[];
+    linePriceCents?: number | null;
+  } = {}) => {
+    const basePrice = parseFloat(String(item.price || 0));
     // Cart lines carry a major-unit price, so minor units are divided back by
     // the currency's scale — 100 would turn a ¥120 modifier into ¥1.20.
     const linePrice = linePriceCents != null ? linePriceCents / scale : basePrice + (extraCents / scale);
-    updateTicket(activeTicket.id, (t) => {
+    updateTicket(activeTicket!.id, (t) => {
       // Only stack quantity when there are no per-line modifier overrides.
       const canStack = selectedModifiers.length === 0;
       if (canStack) {
@@ -681,7 +827,7 @@ export default function PosWorkspacePage() {
     });
   }, [activeTicket, scale]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAddItem = useCallback(async (item) => {
+  const handleAddItem = useCallback(async (item: MenuItem) => {
     if (!activeTicket) {
       toast({ title: 'Pick a table or start a walk-in first' });
       return;
@@ -702,8 +848,8 @@ export default function PosWorkspacePage() {
 
   // One-tap 86: mark an item sold out (or restore it) straight from the tile —
   // no trip to the back office. Optimistic; reverts on failure.
-  const [toggling86, setToggling86] = useState(null); // item id mid-flight
-  const handleToggle86 = useCallback(async (item) => {
+  const [toggling86, setToggling86] = useState<string | null>(null); // item id mid-flight
+  const handleToggle86 = useCallback(async (item: MenuItem) => {
     const next = !item.is_86ed;
     setToggling86(item.id);
     setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, is_86ed: next } : it));
@@ -721,7 +867,7 @@ export default function PosWorkspacePage() {
     });
   }, [toast]);
 
-  const handleBumpQty = (clientId, delta) => {
+  const handleBumpQty = (clientId: string, delta: number) => {
     if (!activeTicket) return;
     updateTicket(activeTicket.id, (t) => ({
       ...t,
@@ -731,7 +877,7 @@ export default function PosWorkspacePage() {
     }));
   };
 
-  const handleRemoveItem = (clientId) => {
+  const handleRemoveItem = (clientId: string) => {
     if (!activeTicket) return;
     updateTicket(activeTicket.id, (t) => ({
       ...t,
@@ -745,12 +891,18 @@ export default function PosWorkspacePage() {
     setSending(true);
     try {
       const result = await submitPosOrder({
-        locationId: activeLocation.id,
+        locationId: activeLocation!.id,
         orderType: activeTicket.kind === 'table' ? 'dine_in' : 'takeaway',
         tableNumber: activeTicket.kind === 'table' ? String(activeTicket.table_number || activeTicket.label || '') : undefined,
         registerSessionId: registerSession?.id,
         items: activeTicket.newItems.map((ni) => {
-          const lineItem = {
+          const lineItem: {
+            item_id: string;
+            quantity: number;
+            notes?: string;
+            course_id?: string;
+            modifiers?: { modifier_id: string }[];
+          } = {
             item_id: ni.item_id,
             quantity: ni.qty,
             notes: ni.notes || undefined,
@@ -792,7 +944,7 @@ export default function PosWorkspacePage() {
       });
     } catch (err) {
       console.error('Send failed:', err);
-      toast({ variant: 'destructive', title: 'Send failed', description: err.message });
+      toast({ variant: 'destructive', title: 'Send failed', description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setSending(false);
     }
@@ -804,13 +956,13 @@ export default function PosWorkspacePage() {
     setShowTenderModal(true);
   };
 
-  const handlePickMethod = (code) => {
+  const handlePickMethod = (code: 'cash' | 'card_in_person') => {
     setShowMethodPicker(false);
     setChargeMethod(code);
   };
 
   // Run charge for ALL unpaid orders using split-tender legs from TenderModal.
-  const runCharge = async (legs) => {
+  const runCharge = async (legs: TenderLeg[]) => {
     if (!activeTicket) return;
     setChargeBusy(true);
     setTenderError('');
@@ -829,7 +981,10 @@ export default function PosWorkspacePage() {
         ...t,
         sentOrders: t.sentOrders.map((o) => ({ ...o, payment_status: 'paid' })),
       }));
-      const sessionClosed = results.some((r) => r.session_closed);
+      // chargeOrdersWithLegs() returns unknown[] (each element is whatever
+      // POST /pos/orders/{id}/charge responds with — see services/payment.ts);
+      // session_closed is documented in that route's response shape.
+      const sessionClosed = (results as Array<{ session_closed?: boolean }>).some((r) => r.session_closed);
       toast({
         title: 'Payment received ✓',
         description: sessionClosed ? 'Table closed.' : 'Order marked paid.',
@@ -864,7 +1019,7 @@ export default function PosWorkspacePage() {
       setChargeMethod(null);
     } catch (err) {
       console.error('Charge failed:', err);
-      setTenderError(err.message || 'Charge failed');
+      setTenderError(err instanceof Error ? err.message : 'Charge failed');
     } finally {
       setChargeBusy(false);
     }
@@ -872,7 +1027,7 @@ export default function PosWorkspacePage() {
 
   // Charge a single seat split: find the orders that contain its items and
   // record payment legs for that split's amount.
-  const handleChargeSplit = useCallback(async (_splitId, legs) => {
+  const handleChargeSplit = useCallback(async (_splitId: string, legs: TenderLeg[]) => {
     if (!activeTicket) return;
     // For a seat split we charge the full-ticket orders proportionally —
     // the split just determines the tender amount already baked into legs.
@@ -889,14 +1044,14 @@ export default function PosWorkspacePage() {
   // keyed by session id, drop the old walk-in ticket.
   // Table → table: call transferSession() which moves party + linked orders
   // server-side; rebuild the ticket under the new session id.
-  const handleAssignTable = useCallback(async (table) => {
+  const handleAssignTable = useCallback(async (table: TableTileData) => {
     if (!activeTicket || !table || assigningTable) return;
     setAssigningTable(true);
     try {
       if (activeTicket.kind === 'walkin') {
         const session = await openTableSession({
           tableId: table.id,
-          locationId: activeLocation.id,
+          locationId: activeLocation!.id,
           partySize: 1,
           openedBy: staff?.id || undefined,
         });
@@ -915,14 +1070,14 @@ export default function PosWorkspacePage() {
           return next;
         });
         setActiveTicketId(newTicket.id);
-        setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, status: 'occupied' } : t));
+        setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, status: 'occupied' as const } : t));
         toast({ title: `Assigned to Table ${table.label}` });
       } else if (activeTicket.kind === 'table') {
         if (table.id === activeTicket.tableId) {
           toast({ title: 'Already on this table' });
           return;
         }
-        const newSession = await transferSession(activeTicket.sessionId, {
+        const newSession = await transferSession(activeTicket.sessionId!, {
           toTableId: table.id,
           openedBy: staff?.id || undefined,
           partySize: activeTicket.party_size,
@@ -952,7 +1107,7 @@ export default function PosWorkspacePage() {
       toast({
         variant: 'destructive',
         title: 'Could not assign table',
-        description: err.message || 'Try again.',
+        description: err instanceof Error ? err.message : 'Try again.',
       });
     } finally {
       setAssigningTable(false);
@@ -1296,7 +1451,7 @@ export default function PosWorkspacePage() {
                         type="button"
                         onClick={() => handleAddItem(it)}
                         disabled={isDisabled}
-                        aria-label={`Add ${it.name} — ${format(Math.round(parseFloat(it.price || 0) * scale))}${is86 ? ' (86 — sold out)' : soldOutToday ? ' (sold out)' : ''}`}
+                        aria-label={`Add ${it.name} — ${format(Math.round(parseFloat(String(it.price || 0)) * scale))}${is86 ? ' (86 — sold out)' : soldOutToday ? ' (sold out)' : ''}`}
                         className={cn(
                           'flex w-full flex-col rounded-2xl bg-card border-2 overflow-hidden text-left',
                           'transition-all duration-150',
@@ -1320,7 +1475,7 @@ export default function PosWorkspacePage() {
                           <h3 className="text-sm font-semibold text-foreground line-clamp-2 leading-tight">{it.name}</h3>
                           <div className="flex items-end justify-between mt-2">
                             <span className="text-base font-bold text-foreground tabular-nums">
-                              {format(Math.round(parseFloat(it.price || 0) * scale))}
+                              {format(Math.round(parseFloat(String(it.price || 0)) * scale))}
                             </span>
                             {!isDisabled && (
                               <span
@@ -1391,7 +1546,7 @@ export default function PosWorkspacePage() {
         open={isOpenRegisterOpen}
         onOpenChange={setIsOpenRegisterOpen}
         locationId={activeLocation?.id || ''}
-        onOpened={({ session }) => {
+        onOpened={({ session }: { session: CashDrawerSession }) => {
           setRegisterSession(session);
           setIsOpenRegisterOpen(false);
           toast({ title: 'Register opened', description: 'You can now take orders.' });
@@ -1505,7 +1660,12 @@ export default function PosWorkspacePage() {
           onClose={() => setAdjustmentModal(null)}
           orderId={adjustmentModal.orderId}
           itemId={null}
-          type={adjustmentModal.type}
+          // handleOpenAdjustment/adjustmentModal match ActiveTicketPanel's
+          // onAdjust contract ({orderId, type: string}) — a dead/back-compat
+          // prop that component never actually calls (see
+          // active-ticket-panel.tsx). Cast to AdjustmentModal's stricter
+          // union since this path is unreachable in practice.
+          type={adjustmentModal.type as AdjustmentType}
           locationId={activeLocation?.id || ''}
           onSuccess={() => {
             setAdjustmentModal(null);
@@ -1560,17 +1720,17 @@ export default function PosWorkspacePage() {
 // `scale` is the active currency's minor units per major unit. Cart lines and
 // order items carry major-unit decimals, so converting them with a literal 100
 // misprices every currency that is not two-decimal.
-function subtotalCentsOfTicket(t, scale) {
+function subtotalCentsOfTicket(t: WorkspaceTicket | null | undefined, scale: number): number {
   if (!t) return 0;
   const newC = t.newItems.reduce(
-    (sum, ni) => sum + Math.round((parseFloat(ni.price) || 0) * (ni.qty || 0) * scale),
+    (sum, ni) => sum + Math.round((parseFloat(String(ni.price)) || 0) * (ni.qty || 0) * scale),
     0,
   );
   const sentC = t.sentOrders.reduce((s, o) => {
     if (typeof o.total_cents === 'number') return s + o.total_cents;
     return s + (o.items || []).reduce((lc, it) => {
       if (typeof it.total_cents === 'number') return lc + it.total_cents;
-      return lc + Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * scale);
+      return lc + Math.round((parseFloat(String(it.unit_price || 0)) * (it.quantity || 0)) * scale);
     }, 0);
   }, 0);
   return newC + sentC;
