@@ -20,12 +20,19 @@ import React from 'react';
 
 const STORAGE_KEY = 'bb.cookie-consent';
 
+export interface CookieConsentPrefs {
+  necessary: true;
+  analytics: boolean;
+  marketing: boolean;
+}
+
+type ConsentChoice = Pick<CookieConsentPrefs, 'analytics' | 'marketing'>;
+
 /**
  * Read the stored consent object.
- * @returns {{ necessary: true, analytics: boolean, marketing: boolean } | null}
- *   null if the user has not yet responded.
+ * @returns null if the user has not yet responded.
  */
-export function readCookieConsent() {
+export function readCookieConsent(): CookieConsentPrefs | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -37,7 +44,7 @@ export function readCookieConsent() {
   }
 }
 
-function writeConsent(prefs) {
+function writeConsent(prefs: ConsentChoice) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ necessary: true, ...prefs }));
   } catch {
@@ -52,8 +59,8 @@ function writeConsent(prefs) {
 const CookieConsent = () => {
   const [visible, setVisible] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
-  const [prefs, setPrefs] = React.useState({ analytics: false, marketing: false });
-  const bannerRef = React.useRef(null);
+  const [prefs, setPrefs] = React.useState<ConsentChoice>({ analytics: false, marketing: false });
+  const bannerRef = React.useRef<HTMLDivElement>(null);
 
   // Show banner only when no prior consent exists.
   React.useEffect(() => {
@@ -66,13 +73,13 @@ const CookieConsent = () => {
   // Trap focus inside the expanded panel for keyboard accessibility.
   React.useEffect(() => {
     if (!expanded || !bannerRef.current) return;
-    const focusable = bannerRef.current.querySelectorAll(
+    const focusable = bannerRef.current.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
       if (e.shiftKey) {
         if (document.activeElement === first) {
@@ -109,7 +116,7 @@ const CookieConsent = () => {
     setVisible(false);
   };
 
-  const togglePref = (key) => {
+  const togglePref = (key: keyof ConsentChoice) => {
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
   };
 
@@ -290,7 +297,16 @@ const CookieConsent = () => {
 // ConsentRow — accessible toggle row
 // ---------------------------------------------------------------------------
 
-const ConsentRow = ({ id, label, description, checked, disabled, onChange }) => (
+interface ConsentRowProps {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
+}
+
+const ConsentRow = ({ id, label, description, checked, disabled, onChange }: ConsentRowProps) => (
   <label
     htmlFor={id}
     style={{
@@ -377,8 +393,8 @@ const ConsentRow = ({ id, label, description, checked, disabled, onChange }) => 
 // Button style helper
 // ---------------------------------------------------------------------------
 
-function btnStyle(variant) {
-  const base = {
+function btnStyle(variant: 'primary' | 'secondary' | 'ghost'): React.CSSProperties {
+  const base: React.CSSProperties = {
     padding: '0.5rem 1.1rem',
     borderRadius: '8px',
     fontSize: '0.85rem',
