@@ -1,4 +1,4 @@
-// category-86-button.jsx — toggle button that 86s or un-86s an entire
+// category-86-button.tsx — toggle button that 86s or un-86s an entire
 // category (and all its subcategories) with a confirmation dialog before
 // committing.
 //
