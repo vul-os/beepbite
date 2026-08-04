@@ -6,7 +6,26 @@ import React from 'react';
 import { Clock, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function EtaCard({ etaMinutes, status, lastUpdated }) {
+// Mirrors backend/migrations/001_baseline.sql `order_status` enum.
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'preparing'
+  | 'ready'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'completed'
+  | 'cancelled'
+  | 'pending_on_delivery';
+
+interface EtaCardProps {
+  etaMinutes?: number | null;
+  status: OrderStatus;
+  /** Epoch ms of the last update, or null/undefined if never updated. */
+  lastUpdated?: number | null;
+}
+
+export default function EtaCard({ etaMinutes, status, lastUpdated }: EtaCardProps) {
   const isDelivered = status === 'delivered' || status === 'completed';
   const isCancelled = status === 'cancelled';
   const isLive = !isDelivered && !isCancelled;
