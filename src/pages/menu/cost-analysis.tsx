@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -24,13 +25,65 @@ import { Label } from "@/components/ui/label";
 import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
+import type { Location } from '@/context/auth-context';
 
-const CostAnalysis = ({ activeLocation }) => {
+// Mirrors backend/migrations/001_baseline.sql `items` table (subset), plus the
+// fields this page computes locally (calculated_cost/cost_variance/profit_*/status).
+//
+// NOTE (real defect found by this TS conversion, not fixed — out of scope):
+// fetchAnalysisData's primary path below queries a `recipe_summary` view that
+// does not exist in any migration file — it's only referenced by
+// backend/internal/handlers/data/allowlist.go (marked "// view" but never
+// created by a migration). That query always throws, so this component
+// always falls through to fetchAnalysisDataFallback, which is the only path
+// that ever actually runs. This type mirrors that fallback's real shape
+// rather than the unreachable primary path's assumed one.
+interface AnalysisCategoryRef {
+  id: string;
+  name: string;
+}
+
+interface AnalysisRow {
+  id: string;
+  name: string;
+  price: number;
+  cost_price?: number | null;
+  recipe_type: string;
+  recipe_complexity: string;
+  max_recipe_level: number;
+  total_components: number;
+  auto_calculate_cost: boolean;
+  categories?: AnalysisCategoryRef | null;
+  listed_cost?: number | null;
+  calculated_cost: number;
+  cost_variance: number;
+  profit_margin: number;
+  profit_amount: number;
+  status: string;
+}
+
+type SortKey = 'profit_margin' | 'profit_amount' | 'cost_variance' | 'listed_cost' | 'calculated_cost' | 'name';
+
+// Shape assumed by the dead `recipe_summary` primary path below — unverifiable
+// since the view itself doesn't exist (see the NOTE above); typed to the
+// minimum this file actually reads from it.
+interface RecipeSummaryDeadRow {
+  listed_cost?: number | null;
+  calculated_cost?: number | null;
+  cost_variance: number;
+  [key: string]: unknown;
+}
+
+interface CostAnalysisProps {
+  activeLocation: Location | null;
+}
+
+const CostAnalysis = ({ activeLocation }: CostAnalysisProps) => {
   const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
-  const [analysisData, setAnalysisData] = useState([]);
+  const [analysisData, setAnalysisData] = useState<AnalysisRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('profit_margin');
+  const [sortBy, setSortBy] = useState<SortKey>('profit_margin');
   const [sortOrder, setSortOrder] = useState('desc');
   const [showOnlyProblematic, setShowOnlyProblematic] = useState(false);
   const [costThreshold, setCostThreshold] = useState(1.00);
@@ -56,9 +109,9 @@ const CostAnalysis = ({ activeLocation }) => {
       if (summaryError) throw summaryError;
       
       // Enhance with additional calculations
-      const enhancedData = summaryData.map(item => {
-        const profitMargin = item.listed_cost > 0 
-          ? ((item.listed_cost - item.calculated_cost) / item.listed_cost * 100)
+      const enhancedData = summaryData.map((item: RecipeSummaryDeadRow) => {
+        const profitMargin = (item.listed_cost || 0) > 0
+          ? (((item.listed_cost || 0) - (item.calculated_cost || 0)) / (item.listed_cost || 0) * 100)
           : 0;
         
         const profitAmount = (item.listed_cost || 0) - (item.calculated_cost || 0);
@@ -84,6 +137,8 @@ const CostAnalysis = ({ activeLocation }) => {
   };
 
   const fetchAnalysisDataFallback = async () => {
+    if (!activeLocation) return;
+
     try {
       const { data: items, error } = await supabase
         .from('items')
@@ -109,12 +164,23 @@ const CostAnalysis = ({ activeLocation }) => {
 
       // Calculate costs manually for items that need it
       const enhancedData = await Promise.all(
-        items.map(async (item) => {
+        items.map(async (item: {
+          id: string;
+          name: string;
+          price: number;
+          cost_price?: number | null;
+          recipe_type: string;
+          recipe_complexity: string;
+          max_recipe_level: number;
+          total_components: number;
+          auto_calculate_cost: boolean;
+          categories?: AnalysisCategoryRef | null;
+        }) => {
           let calculatedCost = item.cost_price || 0;
-          
+
           if (item.recipe_type !== 'simple') {
             try {
-              const { data: costData } = await supabase.rpc('calculate_recipe_cost', {
+              const { data: costData } = await supabase.rpc<number>('calculate_recipe_cost', {
                 item_uuid: item.id
               });
               calculatedCost = costData || 0;
@@ -122,19 +188,15 @@ const CostAnalysis = ({ activeLocation }) => {
               console.warn('Failed to calculate cost for', item.name);
             }
           }
-          
-          const profitMargin = item.price > 0 
+
+          const profitMargin = item.price > 0
             ? ((item.price - calculatedCost) / item.price * 100)
             : 0;
           
           const profitAmount = (item.price || 0) - calculatedCost;
           const costVariance = Math.abs((item.cost_price || 0) - calculatedCost);
           
-          const status = determineStatus({
-            ...item,
-            calculated_cost: calculatedCost,
-            cost_variance: costVariance
-          }, profitMargin);
+          const status = determineStatus({ cost_variance: costVariance }, profitMargin);
           
           return {
             ...item,
@@ -154,7 +216,7 @@ const CostAnalysis = ({ activeLocation }) => {
     }
   };
 
-  const determineStatus = (item, profitMargin) => {
+  const determineStatus = (item: { cost_variance: number }, profitMargin: number): string => {
     if (item.cost_variance > costThreshold) return 'cost_mismatch';
     if (profitMargin < 10) return 'low_profit';
     if (profitMargin < 25) return 'moderate_profit';
@@ -166,7 +228,12 @@ const CostAnalysis = ({ activeLocation }) => {
   // to triage at a glance: destructive = losing money, warning = worth a second
   // look (thin margin, or manual/calculated cost disagree), success = healthy.
   // Thresholds themselves are untouched — this only retargets the colour.
-  const getStatusInfo = (status) => {
+  const getStatusInfo = (status: string): {
+    label: string;
+    variant: 'warning' | 'destructive' | 'success' | 'outline';
+    icon: typeof AlertTriangle;
+    description: string;
+  } => {
     switch (status) {
       case 'cost_mismatch':
         return {
@@ -215,15 +282,15 @@ const CostAnalysis = ({ activeLocation }) => {
 
   // Analysis amounts are major-unit floats, so scale up to minor units before
   // handing them to the minor-unit-based formatter.
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount?: number | null) => {
     return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
-  const formatPercentage = (value) => {
+  const formatPercentage = (value: number) => {
     return `${value.toFixed(1)}%`;
   };
 
-  const getItemTypeIcon = (type) => {
+  const getItemTypeIcon = (type?: string) => {
     switch (type) {
       case 'recipe': return <ChefHat className="h-4 w-4" />;
       case 'component': return <Package className="h-4 w-4" />;
@@ -318,7 +385,7 @@ const CostAnalysis = ({ activeLocation }) => {
               />
             </div>
             
-            <Select value={sortBy} onValueChange={setSortBy}>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Sort by..." />
               </SelectTrigger>
@@ -502,7 +569,7 @@ const CostAnalysis = ({ activeLocation }) => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {Object.entries(
-                filteredData.reduce((acc, item) => {
+                filteredData.reduce<Record<string, number>>((acc, item) => {
                   const status = item.status;
                   if (!acc[status]) acc[status] = 0;
                   acc[status]++;
