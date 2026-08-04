@@ -18,7 +18,7 @@ const STATUS: Record<RestaurantTable['status'], { stripe: string; bg: string; te
 // backing column in public.tables (see backend/migrations/001_baseline.sql)
 // and is never populated by that memo today; kept optional so this mirrors
 // the real (always-empty) shape rather than inventing a guarantee.
-interface TableTileData extends RestaurantTable {
+export interface TableTileData extends RestaurantTable {
   section_name?: string;
   subtotal_cents?: number;
   guest_count?: number;
