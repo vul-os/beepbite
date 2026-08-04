@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CardResult } from './card-result';
+import { CardResult, type IssueResult } from './card-result';
 import { AlertCircle, RefreshCw, X } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useLocale, useMoney, useDateTime } from '@/context/locale-context';
@@ -21,6 +21,22 @@ import CustomerSearch from '@/pages/pos/components/customer-search';
 
 // Sentinel used in the staff <Select> to represent "no selection".
 const STAFF_NONE = '__none__';
+
+// Mirrors backend/migrations/001_baseline.sql `staff` table (subset selected below).
+interface StaffOption {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+// Shape returned by pos/components/customer-search.jsx's onSelect (that
+// component is still untyped JS, so this is asserted from usage, not
+// imported).
+interface SelectedCustomer {
+  id: string;
+  name?: string;
+  phone?: string;
+}
 
 /**
  * IssueForm — the "Issue" tab content.
@@ -42,15 +58,15 @@ export function IssueForm() {
 
   // Customer: store the full object returned by CustomerSearch so we can
   // display the name; only the id is sent in the POST body.
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<SelectedCustomer | null>(null);
 
   // Staff: id string ('' = unset), populated from supabase for active location.
   const [issuedByStaffId, setIssuedByStaffId] = useState('');
-  const [staffList, setStaffList] = useState([]);
+  const [staffList, setStaffList] = useState<StaffOption[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null); // IssueResult from backend
+  const [result, setResult] = useState<IssueResult | null>(null);
 
   // Fetch active staff for the current location so the dropdown is populated.
   useEffect(() => {
@@ -85,7 +101,7 @@ export function IssueForm() {
     setResult(null);
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
 
@@ -104,13 +120,15 @@ export function IssueForm() {
     }
 
     // Build expires_at as RFC3339 (end-of-day UTC) or omit if blank.
-    let expiresAtRFC3339 = null;
+    let expiresAtRFC3339: string | null = null;
     if (expiresAt) {
       expiresAtRFC3339 = new Date(`${expiresAt}T23:59:59Z`).toISOString();
     }
 
+    // activeOrganization is guaranteed non-null here: the form only renders
+    // (and can only be submitted) past the "no active organisation" guard below.
     const body = {
-      organization_id: activeOrganization.id,
+      organization_id: activeOrganization!.id,
       initial_balance_cents: balanceCents,
       card_type: cardType,
       ...(pin ? { pin } : {}),
@@ -120,7 +138,7 @@ export function IssueForm() {
     };
 
     setLoading(true);
-    const { data, error: err } = await api.request('POST', '/gift-cards/issue', { body });
+    const { data, error: err } = await api.request<IssueResult>('POST', '/gift-cards/issue', { body });
     setLoading(false);
 
     if (err) {
@@ -253,6 +271,7 @@ export function IssueForm() {
               <CustomerSearch
                 onSelect={setSelectedCustomer}
                 placeholder="Search by name or phone…"
+                className={undefined}
               />
             )}
           </div>
