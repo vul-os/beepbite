@@ -60,26 +60,63 @@ const staffFormSchema = z.object({
   title: z.string().optional(),
 });
 
+type StaffFormValues = z.infer<typeof staffFormSchema>;
+
+// Mirrors backend/migrations/001_baseline.sql `profiles` table (subset used here).
+interface MemberProfile {
+  id: string;
+  full_name?: string | null;
+  username?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  phone?: string | null;
+  department?: string | null;
+  title?: string | null;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `organization_members` table
+// (subset used here), embedded-joined to `profiles`.
+interface Member {
+  id: string;
+  role: string;
+  profile_id: string;
+  created_at: string;
+  archived_at?: string | null;
+  profiles?: MemberProfile | null;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `organization_invites` table
+// (subset used here), embedded-joined to `profiles` (inviter).
+interface Invite {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  created_at: string;
+  invited_by?: string | null;
+  profiles?: { full_name?: string | null } | null;
+}
+
 const Members = () => {
   const { user, activeOrganization } = useAuth();
   const { toast } = useToast();
-  const [members, setMembers] = useState([]);
-  const [invites, setInvites] = useState([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('staff');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-  const [removeConfirmMember, setRemoveConfirmMember] = useState(null);
+  const [removeConfirmMember, setRemoveConfirmMember] = useState<Member | null>(null);
 
   // Initialize form
-  const form = useForm({
+  const form = useForm<StaffFormValues>({
     resolver: zodResolver(staffFormSchema),
     defaultValues: {
       full_name: "",
@@ -96,6 +133,7 @@ const Members = () => {
       fetchMembers();
       fetchInvites();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeOrganization, showArchived]);
 
   useEffect(() => {
@@ -104,16 +142,17 @@ const Members = () => {
         full_name: selectedMember.profiles?.full_name || "",
         email: selectedMember.profiles?.email || "",
         phone: selectedMember.profiles?.phone || "",
-        role: selectedMember.role || "staff",
+        role: (selectedMember.role as StaffFormValues['role']) || "staff",
         department: selectedMember.profiles?.department || "",
         title: selectedMember.profiles?.title || "",
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMember, isEditModalOpen]);
 
   const fetchMembers = async () => {
     if (!activeOrganization) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -138,7 +177,7 @@ const Members = () => {
         .eq('organization_id', activeOrganization.id)
         .is('archived_at', showArchived ? 'not.null' : null)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setMembers(data || []);
     } catch (error) {
@@ -151,7 +190,7 @@ const Members = () => {
 
   const fetchInvites = async () => {
     if (!activeOrganization) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('organization_invites')
@@ -168,7 +207,7 @@ const Members = () => {
         `)
         .eq('organization_id', activeOrganization.id)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setInvites(data || []);
     } catch (error) {
@@ -178,7 +217,7 @@ const Members = () => {
 
   const sendInvite = async () => {
     if (!inviteEmail || !activeOrganization) return;
-    
+
     setInviteLoading(true);
     try {
       // Insert invite directly into the database
@@ -188,14 +227,19 @@ const Members = () => {
           organization_id: activeOrganization.id,
           email: inviteEmail.trim().toLowerCase(),
           role: inviteRole,
-          invited_by: user.id,
+          invited_by: user?.id,
           status: 'pending'
         })
         .select()
         .single();
 
       if (error) {
-        if (error.code === '23505') { // Unique constraint violation
+        // NOTE: the generic /data/:table insert endpoint collapses every DB
+        // error (including a 23505 unique-violation) into a generic 400 with
+        // no `code` field — dead branch before the migration too; typed via
+        // a defensive cast to preserve exact existing behavior (see
+        // categories/index.tsx for the same pattern).
+        if ((error as { code?: string }).code === '23505') {
           throw new Error('This email has already been invited');
         }
         throw error;
@@ -205,21 +249,22 @@ const Members = () => {
       setInviteRole('staff');
       setIsInviteModalOpen(false);
       fetchInvites();
-      
+
       // Here you would typically send an email notification
       // For now, we'll just show success
       toast({ title: 'Invitation sent successfully!' });
     } catch (error) {
       console.error('Error sending invite:', error);
-      toast({ variant: 'destructive', title: 'Failed to send invitation', description: error.message });
+      const message = error instanceof Error ? error.message : undefined;
+      toast({ variant: 'destructive', title: 'Failed to send invitation', description: message });
     } finally {
       setInviteLoading(false);
     }
   };
 
-  const handleEditMember = async (values) => {
+  const handleEditMember = async (values: StaffFormValues) => {
     if (!selectedMember) return;
-    
+
     setActionLoading(selectedMember.id);
     try {
       // Update profile information
@@ -231,7 +276,7 @@ const Members = () => {
           department: values.department,
           title: values.title,
         })
-        .eq('id', selectedMember.profiles.id);
+        .eq('id', selectedMember.profiles?.id);
 
       if (profileError) throw profileError;
 
@@ -256,19 +301,20 @@ const Members = () => {
     }
   };
 
-  const handleArchiveMember = async (memberId) => {
+  const handleArchiveMember = async (memberId?: string) => {
+    if (!memberId) return;
     setActionLoading(memberId);
     try {
       const { error } = await supabase
         .from('organization_members')
-        .update({ 
+        .update({
           archived_at: new Date().toISOString(),
-          archived_by: user.id
+          archived_by: user?.id
         })
         .eq('id', memberId);
-      
+
       if (error) throw error;
-      
+
       toast({ title: 'Member archived successfully' });
       fetchMembers();
     } catch (error) {
@@ -280,19 +326,19 @@ const Members = () => {
     }
   };
 
-  const handleRestoreMember = async (memberId) => {
+  const handleRestoreMember = async (memberId: string) => {
     setActionLoading(memberId);
     try {
       const { error } = await supabase
         .from('organization_members')
-        .update({ 
+        .update({
           archived_at: null,
           archived_by: null
         })
         .eq('id', memberId);
-      
+
       if (error) throw error;
-      
+
       toast({ title: 'Member restored successfully' });
       fetchMembers();
     } catch (error) {
@@ -303,7 +349,7 @@ const Members = () => {
     }
   };
 
-  const removeMember = (member) => {
+  const removeMember = (member: Member) => {
     setRemoveConfirmMember(member);
   };
 
@@ -329,14 +375,14 @@ const Members = () => {
     }
   };
 
-  const updateMemberRole = async (memberId, newRole) => {
+  const updateMemberRole = async (memberId: string, newRole: string) => {
     setActionLoading(memberId);
     try {
       const { error } = await supabase
         .from('organization_members')
         .update({ role: newRole })
         .eq('id', memberId);
-      
+
       if (error) throw error;
       fetchMembers();
     } catch (error) {
@@ -347,14 +393,14 @@ const Members = () => {
     }
   };
 
-  const cancelInvite = async (inviteId) => {
+  const cancelInvite = async (inviteId: string) => {
     setActionLoading(inviteId);
     try {
       const { error } = await supabase
         .from('organization_invites')
         .delete()
         .eq('id', inviteId);
-      
+
       if (error) throw error;
       fetchInvites();
     } catch (error) {
@@ -365,7 +411,7 @@ const Members = () => {
     }
   };
 
-  const getRoleIcon = (role) => {
+  const getRoleIcon = (role?: string) => {
     switch (role) {
       case 'owner':
         return <Crown className="w-4 h-4" />;
@@ -380,7 +426,7 @@ const Members = () => {
     }
   };
 
-  const getRoleColor = (role) => {
+  const getRoleColor = (role?: string) => {
     switch (role) {
       case 'owner':
         return 'bg-primary/15 text-primary border-primary/30';
@@ -395,7 +441,7 @@ const Members = () => {
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
         return <Clock className="w-4 h-4 text-primary" />;
@@ -408,7 +454,7 @@ const Members = () => {
     }
   };
 
-  const getInitials = (name, username, email) => {
+  const getInitials = (name?: string | null, username?: string | null, email?: string | null) => {
     if (name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
@@ -427,7 +473,7 @@ const Members = () => {
     const email = member.profiles?.email || '';
     const department = member.profiles?.department || '';
     const title = member.profiles?.title || '';
-    
+
     return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            username.toLowerCase().includes(searchTerm.toLowerCase()) ||
            email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -633,7 +679,7 @@ const Members = () => {
                       {/* Member Info */}
                       <div className="flex items-start gap-4">
                         <Avatar className="h-14 w-14 border-2 border-primary/20 ring-2 ring-background">
-                          <AvatarImage src={member.profiles?.avatar_url} />
+                          <AvatarImage src={member.profiles?.avatar_url || undefined} />
                           <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
                             {getInitials(member.profiles?.full_name, member.profiles?.username, member.profiles?.email)}
                           </AvatarFallback>
@@ -769,7 +815,7 @@ const Members = () => {
                       <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                         <Mail className="w-5 h-5 text-primary" />
                       </div>
-                      
+
                       <div>
                         <p className="font-medium text-foreground text-base">{invite.email}</p>
                         <div className="flex items-center gap-3 mt-2">
@@ -886,7 +932,7 @@ const Members = () => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
@@ -925,7 +971,7 @@ const Members = () => {
               Update member information and role
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleEditMember)} className="space-y-4">
               <FormField
@@ -941,7 +987,7 @@ const Members = () => {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="phone"
@@ -955,7 +1001,7 @@ const Members = () => {
                   </FormItem>
                 )}
               />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -970,7 +1016,7 @@ const Members = () => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="title"
@@ -985,15 +1031,15 @@ const Members = () => {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={form.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
@@ -1036,7 +1082,7 @@ const Members = () => {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter className="gap-3 sm:gap-0">
                 <Button
                   variant="outline"
