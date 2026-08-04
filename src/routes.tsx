@@ -3,12 +3,12 @@ import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/auth/protected-route';
 
 import { Progress } from './components/ui/progress';
-// components/ui/progress.jsx isn't converted yet, so its exported `Progress`
-// infers only RefAttributes<any> (no `message` prop). The call below has
-// always passed `message`, which Progress silently spreads onto the
-// underlying DOM node rather than rendering — pre-existing dead prop, not
-// something this migration changes. Bridge the boundary explicitly so it
-// keeps compiling; revisit when components/ui/progress is converted.
+// Progress's real (now-typed) props are Radix's ProgressPrimitive.Root props
+// (value, max, ...div attrs) — no `message`. The call below has always
+// passed `message` anyway, which Progress silently spreads onto the
+// underlying DOM node rather than rendering it — a pre-existing dead prop,
+// not something this migration changes. Bridge the boundary explicitly so
+// it keeps compiling.
 const LoadingComponent = Progress as ComponentType<{ message: string }>;
 // Layouts
 import BlankLayout from './components/layout/blank-layout';
