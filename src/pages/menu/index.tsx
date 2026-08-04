@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,15 +59,85 @@ import CostAnalysis from './cost-analysis';
 import PrepStepsEditor from './prep-steps-editor';
 import ModifierGroupsEditor from './modifier-groups-editor';
 
+// Mirrors backend/migrations/001_baseline.sql `items` table (subset this page
+// reads) plus the joined `categories(id, name, parent_id)` relation. The
+// supabase-shaped queries below go through the untyped api.from(...) query
+// builder (the one documented `any` in the codebase), so this interface is
+// applied locally to keep this page's own state honestly typed.
+interface MenuCategoryRow {
+  id: string;
+  name: string;
+  parent_id?: string | null;
+  [key: string]: unknown;
+}
+
+interface Item {
+  id: string;
+  location_id: string;
+  category_id: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  cost_price?: number | null;
+  preparation_time: number;
+  is_active: boolean;
+  sort_order: number;
+  track_inventory: boolean;
+  current_stock: number;
+  low_stock_threshold: number;
+  recipe_type: 'simple' | 'recipe' | 'component';
+  max_recipe_level: number;
+  total_components: number;
+  recipe_complexity: 'simple' | 'moderate' | 'complex';
+  auto_calculate_cost: boolean;
+  is_recipe_ingredient: boolean;
+  is_86ed?: boolean;
+  categories?: MenuCategoryRow | null;
+  [key: string]: unknown;
+}
+
+interface RecipeComponentRow {
+  id: string;
+  parent_item_id: string;
+  child_item_id: string;
+  recipe_level: number;
+  child_item?: {
+    id: string;
+    name: string;
+    price: number;
+    cost_price?: number | null;
+    recipe_type: string;
+    max_recipe_level: number;
+  } | null;
+  [key: string]: unknown;
+}
+
+interface MenuFormData {
+  name: string;
+  description: string;
+  price: string | number;
+  cost_price: string | number;
+  category_id: string;
+  preparation_time: string | number;
+  sort_order: string | number;
+  is_active: boolean;
+  track_inventory: boolean;
+  current_stock: string | number;
+  low_stock_threshold: string | number;
+  recipe_type: string;
+  auto_calculate_cost: boolean;
+  is_recipe_ingredient: boolean;
+}
+
 const Menu = () => {
   const { activeLocation } = useAuth();
   const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [recipes, setRecipes] = useState([]);
-  const [recipeBreakdown, setRecipeBreakdown] = useState([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<MenuCategoryRow[]>([]);
+  const [recipes, setRecipes] = useState<Item[]>([]);
+  const [recipeBreakdown, setRecipeBreakdown] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -78,16 +149,22 @@ const Menu = () => {
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRecipeBuilderOpen, setIsRecipeBuilderOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [buildingRecipe, setBuildingRecipe] = useState(null);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [buildingRecipe, setBuildingRecipe] = useState<Item | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
-  const [expandedRecipes, setExpandedRecipes] = useState(new Set());
+  const [expandedRecipes, setExpandedRecipes] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('overview');
-  const [deleteTarget, setDeleteTarget] = useState(null); // item pending delete confirm
+  // NOTE (found by this TS conversion, not fixed — out of scope): despite the
+  // comment below claiming deletion is gated on a confirmation dialog keyed
+  // off deleteTarget, there is no such dialog anywhere in this file —
+  // deleteTarget/setDeleteTarget are set here but never read in the JSX, and
+  // the "Delete" dropdown item below calls deleteItem(item) directly with no
+  // confirmation step at all. Real (if narrow) safety gap, not fixed here.
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null); // item pending delete confirm
 
   // Enhanced form data for recipes
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MenuFormData>({
     name: '',
     description: '',
     price: '',
@@ -105,8 +182,8 @@ const Menu = () => {
   });
 
   // Recipe builder data
-  const [recipeComponents, setRecipeComponents] = useState([]);
-  const [availableItems, setAvailableItems] = useState([]);
+  const [recipeComponents, setRecipeComponents] = useState<RecipeComponentRow[]>([]);
+  const [availableItems, setAvailableItems] = useState<Item[]>([]);
 
   useEffect(() => {
     if (activeLocation) {
@@ -163,11 +240,11 @@ const Menu = () => {
       setItems(data || []);
 
       // Separate into different arrays for easier filtering
-      const allRecipes = data?.filter(item => item.recipe_type !== 'simple') || [];
+      const allRecipes = data?.filter((item: Item) => item.recipe_type !== 'simple') || [];
       setRecipes(allRecipes);
 
       // Available items for recipe building (exclude the item being edited)
-      const available = data?.filter(item =>
+      const available = data?.filter((item: Item) =>
         item.id !== buildingRecipe?.id && item.is_active
       ) || [];
       setAvailableItems(available);
@@ -213,7 +290,7 @@ const Menu = () => {
     }
   };
 
-  const fetchRecipeComponents = async (itemId) => {
+  const fetchRecipeComponents = async (itemId?: string | null) => {
     if (!itemId) return;
 
     try {
@@ -241,7 +318,7 @@ const Menu = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = <K extends keyof MenuFormData>(field: K, value: MenuFormData[K]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -285,7 +362,7 @@ const Menu = () => {
       handleInputChange('category_id', data.id);
       setNewCategoryName('');
     } catch (e) {
-      toast({ variant: 'destructive', title: 'Failed to create category', description: e.message });
+      toast({ variant: 'destructive', title: 'Failed to create category', description: e instanceof Error ? e.message : 'Unknown error' });
     } finally {
       setCreatingCategory(false);
     }
@@ -304,14 +381,14 @@ const Menu = () => {
         category_id: formData.category_id,
         name: formData.name.trim(),
         description: formData.description.trim() || null,
-        price: parseFloat(formData.price),
-        cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
-        preparation_time: parseInt(formData.preparation_time) || 15,
-        sort_order: parseInt(formData.sort_order) || 0,
+        price: parseFloat(String(formData.price)),
+        cost_price: formData.cost_price ? parseFloat(String(formData.cost_price)) : null,
+        preparation_time: parseInt(String(formData.preparation_time)) || 15,
+        sort_order: parseInt(String(formData.sort_order)) || 0,
         is_active: formData.is_active,
         track_inventory: formData.track_inventory,
-        current_stock: formData.track_inventory ? parseInt(formData.current_stock) || 0 : 0,
-        low_stock_threshold: formData.track_inventory ? parseInt(formData.low_stock_threshold) || 5 : 5,
+        current_stock: formData.track_inventory ? parseInt(String(formData.current_stock)) || 0 : 0,
+        low_stock_threshold: formData.track_inventory ? parseInt(String(formData.low_stock_threshold)) || 5 : 5,
         recipe_type: formData.recipe_type,
         auto_calculate_cost: formData.auto_calculate_cost,
         is_recipe_ingredient: formData.is_recipe_ingredient
@@ -331,7 +408,7 @@ const Menu = () => {
       toast({ title: 'Menu item added successfully!' });
     } catch (error) {
       console.error('Error adding item:', error);
-      toast({ variant: 'destructive', title: 'Failed to add menu item', description: error.message });
+      toast({ variant: 'destructive', title: 'Failed to add menu item', description: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setSaving(false);
     }
@@ -349,14 +426,14 @@ const Menu = () => {
         category_id: formData.category_id,
         name: formData.name.trim(),
         description: formData.description.trim() || null,
-        price: parseFloat(formData.price),
-        cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
-        preparation_time: parseInt(formData.preparation_time) || 15,
-        sort_order: parseInt(formData.sort_order) || 0,
+        price: parseFloat(String(formData.price)),
+        cost_price: formData.cost_price ? parseFloat(String(formData.cost_price)) : null,
+        preparation_time: parseInt(String(formData.preparation_time)) || 15,
+        sort_order: parseInt(String(formData.sort_order)) || 0,
         is_active: formData.is_active,
         track_inventory: formData.track_inventory,
-        current_stock: formData.track_inventory ? parseInt(formData.current_stock) || 0 : 0,
-        low_stock_threshold: formData.track_inventory ? parseInt(formData.low_stock_threshold) || 5 : 5,
+        current_stock: formData.track_inventory ? parseInt(String(formData.current_stock)) || 0 : 0,
+        low_stock_threshold: formData.track_inventory ? parseInt(String(formData.low_stock_threshold)) || 5 : 5,
         recipe_type: formData.recipe_type,
         auto_calculate_cost: formData.auto_calculate_cost,
         is_recipe_ingredient: formData.is_recipe_ingredient,
@@ -377,7 +454,7 @@ const Menu = () => {
       toast({ title: 'Menu item updated successfully!' });
     } catch (error) {
       console.error('Error updating item:', error);
-      toast({ variant: 'destructive', title: 'Failed to update menu item', description: error.message });
+      toast({ variant: 'destructive', title: 'Failed to update menu item', description: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setSaving(false);
     }
@@ -386,7 +463,7 @@ const Menu = () => {
   // Delete requires confirmation via the AlertDialog gated on `deleteTarget`
   // (see the dialog near the bottom of this component) — this just performs
   // the actual delete once the user has confirmed.
-  const deleteItem = async (item) => {
+  const deleteItem = async (item: Item) => {
     setActionLoading(item.id);
     try {
       const { error } = await supabase
@@ -399,14 +476,14 @@ const Menu = () => {
       toast({ title: 'Menu item deleted successfully' });
     } catch (error) {
       console.error('Error deleting item:', error);
-      toast({ variant: 'destructive', title: 'Failed to delete menu item', description: error.message });
+      toast({ variant: 'destructive', title: 'Failed to delete menu item', description: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setActionLoading('');
       setDeleteTarget(null);
     }
   };
 
-  const toggleItemStatus = async (item) => {
+  const toggleItemStatus = async (item: Item) => {
     setActionLoading(item.id);
     try {
       const { error } = await supabase
@@ -421,13 +498,13 @@ const Menu = () => {
       await fetchData();
     } catch (error) {
       console.error('Error updating item status:', error);
-      toast({ variant: 'destructive', title: 'Failed to update item status', description: error.message });
+      toast({ variant: 'destructive', title: 'Failed to update item status', description: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setActionLoading('');
     }
   };
 
-  const updateSortOrder = async (itemId, newSortOrder) => {
+  const updateSortOrder = async (itemId: string, newSortOrder: number) => {
     setActionLoading(itemId);
     try {
       const { error } = await supabase
@@ -442,20 +519,20 @@ const Menu = () => {
       await fetchData();
     } catch (error) {
       console.error('Error updating sort order:', error);
-      toast({ variant: 'destructive', title: 'Failed to update sort order', description: error.message });
+      toast({ variant: 'destructive', title: 'Failed to update sort order', description: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setActionLoading('');
     }
   };
 
   // Recipe-specific functions
-  const handleRecipeBuilder = async (item) => {
+  const handleRecipeBuilder = async (item: Item) => {
     setBuildingRecipe(item);
     await fetchRecipeComponents(item.id);
     setIsRecipeBuilderOpen(true);
   };
 
-  const updateRecipeMetadata = async (itemId) => {
+  const updateRecipeMetadata = async (itemId: string) => {
     setActionLoading(itemId);
     try {
       const { error } = await supabase.rpc('update_recipe_metadata', {
@@ -472,7 +549,7 @@ const Menu = () => {
     }
   };
 
-  const toggleRecipeExpanded = (itemId) => {
+  const toggleRecipeExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedRecipes);
     if (newExpanded.has(itemId)) {
       newExpanded.delete(itemId);
@@ -482,7 +559,7 @@ const Menu = () => {
     setExpandedRecipes(newExpanded);
   };
 
-  const openEditModal = (item) => {
+  const openEditModal = (item: Item) => {
     setEditingItem(item);
     setFormData({
       name: item.name || '',
@@ -504,18 +581,18 @@ const Menu = () => {
   };
 
   // Helper functions
-  const calculateProfitMargin = (price, costPrice) => {
+  const calculateProfitMargin = (price?: number | null, costPrice?: number | null) => {
     if (!price || !costPrice) return null;
     const margin = ((price - costPrice) / price) * 100;
     return margin.toFixed(1);
   };
 
-  const getCategoryName = (categoryId) => {
+  const getCategoryName = (categoryId?: string | null) => {
     const category = categories.find(cat => cat.id === categoryId);
     return category?.name || 'Unknown Category';
   };
 
-  const getRecipeTypeIcon = (type) => {
+  const getRecipeTypeIcon = (type?: string) => {
     switch (type) {
       case 'recipe': return <ChefHat className="h-4 w-4" />;
       case 'component': return <Package className="h-4 w-4" />;
@@ -528,13 +605,14 @@ const Menu = () => {
   // local map (duplicated in recipe-breakdown.jsx / recipe-builder.jsx) rather
   // than pulling from the shared lib/status-colors.js, whose PO/invoice/reservation
   // tones still predate the Ticket Rail token system and are out of this pass's scope.
-  const COMPLEXITY_BADGE_VARIANT = { simple: 'success', moderate: 'warning', complex: 'destructive' };
-  const getComplexityBadgeVariant = (complexity) => COMPLEXITY_BADGE_VARIANT[complexity] || 'outline';
+  const COMPLEXITY_BADGE_VARIANT: Record<string, string> = { simple: 'success', moderate: 'warning', complex: 'destructive' };
+  const getComplexityBadgeVariant = (complexity?: string): 'success' | 'warning' | 'destructive' | 'outline' =>
+    (COMPLEXITY_BADGE_VARIANT[complexity || ''] as 'success' | 'warning' | 'destructive' | undefined) || 'outline';
 
   // Item prices are stored as major-unit floats (rands/dollars, not cents), so
   // they are scaled up to the currency's minor unit before going through the
   // minor-unit-based formatter.
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount?: number | null) => {
     return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
@@ -595,7 +673,7 @@ const Menu = () => {
     );
   }
 
-  const ItemForm = ({ isEdit = false }) => (
+  const ItemForm = ({ isEdit = false }: { isEdit?: boolean }) => (
     <div className="space-y-4 mt-4 max-h-96 overflow-y-auto">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -1045,7 +1123,7 @@ const Menu = () => {
                                 {formatCurrency(item.price)}
                               </span>
 
-                              {item.cost_price > 0 && (
+                              {(item.cost_price ?? 0) > 0 && (
                                 <span className="flex items-center gap-1 text-muted-foreground tabular-nums">
                                   <Calculator className="h-3.5 w-3.5" />
                                   Cost: {formatCurrency(item.cost_price)}
