@@ -38,17 +38,20 @@ export async function fetchPickupSlots(
     });
 
     const text = await res.text();
-    let payload: any = null;
+    let payload: PickupSlot[] | { error?: string } | string | null = null;
     if (text) {
       try { payload = JSON.parse(text); } catch { payload = text; }
     }
 
     if (!res.ok) {
-      const msg = (payload && payload.error) || res.statusText || 'failed to fetch pickup slots';
+      const msg =
+        (payload && typeof payload === 'object' && !Array.isArray(payload) && payload.error) ||
+        res.statusText ||
+        'failed to fetch pickup slots';
       return { data: null, error: { message: msg, status: res.status } };
     }
 
-    return { data: payload, error: null };
+    return { data: Array.isArray(payload) ? payload : null, error: null };
   } catch (err) {
     return { data: null, error: { message: (err as Error)?.message || 'network error' } };
   }
