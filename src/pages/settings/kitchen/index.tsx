@@ -1,4 +1,4 @@
-// src/pages/settings/kitchen/index.jsx — Kitchen Routing Settings (Wave 12)
+// src/pages/settings/kitchen/index.tsx — Kitchen Routing Settings (Wave 12)
 //
 // Owner page for managing all kitchen-routing configuration for a location:
 //
@@ -13,6 +13,7 @@
 
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import {
   AlertCircle,
   ChefHat,
@@ -25,6 +26,7 @@ import {
   Tag,
   Trash2,
   Utensils,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '@/context/auth-context';
@@ -85,6 +87,60 @@ import {
   fetchCategories,
   fetchItems,
 } from '@/services/kitchen-config';
+
+// ---------------------------------------------------------------------------
+// Local types — mirror backend/migrations/001_baseline.sql. The kitchen-config
+// service goes through the untyped api.from(...) query builder (the one
+// documented `any` in the codebase), so these interfaces are applied locally
+// to keep this page's own state honestly typed.
+// ---------------------------------------------------------------------------
+
+interface KitchenStation {
+  id: string;
+  location_id: string;
+  name: string;
+  station_type: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+interface CategoryLite {
+  id: string;
+  name: string;
+}
+
+interface ItemLite {
+  id: string;
+  name: string;
+  category_id?: string;
+}
+
+interface CategoryRouting {
+  id: string;
+  category_id: string;
+  station_id: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
+interface ItemRoutingRow {
+  id: string;
+  item_id: string;
+  station_id: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
+interface DisplayGroup {
+  id: string;
+  location_id: string;
+  name: string;
+  station_ids: string[];
+  sort_order: number;
+  is_active: boolean;
+  display_order: number;
+  auto_recall_seconds: number | null;
+}
 
 // ============================================================
 // Root page
@@ -161,7 +217,7 @@ export default function KitchenSettingsPage() {
 // Shared helpers
 // ============================================================
 
-function LoadingSkeleton({ rows = 3 }) {
+function LoadingSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
@@ -171,7 +227,7 @@ function LoadingSkeleton({ rows = 3 }) {
   );
 }
 
-function ErrorBanner({ message }) {
+function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
       {message}
@@ -179,7 +235,7 @@ function ErrorBanner({ message }) {
   );
 }
 
-function EmptyState({ icon: Icon, label, action }) {
+function EmptyState({ icon: Icon, label, action }: { icon: LucideIcon; label: string; action?: ReactNode }) {
   return (
     <div className="rounded-lg border border-dashed p-10 text-center">
       <Icon className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
@@ -193,15 +249,15 @@ function EmptyState({ icon: Icon, label, action }) {
 // Tab 1 — Stations
 // ============================================================
 
-function StationsTab({ locationId }) {
-  const [stations, setStations] = useState([]);
+function StationsTab({ locationId }: { locationId: string }) {
+  const [stations, setStations] = useState<KitchenStation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<KitchenStation | null>(null);
   const [saving, setSaving] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
+  const [toDelete, setToDelete] = useState<KitchenStation | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -209,7 +265,7 @@ function StationsTab({ locationId }) {
     try {
       setStations(await fetchStations(locationId));
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load stations.');
     } finally {
       setLoading(false);
     }
@@ -218,10 +274,10 @@ function StationsTab({ locationId }) {
   useEffect(() => { load(); }, [load]);
 
   const openNew = () => { setEditing(null); setSheetOpen(true); };
-  const openEdit = (s) => { setEditing(s); setSheetOpen(true); };
+  const openEdit = (s: KitchenStation) => { setEditing(s); setSheetOpen(true); };
   const closeSheet = () => { setSheetOpen(false); setEditing(null); };
 
-  const handleSubmit = async (payload) => {
+  const handleSubmit = async (payload: { name: string; sort_order: number | null }) => {
     setSaving(true);
     try {
       if (editing?.id) {
@@ -232,7 +288,7 @@ function StationsTab({ locationId }) {
       await load();
       closeSheet();
     } catch (e) {
-      alert(e.message);
+      alert(e instanceof Error ? e.message : 'Failed to save station.');
     } finally {
       setSaving(false);
     }
@@ -241,15 +297,15 @@ function StationsTab({ locationId }) {
   const confirmDelete = async () => {
     if (!toDelete) return;
     try { await deleteStation(toDelete.id); await load(); }
-    catch (e) { alert(e.message); }
+    catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete station.'); }
     finally { setToDelete(null); }
   };
 
-  const toggleActive = async (station) => {
+  const toggleActive = async (station: KitchenStation) => {
     try {
       await updateStation(station.id, { is_active: !station.is_active });
       await load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { alert(e instanceof Error ? e.message : 'Failed to update station.'); }
   };
 
   return (
@@ -350,11 +406,16 @@ function StationsTab({ locationId }) {
   );
 }
 
-function StationForm({ initial, onSubmit, onCancel, saving }) {
+function StationForm({ initial, onSubmit, onCancel, saving }: {
+  initial?: KitchenStation | null;
+  onSubmit: (payload: { name: string; sort_order: number | null }) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [sortOrder, setSortOrder] = useState(initial?.sort_order ?? '');
+  const [sortOrder, setSortOrder] = useState<number | string>(initial?.sort_order ?? '');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSubmit({
       name: name.trim(),
@@ -400,17 +461,17 @@ function StationForm({ initial, onSubmit, onCancel, saving }) {
 // Tab 2 — Category routes
 // ============================================================
 
-function CategoryRoutingTab({ locationId }) {
-  const [stations, setStations] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [routings, setRoutings] = useState([]);
+function CategoryRoutingTab({ locationId }: { locationId: string }) {
+  const [stations, setStations] = useState<KitchenStation[]>([]);
+  const [categories, setCategories] = useState<CategoryLite[]>([]);
+  const [routings, setRoutings] = useState<CategoryRouting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<CategoryRouting | null>(null);
   const [saving, setSaving] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
+  const [toDelete, setToDelete] = useState<CategoryRouting | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -425,7 +486,7 @@ function CategoryRoutingTab({ locationId }) {
       setCategories(c);
       setRoutings(r);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load category routings.');
     } finally {
       setLoading(false);
     }
@@ -437,17 +498,17 @@ function CategoryRoutingTab({ locationId }) {
   const categoryById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
   const openNew = () => { setEditing(null); setSheetOpen(true); };
-  const openEdit = (r) => { setEditing(r); setSheetOpen(true); };
+  const openEdit = (r: CategoryRouting) => { setEditing(r); setSheetOpen(true); };
   const closeSheet = () => { setSheetOpen(false); setEditing(null); };
 
-  const handleSubmit = async ({ categoryId, stationId }) => {
+  const handleSubmit = async ({ categoryId, stationId }: { categoryId: string; stationId: string | null }) => {
     setSaving(true);
     try {
       await setCategoryRouting(locationId, categoryId, stationId);
       await load();
       closeSheet();
     } catch (e) {
-      alert(e.message);
+      alert(e instanceof Error ? e.message : 'Failed to save category route.');
     } finally {
       setSaving(false);
     }
@@ -456,7 +517,7 @@ function CategoryRoutingTab({ locationId }) {
   const confirmDelete = async () => {
     if (!toDelete) return;
     try { await deleteCategoryRouting(toDelete.id); await load(); }
-    catch (e) { alert(e.message); }
+    catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete category route.'); }
     finally { setToDelete(null); }
   };
 
@@ -551,7 +612,7 @@ function CategoryRoutingTab({ locationId }) {
         open={Boolean(toDelete)}
         onOpenChange={(v) => !v && setToDelete(null)}
         title="Remove category route?"
-        description={`The route for "${categoryById[toDelete?.category_id]?.name ?? toDelete?.category_id}" will be removed.`}
+        description={`The route for "${(toDelete && categoryById[toDelete.category_id]?.name) ?? toDelete?.category_id}" will be removed.`}
         onConfirm={confirmDelete}
         variant="warning"
         confirmLabel="Remove route"
@@ -564,17 +625,17 @@ function CategoryRoutingTab({ locationId }) {
 // Tab 3 — Item routes
 // ============================================================
 
-function ItemRoutingTab({ locationId }) {
-  const [stations, setStations] = useState([]);
-  const [items, setItems] = useState([]);
-  const [routings, setRoutings] = useState([]);
+function ItemRoutingTab({ locationId }: { locationId: string }) {
+  const [stations, setStations] = useState<KitchenStation[]>([]);
+  const [items, setItems] = useState<ItemLite[]>([]);
+  const [routings, setRoutings] = useState<ItemRoutingRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<ItemRoutingRow | null>(null);
   const [saving, setSaving] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
+  const [toDelete, setToDelete] = useState<ItemRoutingRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -589,7 +650,7 @@ function ItemRoutingTab({ locationId }) {
       setItems(it);
       setRoutings(r);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load item routings.');
     } finally {
       setLoading(false);
     }
@@ -601,10 +662,10 @@ function ItemRoutingTab({ locationId }) {
   const itemById = useMemo(() => Object.fromEntries(items.map((it) => [it.id, it])), [items]);
 
   const openNew = () => { setEditing(null); setSheetOpen(true); };
-  const openEdit = (r) => { setEditing(r); setSheetOpen(true); };
+  const openEdit = (r: ItemRoutingRow) => { setEditing(r); setSheetOpen(true); };
   const closeSheet = () => { setSheetOpen(false); setEditing(null); };
 
-  const handleSubmit = async ({ categoryId: itemId, stationId }) => {
+  const handleSubmit = async ({ categoryId: itemId, stationId }: { categoryId: string; stationId: string | null }) => {
     // RoutingForm uses categoryId key generically; here it maps to itemId
     setSaving(true);
     try {
@@ -612,7 +673,7 @@ function ItemRoutingTab({ locationId }) {
       await load();
       closeSheet();
     } catch (e) {
-      alert(e.message);
+      alert(e instanceof Error ? e.message : 'Failed to save item route.');
     } finally {
       setSaving(false);
     }
@@ -621,7 +682,7 @@ function ItemRoutingTab({ locationId }) {
   const confirmDelete = async () => {
     if (!toDelete) return;
     try { await deleteItemRouting(toDelete.id); await load(); }
-    catch (e) { alert(e.message); }
+    catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete item route.'); }
     finally { setToDelete(null); }
   };
 
@@ -718,7 +779,7 @@ function ItemRoutingTab({ locationId }) {
         open={Boolean(toDelete)}
         onOpenChange={(v) => !v && setToDelete(null)}
         title="Remove item route?"
-        description={`The override for "${itemById[toDelete?.item_id]?.name ?? toDelete?.item_id}" will be removed.`}
+        description={`The override for "${(toDelete && itemById[toDelete.item_id]?.name) ?? toDelete?.item_id}" will be removed.`}
         onConfirm={confirmDelete}
         variant="warning"
         confirmLabel="Remove route"
@@ -733,13 +794,27 @@ function ItemRoutingTab({ locationId }) {
  * @param {{ initial, stations, sourceItems, sourceLabel, sourceKey, onSubmit, onCancel, saving }}
  * sourceKey is the field name emitted in the onSubmit payload (always 'categoryId' for generics).
  */
-function RoutingForm({ initial, stations, sourceItems, sourceLabel, sourceKey, onSubmit, onCancel, saving }) {
+interface RoutingFormInitial {
+  category_id?: string;
+  station_id?: string;
+}
+
+function RoutingForm({ initial, stations, sourceItems, sourceLabel, sourceKey, onSubmit, onCancel, saving }: {
+  initial?: RoutingFormInitial | null;
+  stations: KitchenStation[];
+  sourceItems: { id: string; name: string }[];
+  sourceLabel: string;
+  sourceKey: string;
+  onSubmit: (payload: { categoryId: string; stationId: string }) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
   const [sourceId, setSourceId] = useState(initial?.category_id ?? '');
   const [stationId, setStationId] = useState(initial?.station_id ?? '');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onSubmit({ [sourceKey]: sourceId, stationId });
+    onSubmit({ [sourceKey]: sourceId, stationId } as { categoryId: string; stationId: string });
   };
 
   return (
@@ -787,16 +862,23 @@ function RoutingForm({ initial, stations, sourceItems, sourceLabel, sourceKey, o
 // Tab 4 — Display groups
 // ============================================================
 
-function DisplayGroupsTab({ locationId }) {
-  const [stations, setStations] = useState([]);
-  const [groups, setGroups] = useState([]);
+interface DisplayGroupPayload {
+  name: string;
+  station_ids: string[];
+  display_order: number | null;
+  auto_recall_seconds: number | null;
+}
+
+function DisplayGroupsTab({ locationId }: { locationId: string }) {
+  const [stations, setStations] = useState<KitchenStation[]>([]);
+  const [groups, setGroups] = useState<DisplayGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<DisplayGroup | null>(null);
   const [saving, setSaving] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
+  const [toDelete, setToDelete] = useState<DisplayGroup | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -809,7 +891,7 @@ function DisplayGroupsTab({ locationId }) {
       setStations(s);
       setGroups(g);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load display groups.');
     } finally {
       setLoading(false);
     }
@@ -820,21 +902,21 @@ function DisplayGroupsTab({ locationId }) {
   const stationById = useMemo(() => Object.fromEntries(stations.map((s) => [s.id, s])), [stations]);
 
   const openNew = () => { setEditing(null); setSheetOpen(true); };
-  const openEdit = (g) => { setEditing(g); setSheetOpen(true); };
+  const openEdit = (g: DisplayGroup) => { setEditing(g); setSheetOpen(true); };
   const closeSheet = () => { setSheetOpen(false); setEditing(null); };
 
-  const handleSubmit = async (payload) => {
+  const handleSubmit = async (payload: DisplayGroupPayload) => {
     setSaving(true);
     try {
       if (editing?.id) {
-        await updateDisplayGroup(editing.id, payload);
+        await updateDisplayGroup(editing.id, payload as unknown as Record<string, unknown>);
       } else {
-        await createDisplayGroup({ ...payload, location_id: locationId });
+        await createDisplayGroup({ ...payload, location_id: locationId } as Record<string, unknown>);
       }
       await load();
       closeSheet();
     } catch (e) {
-      alert(e.message);
+      alert(e instanceof Error ? e.message : 'Failed to save display group.');
     } finally {
       setSaving(false);
     }
@@ -843,7 +925,7 @@ function DisplayGroupsTab({ locationId }) {
   const confirmDelete = async () => {
     if (!toDelete) return;
     try { await deleteDisplayGroup(toDelete.id); await load(); }
-    catch (e) { alert(e.message); }
+    catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete display group.'); }
     finally { setToDelete(null); }
   };
 
@@ -958,16 +1040,22 @@ function DisplayGroupsTab({ locationId }) {
   );
 }
 
-function DisplayGroupForm({ initial, stations, onSubmit, onCancel, saving }) {
+function DisplayGroupForm({ initial, stations, onSubmit, onCancel, saving }: {
+  initial?: DisplayGroup | null;
+  stations: KitchenStation[];
+  onSubmit: (payload: DisplayGroupPayload) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [displayOrder, setDisplayOrder] = useState(initial?.display_order ?? '');
-  const [autoRecall, setAutoRecall] = useState(initial?.auto_recall_seconds ?? '');
+  const [displayOrder, setDisplayOrder] = useState<number | string>(initial?.display_order ?? '');
+  const [autoRecall, setAutoRecall] = useState<number | string>(initial?.auto_recall_seconds ?? '');
   // station_ids is an array; use a Set for toggle UX
-  const [selectedStations, setSelectedStations] = useState(
+  const [selectedStations, setSelectedStations] = useState<Set<string>>(
     new Set(Array.isArray(initial?.station_ids) ? initial.station_ids : [])
   );
 
-  const toggleStation = (id) => {
+  const toggleStation = (id: string) => {
     setSelectedStations((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -975,7 +1063,7 @@ function DisplayGroupForm({ initial, stations, onSubmit, onCancel, saving }) {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSubmit({
       name: name.trim(),
@@ -1065,7 +1153,15 @@ function DisplayGroupForm({ initial, stations, onSubmit, onCancel, saving }) {
 // from the same tab and doesn't cascade or destroy other config. Call sites
 // that delete a whole named config object (display group) or something that
 // orphans other records (station) should pass variant="destructive".
-function DeleteConfirm({ open, onOpenChange, title, description, onConfirm, variant = 'warning', confirmLabel = 'Remove' }) {
+function DeleteConfirm({ open, onOpenChange, title, description, onConfirm, variant = 'warning', confirmLabel = 'Remove' }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: ReactNode;
+  onConfirm: () => void;
+  variant?: 'warning' | 'destructive';
+  confirmLabel?: string;
+}) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
