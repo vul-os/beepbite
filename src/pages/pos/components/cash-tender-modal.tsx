@@ -23,9 +23,23 @@ import { quickTenderValues } from '@/lib/denominations';
 // ---------------------------------------------------------------------------
 
 // Round up `cents` to the nearest multiple of `denom`.
-const roundUpTo = (cents, denom) => Math.ceil(cents / denom) * denom;
+const roundUpTo = (cents: number, denom: number) => Math.ceil(cents / denom) * denom;
 
 const NUMPAD_KEYS = ['7','8','9','4','5','6','1','2','3','.','0','⌫'];
+
+interface TenderChip {
+  label: string;
+  value: number | null;
+}
+
+interface CashTenderModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  amountDueCents: number;
+  submitting?: boolean;
+  errorMessage?: string | null;
+  onConfirm: (payload: { tenderedCents: number; changeCents: number }) => void;
+}
 
 // ---------------------------------------------------------------------------
 export default function CashTenderModal({
@@ -35,7 +49,7 @@ export default function CashTenderModal({
   submitting = false,
   errorMessage,
   onConfirm,
-}) {
+}: CashTenderModalProps) {
   // Raw string that drives both Input and numpad so they stay in sync.
   const [rawInput, setRawInput] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -46,7 +60,7 @@ export default function CashTenderModal({
   // '.'-separated decimal rather than localised text. A zero-decimal currency
   // (JPY) shows '1000', not '1000.00'.
   const toInput = useCallback(
-    (minor) => (minor / scale).toFixed(decimals),
+    (minor: number) => (minor / scale).toFixed(decimals),
     [scale, decimals],
   );
 
@@ -81,7 +95,7 @@ export default function CashTenderModal({
   // ------------------------------------------------------------------
   // Numpad handler — builds the raw string character by character.
   // ------------------------------------------------------------------
-  const handleNumpad = useCallback((key) => {
+  const handleNumpad = useCallback((key: string) => {
     if (key === '⌫') {
       setRawInput((prev) => (prev.length > 1 ? prev.slice(0, -1) : '0'));
       return;
@@ -103,7 +117,7 @@ export default function CashTenderModal({
   // ------------------------------------------------------------------
   // Quick-cash chip handler.
   // ------------------------------------------------------------------
-  const handleChip = useCallback((chip) => {
+  const handleChip = useCallback((chip: TenderChip) => {
     if (chip.value === null) {
       // "Exact" — pre-fill exact amount due.
       setRawInput(toInput(amountDueCents));

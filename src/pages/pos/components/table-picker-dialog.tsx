@@ -10,16 +10,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Search, Users, Loader2, CheckCircle2, MapPin } from "lucide-react"
+import type { RestaurantTable } from "@/services/tables"
+import type { TableTileData } from "./tables-strip"
 
 // Visual tokens — mirrors tables-strip.jsx STATUS map
-const STATUS = {
+const STATUS: Record<RestaurantTable['status'], { outline: string; bg: string; text: string; dot: string }> = {
   available:      { outline: "border-emerald-400", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
   occupied:       { outline: "border-red-400",    bg: "bg-red-50",     text: "text-red-700",    dot: "bg-red-400"    },
   reserved:       { outline: "border-amber-400",  bg: "bg-amber-50",   text: "text-amber-700",  dot: "bg-amber-400"  },
   out_of_service: { outline: "border-gray-200",   bg: "bg-gray-100",   text: "text-gray-400",   dot: "bg-gray-300"   },
 }
 
-const STATUS_FILTERS = ["All", "Available only", "Including reserved"]
+const STATUS_FILTERS = ["All", "Available only", "Including reserved"] as const
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+interface SectionLike {
+  id: string;
+  name: string;
+}
 
 function SkeletonTile() {
   return (
@@ -27,7 +35,14 @@ function SkeletonTile() {
   )
 }
 
-function TableTile({ table, onSelect, onOpenChange, statusFilter }) {
+interface TableTileProps {
+  table: TableTileData;
+  onSelect: (table: TableTileData) => void;
+  onOpenChange: (open: boolean) => void;
+  statusFilter: StatusFilter;
+}
+
+function TableTile({ table, onSelect, onOpenChange, statusFilter }: TableTileProps) {
   const s = STATUS[table.status] ?? STATUS.available
   const isOccupied = table.status === "occupied"
   const isReserved = table.status === "reserved"
@@ -100,6 +115,15 @@ function TableTile({ table, onSelect, onOpenChange, statusFilter }) {
   )
 }
 
+interface TablePickerDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tables?: TableTileData[];
+  sections?: SectionLike[];
+  loading?: boolean;
+  onSelect: (table: TableTileData) => void;
+}
+
 export function TablePickerDialog({
   open,
   onOpenChange,
@@ -107,10 +131,10 @@ export function TablePickerDialog({
   sections = [],
   loading = false,
   onSelect,
-}) {
+}: TablePickerDialogProps) {
   const [query, setQuery] = useState("")
   const [sectionFilter, setSectionFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("Available only")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("Available only")
 
   // Reset filters when dialog opens
   useEffect(() => {
@@ -148,7 +172,7 @@ export function TablePickerDialog({
   // Derive sections from tables if not explicitly passed
   const derivedSections = useMemo(() => {
     if (sections.length > 0) return sections
-    const seen = new Map()
+    const seen = new Map<string, SectionLike>()
     for (const t of tables) {
       if (t.section_id && t.section_name && !seen.has(t.section_id)) {
         seen.set(t.section_id, { id: t.section_id, name: t.section_name })

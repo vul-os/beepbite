@@ -18,6 +18,42 @@ import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
 
 // ---------------------------------------------------------------------------
+// Types — mirror backend/migrations/001_baseline.sql public.modifier_groups
+// and public.modifiers.
+// ---------------------------------------------------------------------------
+
+export interface Modifier {
+  id: string;
+  modifier_group_id: string;
+  name: string;
+  price_delta_cents: number;
+  is_default: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModifierGroup {
+  id: string;
+  item_id: string;
+  name: string;
+  min_select: number;
+  max_select: number;
+  is_required: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  modifiers: Modifier[];
+}
+
+interface PickerItem {
+  id?: string;
+  name?: string;
+  price?: number | string;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -27,7 +63,7 @@ import { supabase } from '@/services/supabase-client';
  * Takes `format` rather than closing over one: the sign is ours but the amount
  * belongs to the active currency, and a module-level helper cannot call a hook.
  */
-const fmtDelta = (cents, format) => {
+const fmtDelta = (cents: number, format: (minor: number | string) => string) => {
   if (!cents) return null;
   return (cents > 0 ? '+' : '-') + format(Math.abs(cents));
 };
@@ -35,8 +71,8 @@ const fmtDelta = (cents, format) => {
 // ---------------------------------------------------------------------------
 // Hook: fetch groups + modifiers for an item
 // ---------------------------------------------------------------------------
-function useItemModifiers(itemId) {
-  const [groups, setGroups] = useState([]);
+function useItemModifiers(itemId?: string | null) {
+  const [groups, setGroups] = useState<ModifierGroup[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -46,18 +82,19 @@ function useItemModifiers(itemId) {
     (async () => {
       try {
         // Fetch groups
-        const { data: gData, error: gErr } = await supabase
+        const { data: gDataRaw, error: gErr } = await supabase
           .from('modifier_groups')
           .select('*')
           .eq('item_id', itemId)
           .order('sort_order', { ascending: true })
           .order('name', { ascending: true });
         if (gErr) throw gErr;
+        const gData = gDataRaw as Omit<ModifierGroup, 'modifiers'>[] | null;
         if (!gData || gData.length === 0) { if (!cancelled) { setGroups([]); setLoading(false); } return; }
 
         // Fetch all modifiers for these groups in one shot
         const groupIds = gData.map((g) => g.id);
-        const { data: mData, error: mErr } = await supabase
+        const { data: mDataRaw, error: mErr } = await supabase
           .from('modifiers')
           .select('*')
           .in('modifier_group_id', groupIds)
@@ -65,8 +102,9 @@ function useItemModifiers(itemId) {
           .order('sort_order', { ascending: true })
           .order('name', { ascending: true });
         if (mErr) throw mErr;
+        const mData = mDataRaw as Modifier[] | null;
 
-        const modsByGroup = {};
+        const modsByGroup: Record<string, Modifier[]> = {};
         (mData || []).forEach((m) => {
           if (!modsByGroup[m.modifier_group_id]) modsByGroup[m.modifier_group_id] = [];
           modsByGroup[m.modifier_group_id].push(m);
@@ -96,12 +134,19 @@ function useItemModifiers(itemId) {
 //   item          { id, name, price, ... }
 //   onConfirm     ({ selectedModifiers: Modifier[], extraCents: number, linePriceCents: number }) => void
 // ---------------------------------------------------------------------------
-export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) {
+interface ModifierPickerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  item?: PickerItem | null;
+  onConfirm: (payload: { selectedModifiers: Modifier[]; extraCents: number; linePriceCents: number }) => void;
+}
+
+export default function ModifierPicker({ open, onOpenChange, item, onConfirm }: ModifierPickerProps) {
   const { groups, loading } = useItemModifiers(open ? item?.id : null);
   const { format, scale } = useMoney();
 
   // selections: Map<groupId, Set<modifierId>>
-  const [selections, setSelections] = useState({});
+  const [selections, setSelections] = useState<Record<string, Set<string>>>({});
 
   // Reset selections when the modal opens for a new item
   useEffect(() => {
@@ -114,7 +159,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
   // Pre-fill defaults once groups are loaded
   useEffect(() => {
     if (!groups.length) return;
-    const defaults = {};
+    const defaults: Record<string, Set<string>> = {};
     groups.forEach((g) => {
       const defaultMods = g.modifiers.filter((m) => m.is_default);
       if (defaultMods.length) {
@@ -124,7 +169,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
     if (Object.keys(defaults).length) setSelections(defaults);
   }, [groups]);
 
-  const toggle = (group, modifier) => {
+  const toggle = (group: ModifierGroup, modifier: Modifier) => {
     setSelections((prev) => {
       const existing = new Set(prev[group.id] || []);
       if (existing.has(modifier.id)) {
@@ -161,7 +206,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
   // Compute extras
   const { extraCents, selectedModifiers } = useMemo(() => {
     let extra = 0;
-    const mods = [];
+    const mods: Modifier[] = [];
     groups.forEach((g) => {
       const sel = selections[g.id] || new Set();
       g.modifiers.forEach((m) => {
@@ -176,7 +221,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
 
   // `item.price` is a major-unit decimal string; only the currency knows how
   // many minor units that is.
-  const basePriceCents = Math.round((parseFloat(item?.price) || 0) * scale);
+  const basePriceCents = Math.round((parseFloat(String(item?.price ?? '')) || 0) * scale);
   const linePriceCents = basePriceCents + extraCents;
 
   const handleConfirm = () => {
@@ -317,17 +362,27 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }) 
 // useModifierGroups — lightweight hook workspace.jsx uses to check if an item
 // has ANY modifier groups before deciding whether to open the picker.
 // ---------------------------------------------------------------------------
-export function useItemHasModifiers(itemId) {
-  const [hasModifiers, setHasModifiers] = useState(null); // null = unknown
-  const [groupsCache, setGroupsCache] = useState({}); // itemId → boolean
+export function useItemHasModifiers(itemId?: string) {
+  const [hasModifiers, setHasModifiers] = useState<boolean | null>(null); // null = unknown
+  const [groupsCache, setGroupsCache] = useState<Record<string, boolean>>({}); // itemId → boolean
 
-  const check = async (id) => {
+  const check = async (id: string) => {
     if (id in groupsCache) return groupsCache[id];
     try {
-      const { count, error } = await supabase
+      // KNOWN PRE-EXISTING DEFECT (found by this TS conversion, not fixed —
+      // fixing would change runtime behavior): Builder.select() in
+      // api-client.ts only accepts a `cols` string (`select(cols?: string)`)
+      // and its `_run()` never returns a `count` field, so the { count,
+      // head } option passed here has NEVER been honoured — `count` below
+      // has always been `undefined` at runtime, so this check has always
+      // resolved to `false` and the modifier picker never auto-opens via
+      // this path. The `{ count: 'exact', head: true }` argument is dropped
+      // below since it was already inert (Builder.select ignores it);
+      // behavior is unchanged.
+      const { count, error } = (await supabase
         .from('modifier_groups')
-        .select('id', { count: 'exact', head: true })
-        .eq('item_id', id);
+        .select('id')
+        .eq('item_id', id)) as { count?: number; error: unknown };
       if (error) throw error;
       const result = (count || 0) > 0;
       setGroupsCache((c) => ({ ...c, [id]: result }));
