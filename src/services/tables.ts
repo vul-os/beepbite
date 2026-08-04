@@ -19,6 +19,62 @@ export interface CheckSplitItem {
   [key: string]: unknown;
 }
 
+// Mirrors backend/migrations/001_baseline.sql public.tables.
+export interface RestaurantTable {
+  id: string;
+  location_id: string;
+  section_id: string | null;
+  label: string;
+  capacity: number;
+  status: 'available' | 'occupied' | 'reserved' | 'out_of_service';
+  pos_x: number | null;
+  pos_y: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+// Mirrors backend/migrations/001_baseline.sql public.sections.
+export interface Section {
+  id: string;
+  location_id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+// Mirrors backend/internal/handlers/tables/types.go TableSession.
+export interface TableSession {
+  id: string;
+  table_id: string;
+  location_id: string;
+  opened_by: string | null;
+  party_size: number;
+  status: string;
+  opened_at: string;
+  closed_at: string | null;
+  transferred_to_session_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+// Mirrors backend/internal/handlers/tables/types.go Seat.
+export interface Seat {
+  id: string;
+  table_session_id: string;
+  seat_number: number;
+  guest_name: string | null;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
 // ---- Table & section lookups ------------------------------------------------
 
 /**
@@ -26,7 +82,7 @@ export interface CheckSplitItem {
  * Route: GET /data/tables?eq=location_id,X&order=label.asc
  * Note: the tables schema has no `table_number` column — the display field is `label`.
  */
-export async function listTables(locationId: string): Promise<any[]> {
+export async function listTables(locationId: string): Promise<RestaurantTable[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -39,7 +95,7 @@ export async function listTables(locationId: string): Promise<any[]> {
  * List all floor sections for a location.
  * Route: GET /data/sections?eq=location_id,X
  */
-export async function listSections(locationId: string): Promise<any[]> {
+export async function listSections(locationId: string): Promise<Section[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -54,7 +110,7 @@ export async function listSections(locationId: string): Promise<any[]> {
  * List all currently-open table sessions for a location.
  * Route: GET /data/table_sessions?eq=location_id,X&eq=status,open
  */
-export async function listOpenSessions(locationId: string): Promise<any[]> {
+export async function listOpenSessions(locationId: string): Promise<TableSession[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -200,7 +256,7 @@ export async function splitCheck(
  * List seats for a session.
  * Route: GET /sessions/{session_id}/seats
  */
-export async function listSeats(sessionId: string): Promise<any[]> {
+export async function listSeats(sessionId: string): Promise<Seat[]> {
   if (!sessionId) return [];
   const { data, error } = await api.request(
     'GET',
