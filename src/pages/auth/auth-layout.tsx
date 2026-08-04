@@ -9,6 +9,7 @@
  *     {formJSX}
  *   </AuthLayout>
  */
+import { type ReactNode } from 'react';
 import { Reveal } from '@/components/ui/motion';
 import Logo from '@/components/ui/logo';
 import { ChefHat, Bell, BarChart3, Zap } from 'lucide-react';
@@ -21,7 +22,7 @@ const FEATURES = [
   { icon: Zap,       text: 'Self-hosted and yours — no per-order platform fee' },
 ];
 
-const AuthLayout = ({ children }) => (
+const AuthLayout = ({ children }: { children: ReactNode }) => (
   <div className="min-h-screen flex items-stretch bg-background overflow-hidden">
 
     {/* ── Left: form panel ── */}
