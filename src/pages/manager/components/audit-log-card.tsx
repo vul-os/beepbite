@@ -4,7 +4,11 @@ import { ClipboardList } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const ACTOR_COLORS = {
+// Mirrors backend/migrations/001_baseline.sql `actor_type` enum. 'api_key' has
+// no dedicated color here — falls through to the default gray, same as before.
+type ActorType = 'member' | 'staff' | 'system' | 'customer' | 'webhook' | 'api_key';
+
+const ACTOR_COLORS: Partial<Record<ActorType, string>> = {
   member: 'bg-blue-100 text-blue-800',
   staff: 'bg-purple-100 text-purple-800',
   system: 'bg-gray-100 text-gray-700',
@@ -12,7 +16,18 @@ const ACTOR_COLORS = {
   webhook: 'bg-orange-100 text-orange-800',
 };
 
-function formatRelativeTime(iso) {
+// Mirrors backend/migrations/001_baseline.sql `audit_log` table (subset used here).
+export interface AuditLogEntry {
+  id: string;
+  actor_type: ActorType;
+  actor_label: string | null;
+  action: string;
+  entity_type: string;
+  reason: string | null;
+  created_at: string;
+}
+
+function formatRelativeTime(iso: string) {
   if (!iso) return '';
   const delta = Date.now() - new Date(iso).getTime();
   const minutes = Math.floor(delta / 60000);
@@ -23,7 +38,12 @@ function formatRelativeTime(iso) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function AuditLogCard({ entries, loading }) {
+interface AuditLogCardProps {
+  entries: AuditLogEntry[];
+  loading: boolean;
+}
+
+export default function AuditLogCard({ entries, loading }: AuditLogCardProps) {
   return (
     <Card className="flex flex-col col-span-full">
       <CardHeader className="pb-3">
