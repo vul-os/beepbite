@@ -7,8 +7,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Subset of the `items` table (backend/migrations/001_baseline.sql) relevant
+// to a single 86'd item row; index signature covers the ~30 other columns.
+export interface EightySixedItem {
+  id: string;
+  name: string;
+  short_description?: string | null;
+  auto_86_when_inventory_empty?: boolean;
+  available_until?: string | null;
+  [key: string]: unknown;
+}
+
 // Determine whether the 86 was auto (inventory) or manual.
-function reason86(item) {
+function reason86(item: EightySixedItem) {
   if (item.auto_86_when_inventory_empty) return 'Low inventory';
   if (item.available_until) {
     const until = new Date(item.available_until);
@@ -17,7 +28,12 @@ function reason86(item) {
   return 'Manual';
 }
 
-export default function EightySixCard({ items, loading }) {
+interface EightySixCardProps {
+  items: EightySixedItem[];
+  loading: boolean;
+}
+
+export default function EightySixCard({ items, loading }: EightySixCardProps) {
   const navigate = useNavigate();
 
   return (
