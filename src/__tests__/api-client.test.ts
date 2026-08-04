@@ -1,4 +1,4 @@
-// api-client.test.js — unit tests for src/lib/api-client.js
+// api-client.test.ts — unit tests for src/lib/api-client.ts
 //
 // This is the one fetch wrapper every service module in src/services goes
 // through: token attachment, the 401-refresh-and-replay dance, the
@@ -15,7 +15,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-function jsonResponse(body, { status = 200, statusText = '' } = {}) {
+function jsonResponse(body: unknown, { status = 200, statusText = '' }: { status?: number; statusText?: string } = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
@@ -27,7 +27,7 @@ function jsonResponse(body, { status = 200, statusText = '' } = {}) {
   };
 }
 
-function textResponse(str, { status = 200, statusText = '' } = {}) {
+function textResponse(str: string, { status = 200, statusText = '' }: { status?: number; statusText?: string } = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
@@ -40,11 +40,21 @@ function noContentResponse() {
   return { ok: true, status: 204, statusText: 'No Content', text: async () => '' };
 }
 
-let fetchMock;
-let api;
-let supabase;
-let onMissingCapability;
-let registerManagerOverrideHandler;
+// Row shape returned by the embedded-join test's mocked /data/orders response,
+// used only to give `.find()` a typed callback below (the Builder's result
+// type is `any` by design — see api-client.ts).
+interface OrderRowWithEmbeds {
+  id: string;
+  customer_id?: string | null;
+  customers?: { id: string; name: string } | null;
+  order_items?: { id: string; order_id: string; qty: number }[];
+}
+
+let fetchMock: ReturnType<typeof vi.fn>;
+let api: typeof import('../lib/api-client')['api'];
+let supabase: typeof import('../lib/api-client')['supabase'];
+let onMissingCapability: typeof import('../lib/api-client')['onMissingCapability'];
+let registerManagerOverrideHandler: typeof import('../lib/api-client')['registerManagerOverrideHandler'];
 
 beforeEach(async () => {
   vi.resetModules();
@@ -122,8 +132,8 @@ describe('api.request — basic response shaping', () => {
     const { data, error } = await api.request('GET', '/data/orders');
     expect(data).toBeNull();
     // payload.error is undefined on a bare string, so it falls back to statusText.
-    expect(error.message).toBe('Bad Gateway');
-    expect(error.status).toBe(502);
+    expect(error?.message).toBe('Bad Gateway');
+    expect(error?.status).toBe(502);
   });
 
   it('surfaces the backend error message and status on a non-2xx JSON response', async () => {
@@ -158,7 +168,7 @@ describe('api.request — 401 auto-refresh and replay', () => {
     expect(JSON.parse(refreshInit.body)).toEqual({ refresh_token: 'rt-1' });
 
     // The new session is persisted.
-    const stored = JSON.parse(localStorage.getItem('bb.auth'));
+    const stored = JSON.parse(localStorage.getItem('bb.auth')!);
     expect(stored.access_token).toBe('fresh');
 
     // The replayed request carries the NEW access token.
@@ -173,7 +183,7 @@ describe('api.request — 401 auto-refresh and replay', () => {
     const { error } = await api.request('GET', '/data/orders/1');
 
     expect(fetchMock).toHaveBeenCalledTimes(1); // no refresh attempt, no replay
-    expect(error.status).toBe(401);
+    expect(error?.status).toBe(401);
   });
 
   it('clears the stored session and does not replay when the refresh itself fails', async () => {
@@ -186,7 +196,7 @@ describe('api.request — 401 auto-refresh and replay', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2); // no third (replay) call
     expect(data).toBeNull();
-    expect(error.status).toBe(401);
+    expect(error?.status).toBe(401);
     expect(localStorage.getItem('bb.auth')).toBeNull();
   });
 
@@ -229,13 +239,13 @@ describe('api.request — 403 missing_capability', () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ error: 'missing_capability', capability: 'can_void' }, { status: 403 }),
     );
-    const seen = [];
+    const seen: string[] = [];
     const unsubscribe = onMissingCapability((cap) => seen.push(cap));
 
     const { data, error } = await api.request('POST', '/orders/1/void', { body: {} });
 
     expect(data).toBeNull();
-    expect(error.capability).toBe('can_void');
+    expect(error?.capability).toBe('can_void');
     expect(seen).toEqual(['can_void']);
     unsubscribe();
   });
@@ -267,7 +277,7 @@ describe('api.request — 403 missing_capability', () => {
     const { error } = await api.request('POST', '/orders/1/void', { body: {} });
 
     expect(fetchMock).toHaveBeenCalledTimes(1); // no replay attempted
-    expect(error.capability).toBe('can_void');
+    expect(error?.capability).toBe('can_void');
   });
 
   it('falls through to a normal error when the handler throws (user cancelled the PIN prompt)', async () => {
@@ -280,7 +290,7 @@ describe('api.request — 403 missing_capability', () => {
 
     const { error } = await api.request('POST', '/orders/1/void', { body: {} });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(error.capability).toBe('can_void');
+    expect(error?.capability).toBe('can_void');
   });
 
   it('never retries more than once, even if the replay ALSO comes back missing_capability (no infinite loop)', async () => {
@@ -295,7 +305,7 @@ describe('api.request — 403 missing_capability', () => {
 
     expect(handler).toHaveBeenCalledTimes(1); // not called again on the replay's own 403
     expect(fetchMock).toHaveBeenCalledTimes(2); // original + exactly one replay
-    expect(error.capability).toBe('can_void');
+    expect(error?.capability).toBe('can_void');
   });
 
   it('an unregistered handler stops intercepting once unregistered', async () => {
@@ -324,15 +334,15 @@ describe('api.auth', () => {
     );
     const { data, error } = await api.auth.signInWithPassword({ email: 'a@b.com', password: 'pw' });
     expect(error).toBeNull();
-    expect(data.user).toEqual({ id: 'u1' });
-    expect(JSON.parse(localStorage.getItem('bb.auth')).access_token).toBe('tok');
+    expect(data?.user).toEqual({ id: 'u1' });
+    expect(JSON.parse(localStorage.getItem('bb.auth')!).access_token).toBe('tok');
   });
 
   it('signInWithPassword does not persist anything on failure', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'invalid credentials' }, { status: 401 }));
     const { data, error } = await api.auth.signInWithPassword({ email: 'a@b.com', password: 'wrong' });
     expect(data).toBeNull();
-    expect(error.message).toBe('invalid credentials');
+    expect(error?.message).toBe('invalid credentials');
     expect(localStorage.getItem('bb.auth')).toBeNull();
   });
 
@@ -352,7 +362,7 @@ describe('api.auth', () => {
   it('getSession returns the stored session without a network call', async () => {
     localStorage.setItem('bb.auth', JSON.stringify({ access_token: 'tok' }));
     const { data } = await api.auth.getSession();
-    expect(data.session.access_token).toBe('tok');
+    expect(data.session?.access_token).toBe('tok');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -458,7 +468,7 @@ describe('supabase.from — single() / maybeSingle()', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'server error' }, { status: 500 }));
     const { data, error } = await supabase.from('items').select().eq('id', '1').single();
     expect(data).toBeNull();
-    expect(error.status).toBe(500);
+    expect(error?.status).toBe(500);
   });
 });
 
@@ -507,9 +517,10 @@ describe('supabase.from — embedded joins (the hand-rolled PostgREST-embed shim
       .select('id, customers (id, name), order_items (id, qty)');
 
     expect(error).toBeNull();
-    const o1 = data.find((r) => r.id === 'o1');
-    const o2 = data.find((r) => r.id === 'o2');
-    const o3 = data.find((r) => r.id === 'o3');
+    const rows = data as OrderRowWithEmbeds[];
+    const o1 = rows.find((r) => r.id === 'o1')!;
+    const o2 = rows.find((r) => r.id === 'o2')!;
+    const o3 = rows.find((r) => r.id === 'o3')!;
 
     expect(o1.customers).toEqual({ id: 'c1', name: 'Alice' });
     expect(o2.customers).toEqual({ id: 'c2', name: 'Bob' });
@@ -566,7 +577,7 @@ describe('supabase.functions.invoke', () => {
   it('returns an error for an unmapped function name, without calling fetch', async () => {
     const { data, error } = await supabase.functions.invoke('does-not-exist', { body: {} });
     expect(data).toBeNull();
-    expect(error.message).toContain('does-not-exist');
+    expect(error?.message).toContain('does-not-exist');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
