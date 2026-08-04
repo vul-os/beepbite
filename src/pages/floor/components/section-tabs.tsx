@@ -4,13 +4,27 @@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 
+// Mirrors backend/migrations/001_baseline.sql `sections` table (subset used here).
+export interface FloorSection {
+  id: string;
+  name: string;
+}
+
+interface SectionTabsProps {
+  sections?: FloorSection[];
+  value?: string;
+  onValueChange?: (value: string) => void;
+  counts?: Record<string, number>;
+  showAll?: boolean;
+}
+
 export default function SectionTabs({
   sections = [],
   value,
   onValueChange,
   counts = {},
   showAll = true,
-}) {
+}: SectionTabsProps) {
   return (
     <Tabs value={value || 'all'} onValueChange={onValueChange}>
       <TabsList className="flex flex-wrap gap-1">
