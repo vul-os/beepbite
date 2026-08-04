@@ -27,6 +27,11 @@ export interface Invoice {
   invoice_number: string;
   issuer: 'platform' | 'tenant';
   issuer_org_id: string;
+  // See backend/internal/handlers/invoicing/store.go Invoice struct —
+  // both are `,omitempty` pointer fields (nil when the invoice was linked
+  // via the other recipient kind, or platform-issued).
+  recipient_org_id?: string | null;
+  recipient_customer_id?: string | null;
   recipient_name: string;
   recipient_address: string;
   currency: string;
@@ -43,6 +48,10 @@ export interface Invoice {
 
 export interface CreateInvoiceBody {
   issuer: 'platform' | 'tenant';
+  // Required for tenant-issued invoices unless the other is set (see Go
+  // CreateInvoiceReq — RecipientOrgID / RecipientCustomerID).
+  recipient_org_id?: string;
+  recipient_customer_id?: string;
   recipient_name: string;
   recipient_address: string;
   currency?: string;
