@@ -1,4 +1,4 @@
-// offline-queue.test.js — unit tests for src/offline/queue.js
+// offline-queue.test.ts — unit tests for src/offline/queue.ts
 //
 // This is the offline mutation queue that will back optimistic writes once
 // wired into the app; today it is a standalone library. jsdom does not
@@ -13,31 +13,53 @@
 // fake indexedDB and `fetch` must be installed BEFORE the dynamic import.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as QueueModule from '../offline/queue';
+import type { Mutation, MutationRecord } from '../offline/queue';
 
 // ---- Fake IndexedDB (minimal, faithful to queue.js's usage only) ----------
 
-function installFakeIndexedDB() {
-  const db = { stores: new Map() };
+type FakeRecord = Record<string, unknown>;
 
-  function makeRequest() {
+interface FakeStore {
+  keyPath: string;
+  nextKey: number;
+  records: Map<number, FakeRecord>;
+}
+
+interface FakeDb {
+  stores: Map<string, FakeStore>;
+}
+
+interface FakeRequest {
+  onsuccess: ((ev: { target: FakeRequest }) => void) | null;
+  onerror: ((ev: { target: FakeRequest }) => void) | null;
+  onupgradeneeded: ((ev: { target: { result: unknown } }) => void) | null;
+  result: unknown;
+  error: unknown;
+}
+
+function installFakeIndexedDB(): FakeDb {
+  const db: FakeDb = { stores: new Map() };
+
+  function makeRequest(): FakeRequest {
     return { onsuccess: null, onerror: null, onupgradeneeded: null, result: undefined, error: undefined };
   }
-  function succeed(req, result) {
+  function succeed(req: FakeRequest, result: unknown) {
     queueMicrotask(() => {
       req.result = result;
       req.onsuccess?.({ target: req });
     });
   }
 
-  function storeApi(name) {
-    let store = db.stores.get(name);
+  function storeApi(name: string) {
+    const store = db.stores.get(name)!;
     return {
       getAll() {
         const req = makeRequest();
         succeed(req, [...store.records.values()].map((r) => ({ ...r })));
         return req;
       },
-      add(record) {
+      add(record: FakeRecord) {
         const req = makeRequest();
         const key = store.nextKey++;
         const stored = { ...record, [store.keyPath]: key };
@@ -45,14 +67,14 @@ function installFakeIndexedDB() {
         succeed(req, key);
         return req;
       },
-      put(record) {
+      put(record: FakeRecord) {
         const req = makeRequest();
-        const key = record[store.keyPath];
+        const key = record[store.keyPath] as number;
         store.records.set(key, { ...record });
         succeed(req, key);
         return req;
       },
-      delete(key) {
+      delete(key: number) {
         const req = makeRequest();
         store.records.delete(key);
         succeed(req, undefined);
@@ -62,12 +84,12 @@ function installFakeIndexedDB() {
   }
 
   const fakeIndexedDB = {
-    open(name) {
+    open(_name: string) {
       const req = makeRequest();
       const isNew = !db.stores.has('mutations');
       const dbHandle = {
-        objectStoreNames: { contains: (n) => db.stores.has(n) },
-        createObjectStore(storeName, opts) {
+        objectStoreNames: { contains: (n: string) => db.stores.has(n) },
+        createObjectStore(storeName: string, opts: { keyPath: string; autoIncrement?: boolean }) {
           db.stores.set(storeName, {
             keyPath: opts.keyPath,
             nextKey: 1,
@@ -75,8 +97,8 @@ function installFakeIndexedDB() {
           });
           return { createIndex: () => {} };
         },
-        transaction(storeName) {
-          return { objectStore: (n) => storeApi(n) };
+        transaction(_storeName: string) {
+          return { objectStore: (n: string) => storeApi(n) };
         },
       };
       queueMicrotask(() => {
@@ -93,9 +115,9 @@ function installFakeIndexedDB() {
 
 // ---- Test setup -------------------------------------------------------------
 
-let fakeDb;
-let fetchMock;
-let queue;
+let fakeDb: FakeDb;
+let fetchMock: ReturnType<typeof vi.fn>;
+let queue: typeof QueueModule;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -127,7 +149,7 @@ async function flushMicrotasks(times = 10) {
   }
 }
 
-function baseMutation(overrides = {}) {
+function baseMutation(overrides: Partial<Mutation> = {}): Mutation {
   return {
     url: '/pos/orders',
     method: 'POST',
@@ -164,15 +186,15 @@ describe('enqueueMutation', () => {
     const id = await queue.enqueueMutation(
       baseMutation({ onOptimisticApply: () => {}, onRollback: () => {} }),
     );
-    const store = fakeDb.stores.get('mutations');
-    const stored = store.records.get(id);
+    const store = fakeDb.stores.get('mutations')!;
+    const stored = store.records.get(id)!;
     expect(stored.onOptimisticApply).toBeUndefined();
     expect(stored.onRollback).toBeUndefined();
   });
 
   it('stamps retryCount: 0 and an enqueuedAt timestamp', async () => {
     const id = await queue.enqueueMutation(baseMutation());
-    const stored = fakeDb.stores.get('mutations').records.get(id);
+    const stored = fakeDb.stores.get('mutations')!.records.get(id)!;
     expect(stored.retryCount).toBe(0);
     expect(typeof stored.enqueuedAt).toBe('number');
   });
@@ -220,7 +242,7 @@ describe('flushQueue — success path', () => {
 
   it('emits onFlush with the mutation after each successful item', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200 });
-    const seen = [];
+    const seen: MutationRecord[] = [];
     const unsubscribe = queue.onFlush((m) => seen.push(m));
 
     await queue.enqueueMutation(baseMutation());
@@ -307,8 +329,8 @@ describe('flushQueue — transient errors: backoff and retry', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(await queue.getPendingCount()).toBe(2);
 
-    const stored = [...fakeDb.stores.get('mutations').records.values()];
-    const first = stored.find((r) => r.idempotencyKey === 'first');
+    const stored = [...fakeDb.stores.get('mutations')!.records.values()];
+    const first = stored.find((r) => r.idempotencyKey === 'first')!;
     expect(first.retryCount).toBe(1);
   });
 

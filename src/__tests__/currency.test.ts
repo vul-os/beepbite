@@ -1,4 +1,4 @@
-// currency.test.js — unit tests for src/lib/currency.js
+// currency.test.ts — unit tests for src/lib/currency.ts
 //
 // The point of these tests is that the same integer means different amounts in
 // different currencies. The module they replaced had a DECIMALS table where
@@ -21,7 +21,7 @@ import {
 } from '../lib/currency';
 
 // Intl inserts U+00A0 / U+202F around currency symbols; normalise for matching.
-const norm = (s) => s.replace(/[  ]/g, ' ');
+const norm = (s: string) => s.replace(/[  ]/g, ' ');
 
 describe('currencyDecimals — the minor-unit exponent', () => {
   it('is 0 for zero-decimal currencies', () => {
@@ -241,7 +241,7 @@ describe('parseMoney — round-trip fuzz across representative amounts', () => {
   // invented by the parse path, for zero-, two- and three-decimal
   // currencies alike, at small amounts, large amounts, and amounts that
   // are exact powers of ten.
-  const CURRENCIES = [
+  const CURRENCIES: [string, number][] = [
     ['USD', 2],
     ['ZAR', 2],
     ['JPY', 0],
