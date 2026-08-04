@@ -14,10 +14,20 @@ const PING_INTERVAL_MS = 8_000; // 8 seconds
  * @param {string|undefined}      assignmentId  - forwarded to the ping body
  * @param {{ onGeoError?: (msg:string) => void }} opts
  */
-export function useLocationPing(active, assignmentId, { onGeoError } = {}) {
-  const intervalRef = useRef(null);
-  const geoWatchRef = useRef(null);
-  const latestPositionRef = useRef(null); // store most-recent coords
+interface LocationPingOpts {
+  onGeoError?: (msg: string) => void;
+}
+
+interface LatestPosition {
+  lat: number;
+  lng: number;
+  accuracy: number;
+}
+
+export function useLocationPing(active: boolean, assignmentId: string | undefined, { onGeoError }: LocationPingOpts = {}) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const geoWatchRef = useRef<number | null>(null);
+  const latestPositionRef = useRef<LatestPosition | null>(null); // store most-recent coords
   const onGeoErrorRef = useRef(onGeoError);
   onGeoErrorRef.current = onGeoError;
 
@@ -83,7 +93,7 @@ export function useLocationPing(active, assignmentId, { onGeoError } = {}) {
         // Swallow transient errors (network hiccup).  A 401 will never land
         // here because the api client already retried the refresh — if it still
         // fails the server will evict the shift anyway.
-        console.warn('[driver ping]', err.message);
+        console.warn('[driver ping]', err instanceof Error ? err.message : err);
       }
     }, PING_INTERVAL_MS);
 
