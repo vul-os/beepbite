@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { hasCapability } from '@/services/pos';
@@ -19,6 +19,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SyncStatusBadge } from "@/components/ui/sync-status";
 import { cn } from "@/lib/utils";
 import Logo from '@/components/ui/logo';
+
+interface NavItem {
+  name: string;
+  path: string;
+  icon: ComponentType<{ className?: string }>;
+  description: string;
+  capability?: string;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
 
 const TopBar = () => {
   const { t } = useTranslation();
@@ -43,8 +56,8 @@ const TopBar = () => {
   // modal), so the trap/restore/Escape behaviour Radix gives Dialog/Sheet
   // for free has to be wired up by hand here. This panel sits on every
   // authenticated page, so a missing trap here is a missing trap everywhere.
-  const menuTriggerRef = useRef(null);
-  const sideNavRef = useRef(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const sideNavRef = useRef<HTMLDivElement>(null);
 
   /**
    * Derive the best slug for /s/:slug staff-PIN login.
@@ -68,7 +81,7 @@ const TopBar = () => {
     }
   };
 
-  const handleSwitchLocation = (locationId) => {
+  const handleSwitchLocation = (locationId: string) => {
     try {
       switchLocation(locationId);
     } catch (error) {
@@ -86,7 +99,7 @@ const TopBar = () => {
       .slice(0, 2);
   };
 
-  const isActivePath = (path) => {
+  const isActivePath = (path: string) => {
     return location.pathname === path;
   };
 
@@ -106,12 +119,12 @@ const TopBar = () => {
     if (!isSideNavOpen) return;
 
     const panel = sideNavRef.current;
-    const focusable = panel?.querySelectorAll(
+    const focusable = panel?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
     focusable?.[0]?.focus();
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         closeSideNav();
@@ -137,7 +150,7 @@ const TopBar = () => {
   }, [isSideNavOpen]);
 
   // Top navigation items (2-3 most accessed)
-  const topNavigationItems = [
+  const topNavigationItems: NavItem[] = [
     { name: t('nav.topBar.home'), path: '/home', icon: Hash, description: t('nav.topBar.homeDesc') },
     { name: t('nav.topBar.pos'), path: '/pos/workspace', icon: Receipt, description: t('nav.topBar.posDesc') },
     { name: t('nav.topBar.kitchen'), path: '/kds/expo', icon: MonitorPlay, description: t('nav.topBar.kitchenDesc') },
@@ -145,7 +158,7 @@ const TopBar = () => {
   ];
 
   // Side navigation items (organized by category)
-  const sideNavigationSections = [
+  const sideNavigationSections: NavSection[] = [
     {
       title: t('nav.sideBar.frontOfHouse'),
       items: [
@@ -316,7 +329,7 @@ const TopBar = () => {
                     onClick={toggleSideNav}
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={userProfile?.avatar_url} alt="" className="object-cover" />
+                      <AvatarImage src={userProfile?.avatar_url ?? undefined} alt="" className="object-cover" />
                       <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
                         {getUserInitials()}
                       </AvatarFallback>
@@ -372,7 +385,7 @@ const TopBar = () => {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-10 w-10 border-2 border-primary-foreground/40">
-                      <AvatarImage src={userProfile?.avatar_url} alt="" />
+                      <AvatarImage src={userProfile?.avatar_url ?? undefined} alt="" />
                       <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground font-bold">
                         {getUserInitials()}
                       </AvatarFallback>

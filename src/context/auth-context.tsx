@@ -10,15 +10,24 @@ export interface Organization {
   [key: string]: unknown;
 }
 
+// Mirrors backend/migrations/001_baseline.sql `locations` table (subset).
 export interface Location {
   id: string;
   organization_id?: string;
+  name?: string;
+  slug?: string;
   is_active?: boolean;
   [key: string]: unknown;
 }
 
+// Mirrors backend/migrations/001_baseline.sql `profiles` table (subset).
 export interface UserProfile {
   id: string;
+  username?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  phone?: string | null;
   [key: string]: unknown;
 }
 
@@ -33,8 +42,12 @@ interface RespondInvitationResult {
   message?: string;
 }
 
+// Mirrors backend/internal/auth/handlers.go userDTO (id, email, email_verified),
+// plus the access/refresh token pair this context attaches on top.
 export interface AuthUser {
   id: string;
+  email: string;
+  email_verified?: boolean;
   access_token: string;
   refresh_token: string;
   [key: string]: unknown;
