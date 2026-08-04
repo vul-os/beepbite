@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { MapPin, Star, Clock, ChevronLeft, ShoppingCart, Truck, Store } from 'lucide-react';
-import { getStore, readCart, writeCart, readCartMeta, writeCartMeta } from '@/services/marketplace';
+import { getStore, readCart, writeCart, readCartMeta, writeCartMeta, type StoreDetail, type CartItem } from '@/services/marketplace';
 import MenuSection from './components/menu-section';
 import CartWidget from './components/cart-widget';
 
@@ -35,20 +35,33 @@ function StoreHeaderSkeleton() {
   );
 }
 
+// Cart items are permissively shaped (see services/marketplace.ts CartItem
+// comment): items added from the menu carry a decimal-string `price`
+// (MarketplaceMenuItem), items added from the cart widget carry a numeric
+// `price` (CartItem) — neither call site validates this before use, so
+// addToCart/removeFromCart accept either shape, matching pre-migration
+// dynamic-typing behavior exactly.
+interface CartLikeItem {
+  id?: string;
+  name?: string;
+  price?: string | number;
+  quantity?: number;
+}
+
 /**
  * Cart state helpers — merge add/remove into the items array.
  */
-function addToCart(items, item) {
+function addToCart(items: CartItem[], item: CartLikeItem): CartItem[] {
   const existing = items.find((i) => i.id === item.id);
   if (existing) {
     return items.map((i) =>
       i.id === item.id ? { ...i, quantity: (i.quantity ?? 1) + 1 } : i
     );
   }
-  return [...items, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
+  return [...items, { id: item.id, name: item.name, price: item.price, quantity: 1 } as CartItem];
 }
 
-function removeFromCart(items, item) {
+function removeFromCart(items: CartItem[], item: CartLikeItem): CartItem[] {
   return items
     .map((i) =>
       i.id === item.id ? { ...i, quantity: (i.quantity ?? 1) - 1 } : i
@@ -59,11 +72,8 @@ function removeFromCart(items, item) {
 /**
  * Derive which fulfillment modes a store offers.
  * If neither flag is present (backend gap), default to offering both.
- *
- * @param {object} store
- * @returns {{ offersDelivery: boolean, offersCollection: boolean }}
  */
-function getFulfillmentOptions(store) {
+function getFulfillmentOptions(store: StoreDetail | null) {
   if (!store) return { offersDelivery: true, offersCollection: true };
 
   const hasDeliveryFlag = 'offers_delivery' in store;
@@ -84,7 +94,15 @@ function getFulfillmentOptions(store) {
  * FulfillmentSelector — shows a Delivery / Collection toggle (or nothing if
  * only one mode is available, which gets auto-selected).
  */
-function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddressChange }) {
+interface FulfillmentSelectorProps {
+  store: StoreDetail | null;
+  value: 'delivery' | 'collection';
+  onChange: (type: 'delivery' | 'collection') => void;
+  deliveryAddress: string;
+  onAddressChange: (value: string) => void;
+}
+
+function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddressChange }: FulfillmentSelectorProps) {
   const { offersDelivery, offersCollection } = getFulfillmentOptions(store);
 
   // Build store address string for collection note
@@ -177,24 +195,24 @@ function FulfillmentSelector({ store, value, onChange, deliveryAddress, onAddres
 }
 
 export default function StoreDetailPage() {
-  const { slug } = useParams();
+  const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
 
-  const [store, setStore] = useState(null);
+  const [store, setStore] = useState<StoreDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Cart — initialise items from localStorage
-  const [cartItems, setCartItems] = useState(() => readCart(slug));
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => readCart(slug as string));
   const [cartOpen, setCartOpen] = useState(false);
 
   // Fulfillment — initialise from localStorage meta
-  const [fulfillmentType, setFulfillmentType] = useState(() => {
-    const meta = readCartMeta(slug);
+  const [fulfillmentType, setFulfillmentType] = useState<'delivery' | 'collection' | null>(() => {
+    const meta = readCartMeta(slug as string);
     return meta.fulfillment_type || null; // null = not yet resolved; set once store loads
   });
   const [deliveryAddress, setDeliveryAddress] = useState(() => {
-    const meta = readCartMeta(slug);
+    const meta = readCartMeta(slug as string);
     return meta.delivery_address || '';
   });
 
@@ -224,12 +242,12 @@ export default function StoreDetailPage() {
 
   // Persist cart items to localStorage whenever they change
   useEffect(() => {
-    writeCart(slug, cartItems);
+    writeCart(slug as string, cartItems);
   }, [slug, cartItems]);
 
   // Persist fulfillment meta to localStorage whenever it changes
   useEffect(() => {
-    writeCartMeta(slug, { fulfillment_type: fulfillmentType, delivery_address: deliveryAddress });
+    writeCartMeta(slug as string, { fulfillment_type: fulfillmentType, delivery_address: deliveryAddress });
   }, [slug, fulfillmentType, deliveryAddress]);
 
   // Fetch store detail
@@ -238,14 +256,14 @@ export default function StoreDetailPage() {
     setLoading(true);
     setError(null);
 
-    getStore(slug)
+    getStore(slug as string)
       .then(({ data, error: err }) => {
         if (cancelled) return;
         if (err) throw new Error(err.message || 'Store not found');
         setStore(data);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -254,11 +272,11 @@ export default function StoreDetailPage() {
     return () => { cancelled = true; };
   }, [slug]);
 
-  const handleAdd = useCallback((item) => {
+  const handleAdd = useCallback((item: CartLikeItem) => {
     setCartItems((prev) => addToCart(prev, item));
   }, []);
 
-  const handleRemove = useCallback((item) => {
+  const handleRemove = useCallback((item: CartLikeItem) => {
     setCartItems((prev) => removeFromCart(prev, item));
   }, []);
 
@@ -266,7 +284,7 @@ export default function StoreDetailPage() {
     setCartItems([]);
   }, []);
 
-  const handleFulfillmentChange = useCallback((type) => {
+  const handleFulfillmentChange = useCallback((type: 'delivery' | 'collection') => {
     setFulfillmentType(type);
     if (type === 'collection') {
       setDeliveryAddress('');
@@ -274,7 +292,13 @@ export default function StoreDetailPage() {
   }, []);
 
   const cartQty = cartItems.reduce((s, i) => s + (i.quantity ?? 1), 0);
-  const menu = store?.menu || store?.categories || [];
+  // `store.menu` never exists on the real StoreDetail DTO (only `categories`
+  // does; see services/marketplace.ts StoreDetail comment) — dead defensive
+  // fallback, preserved via a cast rather than removed.
+  const menu = (store?.menu as StoreDetail['categories'] | undefined) || store?.categories || [];
+  // Same for `currency`/`default_currency_code` — only `currency_code` is
+  // real on this DTO.
+  const currency = (store?.currency || store?.default_currency_code || store?.currency_code || 'USD') as string;
 
   return (
     <div className="min-h-screen bg-background">
@@ -319,7 +343,7 @@ export default function StoreDetailPage() {
                 onRemove={handleRemove}
                 onClear={handleClear}
                 storeName={store?.name}
-                currency={store?.currency || store?.default_currency_code || store?.currency_code || 'USD'}
+                currency={currency}
                 fulfillmentType={fulfillmentType}
                 deliveryAddress={deliveryAddress}
               />
@@ -344,7 +368,7 @@ export default function StoreDetailPage() {
           <div className="relative h-44 sm:h-64 bg-primary/10 overflow-hidden">
             {store.cover_image_url ? (
               <img
-                src={store.cover_image_url}
+                src={store.cover_image_url as string}
                 alt={store.name}
                 className="w-full h-full object-cover"
               />
@@ -374,23 +398,23 @@ export default function StoreDetailPage() {
           {/* Store info card */}
           <div className="px-4 pt-4 pb-4 border-b space-y-3 bg-background">
             <div className="flex items-start gap-3">
-              {store.logo_url && (
+              {store.logo_url ? (
                 <img
-                  src={store.logo_url}
+                  src={store.logo_url as string}
                   alt={`${store.name} logo`}
                   className="h-14 w-14 rounded-2xl border-2 border-white object-cover shrink-0 -mt-8 shadow-md"
                 />
-              )}
+              ) : null}
               <div className="flex-1 min-w-0 pt-0.5">
                 <h1 className="text-xl sm:text-2xl font-display leading-tight tracking-tight">{store.name}</h1>
-                {store.cuisine_type && (
+                {store.cuisine_type ? (
                   <Badge
                     variant="secondary"
                     className="text-xs mt-1 bg-primary/10 text-primary border border-primary/20"
                   >
-                    {store.cuisine_type}
+                    {store.cuisine_type as string}
                   </Badge>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -406,7 +430,7 @@ export default function StoreDetailPage() {
                   {store.city}
                 </span>
               )}
-              {store.rating && (
+              {(store.rating as number | undefined) && (
                 <span className="flex items-center gap-1 font-medium">
                   <Star className="h-3 w-3 fill-warning text-warning" aria-hidden="true" />
                   <span className="text-foreground tabular-nums">{Number(store.rating).toFixed(1)}</span>
@@ -415,10 +439,10 @@ export default function StoreDetailPage() {
                   ) : null}
                 </span>
               )}
-              {store.delivery_time_min && (
+              {(store.delivery_time_min as number | undefined) && (
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3 text-primary" aria-hidden="true" />
-                  {store.delivery_time_min}–{store.delivery_time_max ?? store.delivery_time_min + 10} min
+                  {store.delivery_time_min as number}–{(store.delivery_time_max as number | undefined) ?? (store.delivery_time_min as number) + 10} min
                 </span>
               )}
             </div>
@@ -446,7 +470,7 @@ export default function StoreDetailPage() {
                 cartItems={cartItems}
                 onAddItem={handleAdd}
                 onRemoveItem={handleRemove}
-                currency={store?.currency || store?.default_currency_code || store?.currency_code || 'USD'}
+                currency={currency}
               />
             </div>
 
@@ -460,7 +484,7 @@ export default function StoreDetailPage() {
                   onRemove={handleRemove}
                   onClear={handleClear}
                   storeName={store?.name}
-                  currency={store?.currency || store?.default_currency_code || store?.currency_code || 'USD'}
+                  currency={currency}
                   fulfillmentType={fulfillmentType}
                   deliveryAddress={deliveryAddress}
                 />

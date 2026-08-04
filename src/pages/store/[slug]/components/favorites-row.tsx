@@ -3,7 +3,7 @@ import { Heart, ShoppingCart, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice } from '@/lib/currency';
-import { listFavorites, addFavorite, removeFavorite } from '@/services/favorites';
+import { listFavorites, addFavorite, removeFavorite, type FavoriteItem } from '@/services/favorites';
 
 /**
  * FavoritesRow — horizontal scroll row of a customer's favourite items.
@@ -14,12 +14,25 @@ import { listFavorites, addFavorite, removeFavorite } from '@/services/favorites
  *                               button; item shape: { item_id, name, price_cents }
  *   currency   {string}        ISO 4217 code (default 'USD')
  */
-export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }) {
-  const [favorites, setFavorites] = useState([]);
+interface QuickAddItem {
+  item_id: string;
+  name: string;
+  price_cents: number;
+  image_url: string | null;
+}
+
+interface FavoritesRowProps {
+  customerId?: string;
+  onAdd?: (item: QuickAddItem) => void;
+  currency?: string;
+}
+
+export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }: FavoritesRowProps) {
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   // Set of item_ids currently being toggled (prevents double-clicks).
-  const [pending, setPending] = useState(new Set());
+  const [pending, setPending] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     if (!customerId) return;
@@ -29,7 +42,7 @@ export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }) {
       const data = await listFavorites(customerId);
       setFavorites(data);
     } catch (err) {
-      setError(err.message || 'Failed to load favorites');
+      setError(err instanceof Error ? err.message : 'Failed to load favorites');
     } finally {
       setLoading(false);
     }
@@ -41,14 +54,14 @@ export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }) {
 
   // Toggle heart: if already a favorite → remove; otherwise → add.
   const handleHeartToggle = useCallback(
-    async (fav) => {
+    async (fav: FavoriteItem) => {
       const itemId = fav.item_id;
       if (pending.has(itemId)) return;
       setPending((prev) => new Set([...prev, itemId]));
       try {
         // Optimistic: remove from local state immediately.
         setFavorites((prev) => prev.filter((f) => f.item_id !== itemId));
-        await removeFavorite(customerId, itemId);
+        await removeFavorite(customerId as string, itemId);
       } catch {
         // Revert on failure.
         setFavorites((prev) => [fav, ...prev]);
@@ -66,15 +79,15 @@ export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }) {
   // Allow adding a non-favourite item as favourite from outside (not shown in
   // this row directly, but exposed via a prop so parent pages can wire it up).
   const handleAddFavorite = useCallback(
-    async (itemId) => {
+    async (itemId: string) => {
       if (pending.has(itemId)) return;
       setPending((prev) => new Set([...prev, itemId]));
       try {
-        const fi = await addFavorite(customerId, itemId);
+        const fi = await addFavorite(customerId as string, itemId);
         setFavorites((prev) => {
           // Avoid duplicates.
-          if (prev.some((f) => f.item_id === fi.item_id)) return prev;
-          return [fi, ...prev];
+          if (prev.some((f) => f.item_id === fi?.item_id)) return prev;
+          return fi ? [fi, ...prev] : prev;
         });
       } catch {
         // Silently ignore — caller's UI can handle the error.
@@ -90,7 +103,10 @@ export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }) {
   );
 
   // Expose addFavorite so parent can call it without re-importing the service.
-  FavoritesRow.addFavorite = handleAddFavorite;
+  // FavoritesRow is never imported anywhere else in the codebase today (this
+  // component is currently unreferenced), so this static-property escape
+  // hatch is dead code — preserved via a targeted cast rather than removed.
+  (FavoritesRow as unknown as { addFavorite?: (itemId: string) => Promise<void> }).addFavorite = handleAddFavorite;
 
   if (!customerId) return null;
 
@@ -168,7 +184,15 @@ export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }) {
 // Internal card component
 // ---------------------------------------------------------------------------
 
-function FavoriteCard({ fav, currency, onAdd, onRemove, isPending }) {
+interface FavoriteCardProps {
+  fav: FavoriteItem;
+  currency?: string;
+  onAdd?: (item: QuickAddItem) => void;
+  onRemove: (fav: FavoriteItem) => void;
+  isPending: boolean;
+}
+
+function FavoriteCard({ fav, currency, onAdd, onRemove, isPending }: FavoriteCardProps) {
   return (
     <article
       role="listitem"

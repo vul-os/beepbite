@@ -8,9 +8,9 @@
  *   limit       {number}  — max reviews to fetch (default 20)
  */
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { fetchStoreReviews } from '@/services/reviews';
+import { fetchStoreReviews, type Review } from '@/services/reviews';
 import { cn } from '@/lib/utils';
 
 // ── Star primitives ──────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
  * Render a row of 1–5 filled/empty stars.
  * `value` should be a number 1–5 (floats are rounded to nearest half for display).
  */
-function StarRow({ value = 0, size = 'sm', className }) {
+function StarRow({ value = 0, size = 'sm', className }: { value?: number; size?: 'sm' | 'lg'; className?: string }) {
   const uid = useId();
   const sizeClass = size === 'lg' ? 'h-5 w-5' : 'h-4 w-4';
   return (
@@ -67,7 +67,14 @@ function StarRow({ value = 0, size = 'sm', className }) {
 
 // ── Aggregate header ──────────────────────────────────────────────────────────
 
-function AggregateHeader({ avgStars, reviewCount, liveAvg, liveCount }) {
+interface AggregateHeaderProps {
+  avgStars?: number | null;
+  reviewCount?: number | null;
+  liveAvg: number | null;
+  liveCount: number;
+}
+
+function AggregateHeader({ avgStars, reviewCount, liveAvg, liveCount }: AggregateHeaderProps) {
   const avg   = avgStars   ?? liveAvg   ?? null;
   const count = reviewCount ?? liveCount ?? 0;
 
@@ -94,7 +101,7 @@ function AggregateHeader({ avgStars, reviewCount, liveAvg, liveCount }) {
 
 // ── Individual review card ────────────────────────────────────────────────────
 
-function ReviewCard({ review }) {
+function ReviewCard({ review }: { review: Review }) {
   const {
     stars,
     text,
@@ -162,7 +169,7 @@ function ReviewCard({ review }) {
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
-function ReviewSkeleton() {
+function ReviewSkeleton(): ReactNode {
   return (
     <div className="rounded-xl border bg-card shadow-sm px-5 py-4 space-y-3 animate-pulse">
       <div className="flex items-center justify-between">
@@ -183,15 +190,22 @@ function ReviewSkeleton() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+interface ReviewsSectionProps {
+  slug?: string;
+  avgStars?: number | null;
+  reviewCount?: number | null;
+  limit?: number;
+}
+
 export default function ReviewsSection({
   slug,
   avgStars,
   reviewCount,
   limit = 20,
-}) {
-  const [reviews, setReviews] = useState([]);
+}: ReviewsSectionProps) {
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
+  const [error, setError]     = useState<string | null>(null);
 
   // Compute live aggregate from fetched data when props not provided.
   const liveAvg = reviews.length

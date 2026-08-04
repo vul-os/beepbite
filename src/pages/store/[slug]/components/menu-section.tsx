@@ -4,6 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Minus } from 'lucide-react';
 import { formatPrice } from '@/lib/currency';
+import type { MarketplaceMenuCategory, MarketplaceMenuItem, CartItem } from '@/services/marketplace';
+
+// NOTE: `is_available` is read below but does not exist on the real
+// MarketplaceMenuItem DTO (backend/internal/handlers/marketplace/store.go
+// `Item` has no such field) — a pre-existing defect: `item.is_available` is
+// always `undefined`, so `unavailable` is always false. Flagged, not fixed;
+// widened locally rather than changing the shared service type.
+type MenuItem = MarketplaceMenuItem & { is_available?: boolean; category?: string };
+type MenuCategory = Omit<MarketplaceMenuCategory, 'items'> & { items?: MenuItem[] };
 
 /**
  * MenuSection — displays categorised menu items with add-to-cart controls.
@@ -15,7 +24,15 @@ import { formatPrice } from '@/lib/currency';
  *   cartItems: Array<{ id, quantity }>
  *   currency: string  ISO 4217 code from the store (default 'USD')
  */
-export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartItems = [], currency = 'USD' }) {
+interface MenuSectionProps {
+  menu?: MenuCategory[];
+  onAddItem: (item: MenuItem) => void;
+  onRemoveItem: (item: MenuItem) => void;
+  cartItems?: CartItem[];
+  currency?: string;
+}
+
+export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartItems = [], currency = 'USD' }: MenuSectionProps) {
   const cartMap = new Map(cartItems.map((ci) => [ci.id, ci.quantity ?? 0]));
 
   const allItems = menu.flatMap((cat) =>
@@ -28,7 +45,7 @@ export default function MenuSection({ menu = [], onAddItem, onRemoveItem, cartIt
    * remaining_today === 0     → sold out today (destructive: nothing left to do about it today).
    * remaining_today > 0       → "N left today" (warning: still gettable, but going fast).
    */
-  function CountdownBadge({ remaining }) {
+  function CountdownBadge({ remaining }: { remaining: number | null }) {
     if (remaining === null || remaining === undefined) return null;
     if (remaining === 0) {
       return (

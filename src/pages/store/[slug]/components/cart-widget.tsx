@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 import { formatPrice } from '@/lib/currency';
+import type { CartItem } from '@/services/marketplace';
 
 /**
  * CartWidget — sticky sidebar cart backed by localStorage (managed by parent).
@@ -19,7 +20,19 @@ import { formatPrice } from '@/lib/currency';
  *   fulfillmentType: string   'delivery' | 'collection' | null
  *   deliveryAddress: string   customer's delivery address (when fulfillmentType='delivery')
  */
-export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear, storeName, currency = 'USD', fulfillmentType, deliveryAddress }) {
+interface CartWidgetProps {
+  slug?: string;
+  items?: CartItem[];
+  onAdd: (item: CartItem) => void;
+  onRemove: (item: CartItem) => void;
+  onClear: () => void;
+  storeName?: string;
+  currency?: string;
+  fulfillmentType?: 'delivery' | 'collection' | null;
+  deliveryAddress?: string;
+}
+
+export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear, storeName, currency = 'USD', fulfillmentType, deliveryAddress }: CartWidgetProps) {
   const navigate = useNavigate();
 
   const subtotal = items.reduce((sum, i) => sum + Number(i.price ?? 0) * (i.quantity ?? 1), 0);
