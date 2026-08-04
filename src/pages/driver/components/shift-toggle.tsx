@@ -9,7 +9,13 @@ import { Switch } from '@/components/ui/switch';
  *   loading    {boolean}  — API call in-flight
  *   onChange   {(bool) => void}
  */
-export default function ShiftToggle({ isOnline, loading, onChange }) {
+interface ShiftToggleProps {
+  isOnline: boolean;
+  loading: boolean;
+  onChange: (isOnline: boolean) => void;
+}
+
+export default function ShiftToggle({ isOnline, loading, onChange }: ShiftToggleProps) {
   return (
     <div
       className={`flex items-center gap-3 rounded-2xl px-4 py-3 border transition-colors ${
