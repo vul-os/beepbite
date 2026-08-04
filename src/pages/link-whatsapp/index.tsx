@@ -14,7 +14,7 @@
  *   success or an error.
  */
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Smartphone, CheckCircle, AlertCircle, Loader2, Phone } from 'lucide-react';
 
@@ -24,28 +24,30 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { useAuth } from '@/context/auth-context';
-import { fetchPendingPhone, bindPhone, listLinkedNumbers } from '@/services/whatsapplink';
+import { fetchPendingPhone, bindPhone, listLinkedNumbers, type AccountLink } from '@/services/whatsapplink';
 
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
+
+type TokenError = 'not_found' | 'gone' | 'error';
 
 export default function LinkWhatsAppPage() {
   const { token } = useParams();
   const { user } = useAuth();
 
   // Token / phone resolution
-  const [pendingPhone, setPendingPhone] = useState(null);
-  const [tokenError, setTokenError] = useState(null); // 'not_found' | 'gone' | 'error'
+  const [pendingPhone, setPendingPhone] = useState<string | null>(null);
+  const [tokenError, setTokenError] = useState<TokenError | null>(null);
   const [loadingPhone, setLoadingPhone] = useState(true);
 
   // Binding state
   const [binding, setBinding] = useState(false);
-  const [bindError, setBindError] = useState(null);
+  const [bindError, setBindError] = useState<string | null>(null);
   const [bindSuccess, setBindSuccess] = useState(false);
 
   // Linked-numbers manage view
-  const [links, setLinks] = useState(null);
+  const [links, setLinks] = useState<AccountLink[] | null>(null);
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [atCap, setAtCap] = useState(false);
 
@@ -291,7 +293,7 @@ export default function LinkWhatsAppPage() {
 // Layout shell
 // ---------------------------------------------------------------------------
 
-function PageShell({ children }) {
+function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-10">
