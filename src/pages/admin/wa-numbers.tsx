@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Phone,
   Plus,
@@ -37,13 +37,14 @@ import {
   createWANumber,
   updateWANumber,
   deactivateWANumber,
+  type WANumber,
 } from '@/services/wanumbers';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(iso) {
+function formatDate(iso?: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(undefined, {
     year: 'numeric',
@@ -52,7 +53,7 @@ function formatDate(iso) {
   });
 }
 
-function ActiveBadge({ active }) {
+function ActiveBadge({ active }: { active?: boolean }) {
   return active ? (
     <Badge className="bg-beepbite-success/15 text-beepbite-success border-beepbite-success/30 hover:bg-beepbite-success/15">Active</Badge>
   ) : (
@@ -66,11 +67,18 @@ function ActiveBadge({ active }) {
 
 const EMPTY_FORM = { meta_phone_number_id: '', display_phone: '', country: '', regions: '' };
 
-function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
+interface NumberFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existing: WANumber | null;
+  onSuccess?: () => void;
+}
+
+function NumberFormDialog({ open, onOpenChange, existing, onSuccess }: NumberFormDialogProps) {
   const isEdit = Boolean(existing);
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Populate form when editing
   useEffect(() => {
@@ -89,11 +97,11 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
     }
   }, [open, existing]);
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!form.display_phone.trim()) { setError('Display phone is required.'); return; }
     if (!form.country.trim()) { setError('Country is required.'); return; }
@@ -108,7 +116,7 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
 
     let result;
     if (isEdit) {
-      result = await updateWANumber(existing.id, {
+      result = await updateWANumber(existing!.id, {
         display_phone: form.display_phone.trim(),
         country: form.country.trim().toUpperCase(),
         regions,
@@ -236,9 +244,16 @@ function NumberFormDialog({ open, onOpenChange, existing, onSuccess }) {
 // Deactivate Confirm Dialog
 // ---------------------------------------------------------------------------
 
-function DeactivateDialog({ open, onOpenChange, number, onSuccess }) {
+interface DeactivateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  number: WANumber;
+  onSuccess?: () => void;
+}
+
+function DeactivateDialog({ open, onOpenChange, number, onSuccess }: DeactivateDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleConfirm() {
     setLoading(true);
@@ -283,14 +298,14 @@ function DeactivateDialog({ open, onOpenChange, number, onSuccess }) {
 // ---------------------------------------------------------------------------
 
 export default function WANumbersPage() {
-  const [numbers, setNumbers] = useState([]);
+  const [numbers, setNumbers] = useState<WANumber[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null); // NumberRow | null
-  const [deactivateTarget, setDeactivateTarget] = useState(null); // NumberRow | null
+  const [editTarget, setEditTarget] = useState<WANumber | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<WANumber | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -419,7 +434,7 @@ export default function WANumbersPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {(n.regions || []).length > 0
-                        ? n.regions.join(', ')
+                        ? (n.regions || []).join(', ')
                         : <span className="italic">—</span>}
                     </TableCell>
                     <TableCell>

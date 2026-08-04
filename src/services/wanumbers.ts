@@ -11,6 +11,7 @@ export interface WANumber {
   country: string;
   regions?: string[];
   active?: boolean;
+  configured_at?: string;
   [key: string]: unknown;
 }
 
