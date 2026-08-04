@@ -29,7 +29,7 @@
  *   const { storeSlug, customHostname, isStoreHost } = useStore();
  */
 
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -44,13 +44,18 @@ const RESERVED_SUBDOMAINS = new Set(['app', 'api', 'www', 'admin']);
 // Resolution logic (pure — no side effects, easy to test)
 // ---------------------------------------------------------------------------
 
+export interface ResolvedHost {
+  storeSlug: string | null;
+  customHostname: string | null;
+  isStoreHost: boolean;
+}
+
 /**
  * Resolves the current hostname into store context.
  *
- * @param {string} hostname  e.g. "bakery.beepbite.io", "order.mybakery.com"
- * @returns {{ storeSlug: string|null, customHostname: string|null, isStoreHost: boolean }}
+ * @param hostname  e.g. "bakery.beepbite.io", "order.mybakery.com"
  */
-export function resolveHostname(hostname) {
+export function resolveHostname(hostname: string): ResolvedHost {
   if (!hostname) {
     return { storeSlug: null, customHostname: null, isStoreHost: false };
   }
@@ -93,20 +98,17 @@ export function resolveHostname(hostname) {
 // Context
 // ---------------------------------------------------------------------------
 
-/**
- * @typedef {Object} StoreContextValue
- * @property {string|null} storeSlug       — slug portion of <slug>.beepbite.io, or null
- * @property {string|null} customHostname  — custom domain hostname, or null
- * @property {boolean}     isStoreHost     — true when the current host is a store host
- * @property {string}      hostname        — the raw (lowercased, port-stripped) hostname
- */
+export interface StoreContextValue extends ResolvedHost {
+  /** the raw (lowercased, port-stripped) hostname */
+  hostname: string;
+}
 
-const StoreContext = createContext(/** @type {StoreContextValue} */ ({
+const StoreContext = createContext<StoreContextValue>({
   storeSlug: null,
   customHostname: null,
   isStoreHost: false,
   hostname: '',
-}));
+});
 
 // ---------------------------------------------------------------------------
 // Provider
@@ -116,10 +118,9 @@ const StoreContext = createContext(/** @type {StoreContextValue} */ ({
  * StoreProvider resolves the current hostname once on mount and makes the
  * result available to all children via useStore().
  *
- * @param {{ children: React.ReactNode, _hostname?: string }} props
- *   _hostname is an optional override for testing; omit in production.
+ * _hostname is an optional override for testing; omit in production.
  */
-export function StoreProvider({ children, _hostname }) {
+export function StoreProvider({ children, _hostname }: { children: ReactNode; _hostname?: string }) {
   const hostname = _hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '');
 
   const value = useMemo(() => {
@@ -141,10 +142,8 @@ export function StoreProvider({ children, _hostname }) {
 /**
  * useStore returns the resolved store context for the current hostname.
  * Must be used inside a StoreProvider.
- *
- * @returns {StoreContextValue}
  */
-export function useStore() {
+export function useStore(): StoreContextValue {
   return useContext(StoreContext);
 }
 

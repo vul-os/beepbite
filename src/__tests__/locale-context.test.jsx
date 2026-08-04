@@ -15,7 +15,7 @@ import {
   useLocale,
   useMoney,
   useDateTime,
-} from '../context/locale-context.jsx';
+} from '../context/locale-context';
 
 function wrapperFor(props) {
   // eslint-disable-next-line react/prop-types

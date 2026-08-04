@@ -1,9 +1,82 @@
-import { useState, useEffect, useCallback, useMemo, useContext, createContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, useContext, createContext, type ReactNode } from 'react';
 import { supabase } from '@/services/supabase-client';
+import type { AuthSession } from '@/lib/api-client';
 
-const AuthContext = createContext(undefined);
+export interface Organization {
+  id: string;
+  slug?: string;
+  name?: string;
+  is_active?: boolean;
+  [key: string]: unknown;
+}
 
-export function useAuth() {
+export interface Location {
+  id: string;
+  organization_id?: string;
+  is_active?: boolean;
+  [key: string]: unknown;
+}
+
+export interface UserProfile {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface PendingInvite {
+  invite_id: string;
+  [key: string]: unknown;
+}
+
+interface RespondInvitationResult {
+  success: boolean;
+  error?: string;
+  message?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  access_token: string;
+  refresh_token: string;
+  [key: string]: unknown;
+}
+
+export interface AuthContextValue {
+  loading: boolean;
+  user: AuthUser | null;
+  userProfile: UserProfile | null;
+  organizations: Organization[];
+  activeOrganization: Organization | null;
+  locations: Location[];
+  activeLocation: Location | null;
+  hasLoadedOrganizations: boolean;
+  setHasLoadedOrganizations: (v: boolean) => void;
+  hasLoadedLocations: boolean;
+  setHasLoadedLocations: (v: boolean) => void;
+  pendingInvites: PendingInvite[];
+  hasLoadedInvites: boolean;
+  setHasLoadedInvites: (v: boolean) => void;
+  needsOnboarding: boolean;
+  switchOrganization: (organizationId: string) => Organization | undefined;
+  switchOrganizationBySlug: (slug: string) => void;
+  switchLocation: (locationId: string) => Location | undefined;
+  getOrganizationBySlug: (slug: string) => Organization | undefined;
+  signUp: (email: string, password: string) => Promise<unknown>;
+  signIn: (email: string, password: string) => Promise<unknown>;
+  signOut: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ error: unknown }>;
+  updateUserPassword: (new_password: string) => Promise<{ data?: unknown; error: unknown }>;
+  fetchOrganizations: () => Promise<void>;
+  fetchLocations: () => Promise<void>;
+  refreshToken: () => Promise<string | null>;
+  fetchInvites: () => Promise<void>;
+  acceptInvite: (inviteId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  rejectInvite: (inviteId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  fetchUserProfile: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
@@ -12,7 +85,7 @@ export function useAuth() {
 }
 
 // Helper functions for localStorage
-const getStoredActiveOrganization = () => {
+const getStoredActiveOrganization = (): Organization | null => {
   try {
     const stored = localStorage.getItem('activeOrganization');
     return stored ? JSON.parse(stored) : null;
@@ -22,7 +95,7 @@ const getStoredActiveOrganization = () => {
   }
 };
 
-const setStoredActiveOrganization = (organization) => {
+const setStoredActiveOrganization = (organization: Organization | null) => {
   try {
     if (organization) {
       localStorage.setItem('activeOrganization', JSON.stringify(organization));
@@ -34,7 +107,7 @@ const setStoredActiveOrganization = (organization) => {
   }
 };
 
-const getStoredActiveLocation = () => {
+const getStoredActiveLocation = (): Location | null => {
   try {
     const stored = localStorage.getItem('activeLocation');
     return stored ? JSON.parse(stored) : null;
@@ -44,7 +117,7 @@ const getStoredActiveLocation = () => {
   }
 };
 
-const setStoredActiveLocation = (location) => {
+const setStoredActiveLocation = (location: Location | null) => {
   try {
     if (location) {
       localStorage.setItem('activeLocation', JSON.stringify(location));
@@ -56,34 +129,38 @@ const setStoredActiveLocation = (location) => {
   }
 };
 
-export function AuthProvider({ children, onNavigate, pathname }) {
-  const [user, setUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
+export function AuthProvider({ children, onNavigate, pathname }: {
+  children: ReactNode;
+  onNavigate?: (path: string) => void;
+  pathname?: string;
+}) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [organizations, setOrganizations] = useState([]);
-  const [activeOrganization, setActiveOrganization] = useState(null);
-  const [locations, setLocations] = useState([]);
-  const [activeLocation, setActiveLocation] = useState(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [activeOrganization, setActiveOrganization] = useState<Organization | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [activeLocation, setActiveLocation] = useState<Location | null>(null);
   const [hasLoadedOrganizations, setHasLoadedOrganizations] = useState(false);
   const [hasLoadedLocations, setHasLoadedLocations] = useState(false);
-  const [pendingInvites, setPendingInvites] = useState([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [hasLoadedInvites, setHasLoadedInvites] = useState(false);
   // needsOnboarding: true only after orgs have finished loading and the user has none
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   // Helper function to update active organization with localStorage
-  const updateActiveOrganization = useCallback((organization) => {
+  const updateActiveOrganization = useCallback((organization: Organization | null) => {
     setActiveOrganization(organization);
     setStoredActiveOrganization(organization);
   }, []);
 
   // Helper function to update active location with localStorage
-  const updateActiveLocation = useCallback((location) => {
+  const updateActiveLocation = useCallback((location: Location | null) => {
     setActiveLocation(location);
     setStoredActiveLocation(location);
   }, []);
 
-  const getOrganizationBySlug = useCallback((slug) => {
+  const getOrganizationBySlug = useCallback((slug: string) => {
     return organizations.find(organization => organization.slug === slug);
   }, [organizations]);
 
@@ -135,9 +212,9 @@ export function AuthProvider({ children, onNavigate, pathname }) {
 
       if (memberError) throw memberError;
 
-      const orgIds = (memberRows || []).map((m) => m.organization_id).filter(Boolean);
+      const orgIds = (memberRows || []).map((m: { organization_id: string }) => m.organization_id).filter(Boolean);
 
-      let orgs = [];
+      let orgs: Organization[] = [];
       if (orgIds.length > 0) {
         const { data: orgRows, error: orgError } = await supabase
           .from('organizations')
@@ -194,7 +271,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       
       // Set active location from localStorage or default to first location
       const storedLocation = getStoredActiveLocation();
-      if (storedLocation && data?.find(l => l.id === storedLocation.id && l.organization_id === activeOrganization.id)) {
+      if (storedLocation && data?.find((l: Location) => l.id === storedLocation.id && l.organization_id === activeOrganization.id)) {
         updateActiveLocation(storedLocation);
       } else if (data && data.length > 0) {
         // Always set first location if no valid stored one exists
@@ -212,7 +289,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [activeOrganization, updateActiveLocation]);
 
-  const switchOrganization = useCallback((organizationId) => {
+  const switchOrganization = useCallback((organizationId: string) => {
     const newActiveOrganization = organizations.find(organization => organization.id === organizationId);
     if (newActiveOrganization) {
       updateActiveOrganization(newActiveOrganization);
@@ -225,7 +302,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     return newActiveOrganization;
   }, [organizations, updateActiveOrganization]);
 
-  const switchOrganizationBySlug = useCallback((slug) => {
+  const switchOrganizationBySlug = useCallback((slug: string) => {
     const newActiveOrganization = organizations.find(organization => organization.slug === slug);
     if (newActiveOrganization) {
       updateActiveOrganization(newActiveOrganization);
@@ -237,7 +314,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [organizations, updateActiveOrganization]);
 
-  const switchLocation = useCallback((locationId) => {
+  const switchLocation = useCallback((locationId: string) => {
     const newActiveLocation = locations.find(location => location.id === locationId);
     if (newActiveLocation) {
       updateActiveLocation(newActiveLocation);
@@ -245,27 +322,27 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     return newActiveLocation;
   }, [locations, updateActiveLocation]);
 
-  const handleAuthStateChange = useCallback((event, session) => {
+  const handleAuthStateChange = useCallback((event: string, session: AuthSession | null) => {
     console.log('Auth state changed:', event);
-    
+
     // Ignore INITIAL_SESSION events as they are often false positives
     // that can disrupt ongoing operations without meaningful state changes
     if (event === 'INITIAL_SESSION') {
       console.log('Ignoring INITIAL_SESSION event to prevent disruption');
       return;
     }
-    
+
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       if (session?.user) {
         setUser({
-          ...session.user,
+          ...(session.user as Record<string, unknown>),
           access_token: session.access_token,
           refresh_token: session.refresh_token
-        });
+        } as AuthUser);
         setHasLoadedOrganizations(false);
         setHasLoadedLocations(false);
         setHasLoadedInvites(false);
-        
+
         // Redirect to dashboard after successful sign in. /home is the
         // authenticated landing; / is the marketing landing page.
         if (
@@ -294,21 +371,21 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       setPendingInvites([]);
       setHasLoadedInvites(true);
       setNeedsOnboarding(false); // Reset onboarding state on signout
-      
+
       // Clear localStorage on signout
       setStoredActiveOrganization(null);
       setStoredActiveLocation(null);
     } else if (event === 'USER_UPDATED') {
       setUser(prev => prev ? {
-        ...session?.user,
+        ...(session?.user as Record<string, unknown>),
         access_token: prev.access_token,
         refresh_token: prev.refresh_token
-      } : null);
+      } as AuthUser : null);
     }
   }, [onNavigate, pathname]);
 
   // Auth methods
-  const signUp = useCallback(async (email, password) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -320,7 +397,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     return data;
   }, []);
 
-  const signIn = useCallback(async (email, password) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -334,7 +411,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     if (error) throw error;
   }, []);
 
-  const forgotPassword = useCallback(async (email) => {
+  const forgotPassword = useCallback(async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/update-password`,
@@ -346,7 +423,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, []);
 
-  const updateUserPassword = useCallback(async (new_password) => {
+  const updateUserPassword = useCallback(async (new_password: string) => {
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -374,13 +451,13 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
 
     try {
-      const { data, error } = await supabase.rpc('check_invites', { p_user_id: user.id });
-      
+      const { data, error } = await supabase.rpc<PendingInvite[]>('check_invites', { p_user_id: user.id });
+
       if (error) {
         console.error('Error fetching invites:', error);
         throw error;
       }
-      
+
       setPendingInvites(data || []);
     } catch (error) {
       console.error('Error fetching invites:', error);
@@ -390,7 +467,7 @@ export function AuthProvider({ children, onNavigate, pathname }) {
     }
   }, [user]);
 
-  const acceptInvite = useCallback(async (inviteId) => {
+  const acceptInvite = useCallback(async (inviteId: string) => {
     try {
       // Get the organization_id from the pending invite
       const currentInvite = pendingInvites.find(invite => invite.invite_id === inviteId);
@@ -398,29 +475,29 @@ export function AuthProvider({ children, onNavigate, pathname }) {
         throw new Error('Invite not found');
       }
 
-      const { data, error } = await supabase.rpc('respond_invitation', {
-        p_user_id: user.id,
+      const { data, error } = await supabase.rpc<RespondInvitationResult>('respond_invitation', {
+        p_user_id: user?.id,
         p_invite_id: currentInvite.invite_id,
         p_accept: true
       });
 
       if (error) throw error;
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to accept invitation');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to accept invitation');
       }
-      
+
       // Refresh invites and organizations after accepting
       await Promise.all([fetchInvites(), fetchOrganizations()]);
-      
+
       return { success: true, message: data.message };
     } catch (error) {
       console.error('Error accepting invite:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: (error as Error)?.message };
     }
   }, [pendingInvites, fetchInvites, fetchOrganizations]);
 
-  const rejectInvite = useCallback(async (inviteId) => {
+  const rejectInvite = useCallback(async (inviteId: string) => {
     try {
       // Get the organization_id from the pending invite
       const currentInvite = pendingInvites.find(invite => invite.invite_id === inviteId);
@@ -428,25 +505,25 @@ export function AuthProvider({ children, onNavigate, pathname }) {
         throw new Error('Invite not found');
       }
 
-      const { data, error } = await supabase.rpc('respond_invitation', {
-        p_user_id: user.id,
+      const { data, error } = await supabase.rpc<RespondInvitationResult>('respond_invitation', {
+        p_user_id: user?.id,
         p_invite_id: currentInvite.invite_id,
         p_accept: false
       });
 
       if (error) throw error;
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to reject invitation');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to reject invitation');
       }
-      
+
       // Refresh invites after rejecting
       await fetchInvites();
-      
+
       return { success: true, message: data.message };
     } catch (error) {
       console.error('Error rejecting invite:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: (error as Error)?.message };
     }
   }, [pendingInvites, fetchInvites]);
 
@@ -462,10 +539,10 @@ export function AuthProvider({ children, onNavigate, pathname }) {
           setUser(null);
         } else if (session?.user) {
           setUser({
-            ...session.user,
+            ...(session.user as Record<string, unknown>),
             access_token: session.access_token,
             refresh_token: session.refresh_token
-          });
+          } as AuthUser);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -540,17 +617,17 @@ export function AuthProvider({ children, onNavigate, pathname }) {
       if (data.session) {
         console.log("Session refreshed successfully");
         setUser({
-          ...data.session.user,
+          ...(data.session.user as Record<string, unknown>),
           access_token: data.session.access_token,
           refresh_token: data.session.refresh_token
-        });
-        return data.session.access_token;
+        } as AuthUser);
+        return data.session.access_token ?? null;
       } else {
         console.error("No session data returned after refresh");
         return null;
       }
     } catch (error) {
-      console.error("Error refreshing token:", error.message);
+      console.error("Error refreshing token:", (error as Error)?.message);
       // Force sign out on critical errors
       await supabase.auth.signOut();
       setUser(null);

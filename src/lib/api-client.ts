@@ -222,7 +222,11 @@ async function request<T = unknown>(method: string, path: string, opts: RequestO
 // ---- auth surface (matches supabase.auth.*) ----
 
 const auth = {
-  async signUp({ email, password, options }: { email: string; password: string; options?: { data?: unknown } }) {
+  async signUp({ email, password, options }: {
+    email: string;
+    password: string;
+    options?: { data?: unknown; emailRedirectTo?: string };
+  }) {
     const { data, error } = await request<AuthSession & { user?: unknown }>('POST', '/auth/signup', {
       auth: false,
       body: { email, password, meta: options?.data },
@@ -272,7 +276,7 @@ const auth = {
     return { data: { session: readAuth() }, error: null };
   },
 
-  async updateUser(/* updates */) {
+  async updateUser(_updates?: { password?: string; [key: string]: unknown }) {
     // TODO(backend): no self-service "change own password while authenticated"
     // endpoint exists yet. The email password-reset flow (POST /auth/password/forgot
     // → token email → POST /auth/password/reset) is the supported path.
@@ -286,7 +290,7 @@ const auth = {
     };
   },
 
-  async resetPasswordForEmail(email: string /* , opts */) {
+  async resetPasswordForEmail(email: string, _opts?: { redirectTo?: string }) {
     // POST /auth/password/forgot always returns 200 — backend never reveals
     // whether the address exists. Mirrors the Supabase surface so call-sites
     // don't need changes.
@@ -698,8 +702,8 @@ function serialize(v: unknown): string {
 
 function from(table: string) { return new Builder(table); }
 
-async function rpc(fn: string, args: unknown = {}) {
-  return request('POST', `/rpc/${encodeURIComponent(fn)}`, { body: args });
+async function rpc<T = unknown>(fn: string, args: unknown = {}) {
+  return request<T>('POST', `/rpc/${encodeURIComponent(fn)}`, { body: args });
 }
 
 // ---- edge-function-style invoke (matches supabase.functions.invoke) ----

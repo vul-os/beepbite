@@ -25,19 +25,60 @@ import {
   useMemo,
   useContext,
   createContext,
+  type ReactNode,
 } from 'react';
 
 const ACTOR_TTL_MS = 15 * 60 * 1000;  // 15 minutes absolute
 const IDLE_TTL_MS  = 15 * 60 * 1000;  // 15 minutes idle
 
+export interface Actor {
+  member_id: string | null;
+  staff_id: string | null;
+  location_id: string | null;
+  display_name: string;
+  role: string;
+  capabilities: string[];
+  slug: string | null;
+  _token: string;
+  _expiresAt: number;
+}
+
+export type PublicActor = Omit<Actor, '_token' | '_expiresAt'>;
+
+// Payload accepted by setActor() — either the new PIN-overlay shape or the
+// legacy flat shape (see setActor below for details).
+export interface ActorSetPayload {
+  actor_token?: string;
+  expires_at?: string;
+  staff?: { id?: string; display_name?: string; role?: string };
+  capabilities?: string[];
+  slug?: string;
+  member_id?: string;
+  staff_id?: string;
+  location_id?: string;
+  display_name?: string;
+  role?: string;
+  access_token?: string;
+  token?: string;
+}
+
+export interface ActorTokenContextValue {
+  actor: PublicActor | null;
+  setActor: (payload: ActorSetPayload) => void;
+  clearActor: () => void;
+  hasCapability: (name: string) => boolean;
+  isExpired: boolean;
+  attachToRequest: (headers: Headers | Record<string, string>) => void;
+}
+
 // Module-level singleton mirror so api-client.js can read the current actor
 // token without importing React. Populated / cleared by the Provider.
 // This is a plain object reference; it never touches storage.
-export const _actorRef = { current: null };
+export const _actorRef: { current: Actor | null } = { current: null };
 
-const ActorTokenContext = createContext(undefined);
+const ActorTokenContext = createContext<ActorTokenContextValue | undefined>(undefined);
 
-export function useActor() {
+export function useActor(): ActorTokenContextValue {
   const ctx = useContext(ActorTokenContext);
   if (ctx === undefined) {
     throw new Error('useActor must be used within an ActorTokenProvider');
@@ -45,15 +86,15 @@ export function useActor() {
   return ctx;
 }
 
-export function ActorTokenProvider({ children }) {
+export function ActorTokenProvider({ children }: { children: ReactNode }) {
   // actor shape: { member_id, staff_id, location_id, display_name, role,
   //               capabilities: string[], _token: string, _expiresAt: number }
-  const [actor, setActorState] = useState(null);
+  const [actor, setActorState] = useState<Actor | null>(null);
   const [isExpired, setIsExpired] = useState(false);
 
   // Refs for timer handles so they survive re-renders without adding deps.
-  const absoluteTimerRef = useRef(null);
-  const idleTimerRef     = useRef(null);
+  const absoluteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---- internal helpers -------------------------------------------------------
 
@@ -83,7 +124,7 @@ export function ActorTokenProvider({ children }) {
 
   // ---- public API -------------------------------------------------------------
 
-  const setActor = useCallback((payload) => {
+  const setActor = useCallback((payload: ActorSetPayload) => {
     if (!payload) return;
     // Accepts either shape:
     //   New overlay shape (POST /pos/pin-verify):
@@ -91,13 +132,13 @@ export function ActorTokenProvider({ children }) {
     //   Legacy flat shape (POST /auth/staff/pin-login):
     //     { access_token, member_id, staff_id, location_id, display_name, role, capabilities }
     const isOverlay = Boolean(payload.actor_token);
-    const staffRecord = isOverlay ? (payload.staff ?? {}) : payload;
+    const staffRecord: { id?: string; display_name?: string; role?: string } = isOverlay ? (payload.staff ?? {}) : {};
     const rawToken = isOverlay ? payload.actor_token : (payload.access_token ?? payload.token ?? '');
     const msUntilExpiry = isOverlay && payload.expires_at
       ? Math.max(0, new Date(payload.expires_at).getTime() - Date.now())
       : ACTOR_TTL_MS;
 
-    const next = {
+    const next: Actor = {
       member_id:    payload.member_id    ?? null,
       staff_id:     isOverlay ? (staffRecord.id ?? null) : (payload.staff_id ?? null),
       location_id:  payload.location_id  ?? null,
@@ -105,7 +146,7 @@ export function ActorTokenProvider({ children }) {
       role:         staffRecord.role         ?? payload.role         ?? '',
       capabilities: Array.isArray(payload.capabilities) ? payload.capabilities : [],
       slug:         payload.slug ?? null,
-      _token:       rawToken,
+      _token:       rawToken ?? '',
       _expiresAt:   Date.now() + msUntilExpiry,
     };
 
@@ -127,13 +168,13 @@ export function ActorTokenProvider({ children }) {
     setIsExpired(false);
   }, [_clearTimers]);
 
-  const hasCapability = useCallback((name) => {
+  const hasCapability = useCallback((name: string) => {
     if (!actor || isExpired) return false;
     return actor.capabilities.includes(name);
   }, [actor, isExpired]);
 
   // Mutates a plain headers object (or Headers instance) in-place.
-  const attachToRequest = useCallback((headers) => {
+  const attachToRequest = useCallback((headers: Headers | Record<string, string>) => {
     if (!actor || isExpired || !actor._token) return;
     if (headers instanceof Headers) {
       headers.set('X-Actor-Token', actor._token);
@@ -149,7 +190,7 @@ export function ActorTokenProvider({ children }) {
   useEffect(() => {
     if (!actor) return; // only track when an actor is set
 
-    const EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    const EVENTS: (keyof WindowEventMap)[] = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
     const handle = () => _resetIdleTimer();
 
     for (const ev of EVENTS) {
@@ -157,7 +198,7 @@ export function ActorTokenProvider({ children }) {
     }
     return () => {
       for (const ev of EVENTS) {
-        window.removeEventListener(ev, handle, { passive: true });
+        window.removeEventListener(ev, handle);
       }
     };
   }, [actor, _resetIdleTimer]);

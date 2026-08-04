@@ -35,6 +35,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  type ReactNode,
 } from 'react';
 import {
   currencyDecimals,
@@ -43,10 +44,21 @@ import {
   parseMoney,
 } from '@/lib/currency';
 
+export interface LocaleContextValue {
+  currency: string;
+  locale: string;
+  timezone: string;
+  country: string;
+  taxRate: number;
+  taxInclusive: boolean;
+  taxLabel: string;
+  phoneCountryCode: string;
+}
+
 /**
  * The neutral baseline. Every field is empty or UTC — no country is assumed.
  */
-const NEUTRAL = {
+const NEUTRAL: LocaleContextValue = {
   currency: '',
   locale: '',
   timezone: 'UTC',
@@ -57,7 +69,25 @@ const NEUTRAL = {
   phoneCountryCode: '',
 };
 
-const LocaleContext = createContext(NEUTRAL);
+const LocaleContext = createContext<LocaleContextValue>(NEUTRAL);
+
+/**
+ * Whatever shape the locations API happened to return — this module exists
+ * to normalise it, so the input is deliberately loose.
+ */
+export interface LocationLike {
+  currency_code?: string;
+  currency?: string;
+  default_currency_code?: string;
+  locale?: string;
+  timezone?: string;
+  country?: string;
+  tax_rate?: number | string;
+  tax_inclusive?: boolean;
+  tax_label?: string;
+  phone_country_code?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Read the currency code off whatever shape the API happened to return.
@@ -67,7 +97,7 @@ const LocaleContext = createContext(NEUTRAL);
  * every consumer to try all three — which is what they were doing — the
  * normalisation happens once, here.
  */
-function readCurrency(source) {
+function readCurrency(source?: LocationLike | null): string {
   if (!source) return '';
   return (
     source.currency_code ||
@@ -80,14 +110,17 @@ function readCurrency(source) {
 /**
  * LocaleProvider — wrap the app (or a location-scoped subtree) in this.
  *
- * @param {object} props
- * @param {object} [props.location] the active location/store record, in
+ * @param props.location the active location/store record, in
  *   whatever shape the API returned it. Currency, locale, timezone, tax and
  *   dial code are read off it defensively.
- * @param {object} [props.value] an explicit override, for tests and for
+ * @param props.value an explicit override, for tests and for
  *   subtrees that render another location's data (a consolidated report row).
  */
-export function LocaleProvider({ location, value, children }) {
+export function LocaleProvider({ location, value, children }: {
+  location?: LocationLike | null;
+  value?: Partial<LocaleContextValue>;
+  children: ReactNode;
+}) {
   const resolved = useMemo(() => {
     if (value) return { ...NEUTRAL, ...value };
     if (!location) return NEUTRAL;
@@ -116,12 +149,8 @@ export function LocaleProvider({ location, value, children }) {
 
 /**
  * useLocale — the active location's full locale posture.
- *
- * @returns {{currency: string, locale: string, timezone: string, country: string,
- *   taxRate: number, taxInclusive: boolean, taxLabel: string,
- *   phoneCountryCode: string}}
  */
-export function useLocale() {
+export function useLocale(): LocaleContextValue {
   return useContext(LocaleContext);
 }
 
@@ -134,28 +163,28 @@ export function useLocale() {
  *   const { format } = useMoney();
  *   <span>{format(order.total_cents)}</span>
  *
- * @param {object} [overrides] force a currency/locale, for a row that shows
+ * @param overrides force a currency/locale, for a row that shows
  *   another location's money (a consolidated report). Never needed on the
  *   normal single-location path.
  */
-export function useMoney(overrides) {
+export function useMoney(overrides?: { currency?: string; locale?: string }) {
   const ctx = useLocale();
   const currency = overrides?.currency ?? ctx.currency;
   const locale = overrides?.locale ?? ctx.locale;
 
   const format = useCallback(
-    (minor) => formatMoney(minor, { currency, locale }),
+    (minor: number | string) => formatMoney(minor, { currency, locale }),
     [currency, locale],
   );
 
   // Renders "USD 12.50" rather than "$12.50". For any view that puts two
   // currencies in one column, where $ alone is ambiguous.
   const formatWithCode = useCallback(
-    (minor) => formatMoney(minor, { currency, locale, showCode: true }),
+    (minor: number | string) => formatMoney(minor, { currency, locale, showCode: true }),
     [currency, locale],
   );
 
-  const parse = useCallback((text) => parseMoney(text, currency), [currency]);
+  const parse = useCallback((text: string) => parseMoney(text, currency), [currency]);
 
   return useMemo(
     () => ({
@@ -189,7 +218,7 @@ export function useDateTime() {
   const { locale, timezone } = useLocale();
 
   const formatDate = useCallback(
-    (value, options) =>
+    (value: string | number | Date, options?: Intl.DateTimeFormatOptions) =>
       new Date(value).toLocaleDateString(locale || undefined, {
         timeZone: timezone || 'UTC',
         ...options,
@@ -198,7 +227,7 @@ export function useDateTime() {
   );
 
   const formatTime = useCallback(
-    (value, options) =>
+    (value: string | number | Date, options?: Intl.DateTimeFormatOptions) =>
       new Date(value).toLocaleTimeString(locale || undefined, {
         timeZone: timezone || 'UTC',
         ...options,
@@ -207,7 +236,7 @@ export function useDateTime() {
   );
 
   const formatDateTime = useCallback(
-    (value, options) =>
+    (value: string | number | Date, options?: Intl.DateTimeFormatOptions) =>
       new Date(value).toLocaleString(locale || undefined, {
         timeZone: timezone || 'UTC',
         ...options,
