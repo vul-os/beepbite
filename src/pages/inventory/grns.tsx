@@ -13,21 +13,22 @@ import { Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import type { GoodsReceipt, ReceiveGRNResult } from './types';
 
-function fmtDate(iso) {
+function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString();
 }
 
 export default function GRNsPage() {
   const { activeLocation } = useAuth();
-  const [grns, setGRNs] = useState([]);
+  const [grns, setGRNs] = useState<GoodsReceipt[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [confirmGRN, setConfirmGRN] = useState(null);
+  const [confirmGRN, setConfirmGRN] = useState<GoodsReceipt | null>(null);
   const [receiving, setReceiving] = useState(false);
-  const [receiveResult, setReceiveResult] = useState(null);
+  const [receiveResult, setReceiveResult] = useState<ReceiveGRNResult | null>(null);
   const [receiveErr, setReceiveErr] = useState('');
 
   const fetchGRNs = useCallback(async () => {
@@ -47,7 +48,7 @@ export default function GRNsPage() {
       // filter via a view if needed.
       setGRNs(data || []);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load goods receipts');
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export default function GRNsPage() {
     setReceiveErr('');
     setReceiveResult(null);
     try {
-      const { data, error: err } = await api.request(
+      const { data, error: err } = await api.request<ReceiveGRNResult>(
         'POST',
         `/inventory/goods-receipts/${confirmGRN.id}/receive`,
         { body: {} }
@@ -70,13 +71,13 @@ export default function GRNsPage() {
       setReceiveResult(data);
       await fetchGRNs();
     } catch (e) {
-      setReceiveErr(e.message);
+      setReceiveErr(e instanceof Error ? e.message : 'Failed to receive GRN');
     } finally {
       setReceiving(false);
     }
   }
 
-  function openConfirm(grn) {
+  function openConfirm(grn: GoodsReceipt) {
     setConfirmGRN(grn);
     setReceiveResult(null);
     setReceiveErr('');
@@ -88,7 +89,7 @@ export default function GRNsPage() {
     setReceiveErr('');
   }
 
-  const isReceived = (grn) => !!grn.received_at;
+  const isReceived = (grn: GoodsReceipt) => !!grn.received_at;
 
   if (!activeLocation) {
     return (

@@ -20,12 +20,12 @@ import { ShoppingCart, Plus, AlertCircle, ChevronRight, Send } from 'lucide-reac
 import { useAuth } from '@/context/auth-context';
 import { useDateTime, useLocale } from '@/context/locale-context';
 import { formatMoney } from '@/lib/currency';
-import { usePOs } from './hooks/use-pos';
+import { usePOs, type POStatus, type PurchaseOrder } from './hooks/use-pos';
 import { useSuppliers } from './hooks/use-suppliers';
-import { POForm } from './components/po-form';
+import { POForm, type POFormPayload } from './components/po-form';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS: { value: POStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All Statuses' },
   { value: 'draft', label: 'Draft' },
   { value: 'sent', label: 'Sent' },
@@ -39,7 +39,7 @@ const STATUS_OPTIONS = [
 // yet), sent is the primary in-flight state, partially_received still needs
 // a follow-up so it reads as warning, received is the success state,
 // cancelled is the dead-end (destructive), closed is just filed away.
-function poStatusVariant(status) {
+function poStatusVariant(status: string): 'outline' | 'default' | 'warning' | 'success' | 'destructive' | 'secondary' {
   switch (status) {
     case 'draft': return 'outline';
     case 'sent': return 'default';
@@ -55,7 +55,7 @@ export default function PurchaseOrdersPage() {
   const { activeLocation, activeOrganization } = useAuth();
   const { locale } = useLocale();
   const { formatDate } = useDateTime();
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<POStatus | 'all'>('all');
   const { pos, loading, error, refetch, createPO, submitPO } = usePOs(activeLocation?.id, statusFilter);
   const { suppliers } = useSuppliers(activeOrganization?.id);
 
@@ -63,16 +63,16 @@ export default function PurchaseOrdersPage() {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState('');
 
-  const [detailPO, setDetailPO] = useState(null);
+  const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState('');
 
   // Each PO carries its own currency: a supplier may invoice the store in a
   // currency the store does not trade in, so the record wins over the location.
-  const fmtCents = (cents, currency) =>
+  const fmtCents = (cents: number | null | undefined, currency: string) =>
     formatMoney(cents ?? 0, { currency, locale });
 
-  const fmtDate = (iso) => (iso ? formatDate(iso) : '—');
+  const fmtDate = (iso: string | null | undefined) => (iso ? formatDate(iso) : '—');
 
   if (!activeLocation) {
     return (
@@ -83,7 +83,8 @@ export default function PurchaseOrdersPage() {
     );
   }
 
-  async function handleCreatePO(payload) {
+  async function handleCreatePO(payload: POFormPayload) {
+    if (!activeLocation) return;
     setSaving(true);
     setSaveErr('');
     try {
@@ -91,26 +92,26 @@ export default function PurchaseOrdersPage() {
       setNewPOOpen(false);
       setDetailPO(created);
     } catch (e) {
-      setSaveErr(e.message);
+      setSaveErr(e instanceof Error ? e.message : 'Failed to create purchase order');
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleSubmitPO(po) {
+  async function handleSubmitPO(po: PurchaseOrder) {
     setSubmitting(true);
     setSubmitErr('');
     try {
       const updated = await submitPO(po.id);
       setDetailPO(updated);
     } catch (e) {
-      setSubmitErr(e.message);
+      setSubmitErr(e instanceof Error ? e.message : 'Failed to submit purchase order');
     } finally {
       setSubmitting(false);
     }
   }
 
-  const supplierMap = Object.fromEntries(suppliers.map((s) => [s.id, s.name]));
+  const supplierMap: Record<string, string> = Object.fromEntries(suppliers.map((s) => [s.id, s.name]));
 
   return (
     <PageContainer>
@@ -127,7 +128,7 @@ export default function PurchaseOrdersPage() {
 
       {/* Status filter */}
       <div className="max-w-xs">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as POStatus | 'all')}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -182,7 +183,7 @@ export default function PurchaseOrdersPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {supplierMap[po.supplier_id] || 'No supplier'} &middot; {fmtDate(po.created_at)}
+                    {supplierMap[String(po.supplier_id)] || 'No supplier'} &middot; {fmtDate(po.created_at)}
                     {po.expected_delivery_date && ` &middot; ETA ${fmtDate(po.expected_delivery_date)}`}
                   </p>
                 </div>
@@ -229,7 +230,7 @@ export default function PurchaseOrdersPage() {
 
               <div className="space-y-2 text-sm text-foreground">
                 <div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-muted-foreground">Supplier</span><br />{supplierMap[detailPO.supplier_id] || '—'}</div>
+                  <div><span className="text-muted-foreground">Supplier</span><br />{supplierMap[String(detailPO.supplier_id)] || '—'}</div>
                   <div><span className="text-muted-foreground">Created</span><br />{fmtDate(detailPO.created_at)}</div>
                   <div><span className="text-muted-foreground">Expected delivery</span><br />{fmtDate(detailPO.expected_delivery_date)}</div>
                   <div><span className="text-muted-foreground">Currency</span><br />{detailPO.currency}</div>
