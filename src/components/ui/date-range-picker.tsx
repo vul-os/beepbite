@@ -1,6 +1,7 @@
 import * as React from "react";
 import { addDays, format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -10,6 +11,20 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+interface DateRangePickerProps
+  extends Omit<React.ComponentPropsWithoutRef<typeof Button>, "id" | "variant" | "className" | "children"> {
+  className?: string;
+  date?: DateRange;
+  setDate?: (date: DateRange | undefined) => void;
+  placeholder?: string;
+  presets?: boolean;
+}
+
+interface PresetRange {
+  label: string;
+  range: { from: Date; to: Date };
+}
+
 export function DateRangePicker({
   className,
   date,
@@ -17,15 +32,19 @@ export function DateRangePicker({
   placeholder = "Pick a date range",
   presets = true,
   ...props
-}) {
-  const [internalDate, setInternalDate] = React.useState({
+}: DateRangePickerProps) {
+  const [internalDate, setInternalDate] = React.useState<DateRange | undefined>({
     from: date?.from || undefined,
     to: date?.to || undefined,
   });
 
   // Sync internal state with external prop
+  // Non-null assertion below preserves original (unguarded) behavior: if
+  // internalDate is ever cleared to `undefined` by a range-deselect (see
+  // handleDateChange), this reads .from off undefined and throws, exactly
+  // as the pre-conversion JS did. Pre-existing latent bug, not fixed here.
   React.useEffect(() => {
-    if (date?.from !== internalDate.from || date?.to !== internalDate.to) {
+    if (date?.from !== internalDate!.from || date?.to !== internalDate!.to) {
       setInternalDate({
         from: date?.from || undefined,
         to: date?.to || undefined,
@@ -33,14 +52,14 @@ export function DateRangePicker({
     }
   }, [date]);
 
-  const handleDateChange = (newDate) => {
+  const handleDateChange = (newDate: DateRange | undefined) => {
     setInternalDate(newDate);
     if (setDate) {
       setDate(newDate);
     }
   };
 
-  const isPresetSelected = (preset) => {
+  const isPresetSelected = (preset: PresetRange) => {
     if (!internalDate?.from || !internalDate?.to) return false;
     return (
       internalDate.from.toDateString() === preset.range.from.toDateString() &&
@@ -48,7 +67,7 @@ export function DateRangePicker({
     );
   };
 
-  const presetRanges = [
+  const presetRanges: PresetRange[] = [
     {
       label: "Today",
       range: {
