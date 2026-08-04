@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { MenuSchedule, MenuScheduleSlot } from '../hooks/use-dashboard';
 
 // Returns ISO day-of-week 1 (Mon) – 7 (Sun) for "now" in local time.
 function isoDay() {
@@ -22,7 +23,7 @@ function localHHMM(date = new Date()) {
 
 // Returns true if the slot [start_time, end_time] covers `nowHHMM`.
 // Handles overnight windows (end < start).
-function slotActive(start, end, now) {
+function slotActive(start: string, end: string, now: string) {
   if (start <= end) {
     return now >= start && now < end;
   }
@@ -30,14 +31,23 @@ function slotActive(start, end, now) {
   return now >= start || now < end;
 }
 
-export default function ScheduleCard({ schedules, loading }) {
+interface ScheduleWithToday extends MenuSchedule {
+  todaySlots: MenuScheduleSlot[];
+}
+
+interface ScheduleCardProps {
+  schedules: MenuSchedule[];
+  loading: boolean;
+}
+
+export default function ScheduleCard({ schedules, loading }: ScheduleCardProps) {
   const navigate = useNavigate();
 
   const { active, inactive } = useMemo(() => {
     const now = localHHMM();
     const day = isoDay();
-    const active = [];
-    const inactive = [];
+    const active: ScheduleWithToday[] = [];
+    const inactive: ScheduleWithToday[] = [];
 
     for (const s of schedules) {
       const slots = s.slots || [];
