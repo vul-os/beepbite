@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/__tests__/setup.js'],
+    setupFiles: ['./src/__tests__/setup.ts'],
     include: ['src/__tests__/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     // Each test file runs in its own worker (forks) to isolate memory.
     // The POS workspace has a large dep graph; NODE_OPTIONS in the npm

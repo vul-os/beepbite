@@ -1,4 +1,4 @@
-// ulid.test.js — unit tests for src/offline/ulid.js
+// ulid.test.ts — unit tests for src/offline/ulid.js
 import { describe, it, expect } from 'vitest';
 import { ulid } from '../offline/ulid.js';
 

@@ -1,4 +1,4 @@
-// denominations.test.js
+// denominations.test.ts
 //
 // Pins the two properties the cash-drawer UI depends on and that a regression
 // would silently break: denominations are integer MINOR units (a fractional
