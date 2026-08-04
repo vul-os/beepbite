@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,26 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Lock, AlertCircle, Utensils, CheckCircle2 } from 'lucide-react';
 import AuthLayout from './auth-layout';
 
+interface FormData {
+  email: string;
+  password: string;
+  agreeToTerms: boolean;
+}
+
+interface FormErrors {
+  email?: string;
+  password?: string;
+  agreeToTerms?: string;
+  submit?: string;
+}
+
 const SignUpPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { signUp } = useAuth();
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
     agreeToTerms: false,
@@ -32,7 +45,7 @@ const SignUpPage = () => {
   const pwStarted = formData.password.length > 0;
 
   const validateForm = () => {
-    const newErrors = {};
+    const newErrors: FormErrors = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
@@ -48,15 +61,15 @@ const SignUpPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
+    if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (validateForm()) {
       setIsLoading(true);
@@ -65,7 +78,7 @@ const SignUpPage = () => {
         // signUp() calls the Go backend which issues tokens immediately.
         // Navigation is handled by auth context after SIGNED_IN event.
       } catch (error) {
-        setErrors(prev => ({ ...prev, submit: error.message }));
+        setErrors(prev => ({ ...prev, submit: error instanceof Error ? error.message : String(error) }));
       } finally {
         setIsLoading(false);
       }
@@ -183,7 +196,7 @@ const SignUpPage = () => {
                   id="signup-terms"
                   checked={formData.agreeToTerms}
                   onCheckedChange={(checked) => {
-                    setFormData(prev => ({ ...prev, agreeToTerms: checked }));
+                    setFormData(prev => ({ ...prev, agreeToTerms: Boolean(checked) }));
                     if (errors.agreeToTerms) {
                       setErrors(prev => ({ ...prev, agreeToTerms: undefined }));
                     }

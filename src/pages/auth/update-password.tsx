@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,11 +9,22 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api-client';
 import AuthLayout from './auth-layout';
 
+interface FormData {
+  password: string;
+  confirmPassword: string;
+}
+
+interface FormErrors {
+  password?: string;
+  confirmPassword?: string;
+  submit?: string;
+}
+
 const UpdatePasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [formData, setFormData] = useState({ password: '', confirmPassword: '' });
-  const [errors, setErrors] = useState({});
+  const [formData, setFormData] = useState<FormData>({ password: '', confirmPassword: '' });
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdated, setIsUpdated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -30,7 +41,7 @@ const UpdatePasswordPage = () => {
   const passwordsMatch = formData.password === formData.confirmPassword;
 
   const validateForm = () => {
-    const newErrors = {};
+    const newErrors: FormErrors = {};
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       newErrors.password = 'Password must be at least 8 characters with 1 number and 1 uppercase letter';
@@ -42,15 +53,15 @@ const UpdatePasswordPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
+    if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validateForm()) return;
 
