@@ -9,7 +9,7 @@
 // The page uses the api-client's actor-overlay mechanism, so X-Actor-Token is
 // attached automatically when a staff PIN overlay is active.
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Clock, LogIn, LogOut, Coffee, RefreshCw, Edit2, Check, AlertCircle, Circle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -34,14 +34,25 @@ import {
   editEntry,
   formatTimestamp,
   entryTypeLabel,
+  type TimeEntry,
 } from '@/services/timeclock';
 import { supabase } from '@/services/supabase-client';
+import type { BadgeProps } from '@/components/ui/badge';
+
+// Mirrors backend/migrations/001_baseline.sql `staff` table (subset selected below).
+interface StaffMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role?: string | null;
+  is_active: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function badgeVariant(type) {
+function badgeVariant(type: string): NonNullable<BadgeProps['variant']> {
   if (type === 'clock_in') return 'success';
   if (type === 'break_start' || type === 'break_end') return 'warning';
   return 'outline';
@@ -51,12 +62,12 @@ function badgeVariant(type) {
 // most recent entry. Entries are appended newest-first by the page (both the
 // initial manager load and each fresh clock action), but this re-sorts by
 // timestamp defensively rather than trusting array order.
-function deriveClockStatus(entries, staffId) {
+function deriveClockStatus(entries: TimeEntry[], staffId: string): 'in' | 'break' | 'out' | null {
   if (!staffId) return null;
   const forStaff = entries.filter((e) => e.staff_id === staffId);
   if (forStaff.length === 0) return null;
   const [last] = [...forStaff].sort(
-    (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
   if (last.entry_type === 'clock_in' || last.entry_type === 'break_end') return 'in';
   if (last.entry_type === 'break_start') return 'break';
@@ -67,7 +78,13 @@ function deriveClockStatus(entries, staffId) {
 // ---------------------------------------------------------------------------
 // Edit entry dialog (manager)
 // ---------------------------------------------------------------------------
-function EditEntryDialog({ entry, onClose, onSaved }) {
+interface EditEntryDialogProps {
+  entry: TimeEntry;
+  onClose: () => void;
+  onSaved: (updated: TimeEntry) => void;
+}
+
+function EditEntryDialog({ entry, onClose, onSaved }: EditEntryDialogProps) {
   const [entryType, setEntryType] = useState(entry.entry_type);
   const [timestamp, setTimestamp] = useState(
     entry.timestamp ? entry.timestamp.slice(0, 16) : ''
@@ -75,7 +92,7 @@ function EditEntryDialog({ entry, onClose, onSaved }) {
   const [notes, setNotes] = useState(entry.notes || '');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -91,7 +108,7 @@ function EditEntryDialog({ entry, onClose, onSaved }) {
       setError(result.error);
       return;
     }
-    onSaved(result.data);
+    onSaved(result.data!);
     onClose();
   };
 
@@ -163,11 +180,17 @@ function EditEntryDialog({ entry, onClose, onSaved }) {
 // ---------------------------------------------------------------------------
 // Clock action panel
 // ---------------------------------------------------------------------------
-function ClockPanel({ staff, onAction, entries = [] }) {
+interface ClockPanelProps {
+  staff: StaffMember[];
+  onAction: (newEntry: TimeEntry) => void;
+  entries?: TimeEntry[];
+}
+
+function ClockPanel({ staff, onAction, entries = [] }: ClockPanelProps) {
   const [selectedId, setSelectedId] = useState('');
   const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(null); // 'in' | 'out' | null
-  const [message, setMessage] = useState(null); // { ok, text }
+  const [loading, setLoading] = useState<'in' | 'out' | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const selectedMember = staff.find((s) => s.id === selectedId);
   const selectedName = selectedMember
@@ -175,7 +198,7 @@ function ClockPanel({ staff, onAction, entries = [] }) {
     : '';
   const clockStatus = deriveClockStatus(entries, selectedId);
 
-  const doAction = async (action) => {
+  const doAction = async (action: 'in' | 'out') => {
     if (!selectedId) return;
     setLoading(action);
     setMessage(null);
@@ -193,7 +216,7 @@ function ClockPanel({ staff, onAction, entries = [] }) {
     const verb = action === 'in' ? 'clocked in' : 'clocked out';
     setMessage({ ok: true, text: `${label} ${verb} successfully.` });
     setNotes('');
-    onAction(result.data);
+    onAction(result.data!);
   };
 
   return (
@@ -303,8 +326,15 @@ function ClockPanel({ staff, onAction, entries = [] }) {
 // ---------------------------------------------------------------------------
 // Entries list (manager)
 // ---------------------------------------------------------------------------
-function EntriesPanel({ entries, isManager, onRefresh, onEntryEdited }) {
-  const [editingEntry, setEditingEntry] = useState(null);
+interface EntriesPanelProps {
+  entries: TimeEntry[];
+  isManager: boolean;
+  onRefresh: () => void;
+  onEntryEdited: (updated: TimeEntry) => void;
+}
+
+function EntriesPanel({ entries, isManager, onRefresh, onEntryEdited }: EntriesPanelProps) {
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [filterStaffId, setFilterStaffId] = useState('');
 
   const filtered = filterStaffId
@@ -399,8 +429,8 @@ function EntriesPanel({ entries, isManager, onRefresh, onEntryEdited }) {
 // ---------------------------------------------------------------------------
 export default function TimeClockPage() {
   const { activeLocation } = useAuth();
-  const [staff, setStaff] = useState([]);
-  const [entries, setEntries] = useState([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [loadingEntries, setLoadingEntries] = useState(true);
   const [isManager, setIsManager] = useState(false);
@@ -451,11 +481,11 @@ export default function TimeClockPage() {
   // don't trigger a 403 on mount.
   useEffect(() => { if (isManager) loadEntries(); }, [isManager, loadEntries]);
 
-  const handleAction = (newEntry) => {
+  const handleAction = (newEntry: TimeEntry) => {
     setEntries((prev) => [newEntry, ...prev]);
   };
 
-  const handleEntryEdited = (updated) => {
+  const handleEntryEdited = (updated: TimeEntry) => {
     setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
   };
 
