@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,34 +43,94 @@ import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import DriverInvitesPanel from '@/components/driver-invites-panel';
 import MemberInvitesPanel from '@/components/member-invites-panel';
 
+// Mirrors backend/migrations/001_baseline.sql `staff` table.
+interface StaffMember {
+  id: string;
+  location_id: string;
+  member_id?: string | null;
+  employee_id?: string | null;
+  first_name: string;
+  last_name: string;
+  display_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  role: string;
+  is_active: boolean;
+  last_login_at?: string | null;
+  failed_login_attempts?: number;
+  locked_until?: string | null;
+  password_hash?: string | null;
+  password_set_at?: string | null;
+  must_change_password?: boolean;
+  pin_hash?: string | null;
+  username?: string | null;
+  hire_date?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `staff_time_entries` table,
+// embedded-joined to `staff` (first_name, last_name, employee_id).
+interface TimeEntry {
+  id: string;
+  staff_id: string;
+  entry_type: 'clock_in' | 'clock_out' | 'break_start' | 'break_end';
+  timestamp: string;
+  notes?: string | null;
+  staff: {
+    first_name: string;
+    last_name: string;
+    employee_id?: string | null;
+  };
+}
+
+interface StaffFormData {
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: string;
+  hire_date: string;
+  notes: string;
+  is_active: boolean;
+}
+
+interface DeleteTarget {
+  id: string;
+  name: string;
+}
+
 const Staff = () => {
-  const { activeLocation, activeOrganization } = useAuth();
+  const { activeLocation } = useAuth();
   const { toast } = useToast();
-  const [staff, setStaff] = useState([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState(null);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [activeTab, setActiveTab] = useState('staff');
-  const [timeEntries, setTimeEntries] = useState([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loadingTimeEntries, setLoadingTimeEntries] = useState(false);
-  const [selectedStaffId, setSelectedStaffId] = useState(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
 
   // Delete-staff confirmation state
-  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name } | null
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // PIN management state
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
-  const [pinTargetStaff, setPinTargetStaff] = useState(null);
+  const [pinTargetStaff, setPinTargetStaff] = useState<StaffMember | null>(null);
   const [newPin, setNewPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [pinSuccess, setPinSuccess] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<StaffFormData>({
     employee_id: '',
     first_name: '',
     last_name: '',
@@ -90,11 +150,12 @@ const Staff = () => {
       setStaff([]);
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLocation]);
 
   const fetchStaff = async () => {
     if (!activeLocation) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -102,7 +163,7 @@ const Staff = () => {
         .select('*')
         .eq('location_id', activeLocation.id)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setStaff(data || []);
     } catch (error) {
@@ -112,7 +173,7 @@ const Staff = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof StaffFormData, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -136,7 +197,7 @@ const Staff = () => {
 
   // ---- PIN management ----
 
-  const openPinDialog = (staffMember) => {
+  const openPinDialog = (staffMember: StaffMember) => {
     setPinTargetStaff(staffMember);
     setNewPin('');
     setPinError('');
@@ -152,7 +213,7 @@ const Staff = () => {
     setPinSuccess(false);
   };
 
-  const handleSetPin = async (e) => {
+  const handleSetPin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmed = newPin.trim();
     if (trimmed.length < 4 || trimmed.length > 6 || !/^\d+$/.test(trimmed)) {
@@ -162,7 +223,7 @@ const Staff = () => {
     setSavingPin(true);
     setPinError('');
     try {
-      const { error } = await api.request('POST', `/staff/${pinTargetStaff.id}/set-pin`, {
+      const { error } = await api.request('POST', `/staff/${pinTargetStaff?.id}/set-pin`, {
         body: { pin: trimmed },
       });
       if (error) {
@@ -184,7 +245,7 @@ const Staff = () => {
     setSaving(true);
     try {
       // In a real app, you'd hash the password on the backend
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('staff')
         .insert({
           location_id: activeLocation.id,
@@ -203,7 +264,7 @@ const Staff = () => {
         .single();
 
       if (error) {
-        if (error.code === '23505') {
+        if ((error as { code?: string }).code === '23505') {
           if (error.message.includes('email')) {
             throw new Error('This email is already in use');
           } else if (error.message.includes('employee_id')) {
@@ -219,7 +280,8 @@ const Staff = () => {
       toast({ title: 'Staff member added successfully.' });
     } catch (error) {
       console.error('Error adding staff:', error);
-      toast({ variant: 'destructive', title: 'Failed to add staff member', description: error.message });
+      const message = error instanceof Error ? error.message : undefined;
+      toast({ variant: 'destructive', title: 'Failed to add staff member', description: message });
     } finally {
       setSaving(false);
     }
@@ -233,7 +295,19 @@ const Staff = () => {
 
     setSaving(true);
     try {
-      const updateData = {
+      const updateData: {
+        employee_id: string | null;
+        first_name: string;
+        last_name: string;
+        email: string;
+        phone: string | null;
+        role: string;
+        hire_date: string | null;
+        notes: string | null;
+        is_active: boolean;
+        updated_at: string;
+        password_hash?: string;
+      } = {
         employee_id: formData.employee_id || null,
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
@@ -257,7 +331,7 @@ const Staff = () => {
         .eq('id', editingStaff.id);
 
       if (error) {
-        if (error.code === '23505') {
+        if ((error as { code?: string }).code === '23505') {
           if (error.message.includes('email')) {
             throw new Error('This email is already in use');
           } else if (error.message.includes('employee_id')) {
@@ -274,13 +348,14 @@ const Staff = () => {
       toast({ title: 'Staff member updated successfully.' });
     } catch (error) {
       console.error('Error updating staff:', error);
-      toast({ variant: 'destructive', title: 'Failed to update staff member', description: error.message });
+      const message = error instanceof Error ? error.message : undefined;
+      toast({ variant: 'destructive', title: 'Failed to update staff member', description: message });
     } finally {
       setSaving(false);
     }
   };
 
-  const requestDeleteStaff = (staffId, staffName) => {
+  const requestDeleteStaff = (staffId: string, staffName: string) => {
     setDeleteTarget({ id: staffId, name: staffName });
   };
 
@@ -302,14 +377,15 @@ const Staff = () => {
       setDeleteTarget(null);
     } catch (error) {
       console.error('Error deleting staff:', error);
-      toast({ variant: 'destructive', title: 'Failed to delete staff member', description: error.message });
+      const message = error instanceof Error ? error.message : undefined;
+      toast({ variant: 'destructive', title: 'Failed to delete staff member', description: message });
     } finally {
       setActionLoading('');
       setDeleting(false);
     }
   };
 
-  const toggleStaffStatus = async (staffId, currentStatus) => {
+  const toggleStaffStatus = async (staffId: string, currentStatus: boolean) => {
     setActionLoading(staffId);
     try {
       const { error } = await supabase
@@ -319,18 +395,19 @@ const Staff = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', staffId);
-      
+
       if (error) throw error;
       fetchStaff();
     } catch (error) {
       console.error('Error updating staff status:', error);
-      toast({ variant: 'destructive', title: 'Failed to update staff status', description: error.message });
+      const message = error instanceof Error ? error.message : undefined;
+      toast({ variant: 'destructive', title: 'Failed to update staff status', description: message });
     } finally {
       setActionLoading('');
     }
   };
 
-  const openEditModal = (staffMember) => {
+  const openEditModal = (staffMember: StaffMember) => {
     setEditingStaff(staffMember);
     setFormData({
       employee_id: staffMember.employee_id || '',
@@ -347,7 +424,7 @@ const Staff = () => {
     setIsEditModalOpen(true);
   };
 
-  const getRoleIcon = (role) => {
+  const getRoleIcon = (role: string) => {
     switch (role) {
       case 'owner':
         return <Crown className="w-4 h-4" />;
@@ -364,7 +441,7 @@ const Staff = () => {
     }
   };
 
-  const getInitials = (firstName, lastName) => {
+  const getInitials = (firstName?: string | null, lastName?: string | null) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
   };
 
@@ -373,16 +450,16 @@ const Staff = () => {
     const email = member.email?.toLowerCase() || '';
     const employeeId = member.employee_id?.toLowerCase() || '';
     const search = searchTerm.toLowerCase();
-    
-    return fullName.includes(search) || 
-           email.includes(search) || 
+
+    return fullName.includes(search) ||
+           email.includes(search) ||
            employeeId.includes(search);
   });
 
   // New functions for time and attendance
-  const fetchTimeEntries = async (staffId = null) => {
+  const fetchTimeEntries = async (staffId: string | null = null) => {
     if (!activeLocation) return;
-    
+
     setLoadingTimeEntries(true);
     try {
       let query = supabase
@@ -408,7 +485,7 @@ const Staff = () => {
       }
 
       const { data, error } = await query;
-      
+
       if (error) throw error;
       setTimeEntries(data || []);
     } catch (error) {
@@ -418,12 +495,12 @@ const Staff = () => {
     }
   };
 
-  const handleTimeEntry = async (staffId, entryType) => {
+  const handleTimeEntry = async (staffId: string, entryType: string) => {
     if (!activeLocation) return;
-    
+
     setActionLoading(staffId);
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('staff_time_entries')
         .insert({
           staff_id: staffId,
@@ -435,24 +512,25 @@ const Staff = () => {
         .single();
 
       if (error) throw error;
-      
+
       fetchTimeEntries(selectedStaffId);
     } catch (error) {
       console.error('Error recording time entry:', error);
-      toast({ variant: 'destructive', title: 'Failed to record time entry', description: error.message });
+      const message = error instanceof Error ? error.message : undefined;
+      toast({ variant: 'destructive', title: 'Failed to record time entry', description: message });
     } finally {
       setActionLoading('');
     }
   };
 
-  const getLatestTimeEntry = (staffId) => {
+  const getLatestTimeEntry = (staffId: string) => {
     return timeEntries.find(entry => entry.staff_id === staffId);
   };
 
-  const getTimeEntryStatus = (staffId) => {
+  const getTimeEntryStatus = (staffId: string) => {
     const latestEntry = getLatestTimeEntry(staffId);
     if (!latestEntry) return 'out';
-    
+
     switch (latestEntry.entry_type) {
       case 'clock_in':
         return 'in';
@@ -467,7 +545,7 @@ const Staff = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'in':
         return (
@@ -518,7 +596,7 @@ const Staff = () => {
     );
   }
 
-  const StaffForm = ({ isEdit = false }) => (
+  const StaffForm = ({ isEdit = false }: { isEdit?: boolean }) => (
     <div className="space-y-4 mt-4 max-h-96 overflow-y-auto">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -533,7 +611,7 @@ const Staff = () => {
             required
           />
         </div>
-        
+
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
             Last Name <span className="text-destructive">*</span>
@@ -547,7 +625,7 @@ const Staff = () => {
           />
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
@@ -562,7 +640,7 @@ const Staff = () => {
             required
           />
         </div>
-        
+
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
             Phone
@@ -576,7 +654,7 @@ const Staff = () => {
           />
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
@@ -589,7 +667,7 @@ const Staff = () => {
             className="w-full"
           />
         </div>
-        
+
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
             Role <span className="text-destructive">*</span>
@@ -633,7 +711,7 @@ const Staff = () => {
           </Select>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
@@ -648,7 +726,7 @@ const Staff = () => {
             required={!isEdit}
           />
         </div>
-        
+
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
             Hire Date
@@ -661,7 +739,7 @@ const Staff = () => {
           />
         </div>
       </div>
-      
+
       <div>
         <label className="text-sm font-medium text-foreground block mb-2">
           Notes
@@ -674,7 +752,7 @@ const Staff = () => {
           className="w-full"
         />
       </div>
-      
+
       <div className="flex items-center gap-3">
         <input
           type="checkbox"
@@ -714,15 +792,15 @@ const Staff = () => {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="border-b border-primary/15 bg-transparent">
-            <TabsTrigger 
-              value="staff" 
+            <TabsTrigger
+              value="staff"
               className="flex items-center gap-2 data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:border-primary"
             >
               <Users className="w-4 h-4" />
               Staff List
             </TabsTrigger>
-            <TabsTrigger 
-              value="attendance" 
+            <TabsTrigger
+              value="attendance"
               className="flex items-center gap-2 data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:border-primary"
               onClick={() => fetchTimeEntries(selectedStaffId)}
             >
@@ -757,7 +835,7 @@ const Staff = () => {
 
             {/* Desktop Add Button */}
             <div className="hidden sm:flex justify-end">
-              <Button 
+              <Button
                 onClick={() => {
                   resetForm();
                   setIsAddModalOpen(true);
@@ -784,7 +862,7 @@ const Staff = () => {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -800,7 +878,7 @@ const Staff = () => {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -816,7 +894,7 @@ const Staff = () => {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-primary/15 hover:border-primary/25 transition-colors bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -835,7 +913,7 @@ const Staff = () => {
             {/* Staff Grid */}
             <div className="space-y-6">
               <h2 className="font-display text-xl font-semibold text-foreground">Staff Members</h2>
-              
+
               {filteredStaff.length === 0 ? (
                 <Card className="border-primary/15 bg-card">
                   <CardContent className="p-12 text-center">
@@ -846,13 +924,13 @@ const Staff = () => {
                       {searchTerm ? 'No staff found' : 'No staff members yet'}
                     </h3>
                     <p className="text-muted-foreground mb-6">
-                      {searchTerm 
-                        ? 'Try adjusting your search terms' 
+                      {searchTerm
+                        ? 'Try adjusting your search terms'
                         : 'Add staff members to manage your team'
                       }
                     </p>
                     {!searchTerm && (
-                      <Button 
+                      <Button
                         onClick={() => {
                           resetForm();
                           setIsAddModalOpen(true);
@@ -869,7 +947,7 @@ const Staff = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                   {filteredStaff.map((staffMember) => {
                     const isLoading = actionLoading === staffMember.id;
-                    
+
                     return (
                       <Card key={staffMember.id} className="border-primary/15 hover:border-primary/25 hover:shadow-md transition-all duration-200 bg-card">
                         <CardContent className="p-6">
@@ -881,7 +959,7 @@ const Staff = () => {
                                   {getInitials(staffMember.first_name, staffMember.last_name)}
                                 </AvatarFallback>
                               </Avatar>
-                              
+
                               <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-foreground text-lg truncate mb-1">
                                   {staffMember.first_name} {staffMember.last_name}
@@ -889,13 +967,13 @@ const Staff = () => {
                                 <p className="text-sm text-muted-foreground truncate mb-2">
                                   {staffMember.email}
                                 </p>
-                                
+
                                 {staffMember.employee_id && (
                                   <p className="text-xs text-muted-foreground mb-2 font-mono">
                                     ID: {staffMember.employee_id}
                                   </p>
                                 )}
-                                
+
                                 <div className="flex items-center gap-2 mb-2">
                                   <Badge
                                     variant="outline"
@@ -919,13 +997,13 @@ const Staff = () => {
                                     {staffMember.is_active ? 'Active' : 'Inactive'}
                                   </Badge>
                                 </div>
-                                
+
                                 {staffMember.hire_date && (
                                   <p className="text-xs text-muted-foreground mb-2">
                                     Hired: {format(new Date(staffMember.hire_date), 'MMM dd, yyyy')}
                                   </p>
                                 )}
-                                
+
                                 <p className="text-xs text-muted-foreground">
                                   Added {formatDistanceToNow(new Date(staffMember.created_at), { addSuffix: true })}
                                 </p>
@@ -1011,8 +1089,8 @@ const Staff = () => {
               {/* Filter Controls */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
-                  <Select 
-                    value={selectedStaffId || 'all'} 
+                  <Select
+                    value={selectedStaffId || 'all'}
                     onValueChange={(value) => {
                       setSelectedStaffId(value === 'all' ? null : value);
                       fetchTimeEntries(value === 'all' ? null : value);
@@ -1038,7 +1116,7 @@ const Staff = () => {
                 {staff.filter(member => member.is_active).map((member) => {
                   const status = getTimeEntryStatus(member.id);
                   const isLoading = actionLoading === member.id;
-                  
+
                   return (
                     <Card key={member.id} className="border-primary/15 hover:border-primary/25 hover:shadow-md transition-all duration-200 bg-card">
                       <CardContent className="p-6">
@@ -1050,14 +1128,14 @@ const Staff = () => {
                                 {getInitials(member.first_name, member.last_name)}
                               </AvatarFallback>
                             </Avatar>
-                            
+
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-foreground text-lg truncate mb-2">
                                 {member.first_name} {member.last_name}
                               </h3>
-                              
+
                               {getStatusBadge(status)}
-                              
+
                               {member.employee_id && (
                                 <p className="text-xs text-muted-foreground mt-2 font-mono">
                                   ID: {member.employee_id}
@@ -1079,7 +1157,7 @@ const Staff = () => {
                                 Clock In
                               </Button>
                             )}
-                            
+
                             {status === 'in' && (
                               <>
                                 <Button
@@ -1091,7 +1169,7 @@ const Staff = () => {
                                   <Coffee className="w-3 h-3 mr-1" />
                                   Start Break
                                 </Button>
-                                
+
                                 <Button
                                   size="sm"
                                   onClick={() => handleTimeEntry(member.id, 'clock_out')}
@@ -1103,7 +1181,7 @@ const Staff = () => {
                                 </Button>
                               </>
                             )}
-                            
+
                             {status === 'break' && (
                               <Button
                                 size="sm"
@@ -1126,7 +1204,7 @@ const Staff = () => {
               {/* Time Entry History */}
               <div className="space-y-4">
                 <h3 className="font-display text-lg font-semibold text-foreground">Recent Time Entries</h3>
-                
+
                 {loadingTimeEntries ? (
                   <div className="space-y-4">
                     {[...Array(3)].map((_, i) => (
@@ -1154,7 +1232,7 @@ const Staff = () => {
                                 {format(parseISO(entry.timestamp), 'MMM dd, yyyy HH:mm:ss')}
                               </p>
                             </div>
-                            <Badge 
+                            <Badge
                               variant="outline"
                               className={cn(
                                 "capitalize",
@@ -1189,19 +1267,19 @@ const Staff = () => {
               Add a new staff member to {activeLocation?.name}.
             </DialogDescription>
           </DialogHeader>
-          
+
           <StaffForm />
-          
+
           <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsAddModalOpen(false)}
               className="flex-1 border-primary/25 text-primary hover:bg-primary/5"
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={addStaff}
               disabled={saving}
               className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -1229,19 +1307,19 @@ const Staff = () => {
               Update information for {editingStaff?.first_name} {editingStaff?.last_name}.
             </DialogDescription>
           </DialogHeader>
-          
+
           <StaffForm isEdit={true} />
-          
+
           <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsEditModalOpen(false)}
               className="flex-1 border-primary/25 text-primary hover:bg-primary/5"
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={editStaff}
               disabled={saving}
               className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -1371,4 +1449,4 @@ const Staff = () => {
   );
 };
 
-export default Staff; 
+export default Staff;
