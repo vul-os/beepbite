@@ -9,23 +9,35 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { RecordPaymentDialog } from './record-payment-dialog';
+import { RecordPaymentDialog, type HouseAccountInvoice } from './record-payment-dialog';
 import { FileText, Loader2 } from 'lucide-react';
 import { HOUSE_ACCOUNT_INVOICE_STATUS_COLORS } from '@/lib/status-colors';
 import { useMoney } from '@/context/locale-context';
 
-function statusBadge(status) {
-  const cls = HOUSE_ACCOUNT_INVOICE_STATUS_COLORS[status] || HOUSE_ACCOUNT_INVOICE_STATUS_COLORS.open;
-  const label = status === 'paid' ? 'paid' : status === 'partial' ? 'partial' : 'open';
+function statusBadge(status: HouseAccountInvoice['status']) {
+  // Only 3 visual states exist for this badge; anything other than
+  // paid/partial reads as "open" (draft/sent/overdue/cancelled all fall
+  // through) -- same behavior as the previous `[status] || ...open` lookup,
+  // just keyed by the already-reduced label so it matches the color map's
+  // real (3-key) shape.
+  const label: keyof typeof HOUSE_ACCOUNT_INVOICE_STATUS_COLORS =
+    status === 'paid' ? 'paid' : status === 'partial' ? 'partial' : 'open';
+  const cls = HOUSE_ACCOUNT_INVOICE_STATUS_COLORS[label];
   return <Badge className={cls}>{label}</Badge>;
 }
 
-export function InvoicesTab({ accountId, fetchInvoices, payInvoice }) {
+interface InvoicesTabProps {
+  accountId: string;
+  fetchInvoices: () => Promise<HouseAccountInvoice[]>;
+  payInvoice: (invoiceId: string, cents: number) => Promise<void>;
+}
+
+export function InvoicesTab({ accountId, fetchInvoices, payInvoice }: InvoicesTabProps) {
   const { format: centsToDisplay } = useMoney();
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState<HouseAccountInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState(null);
-  const [payTarget, setPayTarget] = useState(null); // invoice being paid
+  const [err, setErr] = useState<string | null>(null);
+  const [payTarget, setPayTarget] = useState<HouseAccountInvoice | null>(null); // invoice being paid
   const [payOpen, setPayOpen] = useState(false);
 
   async function load() {
@@ -35,7 +47,7 @@ export function InvoicesTab({ accountId, fetchInvoices, payInvoice }) {
       setInvoices(data);
       setErr(null);
     } catch (e) {
-      setErr(e.message || 'Failed to load invoices');
+      setErr(e instanceof Error ? e.message : 'Failed to load invoices');
     } finally {
       setLoading(false);
     }
@@ -46,12 +58,12 @@ export function InvoicesTab({ accountId, fetchInvoices, payInvoice }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
-  function openPayDialog(inv) {
+  function openPayDialog(inv: HouseAccountInvoice) {
     setPayTarget(inv);
     setPayOpen(true);
   }
 
-  async function handlePay(invoiceId, cents) {
+  async function handlePay(invoiceId: string, cents: number) {
     await payInvoice(invoiceId, cents);
     await load();
   }
