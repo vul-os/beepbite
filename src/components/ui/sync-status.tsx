@@ -62,7 +62,7 @@ export function useSyncStatus() {
 }
 
 /** Compact pill — top bar, settings header, anywhere with room for one line. */
-export function SyncStatusBadge({ className }) {
+export function SyncStatusBadge({ className }: { className?: string }) {
   const { t } = useTranslation();
   const { status, pending } = useSyncStatus();
 
@@ -110,7 +110,7 @@ export function SyncStatusBadge({ className }) {
  * on-charcoal palette used by the KDS/POS-till chrome instead of the default
  * light-surface tokens.
  */
-export function OfflineBanner({ dark = false, className }) {
+export function OfflineBanner({ dark = false, className }: { dark?: boolean; className?: string }) {
   const { t } = useTranslation();
   const { status, pending } = useSyncStatus();
 

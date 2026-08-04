@@ -1,23 +1,44 @@
-import { Check, Circle, Clock } from 'lucide-react';
+import type * as React from 'react';
+import { Check, Circle, Clock, type LucideIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const Stepper = ({ 
-  steps = [], 
-  currentStep = 0, 
+// Not currently referenced anywhere in the app (verified: only this file
+// mentions `Stepper`), but converted like every other primitive here rather
+// than dropped — deleting unused-but-exported components is a behavior/API
+// change out of scope for a type migration.
+interface Step {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  details?: React.ReactNode;
+  icon?: LucideIcon;
+}
+
+interface StepperProps {
+  steps?: Step[];
+  currentStep?: number;
+  orientation?: 'horizontal' | 'vertical';
+  className?: string;
+  showStepNumbers?: boolean;
+  variant?: 'default' | 'minimal' | 'cards';
+}
+
+const Stepper = ({
+  steps = [],
+  currentStep = 0,
   orientation = 'horizontal',
   className,
   showStepNumbers = true,
   variant = 'default' // 'default' | 'minimal' | 'cards'
-}) => {
-  const getStepStatus = (stepIndex) => {
+}: StepperProps) => {
+  const getStepStatus = (stepIndex: number) => {
     if (stepIndex < currentStep) return 'completed';
     if (stepIndex === currentStep) return 'current';
     return 'upcoming';
   };
 
-  const getStepIcon = (stepIndex, step) => {
+  const getStepIcon = (stepIndex: number, step: Step) => {
     const status = getStepStatus(stepIndex);
     
     if (status === 'completed') {
@@ -43,15 +64,15 @@ const Stepper = ({
     );
   };
 
-  const getStepIconBg = (stepIndex) => {
+  const getStepIconBg = (stepIndex: number) => {
     const status = getStepStatus(stepIndex);
-    
+
     if (status === 'completed') return 'bg-gray-600 border-gray-600';
     if (status === 'current') return 'beepbite-gradient border-orange-500';
     return 'bg-white border-gray-300';
   };
 
-  const getConnectorColor = (stepIndex) => {
+  const getConnectorColor = (stepIndex: number) => {
     return stepIndex < currentStep ? 'bg-gray-600' : 'bg-gray-200';
   };
 

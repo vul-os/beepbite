@@ -1,7 +1,19 @@
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import * as React from "react";
+import { ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
+import { Card, type CardProps } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+
+interface StatCardProps extends Omit<CardProps, "variant"> {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  delta?: number | string | null;
+  deltaLabel?: React.ReactNode;
+  icon?: LucideIcon;
+  hint?: React.ReactNode;
+  loading?: boolean;
+  iconClassName?: string;
+}
 
 /**
  * StatCard — a single KPI tile.
@@ -28,9 +40,9 @@ export function StatCard({
   className,
   iconClassName,
   ...props
-}) {
+}: StatCardProps) {
   const hasDelta = delta !== undefined && delta !== null && delta !== "";
-  const deltaNum = typeof delta === "number" ? delta : parseFloat(delta);
+  const deltaNum = typeof delta === "number" ? delta : parseFloat(String(delta));
   const isUp = Number.isFinite(deltaNum) ? deltaNum >= 0 : true;
 
   return (

@@ -4,7 +4,12 @@
 // ready notifier. That's gone: this is a point-of-sale now, and a badge that
 // reads "something needs your attention" has no business sitting on the
 // wordmark of every screen.
-const Logo = ({ className = "", variant = "default" }) => {
+interface LogoProps {
+  className?: string;
+  variant?: "default" | "minimal";
+}
+
+const Logo = ({ className = "", variant = "default" }: LogoProps) => {
   if (variant === "minimal") {
     return (
       <div className={`flex items-center ${className}`}>
