@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ const OnboardingPopup = () => {
   const trimmedName = name.trim();
   const isValid = trimmedName.length >= 2;
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isValid || loading) return;
 
@@ -52,9 +52,10 @@ const OnboardingPopup = () => {
         title: 'Welcome!',
         description: `${trimmedName} created. Add a location from Settings when you're ready.`,
       });
-    } catch (err) {
-      const detail = err?.message || err?.error || JSON.stringify(err);
-      const status = err?.status ? ` (${err.status})` : '';
+    } catch (err: unknown) {
+      const errObj = err && typeof err === 'object' ? (err as Record<string, unknown>) : null;
+      const detail = errObj?.message || errObj?.error || JSON.stringify(err);
+      const status = errObj?.status ? ` (${errObj.status})` : '';
       console.error('Onboarding error:', err);
       toast({
         title: 'Setup failed',
