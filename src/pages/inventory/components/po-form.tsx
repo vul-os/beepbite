@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,30 +11,61 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api-client';
 import { Plus, Trash2 } from 'lucide-react';
+import type { Supplier, InventoryItemBrief } from '../types';
 
-const EMPTY_LINE = {
+interface POFormLine {
+  inventory_item_id: string;
+  ordered_quantity: string;
+  ordered_unit: string;
+  ordered_unit_price: string; // major units — converted to cents on submit
+}
+
+const EMPTY_LINE: POFormLine = {
   inventory_item_id: '',
   ordered_quantity: '',
   ordered_unit: '',
   ordered_unit_price: '', // major units — converted to cents on submit
 };
 
-function centsToMajor(cents) {
+// The POST /inventory/purchase-orders request body this form builds.
+export interface POFormPayload {
+  location_id: string;
+  supplier_id: string;
+  po_number: string;
+  expected_delivery_date: string;
+  notes: string;
+  lines: {
+    inventory_item_id: string;
+    ordered_quantity: number;
+    ordered_unit: string;
+    ordered_unit_price_cents: number;
+  }[];
+}
+
+function centsToMajor(cents: number | null | undefined): string {
   return cents != null ? (cents / 100).toFixed(2) : '';
 }
 
-function majorToCents(str) {
+function majorToCents(str: string): number {
   const v = parseFloat(str);
   return isNaN(v) ? 0 : Math.round(v * 100);
 }
 
-export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
+interface POFormProps {
+  locationId: string;
+  suppliers: Supplier[];
+  onSubmit: (payload: POFormPayload) => Promise<void> | void;
+  onCancel: () => void;
+  saving?: boolean;
+}
+
+export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }: POFormProps) {
   const [supplierId, setSupplierId] = useState('');
   const [poNumber, setPoNumber] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [lines, setLines] = useState([{ ...EMPTY_LINE }]);
-  const [inventoryItems, setInventoryItems] = useState([]);
+  const [lines, setLines] = useState<POFormLine[]>([{ ...EMPTY_LINE }]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItemBrief[]>([]);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -46,7 +77,7 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
       .then(({ data }) => setInventoryItems(data || []));
   }, [locationId]);
 
-  function setLine(idx, field, value) {
+  function setLine<K extends keyof POFormLine>(idx: number, field: K, value: POFormLine[K]) {
     setLines((prev) => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
   }
 
@@ -54,23 +85,23 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }) {
     setLines((prev) => [...prev, { ...EMPTY_LINE }]);
   }
 
-  function removeLine(idx) {
+  function removeLine(idx: number) {
     setLines((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function lineTotal(line) {
+  function lineTotal(line: POFormLine): string {
     const qty = parseFloat(line.ordered_quantity) || 0;
     const price = parseFloat(line.ordered_unit_price) || 0;
     return (qty * price).toFixed(2);
   }
 
-  function grandTotal() {
+  function grandTotal(): string {
     return lines.reduce((sum, l) => {
       return sum + (parseFloat(l.ordered_quantity) || 0) * (parseFloat(l.ordered_unit_price) || 0);
     }, 0).toFixed(2);
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!poNumber.trim()) { setErr('PO number is required'); return; }
     if (lines.length === 0) { setErr('At least one line item is required'); return; }

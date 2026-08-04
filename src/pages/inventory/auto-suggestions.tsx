@@ -8,19 +8,27 @@ import { useAuth } from '@/context/auth-context';
 import { useMoney } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import type { POSuggestion, AutoPOSuggestionsResponse } from './types';
+
+interface CreateResult {
+  supplier: string;
+  ok: boolean;
+  po_number?: string;
+  message?: string;
+}
 
 export default function AutoSuggestionsPage() {
   const { activeLocation } = useAuth();
   // Suggestions are drafts for this location and carry no currency of their
   // own, so the location's currency is the right one.
   const { format: fmtCents } = useMoney();
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<POSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // selected: Set of supplier_id keys (one PO per supplier)
-  const [selected, setSelected] = useState(new Set());
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [creating, setCreating] = useState(false);
-  const [createResults, setCreateResults] = useState([]);
+  const [createResults, setCreateResults] = useState<CreateResult[]>([]);
 
   const fetchSuggestions = useCallback(async () => {
     if (!activeLocation) return;
@@ -28,7 +36,7 @@ export default function AutoSuggestionsPage() {
     setError('');
     setCreateResults([]);
     try {
-      const { data, error: err } = await api.request(
+      const { data, error: err } = await api.request<AutoPOSuggestionsResponse>(
         'GET',
         `/inventory/auto-po-suggestions?location_id=${activeLocation.id}`
       );
@@ -38,7 +46,7 @@ export default function AutoSuggestionsPage() {
       // Pre-select all
       setSelected(new Set(list.map((_, i) => i)));
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load suggestions');
     } finally {
       setLoading(false);
     }
@@ -46,7 +54,7 @@ export default function AutoSuggestionsPage() {
 
   useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
 
-  function toggleSelect(idx) {
+  function toggleSelect(idx: number) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
@@ -59,11 +67,11 @@ export default function AutoSuggestionsPage() {
     const toCreate = suggestions.filter((_, i) => selected.has(i));
     if (toCreate.length === 0) return;
     setCreating(true);
-    const results = [];
+    const results: CreateResult[] = [];
     for (const sug of toCreate) {
       const poNumber = `AUTO-${sug.supplier_id.slice(0, 6).toUpperCase()}-${Date.now()}`;
       try {
-        const { data, error: err } = await api.request('POST', '/inventory/purchase-orders', {
+        const { data, error: err } = await api.request<{ po_number?: string }>('POST', '/inventory/purchase-orders', {
           body: {
             location_id: sug.location_id,
             supplier_id: sug.supplier_id,
@@ -79,7 +87,7 @@ export default function AutoSuggestionsPage() {
         if (err) throw new Error(err.message);
         results.push({ supplier: sug.supplier_name, ok: true, po_number: data?.po_number });
       } catch (e) {
-        results.push({ supplier: sug.supplier_name, ok: false, message: e.message });
+        results.push({ supplier: sug.supplier_name, ok: false, message: e instanceof Error ? e.message : 'Failed to create PO' });
       }
     }
     setCreateResults(results);
