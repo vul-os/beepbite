@@ -1,41 +1,33 @@
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode, type ComponentProps } from "react"
 
-/**
- * @typedef {"dark" | "light" | "system"} Theme
- */
+type Theme = "dark" | "light" | "system"
 
-/**
- * @typedef {Object} ThemeProviderState
- * @property {Theme} theme
- * @property {(theme: Theme) => void} setTheme
- */
+interface ThemeProviderState {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+}
 
-/**
- * @typedef {Object} ThemeProviderProps
- * @property {React.ReactNode} children
- * @property {Theme} [defaultTheme]
- * @property {string} [storageKey]
- */
+interface ThemeProviderProps {
+  children: ReactNode
+  defaultTheme?: Theme
+  storageKey?: string
+}
 
-/** @type {ThemeProviderState} */
-const initialState = {
+const initialState: ThemeProviderState = {
   theme: "system",
   setTheme: () => null,
 }
 
-const ThemeProviderContext = createContext(initialState)
+const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
-/**
- * @param {ThemeProviderProps} props
- */
 export function ThemeProvider({
   children,
   defaultTheme = "system",
   storageKey = "vite-ui-theme",
   ...props
-}) {
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem(storageKey) || defaultTheme
+}: ThemeProviderProps & Omit<ComponentProps<typeof ThemeProviderContext.Provider>, 'value' | 'children'>) {
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem(storageKey) as Theme | null) || defaultTheme
   )
 
   useEffect(() => {
@@ -54,9 +46,9 @@ export function ThemeProvider({
     root.classList.add(theme)
   }, [theme])
 
-  const value = {
+  const value: ThemeProviderState = {
     theme,
-    setTheme: (theme) => {
+    setTheme: (theme: Theme) => {
       localStorage.setItem(storageKey, theme)
       setTheme(theme)
     },
