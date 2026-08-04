@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { api } from '@/lib/api-client';
 import { useMoney } from '@/context/locale-context';
 import { cn } from '@/lib/utils';
 import { Loader2, LockKeyhole, CheckCircle2, AlertTriangle, AlertOctagon } from 'lucide-react';
+import type { CashSession } from '../index';
 
 /**
  * CloseSessionModal
@@ -30,6 +31,15 @@ import { Loader2, LockKeyhole, CheckCircle2, AlertTriangle, AlertOctagon } from 
  *
  * Requires LocaleProvider above it.
  */
+interface CloseSessionModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  session: CashSession;
+  staffId: string;
+  expectedCents: number;
+  onClosed?: (closedSession: CashSession) => void;
+}
+
 export function CloseSessionModal({
   open,
   onOpenChange,
@@ -37,19 +47,19 @@ export function CloseSessionModal({
   staffId,
   expectedCents,
   onClosed,
-}) {
+}: CloseSessionModalProps) {
   const { format, parse, symbol, scale, decimals } = useMoney();
-  const [denomCounts, setDenomCounts] = useState({});
+  const [denomCounts, setDenomCounts] = useState<Record<string, number>>({});
   const [denomTotalCents, setDenomTotalCents] = useState(0);
   const [useDenomsForTotal, setUseDenomsForTotal] = useState(false);
   const [manualCents, setManualCents] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const isBlind = session?.is_blind_close ?? false;
 
-  const handleDenomChange = (counts, totalCents) => {
+  const handleDenomChange = (counts: Record<string, number>, totalCents: number) => {
     setDenomCounts(counts);
     setDenomTotalCents(totalCents);
   };
@@ -76,14 +86,14 @@ export function CloseSessionModal({
         ? 'warning'
         : 'destructive';
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     if (!session?.id) return;
 
     setSubmitting(true);
     try {
-      const { data, error: apiErr } = await api.request(
+      const { data, error: apiErr } = await api.request<CashSession>(
         'POST',
         `/cash-drawers/sessions/${session.id}/close`,
         {
@@ -97,9 +107,9 @@ export function CloseSessionModal({
       );
       if (apiErr) throw new Error(apiErr.message);
       onOpenChange(false);
-      onClosed?.(data);
+      if (data) onClosed?.(data);
     } catch (err) {
-      setError(err.message || 'Failed to close session');
+      setError(err instanceof Error ? err.message : 'Failed to close session');
     } finally {
       setSubmitting(false);
     }

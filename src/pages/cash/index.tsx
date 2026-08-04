@@ -16,18 +16,65 @@ import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { Loader2, AlertCircle, Vault } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+// Mirrors backend/migrations/001_baseline.sql `cash_drawers` table.
+export interface CashDrawer {
+  id: string;
+  location_id: string;
+  name: string;
+  is_active: boolean;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `cash_drawer_movements` table.
+export interface CashMovement {
+  id: string;
+  cash_drawer_session_id: string;
+  movement_type: 'paid_in' | 'paid_out' | 'petty_cash' | 'tip_out' | 'no_sale' | 'drop' | 'pickup';
+  amount_cents: number;
+  reason?: string | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  performed_by?: string | null;
+  approved_by?: string | null;
+  created_at: string;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `cash_drawer_sessions` table,
+// with `movements` attached client-side by GET /cash-drawers/sessions/{id}.
+export interface CashSession {
+  id: string;
+  cash_drawer_id: string;
+  opened_by?: string | null;
+  closed_by?: string | null;
+  opening_float_cents: number;
+  declared_closing_cents?: number | null;
+  expected_closing_cents?: number | null;
+  over_short_cents?: number | null;
+  is_blind_close: boolean;
+  status: 'open' | 'closed' | 'reconciled';
+  opened_at: string;
+  closed_at?: string | null;
+  notes?: string | null;
+  cashier_label?: string | null;
+  movements?: CashMovement[];
+  [key: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function useDrawers(locationId) {
-  const [drawers, setDrawers] = useState([]);
+function useDrawers(locationId: string | undefined) {
+  const [drawers, setDrawers] = useState<CashDrawer[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!locationId) { setDrawers([]); return; }
     setLoading(true);
     api
-      .request('GET', `/data/cash_drawers?eq=location_id,${locationId}&eq=is_active,true`)
+      .request<CashDrawer[]>('GET', `/data/cash_drawers?eq=location_id,${locationId}&eq=is_active,true`)
       .then(({ data }) => setDrawers(Array.isArray(data) ? data : []))
       .catch(() => setDrawers([]))
       .finally(() => setLoading(false));
@@ -36,24 +83,24 @@ function useDrawers(locationId) {
   return { drawers, loading };
 }
 
-function useOpenSession(drawerId) {
-  const [session, setSession] = useState(undefined); // undefined = not-yet-loaded
+function useOpenSession(drawerId: string) {
+  const [session, setSession] = useState<CashSession | null | undefined>(undefined); // undefined = not-yet-loaded
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     if (!drawerId) { setSession(null); return; }
     setLoading(true);
     setError(null);
     api
-      .request('GET', `/cash-drawers/${drawerId}/sessions?status=open`)
+      .request<CashSession[] | CashSession>('GET', `/cash-drawers/${drawerId}/sessions?status=open`)
       .then(({ data, error: apiErr }) => {
         if (apiErr) throw new Error(apiErr.message);
         const sessions = Array.isArray(data) ? data : data ? [data] : [];
         setSession(sessions[0] || null); // null = no open session
       })
       .catch((err) => {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : String(err));
         setSession(null);
       })
       .finally(() => setLoading(false));
@@ -65,15 +112,15 @@ function useOpenSession(drawerId) {
 }
 
 // Fetch full session detail (includes movements array)
-function useSessionDetail(sessionId) {
-  const [detail, setDetail] = useState(null);
+function useSessionDetail(sessionId: string | null) {
+  const [detail, setDetail] = useState<CashSession | null>(null);
   const [loading, setLoading] = useState(false);
 
   const reload = useCallback(() => {
     if (!sessionId) { setDetail(null); return; }
     setLoading(true);
     api
-      .request('GET', `/cash-drawers/sessions/${sessionId}`)
+      .request<CashSession>('GET', `/cash-drawers/sessions/${sessionId}`)
       .then(({ data }) => setDetail(data || null))
       .catch(() => setDetail(null))
       .finally(() => setLoading(false));
@@ -114,7 +161,7 @@ export default function CashPage() {
     useSessionDetail(openSession?.id ?? null);
 
   // After close we show the EOD report
-  const [closedSession, setClosedSession] = useState(null);
+  const [closedSession, setClosedSession] = useState<CashSession | null>(null);
 
   // When drawer changes, clear closed report
   useEffect(() => { setClosedSession(null); }, [drawerId]);
@@ -128,7 +175,7 @@ export default function CashPage() {
     reloadDetail();
   };
 
-  const handleSessionClosed = (sess) => {
+  const handleSessionClosed = (sess: CashSession) => {
     setClosedSession(sess);
     reloadSession();
   };

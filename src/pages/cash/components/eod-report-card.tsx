@@ -4,8 +4,25 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
 import { useMoney } from '@/context/locale-context';
 import { BarChart2, Loader2 } from 'lucide-react';
+import type { CashSession } from '../index';
 
-function fmtDate(iso) {
+// Mirrors backend/migrations/001_baseline.sql VIEW cash_drawer_eod_report.
+interface EodReportRow {
+  session_id: string;
+  cash_drawer_id: string;
+  opened_at: string;
+  closed_at: string | null;
+  status: string;
+  payment_method_code: string | null;
+  payment_method_name: string | null;
+  expected_cents: number;
+  cash_movements_in_cents: number;
+  cash_movements_out_cents: number;
+  declared_cents: number | null;
+  over_short_cents: number | null;
+}
+
+function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: 'medium',
@@ -13,7 +30,7 @@ function fmtDate(iso) {
   });
 }
 
-function OverShortBadge({ cents }) {
+function OverShortBadge({ cents }: { cents: number | null | undefined }) {
   // "Over"/"Short" already carry the sign, so the amount is rendered absolute.
   // Being short is treated as the more serious direction (destructive) than
   // being over (warning) — cash missing from a drawer needs an explanation
@@ -46,22 +63,26 @@ function OverShortBadge({ cents }) {
  *
  * Requires LocaleProvider above it.
  */
-export function EodReportCard({ session }) {
+interface EodReportCardProps {
+  session: CashSession;
+}
+
+export function EodReportCard({ session }: EodReportCardProps) {
   const { format } = useMoney();
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState<EodReportRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.id) return;
     setLoading(true);
     api
-      .request('GET', `/data/cash_drawer_eod_report?eq=session_id,${session.id}`)
+      .request<EodReportRow[] | EodReportRow>('GET', `/data/cash_drawer_eod_report?eq=session_id,${session.id}`)
       .then(({ data, error: apiErr }) => {
         if (apiErr) throw new Error(apiErr.message);
         setRows(Array.isArray(data) ? data : data ? [data] : []);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
   }, [session?.id]);
 

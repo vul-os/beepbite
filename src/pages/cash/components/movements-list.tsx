@@ -3,13 +3,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMoney } from '@/context/locale-context';
+import type { CashMovement } from '../index';
 
 // Colour follows cash direction, not seven arbitrary hues: money coming into
 // the drawer (paid_in, petty_cash, drop) reads success; money leaving
 // (paid_out, tip_out, pickup) reads warning — worth a glance, not alarming,
 // since outflows are routine till operations, not errors. `no_sale` moves no
 // cash at all, so it stays neutral.
-const TYPE_LABELS = {
+const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   paid_in:    { label: 'Paid In',    color: 'bg-success/15 text-success border-success/30' },
   paid_out:   { label: 'Paid Out',   color: 'bg-warning/15 text-warning border-warning/30' },
   petty_cash: { label: 'Petty Cash', color: 'bg-success/15 text-success border-success/30' },
@@ -21,7 +22,7 @@ const TYPE_LABELS = {
 
 const PAGE_SIZE = 10;
 
-function fmtDate(iso) {
+function fmtDate(iso?: string | null) {
   if (!iso) return '';
   return new Date(iso).toLocaleString(undefined, {
     month: 'short',
@@ -39,13 +40,17 @@ function fmtDate(iso) {
  *
  * Requires LocaleProvider above it.
  */
-export function MovementsList({ movements = [] }) {
+interface MovementsListProps {
+  movements?: CashMovement[];
+}
+
+export function MovementsList({ movements = [] }: MovementsListProps) {
   const { format } = useMoney();
   const [page, setPage] = useState(1);
 
   // Explicit +/- prefix on an absolute amount: an inflow needs a visible '+',
   // which no currency format supplies.
-  const fmtSigned = (cents) =>
+  const fmtSigned = (cents: number) =>
     `${cents < 0 ? '-' : '+'}${format(Math.abs(cents))}`;
 
   if (movements.length === 0) {

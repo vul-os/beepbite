@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,9 +11,10 @@ import { api } from '@/lib/api-client';
 import { hasCapability } from '@/services/pos';
 import { useMoney } from '@/context/locale-context';
 import { Loader2, LockKeyhole, PlusCircle, Wallet } from 'lucide-react';
+import type { CashSession, CashMovement } from '../index';
 
 // Movement types with inflow/outflow sign convention
-const MOVEMENT_TYPES = [
+const MOVEMENT_TYPES: { value: CashMovement['movement_type']; label: string; sign: number }[] = [
   { value: 'paid_in',    label: 'Paid In',    sign: 1  },
   { value: 'paid_out',   label: 'Paid Out',   sign: -1 },
   { value: 'petty_cash', label: 'Petty Cash', sign: 1  },
@@ -23,7 +24,7 @@ const MOVEMENT_TYPES = [
   { value: 'pickup',     label: 'Pickup',     sign: -1 },
 ];
 
-function fmtDate(iso) {
+function fmtDate(iso?: string | null) {
   if (!iso) return '';
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: 'medium',
@@ -42,13 +43,20 @@ function fmtDate(iso) {
  *
  * Requires LocaleProvider above it.
  */
-export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed }) {
+interface SessionCardProps {
+  session: CashSession;
+  staffId: string;
+  onMovementAdded?: () => void;
+  onSessionClosed?: (session: CashSession) => void;
+}
+
+export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed }: SessionCardProps) {
   const { format, parse, symbol, scale, decimals } = useMoney();
-  const [movType, setMovType] = useState('paid_in');
+  const [movType, setMovType] = useState<CashMovement['movement_type']>('paid_in');
   const [amountMajor, setAmountMajor] = useState('');
   const [reason, setReason] = useState('');
   const [movLoading, setMovLoading] = useState(false);
-  const [movError, setMovError] = useState(null);
+  const [movError, setMovError] = useState<string | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
 
   const canSettle = hasCapability('can_settle');
@@ -64,7 +72,7 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
   const selectedType = MOVEMENT_TYPES.find((t) => t.value === movType);
   const sign = selectedType?.sign ?? 1;
 
-  const handleAddMovement = async (e) => {
+  const handleAddMovement = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMovError(null);
     const absVal = Math.abs(parse(amountMajor) ?? 0);
@@ -94,7 +102,7 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
       setReason('');
       onMovementAdded?.();
     } catch (err) {
-      setMovError(err.message || 'Failed to record movement');
+      setMovError(err instanceof Error ? err.message : 'Failed to record movement');
     } finally {
       setMovLoading(false);
     }
@@ -161,7 +169,7 @@ export function SessionCard({ session, staffId, onMovementAdded, onSessionClosed
                 <Label className="text-xs text-muted-foreground">Type</Label>
                 <RadioGroup
                   value={movType}
-                  onValueChange={setMovType}
+                  onValueChange={(v) => setMovType(v as CashMovement['movement_type'])}
                   className="grid grid-cols-2 sm:grid-cols-4 gap-2"
                 >
                   {MOVEMENT_TYPES.map((t) => (

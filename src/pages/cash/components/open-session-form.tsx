@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { DenominationGrid } from './denomination-grid';
 import { api } from '@/lib/api-client';
 import { useMoney } from '@/context/locale-context';
 import { Loader2, Unlock } from 'lucide-react';
+import type { CashSession } from '../index';
 
 /**
  * OpenSessionForm
@@ -18,17 +19,23 @@ import { Loader2, Unlock } from 'lucide-react';
  *
  * Requires LocaleProvider above it.
  */
-export function OpenSessionForm({ drawerId, staffId, onOpened }) {
+interface OpenSessionFormProps {
+  drawerId: string;
+  staffId: string;
+  onOpened?: (session: CashSession | null) => void;
+}
+
+export function OpenSessionForm({ drawerId, staffId, onOpened }: OpenSessionFormProps) {
   const { format, parse, symbol, scale, decimals } = useMoney();
   const [floatMajor, setFloatMajor] = useState('');
-  const [denomCounts, setDenomCounts] = useState({});
+  const [denomCounts, setDenomCounts] = useState<Record<string, number>>({});
   const [denomTotalCents, setDenomTotalCents] = useState(0);
-  const [useFloat, setUseFloat] = useState('manual'); // 'manual' | 'denominations'
+  const [useFloat, setUseFloat] = useState<'manual' | 'denominations'>('manual');
   const [isBlindClose, setIsBlindClose] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleDenomChange = (counts, totalCents) => {
+  const handleDenomChange = (counts: Record<string, number>, totalCents: number) => {
     setDenomCounts(counts);
     setDenomTotalCents(totalCents);
     if (useFloat === 'denominations') {
@@ -43,7 +50,7 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
       ? denomTotalCents
       : parse(floatMajor) ?? 0;
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     if (!drawerId) { setError('No drawer selected'); return; }
@@ -51,7 +58,7 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
 
     setSubmitting(true);
     try {
-      const { data, error: apiErr } = await api.request(
+      const { data, error: apiErr } = await api.request<CashSession>(
         'POST',
         `/cash-drawers/${drawerId}/sessions/open`,
         {
@@ -66,7 +73,7 @@ export function OpenSessionForm({ drawerId, staffId, onOpened }) {
       if (apiErr) throw new Error(apiErr.message);
       onOpened?.(data);
     } catch (err) {
-      setError(err.message || 'Failed to open session');
+      setError(err instanceof Error ? err.message : 'Failed to open session');
     } finally {
       setSubmitting(false);
     }

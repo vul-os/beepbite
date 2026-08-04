@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Card,
   CardContent,
@@ -10,11 +10,60 @@ import { Loader2, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, User } fr
 import { fetchCashOut } from '@/services/cashout';
 import { useMoney } from '@/context/locale-context';
 
+// Mirrors backend/internal/handlers/cashout/store.go MovementLine/
+// StaffSummary/CashOutReport — the REAL shape of GET /cash-out/{session_id}.
+// NOTE: services/cashout.ts's exported `CashOutReport` interface (fields
+// opening_float/cash_sales/movements/expected/counted/variance) does NOT
+// match what the backend actually sends (opening_float_cents/
+// cash_sales_cents/movements_net_cents/expected_cash_cents/
+// counted_cash_cents/variance_cents, plus status/opened_at/closed_at/staff/
+// is_blind_close/declared_closing_cents/over_short_cents) — a pre-existing
+// type-accuracy defect in that shared file, flagged not fixed here. This
+// component types the real response shape locally instead of using the
+// service's (inaccurate) exported type.
+interface CashOutMovementLine {
+  id: string;
+  movement_type: string;
+  amount_cents: number;
+  reason?: string | null;
+  performed_by?: string | null;
+  created_at: string;
+}
+
+interface CashOutStaffSummary {
+  shift_id: string;
+  staff_id: string;
+  opened_at: string;
+  closed_at?: string | null;
+  shift_notes?: string | null;
+}
+
+interface CashOutReportData {
+  session_id: string;
+  cash_drawer_id: string;
+  location_id: string;
+  status: string;
+  opened_at: string;
+  closed_at?: string | null;
+  is_blind_close: boolean;
+  opening_float_cents: number;
+  cash_sales_cents: number;
+  movements_net_cents: number;
+  expected_cash_cents: number;
+  counted_cash_cents?: number | null;
+  variance_cents?: number | null;
+  is_balanced: boolean;
+  declared_closing_cents?: number | null;
+  over_short_cents?: number | null;
+  movements: CashOutMovementLine[];
+  staff?: CashOutStaffSummary | null;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmtDate(iso) {
+function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: 'medium',
@@ -22,8 +71,8 @@ function fmtDate(iso) {
   });
 }
 
-function movementLabel(type) {
-  const MAP = {
+function movementLabel(type: string) {
+  const MAP: Record<string, string> = {
     paid_in:    'Paid In',
     paid_out:   'Paid Out',
     petty_cash: 'Petty Cash',
@@ -39,7 +88,14 @@ function movementLabel(type) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function ReportRow({ label, value, sub, highlight }) {
+interface ReportRowProps {
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  highlight?: boolean;
+}
+
+function ReportRow({ label, value, sub, highlight }: ReportRowProps) {
   return (
     <div
       className={`flex items-center justify-between py-2 border-b last:border-0 ${
@@ -68,16 +124,20 @@ function ReportRow({ label, value, sub, highlight }) {
  * Requires LocaleProvider above it. The report carries a location_id but no
  * currency of its own, so the provider must be scoped to that same location.
  */
-export function CashOutReport({ sessionId }) {
+interface CashOutReportProps {
+  sessionId?: string;
+}
+
+export function CashOutReport({ sessionId }: CashOutReportProps) {
   const { format, scale } = useMoney();
-  const [report, setReport] = useState(null);
+  const [report, setReport] = useState<CashOutReportData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState(null);
+  const [error, setError]   = useState<string | null>(null);
 
   // Inside the component because they need the hook; a negative amount already
   // formats with its own minus sign, so only the '+' has to be added.
-  const fmt = (cents) => format(cents ?? 0);
-  const fmtSigned = (cents) =>
+  const fmt = (cents?: number | null) => format(cents ?? 0);
+  const fmtSigned = (cents?: number | null) =>
     cents == null ? '—' : `${cents >= 0 ? '+' : ''}${format(cents)}`;
 
   useEffect(() => {
@@ -92,7 +152,7 @@ export function CashOutReport({ sessionId }) {
       if (apiErr) {
         setError(apiErr.message ?? 'Failed to load cash-out report');
       } else {
-        setReport(data);
+        setReport(data as unknown as CashOutReportData | null);
       }
       setLoading(false);
     });
@@ -274,7 +334,7 @@ export function CashOutReport({ sessionId }) {
               ? '—'
               : isBalanced
               ? fmt(0)
-              : `${isShort ? '' : '+'}${format(variance)}`}
+              : `${isShort ? '' : '+'}${format(variance as number)}`}
           </div>
           {!isUncounted && (
             <div className="flex items-center gap-1 mt-1">
@@ -283,9 +343,9 @@ export function CashOutReport({ sessionId }) {
               {isBalanced && <CheckCircle2 className="h-4 w-4 text-success" />}
               <span className={`text-sm ${varianceColor}`}>
                 {isShort
-                  ? `Drawer is ${fmt(Math.abs(variance))} short of expected`
+                  ? `Drawer is ${fmt(Math.abs(variance as number))} short of expected`
                   : isOver
-                  ? `Drawer is ${fmt(Math.abs(variance))} over expected`
+                  ? `Drawer is ${fmt(Math.abs(variance as number))} over expected`
                   : 'Drawer is exactly balanced'}
               </span>
             </div>
