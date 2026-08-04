@@ -1,5 +1,6 @@
+import type { ComponentProps } from 'react';
 
-export const VisuallyHidden = ({ children, ...props }) => {
+export const VisuallyHidden = ({ children, ...props }: ComponentProps<'span'>) => {
   return (
     <span
       style={{
