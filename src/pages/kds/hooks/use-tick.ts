@@ -10,8 +10,10 @@
 
 import { useEffect, useState } from 'react';
 
-const subscribers = new Set();
-let intervalId = null;
+type Subscriber = (now: number) => void;
+
+const subscribers = new Set<Subscriber>();
+let intervalId: ReturnType<typeof setInterval> | null = null;
 let lastNow = Date.now();
 
 function start() {
