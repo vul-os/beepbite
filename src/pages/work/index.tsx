@@ -26,7 +26,7 @@
 // with the selected station id injected.
 
 /* eslint-disable react/prop-types */
-import {
+import React, {
   lazy,
   Suspense,
   useCallback,
@@ -43,6 +43,21 @@ import { cn } from '@/lib/utils';
 import { fetchPrefs, savePOSView, saveKDSView } from '@/services/userprefs';
 import { Button } from '@/components/ui/button';
 import { SyncStatusBadge } from '@/components/ui/sync-status';
+
+type PosViewId = 'full' | 'quick' | 'floor';
+type KdsViewId = 'station' | 'expo' | 'bumpbar';
+
+interface KdsStation {
+  id: string;
+  name: string;
+  location_id: string;
+}
+
+interface MembershipCaps {
+  can_pos?: boolean;
+  can_kitchen?: boolean;
+  [key: string]: unknown;
+}
 
 // ---------------------------------------------------------------------------
 // Lazy view imports — read-only; do NOT modify these files.
@@ -61,13 +76,13 @@ const ExpoPage = lazy(() => import('@/pages/kds/expo'));
 // Constants
 // ---------------------------------------------------------------------------
 
-const POS_VIEWS = [
+const POS_VIEWS: { id: PosViewId; label: string }[] = [
   { id: 'full', label: 'Full POS' },
   { id: 'quick', label: 'Quick' },
   { id: 'floor', label: 'Floor' },
 ];
 
-const KDS_VIEWS = [
+const KDS_VIEWS: { id: KdsViewId; label: string }[] = [
   { id: 'station', label: 'Station' },
   { id: 'expo', label: 'Expo' },
   { id: 'bumpbar', label: 'Bump-bar' },
@@ -89,7 +104,7 @@ const KDS_VIEWS = [
  * @param {string[]} roles    — role strings from membership rows
  * @param {object}   caps     — merged capability flags { can_pos, can_kitchen, … }
  */
-function resolveTabAccess(roles, caps) {
+function resolveTabAccess(roles: string[], caps: MembershipCaps) {
   const isOwnerManager = roles.some((r) => r === 'owner' || r === 'manager');
   const hasPos = Boolean(caps.can_pos);
   const hasKitchen = Boolean(caps.can_kitchen);
@@ -106,7 +121,7 @@ function resolveTabAccess(roles, caps) {
 
 function useMembership() {
   const { user, activeOrganization } = useAuth();
-  const [state, setState] = useState({ roles: [], caps: {}, loading: true });
+  const [state, setState] = useState<{ roles: string[]; caps: MembershipCaps; loading: boolean }>({ roles: [], caps: {}, loading: true });
 
   useEffect(() => {
     if (!user?.id || !activeOrganization?.id) {
@@ -132,8 +147,8 @@ function useMembership() {
         return;
       }
 
-      const roles = data.map((m) => m.role).filter(Boolean);
-      const caps = {};
+      const roles: string[] = data.map((m: { role: string }) => m.role).filter(Boolean);
+      const caps: MembershipCaps = {};
       for (const m of data) {
         let parsed = m.capabilities;
         if (typeof parsed === 'string') {
@@ -156,7 +171,7 @@ function useMembership() {
 
 function useKdsStations() {
   const { activeLocation } = useAuth();
-  const [stations, setStations] = useState([]);
+  const [stations, setStations] = useState<KdsStation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -203,7 +218,13 @@ function ViewLoader() {
 // Tab button
 // ---------------------------------------------------------------------------
 
-function TabButton({ active, onClick, children }) {
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+function TabButton({ active, onClick, children }: TabButtonProps) {
   return (
     <Button
       type="button"
@@ -229,7 +250,13 @@ function TabButton({ active, onClick, children }) {
 // View pill (sub-tab)
 // ---------------------------------------------------------------------------
 
-function ViewPill({ active, onClick, children }) {
+interface ViewPillProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+function ViewPill({ active, onClick, children }: ViewPillProps) {
   return (
     <Button
       type="button"
@@ -249,7 +276,7 @@ function ViewPill({ active, onClick, children }) {
 
 // StationPage uses useParams() — we wrap it in a MemoryRouter so we can
 // inject the chosen station ID without altering station.jsx.
-function StationView({ stationId }) {
+function StationView({ stationId }: { stationId: string | null }) {
   if (!stationId) return null;
   return (
     <MemoryRouter initialEntries={[`/kds/${stationId}`]}>
@@ -274,7 +301,7 @@ function StationView({ stationId }) {
 //  not a different backend view).
 // ---------------------------------------------------------------------------
 
-function BumpBarView({ stationId }) {
+function BumpBarView({ stationId }: { stationId: string | null }) {
   if (!stationId) return null;
   return <StationView stationId={stationId} />;
 }
@@ -283,9 +310,14 @@ function BumpBarView({ stationId }) {
 // KDS Panel — station picker + view
 // ---------------------------------------------------------------------------
 
-function KitchenPanel({ kdsView, onKdsView }) {
+interface KitchenPanelProps {
+  kdsView: KdsViewId;
+  onKdsView: (view: KdsViewId) => void;
+}
+
+function KitchenPanel({ kdsView }: KitchenPanelProps) {
   const { stations, loading: stationsLoading } = useKdsStations();
-  const [selectedStation, setSelectedStation] = useState(null);
+  const [selectedStation, setSelectedStation] = useState<string | null>(null);
 
   // Auto-select the first station when list loads.
   useEffect(() => {
@@ -359,7 +391,7 @@ function KitchenPanel({ kdsView, onKdsView }) {
 // POS Panel
 // ---------------------------------------------------------------------------
 
-function POSPanel({ posView }) {
+function POSPanel({ posView }: { posView: PosViewId }) {
   return (
     <div className="flex-1 overflow-auto">
       {posView === 'full' && (
@@ -394,11 +426,11 @@ export default function WorkspacePage() {
   );
 
   // Top-level tab: 'pos' | 'kitchen'
-  const [activeTab, setActiveTab] = useState(null);
+  const [activeTab, setActiveTab] = useState<'pos' | 'kitchen' | null>(null);
   // POS sub-view
-  const [posView, setPosView] = useState('full');
+  const [posView, setPosView] = useState<PosViewId>('full');
   // KDS sub-view
-  const [kdsView, setKdsView] = useState('station');
+  const [kdsView, setKdsView] = useState<KdsViewId>('station');
   // Preferences loaded flag
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
@@ -407,9 +439,9 @@ export default function WorkspacePage() {
     fetchPrefs().then(({ lastViewPOS, lastViewKDS }) => {
       // 'orders' was a removed POS view (see POS_VIEWS above) — coerce any
       // previously-persisted preference back to a view that still exists.
-      const posView = POS_VIEWS.some((v) => v.id === lastViewPOS) ? lastViewPOS : 'full';
+      const posView = (POS_VIEWS.some((v) => v.id === lastViewPOS) ? lastViewPOS : 'full') as PosViewId;
       setPosView(posView);
-      setKdsView(lastViewKDS || 'station');
+      setKdsView((lastViewKDS || 'station') as KdsViewId);
       setPrefsLoaded(true);
     });
   }, []);
@@ -422,7 +454,7 @@ export default function WorkspacePage() {
 
   // Handlers with preference persistence.
   const handlePosView = useCallback(
-    (view) => {
+    (view: PosViewId) => {
       setPosView(view);
       savePOSView(view);
     },
@@ -430,7 +462,7 @@ export default function WorkspacePage() {
   );
 
   const handleKdsView = useCallback(
-    (view) => {
+    (view: KdsViewId) => {
       setKdsView(view);
       saveKDSView(view);
     },
@@ -438,7 +470,7 @@ export default function WorkspacePage() {
   );
 
   const handleTab = useCallback(
-    (tab) => setActiveTab(tab),
+    (tab: 'pos' | 'kitchen') => setActiveTab(tab),
     [],
   );
 
