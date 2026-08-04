@@ -184,7 +184,10 @@ export function useMoney(overrides?: { currency?: string; locale?: string }) {
     [currency, locale],
   );
 
-  const parse = useCallback((text: string) => parseMoney(text, currency), [currency]);
+  // string | number: mirrors the underlying lib parseMoney, which callers
+  // rely on both for raw text-input parsing and for re-parsing a
+  // backend-supplied major-unit numeric price (e.g. an AI-drafted menu item).
+  const parse = useCallback((text: string | number) => parseMoney(text, currency), [currency]);
 
   return useMemo(
     () => ({

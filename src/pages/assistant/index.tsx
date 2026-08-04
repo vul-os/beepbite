@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,12 +24,23 @@ import {
   sendMessage,
   commitDraft,
   discardDraft,
+  type AssistantDraft,
+  type ItemSuggestion,
+  type UserDecision,
+  type GeneratedMenuItem,
 } from '@/services/assistant';
 import { cn } from '@/lib/utils';
 
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  draft: AssistantDraft | null;
+}
+
 // ─── Message types ────────────────────────────────────────────────────────────
 
-function SystemMessage({ text }) {
+function SystemMessage({ text }: { text: string }) {
   return (
     <div className="flex gap-3 items-start">
       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -42,7 +53,7 @@ function SystemMessage({ text }) {
   );
 }
 
-function UserMessage({ text }) {
+function UserMessage({ text }: { text: string }) {
   return (
     <div className="flex gap-3 items-start flex-row-reverse">
       <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -57,9 +68,23 @@ function UserMessage({ text }) {
 
 // ─── Draft review panel ───────────────────────────────────────────────────────
 
-function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
-  const [decisions, setDecisions] = useState(() => {
-    const items = Array.isArray(draft.items) ? draft.items : [];
+interface DraftDecision {
+  generated_item: unknown;
+  action: string;
+  existing_item_id: string;
+  modifications: null;
+}
+
+interface DraftPanelProps {
+  draft: AssistantDraft;
+  locationId: string;
+  onCommitted?: (data: unknown) => void;
+  onDiscarded?: () => void;
+}
+
+function DraftPanel({ draft, onCommitted, onDiscarded }: DraftPanelProps) {
+  const [decisions, setDecisions] = useState<DraftDecision[]>(() => {
+    const items: ItemSuggestion[] = Array.isArray(draft.items) ? draft.items : [];
     return items.map((suggestion) => ({
       generated_item: suggestion.generated_item || suggestion,
       action: suggestion.recommendation || 'create_new',
@@ -69,12 +94,12 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
   });
   const [committing, setCommitting] = useState(false);
   const [expanded, setExpanded] = useState(true);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   // Draft item prices arrive as major-unit decimals, so they are parsed against
   // the active currency: a fixed two decimals misreads a JPY or KWD price.
   const { format: formatMoney, parse: parseMoney } = useMoney();
 
-  const setAction = (idx, action) => {
+  const setAction = (idx: number, action: string) => {
     setDecisions((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], action };
@@ -84,7 +109,10 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
 
   const handleCommit = async () => {
     setCommitting(true);
-    const { data, error } = await commitDraft(draft.id, decisions);
+    // Locally tracked decisions are permissive (`action: string`) so the
+    // recommendation-derived default and manual overrides both fit without
+    // narrowing; cast at the API boundary, matching UserDecision's contract.
+    const { data, error } = await commitDraft(draft.id, decisions as unknown as UserDecision[]);
     setCommitting(false);
     if (error) {
       setResult({ ok: false, message: error.message || 'Commit failed.' });
@@ -102,12 +130,12 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
     onDiscarded?.();
   };
 
-  const actionLabel = {
+  const actionLabel: Record<string, string> = {
     create_new: 'Create new',
     update: 'Update existing',
     skip: 'Skip',
   };
-  const actionVariant = {
+  const actionVariant: Record<string, string> = {
     create_new: 'default',
     update: 'outline',
     skip: 'ghost',
@@ -165,7 +193,7 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {decisions.map((d, idx) => {
-                  const item = d.generated_item || {};
+                  const item = (d.generated_item || {}) as Partial<GeneratedMenuItem>;
                   return (
                     <div
                       key={idx}
@@ -175,9 +203,10 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
                         <p className="text-sm font-medium truncate">{item.name || '—'}</p>
                         <p className="text-xs text-muted-foreground">
                           {item.category_path?.join(' › ') || ''}{' '}
-                          {item.price != null && parseMoney(item.price) != null
-                            ? `· ${formatMoney(parseMoney(item.price))}`
-                            : ''}
+                          {(() => {
+                            const parsed = item.price != null ? parseMoney(item.price) : null;
+                            return parsed != null ? `· ${formatMoney(parsed)}` : '';
+                          })()}
                         </p>
                       </div>
                       <div className="flex gap-1 shrink-0">
@@ -240,7 +269,14 @@ function DraftPanel({ draft, locationId, onCommitted, onDiscarded }) {
 
 // ─── Message list entry ───────────────────────────────────────────────────────
 
-function MessageEntry({ msg, locationId, onCommitted, onDiscarded }) {
+interface MessageEntryProps {
+  msg: ChatMessage;
+  locationId: string;
+  onCommitted?: (data: unknown) => void;
+  onDiscarded?: () => void;
+}
+
+function MessageEntry({ msg, locationId, onCommitted, onDiscarded }: MessageEntryProps) {
   if (msg.role === 'user') {
     return <UserMessage text={msg.content} />;
   }
@@ -266,7 +302,7 @@ function MessageEntry({ msg, locationId, onCommitted, onDiscarded }) {
 
 export default function AssistantPage() {
   const { activeLocation } = useAuth();
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
@@ -277,19 +313,19 @@ export default function AssistantPage() {
   ]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async (e) => {
+  const handleSend = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     const text = input.trim();
     if (!text || sending) return;
 
-    const userMsg = { id: Date.now() + '-u', role: 'user', content: text, draft: null };
+    const userMsg: ChatMessage = { id: Date.now() + '-u', role: 'user', content: text, draft: null };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setSending(true);
@@ -325,14 +361,14 @@ export default function AssistantPage() {
     ]);
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleCommitted = (msgId) => (_result) => {
+  const handleCommitted = (msgId: string) => (_result: unknown) => {
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId
@@ -342,7 +378,7 @@ export default function AssistantPage() {
     );
   };
 
-  const handleDiscarded = (msgId) => () => {
+  const handleDiscarded = (msgId: string) => () => {
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId ? { ...m, draft: null } : m,
