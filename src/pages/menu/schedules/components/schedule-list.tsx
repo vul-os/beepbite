@@ -1,6 +1,7 @@
-// schedule-list.jsx — left-rail list of menu schedules + "New schedule" dialog.
+// schedule-list.tsx — left-rail list of menu schedules + "New schedule" dialog.
 
 import { useState } from 'react';
+import type { ChangeEvent, MouseEvent } from 'react';
 import { Plus, Trash2, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,11 +15,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import type { MenuSchedule, CreateScheduleInput } from '../hooks/use-schedules';
 
-export default function ScheduleList({ schedules, selectedId, onSelect, onDelete, onCreate, loading }) {
+interface ScheduleListProps {
+  schedules: MenuSchedule[];
+  selectedId?: string;
+  onSelect: (schedule: MenuSchedule) => void;
+  onDelete: (id: string) => Promise<void>;
+  onCreate: (form: CreateScheduleInput) => Promise<void>;
+  loading: boolean;
+}
+
+export default function ScheduleList({ schedules, selectedId, onSelect, onDelete, onCreate, loading }: ScheduleListProps) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', code: '', description: '' });
+  const [form, setForm] = useState<CreateScheduleInput>({ name: '', code: '', description: '' });
   const [formError, setFormError] = useState('');
 
   const handleOpen = () => {
@@ -27,7 +38,7 @@ export default function ScheduleList({ schedules, selectedId, onSelect, onDelete
     setOpen(true);
   };
 
-  const handleNameChange = (e) => {
+  const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     // auto-derive a slug from the name
     const code = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
@@ -49,19 +60,19 @@ export default function ScheduleList({ schedules, selectedId, onSelect, onDelete
       await onCreate(form);
       setOpen(false);
     } catch (e) {
-      setFormError(e.message || 'Failed to create schedule');
+      setFormError(e instanceof Error ? e.message : 'Failed to create schedule');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (e, id) => {
+  const handleDelete = async (e: MouseEvent, id: string) => {
     e.stopPropagation();
     if (!confirm('Delete this schedule and all its slots?')) return;
     try {
       await onDelete(id);
     } catch (e) {
-      alert(e.message || 'Failed to delete schedule');
+      alert(e instanceof Error ? e.message : 'Failed to delete schedule');
     }
   };
 
