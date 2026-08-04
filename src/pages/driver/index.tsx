@@ -10,6 +10,7 @@ import {
   fetchAssignments,
   transitionAssignment,
   setShiftStatus,
+  type Assignment,
 } from '@/services/driver';
 
 import AssignmentCard from './components/assignment-card';
@@ -29,15 +30,15 @@ export default function DriverPortal() {
   const [shiftLoading, setShiftLoading] = useState(false);
 
   // ── Assignments state ─────────────────────────────────────────────────────
-  const [assignments, setAssignments] = useState([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(true);
-  const [assignmentsError, setAssignmentsError] = useState(null);
+  const [assignmentsError, setAssignmentsError] = useState<string | null>(null);
   // true when the user is confirmed not to be a driver anywhere (403 or empty
   // response that we treat as "no driver role")
   const [isNotDriver, setIsNotDriver] = useState(false);
 
   // ── Geo error banner ──────────────────────────────────────────────────────
-  const [geoError, setGeoError] = useState(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   // ── Ping gate ─────────────────────────────────────────────────────────────
   // Find the active assignment (accepted or picked_up) to attach its ID to pings
@@ -65,11 +66,12 @@ export default function DriverPortal() {
         // A 403 is caught below.
       }
     } catch (err) {
-      if (err.status === 403 || err.status === 404) {
+      const status = (err as { status?: number })?.status;
+      if (status === 403 || status === 404) {
         // Backend signals this user has no driver role anywhere.
         setIsNotDriver(true);
       } else {
-        setAssignmentsError(err.message || 'Failed to load assignments');
+        setAssignmentsError(err instanceof Error ? err.message : 'Failed to load assignments');
       }
     } finally {
       setLoadingAssignments(false);
@@ -81,7 +83,7 @@ export default function DriverPortal() {
   }, [loadAssignments]);
 
   // ── Handle shift toggle ───────────────────────────────────────────────────
-  async function handleShiftToggle(newValue) {
+  async function handleShiftToggle(newValue: boolean) {
     setShiftLoading(true);
     const targetStatus = newValue ? 'online' : 'offline';
     try {
@@ -91,7 +93,7 @@ export default function DriverPortal() {
     } catch (err) {
       toast({
         title: `Could not go ${targetStatus}`,
-        description: err.message,
+        description: err instanceof Error ? err.message : undefined,
         variant: 'destructive',
       });
     } finally {
@@ -100,7 +102,7 @@ export default function DriverPortal() {
   }
 
   // ── Handle assignment actions ─────────────────────────────────────────────
-  async function handleAction(id, action) {
+  async function handleAction(id: string, action: string) {
     try {
       await transitionAssignment(id, action);
       // Optimistically update the status in local state so the card re-renders
@@ -108,12 +110,12 @@ export default function DriverPortal() {
       setAssignments((prev) =>
         prev.map((a) => {
           if (a.id !== id) return a;
-          const nextStatus = {
+          const nextStatus = ({
             accept: 'accepted',
             pickup: 'picked_up',
             deliver: 'delivered',
             cancel: 'cancelled',
-          }[action];
+          } as Record<string, string>)[action];
           return nextStatus ? { ...a, status: nextStatus } : a;
         }),
       );
@@ -129,7 +131,7 @@ export default function DriverPortal() {
     } catch (err) {
       toast({
         title: 'Action failed',
-        description: err.message,
+        description: err instanceof Error ? err.message : undefined,
         variant: 'destructive',
       });
       // Re-fetch to make sure local state is consistent with server.

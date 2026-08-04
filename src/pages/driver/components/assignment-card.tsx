@@ -1,15 +1,17 @@
 import { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { MapPin, Store, DollarSign, CheckCircle, Package, Truck, XCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useMoney } from '@/context/locale-context';
+import type { Assignment } from '@/services/driver';
 
 // Map statuses to human-readable labels and badge colours. `offered` uses the
 // warning tone (needs the driver's attention, still reversible); `delivered`
 // uses success; the two in-between working states share the primary tone
 // rather than borrowing a fourth arbitrary hue — they're both just "this is
 // in motion", not signals a driver needs to act differently on.
-const STATUS_META = {
+const STATUS_META: Record<string, { label: string; colour: string }> = {
   offered:    { label: 'Offered',     colour: 'bg-warning/15 text-warning border-warning/30' },
   accepted:   { label: 'Accepted',    colour: 'bg-primary/10 text-primary border-primary/25' },
   picked_up:  { label: 'Picked up',   colour: 'bg-primary/15 text-primary border-primary/30' },
@@ -18,23 +20,31 @@ const STATUS_META = {
 };
 
 // Which action button to show for each status
-const NEXT_ACTION = {
+const NEXT_ACTION: Record<string, { action: string; label: string; Icon: LucideIcon; variant: 'default' }> = {
   offered:   { action: 'accept',  label: 'Accept',     Icon: CheckCircle,  variant: 'default' },
   accepted:  { action: 'pickup',  label: 'Picked up',  Icon: Package,      variant: 'default' },
   picked_up: { action: 'deliver', label: 'Delivered',  Icon: Truck,        variant: 'default' },
 };
 
-export default function AssignmentCard({ assignment, onAction }) {
+interface AssignmentCardProps {
+  assignment: Assignment;
+  onAction: (id: string, action: string) => Promise<void>;
+}
+
+export default function AssignmentCard({ assignment, onAction }: AssignmentCardProps) {
   const { format: formatMoneyValue } = useMoney();
-  const formatCurrency = (cents) => (cents == null ? '—' : formatMoneyValue(cents));
+  const formatCurrency = (cents?: number | null) => (cents == null ? '—' : formatMoneyValue(cents));
   const [busy, setBusy] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
 
-  const { status, store_name, customer_address, total_cents, id } = assignment;
+  // NOTE: `customer_address` does not exist on the real Assignment DTO (the
+  // backend sends `delivery_address`) — see services/driver.ts. Pre-existing
+  // mismatch, preserved as-is via the type's index signature.
+  const { status, store_name, customer_address, total_cents, id } = assignment as Assignment & { customer_address?: string };
   const statusMeta = STATUS_META[status] ?? { label: status, colour: 'bg-muted text-muted-foreground border-border' };
   const next = NEXT_ACTION[status];
 
-  async function handleAction(action, setBusyFn) {
+  async function handleAction(action: string, setBusyFn: (v: boolean) => void) {
     setBusyFn(true);
     try {
       await onAction(id, action);
