@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Ticket, Copy, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { createQuickCoupon } from '@/services/quick-coupon';
+import { createQuickCoupon, type QuickCoupon, type QuickCouponPayload } from '@/services/quick-coupon';
 import { useDateTime, useMoney } from '@/context/locale-context';
 
 /**
@@ -16,20 +16,20 @@ import { useDateTime, useMoney } from '@/context/locale-context';
  * Props:
  *   customerId {string}  UUID of the customer whose detail page this is on.
  */
-export function QuickCouponButton({ customerId }) {
+export function QuickCouponButton({ customerId }: { customerId?: string }) {
   const [open, setOpen] = useState(false);
   const [percentOff, setPercentOff] = useState('20');
   const [expiryDays, setExpiryDays] = useState('30');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null); // { code, expires_at, percent_off }
-  const [error, setError] = useState(null);
+  const [result, setResult] = useState<QuickCoupon | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const { format: formatMoney } = useMoney();
   // The expiry date is the store's, so it renders in the store's timezone —
   // the browser's default puts a US store's coupon a day out.
   const { formatDate } = useDateTime();
 
-  async function handleSend(e) {
+  async function handleSend(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const pct = parseFloat(percentOff);
     if (!pct || pct <= 0 || pct > 100) {
@@ -41,7 +41,7 @@ export function QuickCouponButton({ customerId }) {
     setError(null);
     setResult(null);
 
-    const payload = {
+    const payload: QuickCouponPayload = {
       customer_id: customerId || undefined,
       percent_off: pct,
     };
