@@ -10,11 +10,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 
-export function useTables(locationId, { pollMs = 0 } = {}) {
-  const [sections, setSections] = useState([]);
-  const [tables, setTables] = useState([]);
+// Mirrors backend/migrations/001_baseline.sql `sections` table.
+export interface FloorSection {
+  id: string;
+  location_id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TableStatus = 'available' | 'occupied' | 'reserved' | 'out_of_service';
+
+// Mirrors backend/migrations/001_baseline.sql `tables` table.
+export interface FloorTable {
+  id: string;
+  location_id: string;
+  section_id: string | null;
+  label: string;
+  capacity: number;
+  status: TableStatus;
+  pos_x: number | null;
+  pos_y: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+export function useTables(locationId: string | undefined, { pollMs = 0 }: { pollMs?: number } = {}) {
+  const [sections, setSections] = useState<FloorSection[]>([]);
+  const [tables, setTables] = useState<FloorTable[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
 
   const fetchAll = useCallback(async () => {
@@ -26,8 +55,8 @@ export function useTables(locationId, { pollMs = 0 } = {}) {
     }
     try {
       const [sRes, tRes] = await Promise.all([
-        api.request('GET', `/data/sections?eq=location_id,${locationId}&order=sort_order.asc`),
-        api.request('GET', `/data/tables?eq=location_id,${locationId}&order=label.asc`),
+        api.request<FloorSection[]>('GET', `/data/sections?eq=location_id,${locationId}&order=sort_order.asc`),
+        api.request<FloorTable[]>('GET', `/data/tables?eq=location_id,${locationId}&order=label.asc`),
       ]);
       if (!mounted.current) return;
       if (sRes.error) throw new Error(sRes.error.message || 'failed loading sections');
@@ -37,7 +66,7 @@ export function useTables(locationId, { pollMs = 0 } = {}) {
       setError(null);
     } catch (e) {
       if (!mounted.current) return;
-      setError(e.message || String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -57,11 +86,11 @@ export function useTables(locationId, { pollMs = 0 } = {}) {
     return () => clearInterval(id);
   }, [pollMs, locationId, fetchAll]);
 
-  const patchTableLocal = useCallback((id, changes) => {
+  const patchTableLocal = useCallback((id: string, changes: Partial<FloorTable>) => {
     setTables((prev) => prev.map((t) => (t.id === id ? { ...t, ...changes } : t)));
   }, []);
 
-  const addTableLocal = useCallback((row) => {
+  const addTableLocal = useCallback((row: FloorTable) => {
     setTables((prev) => [...prev, row]);
   }, []);
 
