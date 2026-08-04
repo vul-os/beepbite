@@ -15,24 +15,55 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useMoney } from '@/context/locale-context';
 import { supabase } from '@/services/supabase-client';
+import type { Location } from '@/context/auth-context';
 
 // Recipe complexity maps 1:1 onto the three status tokens (simple = healthy,
 // moderate = needs a look, complex = the kitchen's biggest risk) — kept as a
-// local map (duplicated in menu/index.jsx / recipe-builder.jsx) rather than
+// local map (duplicated in menu/index.tsx / recipe-builder.tsx) rather than
 // pulling from the shared lib/status-colors.js, whose PO/invoice/reservation
 // tones still predate the Ticket Rail token system and are out of this pass's scope.
-const COMPLEXITY_BADGE_VARIANT = { simple: 'success', moderate: 'warning', complex: 'destructive' };
+const COMPLEXITY_BADGE_VARIANT: Record<string, string> = { simple: 'success', moderate: 'warning', complex: 'destructive' };
 
-const RecipeBreakdown = ({ activeLocation }) => {
+// Mirrors the subset of the `recipe_breakdown` VIEW (backend/migrations/001_baseline.sql)
+// this component actually reads. The view also has `location_id`, unused here — the
+// fallback query below (fetchBreakdownDataFallback) doesn't reconstruct it either.
+interface RecipeBreakdownRow {
+  parent_item_id: string;
+  parent_item_name: string;
+  recipe_complexity: string;
+  max_recipe_level: number;
+  total_components: number;
+  component_item_id: string;
+  component_name: string;
+  total_quantity: number;
+  unit: string | null;
+  level_depth: number;
+  cost_contribution: number;
+  cost_percentage: number | null;
+  [key: string]: unknown;
+}
+
+// Subset of `items` used to populate the recipe filter dropdown.
+interface RecipeOption {
+  id: string;
+  name: string;
+  recipe_type: string;
+}
+
+interface RecipeBreakdownProps {
+  activeLocation: Location | null;
+}
+
+const RecipeBreakdown = ({ activeLocation }: RecipeBreakdownProps) => {
   const { format: formatMoneyValue, scale: currencyScaleValue } = useMoney();
-  const [breakdownData, setBreakdownData] = useState([]);
+  const [breakdownData, setBreakdownData] = useState<RecipeBreakdownRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState('all');
-  const [expandedItems, setExpandedItems] = useState(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [showCosts, setShowCosts] = useState(true);
   const [showOnlyRecipes, setShowOnlyRecipes] = useState(false);
-  const [recipes, setRecipes] = useState([]);
+  const [recipes, setRecipes] = useState<RecipeOption[]>([]);
 
   useEffect(() => {
     if (activeLocation) {
@@ -84,6 +115,8 @@ const RecipeBreakdown = ({ activeLocation }) => {
   };
 
   const fetchBreakdownDataFallback = async () => {
+    if (!activeLocation) return;
+
     try {
       // Get all items with their recipe relationships
       const { data: items, error: itemsError } = await supabase
@@ -125,11 +158,11 @@ const RecipeBreakdown = ({ activeLocation }) => {
       if (relError) throw relError;
 
       // Transform into breakdown format
-      const breakdown = [];
-      items.forEach(item => {
-        const itemRelationships = relationships.filter(rel => rel.parent_item_id === item.id);
-        
-        itemRelationships.forEach(rel => {
+      const breakdown: RecipeBreakdownRow[] = [];
+      items.forEach((item: { id: string; name: string; recipe_complexity: string; max_recipe_level: number; total_components: number }) => {
+        const itemRelationships = relationships.filter((rel: { parent_item_id: string }) => rel.parent_item_id === item.id);
+
+        itemRelationships.forEach((rel: { child_item_id: string; child_item: { name: string; cost_price?: number | null }; quantity_needed: number; unit: string | null; recipe_level: number; cost_per_unit?: number | null }) => {
           breakdown.push({
             parent_item_id: item.id,
             parent_item_name: item.name,
@@ -155,11 +188,11 @@ const RecipeBreakdown = ({ activeLocation }) => {
 
   // Cost contributions are major-unit floats, so scale up to minor units
   // before handing them to the minor-unit-based formatter.
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount?: number | null) => {
     return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
-  const getItemTypeIcon = (type) => {
+  const getItemTypeIcon = (type?: string) => {
     switch (type) {
       case 'recipe': return <ChefHat className="h-4 w-4" />;
       case 'component': return <Package className="h-4 w-4" />;
@@ -167,13 +200,14 @@ const RecipeBreakdown = ({ activeLocation }) => {
     }
   };
 
-  const getComplexityBadgeVariant = (complexity) => COMPLEXITY_BADGE_VARIANT[complexity] || 'outline';
+  const getComplexityBadgeVariant = (complexity?: string): 'success' | 'warning' | 'destructive' | 'outline' =>
+    (COMPLEXITY_BADGE_VARIANT[complexity || ''] as 'success' | 'warning' | 'destructive' | undefined) || 'outline';
 
-  const getLevelIndentation = (level) => {
+  const getLevelIndentation = (level: number) => {
     return `${level * 24}px`;
   };
 
-  const toggleExpanded = (itemId) => {
+  const toggleExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedItems);
     if (newExpanded.has(itemId)) {
       newExpanded.delete(itemId);
@@ -183,8 +217,19 @@ const RecipeBreakdown = ({ activeLocation }) => {
     setExpandedItems(newExpanded);
   };
 
+  interface GroupedRecipe {
+    parentInfo: {
+      id: string;
+      name: string;
+      complexity: string;
+      maxLevel: number;
+      totalComponents: number;
+    };
+    components: RecipeBreakdownRow[];
+  }
+
   // Group breakdown data by parent item
-  const groupedBreakdown = breakdownData.reduce((acc, item) => {
+  const groupedBreakdown = breakdownData.reduce<Record<string, GroupedRecipe>>((acc, item) => {
     if (!acc[item.parent_item_id]) {
       acc[item.parent_item_id] = {
         parentInfo: {
@@ -411,9 +456,9 @@ const RecipeBreakdown = ({ activeLocation }) => {
                                     <span className="tabular-nums">{formatCurrency(component.cost_contribution)}</span>
                                   </div>
 
-                                  {component.cost_percentage > 0 && (
+                                  {(component.cost_percentage ?? 0) > 0 && (
                                     <div className="flex items-center gap-1">
-                                      <span className="tabular-nums">{component.cost_percentage.toFixed(1)}%</span>
+                                      <span className="tabular-nums">{(component.cost_percentage ?? 0).toFixed(1)}%</span>
                                     </div>
                                   )}
                                 </>

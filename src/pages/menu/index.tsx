@@ -602,7 +602,7 @@ const Menu = () => {
 
   // Recipe complexity maps 1:1 onto the three status tokens (simple = healthy,
   // moderate = needs a look, complex = the kitchen's biggest risk) — kept as a
-  // local map (duplicated in recipe-breakdown.jsx / recipe-builder.jsx) rather
+  // local map (duplicated in recipe-breakdown.tsx / recipe-builder.tsx) rather
   // than pulling from the shared lib/status-colors.js, whose PO/invoice/reservation
   // tones still predate the Ticket Rail token system and are out of this pass's scope.
   const COMPLEXITY_BADGE_VARIANT: Record<string, string> = { simple: 'success', moderate: 'warning', complex: 'destructive' };

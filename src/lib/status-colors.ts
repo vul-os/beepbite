@@ -65,7 +65,7 @@ export const HOUSE_ACCOUNT_INVOICE_STATUS_COLORS = {
   open: TONE.info,
 };
 
-// Recipe complexity — shared by menu/recipe-breakdown.jsx and
+// Recipe complexity — shared by menu/recipe-breakdown.tsx and
 // menu/recipe-builder.jsx so both use the same background+text pairing.
 export const COMPLEXITY_COLORS = {
   simple: TONE.success,
