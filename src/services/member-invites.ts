@@ -12,16 +12,25 @@
 // default capabilities.
 import { api } from '@/lib/api-client';
 
+// Mirrors backend/internal/handlers/memberinvite/store.go MemberInvite.
 export interface MemberInvite {
   id: string;
+  organization_id: string;
   email: string;
   role: string;
-  [key: string]: unknown;
+  status: string;
+  invited_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
+// Mirrors backend/internal/handlers/memberinvite/store.go ActiveMember.
 export interface Member {
-  id: string;
-  [key: string]: unknown;
+  profile_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  joined_at: string;
 }
 
 interface FetchError extends Error {

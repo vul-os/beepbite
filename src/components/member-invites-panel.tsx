@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Users, Loader2, Mail, X, CheckCircle, AlertCircle, UserMinus } from 'lu
 import {
   listMemberInvites, inviteMember, revokeMemberInvite,
   listActiveMembers, removeMember,
+  type MemberInvite, type Member,
 } from '@/services/member-invites';
 
 // Role options for the invite form (owner and driver excluded).
@@ -24,8 +25,13 @@ const ROLE_OPTIONS = [
   { value: 'pos',     label: 'POS' },
 ];
 
+interface StatusMessage {
+  kind: 'ok' | 'err';
+  text: string;
+}
+
 // Badge colour mapping by role.
-function roleBadgeClass(role) {
+function roleBadgeClass(role: string) {
   switch (role) {
     case 'manager': return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
     case 'staff':   return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800';
@@ -39,15 +45,15 @@ function roleBadgeClass(role) {
 // MemberInvitesPanel — owner/manager surface to invite org members by email+role
 // and manage pending invites. Drop it on the Staff management page.
 export default function MemberInvitesPanel() {
-  const [invites, setInvites]               = useState([]);
+  const [invites, setInvites]               = useState<MemberInvite[]>([]);
   const [loading, setLoading]               = useState(true);
-  const [members, setMembers]               = useState([]);
+  const [members, setMembers]               = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
-  const [removingId, setRemovingId]         = useState(null);
+  const [removingId, setRemovingId]         = useState<string | null>(null);
   const [email, setEmail]                   = useState('');
   const [role, setRole]                     = useState('staff');
   const [submitting, setSubmitting]         = useState(false);
-  const [msg, setMsg]                       = useState(null); // { kind: 'ok'|'err', text }
+  const [msg, setMsg]                       = useState<StatusMessage | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,7 +80,7 @@ export default function MemberInvitesPanel() {
 
   useEffect(() => { load(); loadMembers(); }, [load, loadMembers]);
 
-  const handleInvite = async (e) => {
+  const handleInvite = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const emailVal = email.trim();
     if (!emailVal || !role) return;
@@ -89,22 +95,22 @@ export default function MemberInvitesPanel() {
       setEmail('');
       await load();
     } catch (err) {
-      setMsg({ kind: 'err', text: err.message || 'Failed to invite member' });
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to invite member' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleRevoke = async (id) => {
+  const handleRevoke = async (id: string) => {
     try {
       await revokeMemberInvite(id);
       await load();
     } catch (err) {
-      setMsg({ kind: 'err', text: err.message || 'Failed to revoke invite' });
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to revoke invite' });
     }
   };
 
-  const handleRemoveMember = async (member) => {
+  const handleRemoveMember = async (member: Member) => {
     if (!window.confirm(`Remove ${member.full_name || member.email} from the team? They will lose access immediately.`)) return;
     setRemovingId(member.profile_id);
     setMsg(null);
@@ -113,7 +119,7 @@ export default function MemberInvitesPanel() {
       setMsg({ kind: 'ok', text: `Removed ${member.email} from the team.` });
       await loadMembers();
     } catch (err) {
-      setMsg({ kind: 'err', text: err.message || 'Failed to remove member' });
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to remove member' });
     } finally {
       setRemovingId(null);
     }
