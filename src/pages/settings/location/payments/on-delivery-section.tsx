@@ -7,15 +7,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 
+interface OnDeliverySectionProps {
+  locationId: string;
+  initialMethods?: string[];
+  onMethodsChange?: (methods: string[]) => void;
+}
+
 /**
  * OnDeliverySection — "Payment on delivery" card in the payments settings page.
- *
- * Props:
- *   locationId         string
- *   initialMethods     string[]  — current value of on_delivery_payment_methods
- *   onMethodsChange    (methods: string[]) => void  — called after a successful save
  */
-export function OnDeliverySection({ locationId, initialMethods = [], onMethodsChange }) {
+export function OnDeliverySection({ locationId, initialMethods = [], onMethodsChange }: OnDeliverySectionProps) {
   const { toast } = useToast();
 
   const [acceptCash, setAcceptCash] = useState(initialMethods.includes('cash'));
