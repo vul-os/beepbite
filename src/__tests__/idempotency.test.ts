@@ -1,4 +1,4 @@
-// idempotency.test.js — unit tests for src/offline/idempotency.js
+// idempotency.test.ts — unit tests for src/offline/idempotency.js
 import { describe, it, expect } from 'vitest';
 import { makeIdempotencyKey, attachIdempotencyKey } from '../offline/idempotency.js';
 
@@ -66,7 +66,7 @@ describe('makeIdempotencyKey', () => {
 
 describe('attachIdempotencyKey', () => {
   it('sets the Idempotency-Key header on the provided headers object', async () => {
-    const headers = {};
+    const headers: Record<string, string> = {};
     await attachIdempotencyKey(headers, 'POST', '/data/orders', 'logical-123');
     expect(headers['Idempotency-Key']).toBeDefined();
     expect(typeof headers['Idempotency-Key']).toBe('string');
@@ -80,7 +80,7 @@ describe('attachIdempotencyKey', () => {
   });
 
   it('preserves existing headers while adding Idempotency-Key', async () => {
-    const headers = { Authorization: 'Bearer token123', 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { Authorization: 'Bearer token123', 'Content-Type': 'application/json' };
     await attachIdempotencyKey(headers, 'POST', '/data/orders', 'logical-789');
     expect(headers.Authorization).toBe('Bearer token123');
     expect(headers['Content-Type']).toBe('application/json');
@@ -92,7 +92,7 @@ describe('attachIdempotencyKey', () => {
     const url = '/data/items/7';
     const logicalId = 'match-test-id';
 
-    const headers = {};
+    const headers: Record<string, string> = {};
     await attachIdempotencyKey(headers, method, url, logicalId);
     const direct = await makeIdempotencyKey(method, url, logicalId);
 
@@ -103,8 +103,8 @@ describe('attachIdempotencyKey', () => {
     const method = 'POST';
     const url = '/data/orders';
     const logicalId = 'stable-attach-id';
-    const h1 = {};
-    const h2 = {};
+    const h1: Record<string, string> = {};
+    const h2: Record<string, string> = {};
     await attachIdempotencyKey(h1, method, url, logicalId);
     await attachIdempotencyKey(h2, method, url, logicalId);
     expect(h1['Idempotency-Key']).toBe(h2['Idempotency-Key']);

@@ -1,4 +1,4 @@
-// pos-workspace-smoke.test.js
+// pos-workspace-smoke.test.ts
 //
 // TDZ / module-init smoke test for PosWorkspacePage.
 //
@@ -21,6 +21,7 @@
 // DnD) exhausts the default Node heap in a Vitest jsdom worker.
 // The Playwright render-smoke.spec.js handles end-to-end visual rendering.
 
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
 // ---- Mocks — must be declared before the import under test ----
@@ -70,12 +71,12 @@ vi.mock('@/context/auth-context', () => ({
     signOut: vi.fn(),
     fetchLocations: vi.fn().mockResolvedValue([]),
   }),
-  AuthProvider: ({ children }) => children,
+  AuthProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
 vi.mock('@/context/actor-token-context', () => ({
   useActor: () => ({ actor: null, clearActor: vi.fn() }),
-  ActorTokenProvider: ({ children }) => children,
+  ActorTokenProvider: ({ children }: { children: ReactNode }) => children,
   _actorRef: { current: null },
 }));
 

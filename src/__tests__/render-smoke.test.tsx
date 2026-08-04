@@ -6,6 +6,7 @@
 // module initialisation (the layer where TDZ crashes actually happen) without
 // loading the full render-heavy dependency graph (recharts, react-pdf, etc.).
 
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -46,7 +47,7 @@ vi.mock('@/context/auth-context', () => ({
     signOut: vi.fn(),
     fetchLocations: vi.fn().mockResolvedValue([]),
   }),
-  AuthProvider: ({ children }) => children,
+  AuthProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
 // OnboardingChecklist uses this sub-component — stub so we don't need its imports.
@@ -55,7 +56,7 @@ vi.mock('@/pages/home/components/add-location-modal', () => ({ default: () => nu
 // ---- Component under test ----
 import OnboardingChecklist from '@/pages/home/components/onboarding-checklist';
 
-function Wrapper({ children }) {
+function Wrapper({ children }: { children: ReactNode }) {
   return <MemoryRouter>{children}</MemoryRouter>;
 }
 
