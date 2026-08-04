@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useId, useCallback } from 'react';
+import { useState, useEffect, useRef, useId, useCallback, type ComponentProps, type KeyboardEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Loader2, MapPin } from 'lucide-react';
-import { suggestAddress } from '@/services/geocode';
+import { suggestAddress, type AddressSuggestion } from '@/services/geocode';
 
 // AddressAutocomplete — a controlled, debounced search-as-you-type address
 // field backed by the backend geocode proxy (South-Africa biased).
@@ -24,6 +24,15 @@ import { suggestAddress } from '@/services/geocode';
 const DEBOUNCE_MS = 250;
 const MIN_CHARS = 3;
 
+interface AddressAutocompleteProps extends Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'onSelect' | 'id' | 'placeholder'> {
+  value?: string;
+  onChange?: (text: string) => void;
+  onSelect?: (suggestion: AddressSuggestion) => void;
+  className?: string;
+  id?: string;
+  placeholder?: string;
+}
+
 export default function AddressAutocomplete({
   value = '',
   onChange,
@@ -32,20 +41,20 @@ export default function AddressAutocomplete({
   id,
   placeholder = 'Start typing your address…',
   ...rest
-}) {
+}: AddressAutocompleteProps) {
   const reactId = useId();
   const baseId = id || `addr-${reactId}`;
   const listboxId = `${baseId}-listbox`;
 
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   // True once a query has returned with no matches — drives the "no matches" row.
   const [searched, setSearched] = useState(false);
 
-  const rootRef = useRef(null);
-  const debounceRef = useRef(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reqIdRef = useRef(0);
   // When we programmatically set the text after a selection we don't want the
   // change to immediately re-trigger a search.
@@ -90,8 +99,8 @@ export default function AddressAutocomplete({
   // ── Click-outside to close ──────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
-    function onDocPointer(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) {
+    function onDocPointer(e: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
         setActiveIndex(-1);
       }
@@ -101,7 +110,7 @@ export default function AddressAutocomplete({
   }, [open]);
 
   const choose = useCallback(
-    (s) => {
+    (s: AddressSuggestion | undefined) => {
       if (!s) return;
       skipNextSearchRef.current = true;
       onChange?.(s.street || s.place_name || '');
@@ -114,7 +123,7 @@ export default function AddressAutocomplete({
     [onChange, onSelect],
   );
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     const showingList = open && suggestions.length > 0;
     switch (e.key) {
       case 'ArrowDown':
