@@ -44,13 +44,61 @@ import { cn } from '@/lib/utils';
 import { useMoney } from '@/context/locale-context';
 import { hasCapability } from '@/services/pos';
 import AdjustmentMenu from './adjustment-menu';
-import CourseSelect from './course-select';
+import CourseSelect, { type Course } from './course-select';
+
+// ---------------------------------------------------------------------------
+// Domain shapes — the active ticket is assembled client-side in
+// workspace.jsx from several sources (orders, order_items, table sessions);
+// these mirror the shapes documented in this file's header comment rather
+// than any single backend DTO.
+// ---------------------------------------------------------------------------
+
+export interface TicketLike {
+  kind?: 'walkin' | 'table' | string;
+  id: string;
+  label?: string;
+  table_number?: number | string;
+  section_name?: string;
+  party_size?: number;
+}
+
+export interface SentOrderItem {
+  order_item_id?: string;
+  id?: string;
+  item_status?: string;
+  item_name?: string;
+  name?: string;
+  unit_price?: string | number;
+  quantity?: number;
+  total_cents?: number;
+  notes?: string;
+}
+
+export interface SentOrder {
+  id: string;
+  order_number?: string;
+  items: SentOrderItem[];
+  created_at?: string;
+  fired_at?: string;
+  payment_status?: string;
+  total_cents?: number;
+}
+
+export interface NewTicketItem {
+  id: string;
+  item_id?: string;
+  name: string;
+  price: string | number;
+  qty: number;
+  course_id?: string | null;
+  modifier_names?: string[];
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function shortOrderNum(order) {
+function shortOrderNum(order?: { order_number?: string; id?: string } | null) {
   return order?.order_number ?? (order?.id ? `#${String(order.id).slice(0, 6)}` : '?');
 }
 
@@ -58,7 +106,12 @@ function shortOrderNum(order) {
 // Header — the "who/where" line for the active ticket
 // ---------------------------------------------------------------------------
 
-function TicketHeader({ ticket, onAdjustGuests }) {
+interface TicketHeaderProps {
+  ticket: TicketLike | null;
+  onAdjustGuests?: () => void;
+}
+
+function TicketHeader({ ticket, onAdjustGuests }: TicketHeaderProps) {
   if (!ticket) {
     return (
       <div className="px-4 py-4 border-b border-border bg-muted/40">
@@ -113,7 +166,14 @@ function TicketHeader({ ticket, onAdjustGuests }) {
 
 // SentItemRow — individual fired line item.
 // Right-click / long-press opens the AdjustmentMenu for per-item comp/discount.
-function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
+interface SentItemRowProps {
+  item: SentOrderItem;
+  orderId: string;
+  locationId: string;
+  onAdjustSuccess?: (data: unknown) => void;
+}
+
+function SentItemRow({ item, orderId, locationId, onAdjustSuccess }: SentItemRowProps) {
   const { format, scale } = useMoney();
   const status = item.item_status || 'fired';
   const statusColor =
@@ -125,7 +185,7 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
   // `unit_price` arrives as a major-unit decimal string; the multiplier that
   // turns it into minor units is the currency's, not 100 (¥500 is 500 minor).
   const priceCents = item.total_cents ?? Math.round(
-    (parseFloat(item.unit_price || 0) * (item.quantity || 0)) * scale,
+    (parseFloat(String(item.unit_price ?? 0)) * (item.quantity || 0)) * scale,
   );
   const canActOnItem = hasCapability('can_comp');
 
@@ -175,7 +235,13 @@ function SentItemRow({ item, orderId, locationId, onAdjustSuccess }) {
 
 // SentOrderGroup — one round of sent items.
 // The group header supports right-click / long-press for order-level void.
-function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
+interface SentOrderGroupProps {
+  order: SentOrder;
+  locationId: string;
+  onAdjustSuccess?: (data: unknown) => void;
+}
+
+function SentOrderGroup({ order, locationId, onAdjustSuccess }: SentOrderGroupProps) {
   const items = Array.isArray(order.items) ? order.items : [];
   if (items.length === 0) return null;
 
@@ -234,7 +300,13 @@ function SentOrderGroup({ order, locationId, onAdjustSuccess }) {
   );
 }
 
-function SentSection({ sentOrders, locationId, onAdjustSuccess }) {
+interface SentSectionProps {
+  sentOrders: SentOrder[];
+  locationId: string;
+  onAdjustSuccess?: (data: unknown) => void;
+}
+
+function SentSection({ sentOrders, locationId, onAdjustSuccess }: SentSectionProps) {
   if (!sentOrders || sentOrders.length === 0) return null;
   return (
     <div className="px-3 py-2.5 space-y-2">
@@ -262,9 +334,17 @@ function SentSection({ sentOrders, locationId, onAdjustSuccess }) {
 // New section — items not yet sent, editable
 // ---------------------------------------------------------------------------
 
-function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
+interface NewItemRowProps {
+  item: NewTicketItem;
+  onBumpQty: (itemId: string, delta: number) => void;
+  onRemove: (itemId: string) => void;
+  courses?: Course[];
+  onSetCourse?: (itemId: string, courseId: string | null) => void;
+}
+
+function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }: NewItemRowProps) {
   const { format, scale } = useMoney();
-  const lineCents = Math.round((parseFloat(item.price || 0) * (item.qty || 0)) * scale);
+  const lineCents = Math.round((parseFloat(String(item.price ?? 0)) * (item.qty || 0)) * scale);
   return (
     <div className="flex flex-col px-3 py-2.5 bg-card gap-1.5">
       <div className="flex items-start gap-2">
@@ -276,7 +356,7 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
             </p>
           )}
           <p className="text-xs text-gray-400 dark:text-gray-500 tabular-nums mt-0.5">
-            {format(Math.round(parseFloat(item.price || 0) * scale))} each
+            {format(Math.round(parseFloat(String(item.price ?? 0)) * scale))} each
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -332,7 +412,15 @@ function NewItemRow({ item, onBumpQty, onRemove, courses, onSetCourse }) {
   );
 }
 
-function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }) {
+interface NewSectionProps {
+  newItems: NewTicketItem[];
+  onBumpQty: (itemId: string, delta: number) => void;
+  onRemove: (itemId: string) => void;
+  courses?: Course[];
+  onSetCourse?: (itemId: string, courseId: string | null) => void;
+}
+
+function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }: NewSectionProps) {
   if (!newItems || newItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
@@ -370,6 +458,18 @@ function NewSection({ newItems, onBumpQty, onRemove, courses, onSetCourse }) {
 // Footer — totals + Send + Charge
 // ---------------------------------------------------------------------------
 
+interface TicketFooterProps {
+  ticket: TicketLike | null;
+  newSubtotalCents: number;
+  sentSubtotalCents: number;
+  totalCents: number;
+  onSend?: () => void;
+  onCharge?: () => void;
+  sending?: boolean;
+  hasUnpaidOrders: boolean;
+  newItemsCount: number;
+}
+
 function TicketFooter({
   ticket,
   newSubtotalCents,
@@ -380,7 +480,7 @@ function TicketFooter({
   sending,
   hasUnpaidOrders,
   newItemsCount,
-}) {
+}: TicketFooterProps) {
   const { format } = useMoney();
   const canSend = newItemsCount > 0 && !sending && Boolean(ticket);
   const canCharge = hasUnpaidOrders && !sending && Boolean(ticket);
@@ -467,6 +567,23 @@ function TicketFooter({
 // Main panel
 // ---------------------------------------------------------------------------
 
+interface ActiveTicketPanelProps {
+  ticket: TicketLike | null;
+  newItems?: NewTicketItem[];
+  sentOrders?: SentOrder[];
+  onBumpQty: (itemId: string, delta: number) => void;
+  onRemoveItem: (itemId: string) => void;
+  onSend?: () => void;
+  onCharge?: () => void;
+  onAdjustGuests?: () => void;
+  onAdjust?: (payload: { orderId: string; type: string }) => void; // back-compat (workspace modal), unused here
+  onAdjustSuccess?: (data: unknown) => void;
+  locationId?: string;
+  sending?: boolean;
+  courses?: Course[];
+  onSetCourse?: (itemId: string, courseId: string | null) => void;
+}
+
 export default function ActiveTicketPanel({
   ticket,                // active ticket object or null
   newItems = [],         // unsent items: [{ id, item_id, name, price, qty, course_id, ... }]
@@ -482,11 +599,11 @@ export default function ActiveTicketPanel({
   sending = false,
   courses = [],          // [{ id, name, sort_order }] for CourseSelect (Wave 11 T11.3)
   onSetCourse,           // optional (clientLineId, courseId | null) => void
-}) {
+}: ActiveTicketPanelProps) {
   const { scale } = useMoney();
 
   const newSubtotalCents = newItems.reduce(
-    (sum, it) => sum + Math.round((parseFloat(it.price || 0) * (it.qty || 0)) * scale),
+    (sum, it) => sum + Math.round((parseFloat(String(it.price ?? 0)) * (it.qty || 0)) * scale),
     0,
   );
   const sentSubtotalCents = sentOrders.reduce((orderSum, order) => {
@@ -494,7 +611,7 @@ export default function ActiveTicketPanel({
     const items = Array.isArray(order.items) ? order.items : [];
     return orderSum + items.reduce((lineSum, it) => {
       if (typeof it.total_cents === 'number') return lineSum + it.total_cents;
-      return lineSum + Math.round((parseFloat(it.unit_price || 0) * (it.quantity || 0)) * scale);
+      return lineSum + Math.round((parseFloat(String(it.unit_price ?? 0)) * (it.quantity || 0)) * scale);
     }, 0);
   }, 0);
   const totalCents = newSubtotalCents + sentSubtotalCents;

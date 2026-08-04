@@ -36,6 +36,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { ReactNode } from 'react';
 import { Ban, ChevronRight, Gift, Loader2, MoreVertical, Tag, X } from 'lucide-react';
 
 import {
@@ -58,7 +59,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMoney } from '@/context/locale-context';
 import { api } from '@/lib/api-client';
 import { hasCapability, getStaff } from '@/services/pos';
-import { useAdjustmentReasons } from '@/components/order-adjustments/use-adjustment-reasons';
+import { useAdjustmentReasons, type AdjustmentReason } from '@/components/order-adjustments/use-adjustment-reasons';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -66,11 +67,37 @@ import { useAdjustmentReasons } from '@/components/order-adjustments/use-adjustm
 
 const LONG_PRESS_MS = 500;
 
-// Which types are supported at each level
-const ORDER_TYPES = ['void'];
-const ITEM_TYPES  = ['comp', 'price_override'];
+type AdjustmentType = 'void' | 'comp' | 'price_override';
 
-const TYPE_META = {
+// Which types are supported at each level
+const ORDER_TYPES: AdjustmentType[] = ['void'];
+const ITEM_TYPES: AdjustmentType[]  = ['comp', 'price_override'];
+
+// GET /staff?role=manager,owner&location_id=... has NO backing route in the
+// Go backend (backend/internal/staffauth/handlers.go only mounts
+// /auth/staff/* and /staff/{id}/set-pin|manager-set-password — there is no
+// GET /staff list endpoint anywhere in the server). fetchManagers() below
+// therefore always gets a 404 and `managers` stays permanently empty, so
+// the manager-approval step (Step 2) can never be completed — there is no
+// manager to select and the "Authorise" button never becomes enabled for
+// any reason with requires_manager_approval=true. Documented pre-existing
+// defect, not fixed here. This shape is a best-guess placeholder for the
+// never-populated response, not a verified backend DTO.
+interface ManagerOption {
+  id: string;
+  name?: string;
+  full_name?: string;
+  display_name?: string;
+  email?: string;
+}
+
+const TYPE_META: Record<AdjustmentType, {
+  label: string;
+  short: string;
+  icon: typeof Ban;
+  colorClass: string;
+  capability: string;
+}> = {
   void: {
     label: 'Void Order',
     short: 'Void',
@@ -102,7 +129,7 @@ const TYPE_META = {
 // Build the correct backend endpoint
 // ---------------------------------------------------------------------------
 
-function buildEndpoint(type, orderId, itemId) {
+function buildEndpoint(type: AdjustmentType, orderId: string, itemId: string | null) {
   switch (type) {
     case 'void':
       return `/orders/${orderId}/void`;
@@ -121,6 +148,16 @@ function buildEndpoint(type, orderId, itemId) {
 
 const STEP_PICK   = 'pick';    // choose action + reason
 const STEP_MANAGER = 'manager'; // manager credentials (if required)
+type Step = typeof STEP_PICK | typeof STEP_MANAGER;
+
+interface AdjustmentFlowProps {
+  orderId: string;
+  itemId: string | null;
+  currentPriceCents: number | null;
+  locationId: string;
+  onSuccess?: (data: unknown) => void;
+  onClose: () => void;
+}
 
 function AdjustmentFlow({
   orderId,
@@ -129,14 +166,14 @@ function AdjustmentFlow({
   locationId,
   onSuccess,
   onClose,
-}) {
+}: AdjustmentFlowProps) {
   const { toast } = useToast();
   const { format, parse, symbol, scale, decimals } = useMoney();
 
-  const [step, setStep]           = useState(STEP_PICK);
-  const [adjType, setAdjType]     = useState(null);
+  const [step, setStep]           = useState<Step>(STEP_PICK);
+  const [adjType, setAdjType]     = useState<AdjustmentType | null>(null);
   const [reasonCode, setReasonCode] = useState('');
-  const [reasonObj, setReasonObj]   = useState(null);
+  const [reasonObj, setReasonObj]   = useState<AdjustmentReason | null>(null);
   // Held as a major-unit string because that is what the <input type="number">
   // carries; it is converted back through the currency, never through 100.
   const [newPriceMajor, setNewPriceMajor] = useState(
@@ -144,7 +181,7 @@ function AdjustmentFlow({
   );
 
   // Manager step
-  const [managers, setManagers]         = useState([]);
+  const [managers, setManagers]         = useState<ManagerOption[]>([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [approverStaffId, setApproverStaffId] = useState('');
   const [approverPin, setApproverPin]     = useState('');
@@ -166,7 +203,7 @@ function AdjustmentFlow({
   const fetchManagers = useCallback(async () => {
     if (!locationId) return;
     setLoadingManagers(true);
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<ManagerOption[]>(
       'GET',
       `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`,
     );
@@ -182,13 +219,13 @@ function AdjustmentFlow({
 
   // ---- step 1 helpers -------------------------------------------------------
 
-  function handleTypeSelect(type) {
+  function handleTypeSelect(type: AdjustmentType) {
     setAdjType(type);
     setReasonCode('');
     setReasonObj(null);
   }
 
-  function handleReasonChange(code) {
+  function handleReasonChange(code: string) {
     const r = reasons.find((x) => (x.code ?? x.id) === code);
     setReasonCode(code);
     setReasonObj(r ?? null);
@@ -213,7 +250,13 @@ function AdjustmentFlow({
     setSubmitting(true);
     setPinError('');
 
-    const body = {
+    const body: {
+      reason_code: string;
+      applied_by_staff_id: string;
+      approver_staff_id: string;
+      approver_pin: string;
+      new_price_cents?: number;
+    } = {
       reason_code: reasonCode,
       applied_by_staff_id: currentStaff?.id || '',
       approver_staff_id: managerOverride ? approverStaffId : (currentStaff?.id || ''),
@@ -224,11 +267,11 @@ function AdjustmentFlow({
       body.new_price_cents = parse(newPriceMajor) ?? 0;
     }
 
-    let endpoint;
+    let endpoint: string;
     try {
-      endpoint = buildEndpoint(adjType, orderId, itemId);
+      endpoint = buildEndpoint(adjType!, orderId, itemId);
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Error', description: err.message });
+      toast({ variant: 'destructive', title: 'Error', description: err instanceof Error ? err.message : String(err) });
       setSubmitting(false);
       return;
     }
@@ -259,7 +302,7 @@ function AdjustmentFlow({
       return;
     }
 
-    toast({ title: `${TYPE_META[adjType]?.label ?? 'Adjustment'} applied` });
+    toast({ title: `${(adjType ? TYPE_META[adjType]?.label : undefined) ?? 'Adjustment'} applied` });
     if (onSuccess) onSuccess(data);
     onClose();
   }
@@ -347,7 +390,7 @@ function AdjustmentFlow({
                         value={r.code ?? r.id}
                         className="text-xs"
                       >
-                        {r.label ?? r.name ?? r.code ?? r.id}
+                        {r.label ?? (r as AdjustmentReason & { name?: string }).name ?? r.code ?? r.id}
                         {r.requires_manager_approval && (
                           <span className="ml-1 text-[10px] text-amber-600 font-medium">
                             (mgr)
@@ -530,6 +573,17 @@ function AdjustmentFlow({
  * this at all. The small "more actions" button below is the primary,
  * always-visible, tab-reachable entry point; the gestures are additive.
  */
+interface AdjustmentMenuProps {
+  orderId: string;
+  itemId?: string | null;
+  currentPriceCents?: number | null;
+  locationId?: string;
+  onSuccess?: (data: unknown) => void;
+  disabled?: boolean;
+  label?: string;
+  children: ReactNode;
+}
+
 export default function AdjustmentMenu({
   orderId,
   itemId = null,
@@ -539,17 +593,17 @@ export default function AdjustmentMenu({
   disabled = false,
   label = '',
   children,
-}) {
+}: AdjustmentMenuProps) {
   const [open, setOpen] = useState(false);
 
   // Long-press support
-  const longPressTimer = useRef(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchMoved     = useRef(false);
 
   const openMenu  = useCallback(() => { if (!disabled) setOpen(true); }, [disabled]);
   const closeMenu = useCallback(() => setOpen(false), []);
 
-  function handleContextMenu(e) {
+  function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
     openMenu();
   }
