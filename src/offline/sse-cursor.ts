@@ -40,7 +40,7 @@ const STORAGE_KEY = 'bb.auth';
 
 const BACKOFF_MS = [1000, 2000, 4000, 8000, 16000, 30000];
 
-function readToken() {
+function readToken(): string | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -50,19 +50,35 @@ function readToken() {
   }
 }
 
+export interface SseCursorOptions {
+  onMessage?: (payload: unknown, rawEvent: MessageEvent) => void;
+  onOpen?: () => void;
+  onError?: (err: Event) => void;
+  initialCursor?: string | null;
+  withCredentials?: boolean;
+  token?: string | null;
+}
+
 export class SseCursor {
+  _path: string;
+  _onMessage: SseCursorOptions['onMessage'] | null;
+  _onOpen: SseCursorOptions['onOpen'] | null;
+  _onError: SseCursorOptions['onError'] | null;
+  _withCredentials: boolean;
+  _explicitToken: string | null;
+  /** Last received `event.lastEventId` (or `event.id`). */
+  lastEventId: string | null;
+  _closed: boolean;
+  _es: EventSource | null;
+  _retryTimer: ReturnType<typeof setTimeout> | null;
+  _attempt: number;
+  _everOpened: boolean;
+  _useTokenFallback: boolean;
+
   /**
-   * @param {string} path  - Relative path, e.g. '/kds/stations/42/stream'
-   * @param {{
-   *   onMessage?:       (payload: any, rawEvent: MessageEvent) => void,
-   *   onOpen?:          () => void,
-   *   onError?:         (err: Event) => void,
-   *   initialCursor?:   string | null,
-   *   withCredentials?: boolean,
-   *   token?:           string | null,
-   * }} opts
+   * @param path  - Relative path, e.g. '/kds/stations/42/stream'
    */
-  constructor(path, opts = {}) {
+  constructor(path: string, opts: SseCursorOptions = {}) {
     this._path            = path;
     this._onMessage       = opts.onMessage       ?? null;
     this._onOpen          = opts.onOpen          ?? null;
@@ -70,7 +86,6 @@ export class SseCursor {
     this._withCredentials = opts.withCredentials ?? true;
     this._explicitToken   = opts.token           ?? null;
 
-    /** @type {string | null} Last received `event.lastEventId` (or `event.id`). */
     this.lastEventId = opts.initialCursor ?? null;
 
     this._closed     = false;
@@ -103,7 +118,7 @@ export class SseCursor {
 
   // ---- private --------------------------------------------------------------
 
-  _buildUrl() {
+  _buildUrl(): string {
     const base  = this._path.startsWith('http') ? this._path : `${API_URL}${this._path}`;
     const sep   = base.includes('?') ? '&' : '?';
     const parts = [];
@@ -137,11 +152,11 @@ export class SseCursor {
       ? { withCredentials: true }
       : {};
 
-    let es;
+    let es: EventSource;
     try {
       es = new EventSource(url, opts);
     } catch (err) {
-      this._onError?.(err);
+      this._onError?.(err as Event);
       this._scheduleReconnect();
       return;
     }

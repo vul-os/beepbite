@@ -19,15 +19,12 @@ const TIME_LEN   = 10;
 const RANDOM_LEN = 16;
 
 let lastTime = 0;
-let lastRandom = new Uint8Array(RANDOM_LEN);
+let lastRandom: Uint8Array<ArrayBuffer> = new Uint8Array(RANDOM_LEN);
 
 /**
  * Encode an integer into Crockford base-32 using `len` characters.
- * @param {number} value
- * @param {number} len
- * @returns {string}
  */
-function encodeTime(value, len) {
+function encodeTime(value: number, len: number): string {
   let str = '';
   for (let i = len - 1; i >= 0; i--) {
     str = ENCODING[value % ENCODING_LEN] + str;
@@ -38,10 +35,8 @@ function encodeTime(value, len) {
 
 /**
  * Encode a Uint8Array as Crockford base-32.
- * @param {Uint8Array} random
- * @returns {string}
  */
-function encodeRandom(random) {
+function encodeRandom(random: Uint8Array<ArrayBuffer>): string {
   // Pack 16 bytes (128 bits) into 16 base-32 characters (80 bits) by treating
   // each byte as a 5-bit value — sufficient for collision avoidance.
   let str = '';
@@ -54,10 +49,8 @@ function encodeRandom(random) {
 /**
  * Increment the random portion so that within the same millisecond each call
  * produces a strictly greater ULID.
- * @param {Uint8Array} random
- * @returns {Uint8Array}
  */
-function incrementRandom(random) {
+function incrementRandom(random: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
   const next = new Uint8Array(random);
   let carry = 1;
   for (let i = RANDOM_LEN - 1; i >= 0 && carry; i--) {
@@ -74,9 +67,9 @@ function incrementRandom(random) {
 
 /**
  * Generate a ULID string.
- * @returns {string} 26-character ULID
+ * @returns 26-character ULID
  */
-export function ulid() {
+export function ulid(): string {
   const now = Date.now();
 
   if (now === lastTime) {

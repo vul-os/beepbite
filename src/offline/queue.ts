@@ -70,7 +70,7 @@ const STORAGE_KEY = 'bb.auth'; // mirrors api-client.js
 
 // ---- auth helper -----------------------------------------------------------
 
-function readAccessToken() {
+function readAccessToken(): string | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -80,17 +80,39 @@ function readAccessToken() {
   }
 }
 
+export interface Mutation {
+  url: string;
+  method: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+  idempotencyKey: string;
+  // In-memory only (not persisted):
+  onOptimisticApply?: () => void;
+  onRollback?: (record?: MutationRecord, err?: Error) => void;
+}
+
+export interface MutationRecord {
+  id: number;
+  url: string;
+  method: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+  idempotencyKey: string;
+  retryCount: number;
+  enqueuedAt: number;
+}
+
 // ---- IndexedDB bootstrap ---------------------------------------------------
 
-let _dbPromise = null;
+let _dbPromise: Promise<IDBDatabase> | null = null;
 
-function openDB() {
+function openDB(): Promise<IDBDatabase> {
   if (_dbPromise) return _dbPromise;
   _dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     req.onupgradeneeded = (evt) => {
-      const db = evt.target.result;
+      const db = (evt.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, {
           keyPath:       'id',
@@ -101,45 +123,45 @@ function openDB() {
       }
     };
 
-    req.onsuccess = (evt) => resolve(evt.target.result);
-    req.onerror   = (evt) => reject(evt.target.error);
+    req.onsuccess = (evt) => resolve((evt.target as IDBOpenDBRequest).result);
+    req.onerror   = (evt) => reject((evt.target as IDBOpenDBRequest).error);
   });
   return _dbPromise;
 }
 
 // ---- IDB helpers -----------------------------------------------------------
 
-async function idbGetAll() {
+async function idbGetAll(): Promise<MutationRecord[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx   = db.transaction(STORE_NAME, 'readonly');
     const req  = tx.objectStore(STORE_NAME).getAll();
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => resolve(req.result as MutationRecord[]);
     req.onerror   = () => reject(req.error);
   });
 }
 
-async function idbAdd(record) {
+async function idbAdd(record: Omit<MutationRecord, 'id'>): Promise<number> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx  = db.transaction(STORE_NAME, 'readwrite');
     const req = tx.objectStore(STORE_NAME).add(record);
-    req.onsuccess = () => resolve(req.result); // returns the generated key
+    req.onsuccess = () => resolve(req.result as number); // returns the generated key
     req.onerror   = () => reject(req.error);
   });
 }
 
-async function idbPut(record) {
+async function idbPut(record: MutationRecord): Promise<number> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx  = db.transaction(STORE_NAME, 'readwrite');
     const req = tx.objectStore(STORE_NAME).put(record);
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => resolve(req.result as number);
     req.onerror   = () => reject(req.error);
   });
 }
 
-async function idbDelete(id) {
+async function idbDelete(id: number): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx  = db.transaction(STORE_NAME, 'readwrite');
@@ -151,23 +173,29 @@ async function idbDelete(id) {
 
 // ---- In-memory callbacks (not persisted) -----------------------------------
 
+interface MutationCallbacks {
+  onOptimisticApply?: () => void;
+  onRollback?: (record?: MutationRecord, err?: Error) => void;
+}
+
 // Map from IDB key → { onOptimisticApply, onRollback }
-const _callbacks = new Map();
+const _callbacks = new Map<number, MutationCallbacks>();
+
+type FlushListener = (mutation: MutationRecord & { _callbacks?: MutationCallbacks }) => void;
 
 // Flush subscribers
-const _flushListeners = new Set();
+const _flushListeners = new Set<FlushListener>();
 
 /**
  * Subscribe to successful single-item flush events.
- * @param {(mutation: object) => void} cb
- * @returns {() => void} unsubscribe
+ * @returns unsubscribe
  */
-export function onFlush(cb) {
+export function onFlush(cb: FlushListener) {
   _flushListeners.add(cb);
   return () => _flushListeners.delete(cb);
 }
 
-function emitFlush(mutation) {
+function emitFlush(mutation: MutationRecord & { _callbacks?: MutationCallbacks }) {
   for (const cb of _flushListeners) {
     try { cb(mutation); } catch (e) { console.error('[offline/queue] onFlush error', e); }
   }
@@ -179,10 +207,15 @@ const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API
   ? import.meta.env.VITE_API_URL
   : 'http://localhost:8080';
 
-async function executeRequest(record) {
+interface RequestError extends Error {
+  status?: number;
+  terminal?: boolean;
+}
+
+async function executeRequest(record: MutationRecord): Promise<Response> {
   const { url, method, body, headers = {}, idempotencyKey } = record;
 
-  const h = {
+  const h: Record<string, string> = {
     'Content-Type': 'application/json',
     ...headers,
   };
@@ -209,7 +242,7 @@ async function executeRequest(record) {
     // 4xx (except 409/idempotency conflict which we treat as success) are
     // terminal — don't retry.
     const terminal = res.status >= 400 && res.status < 500 && res.status !== 409;
-    const err = new Error(`HTTP ${res.status}`);
+    const err: RequestError = new Error(`HTTP ${res.status}`);
     err.status   = res.status;
     err.terminal = terminal;
     throw err;
@@ -256,12 +289,13 @@ export async function flushQueue() {
         _callbacks.delete(record.id);
         emitFlush({ ...record, _callbacks: cbs });
       } catch (err) {
-        if (err.terminal) {
+        const reqErr = err as RequestError;
+        if (reqErr.terminal) {
           console.error('[offline/queue] terminal error — dropping mutation', record, err);
           await idbDelete(record.id);
           const cbs = _callbacks.get(record.id);
           if (cbs?.onRollback) {
-            try { cbs.onRollback(record, err); } catch { /* ignore */ }
+            try { cbs.onRollback(record, reqErr); } catch { /* ignore */ }
           }
           _callbacks.delete(record.id);
         } else {
@@ -311,18 +345,9 @@ if (typeof window !== 'undefined') {
  * so the UI can apply an optimistic update.  `onRollback` is invoked if the
  * mutation is ultimately dropped after MAX_RETRIES failures.
  *
- * @param {{
- *   url: string,
- *   method: string,
- *   body?: any,
- *   headers?: Record<string,string>,
- *   idempotencyKey: string,
- *   onOptimisticApply?: () => void,
- *   onRollback?: (record: object, err?: Error) => void,
- * }} mutation
- * @returns {Promise<number>} IDB auto-generated key
+ * @returns IDB auto-generated key
  */
-export async function enqueueMutation(mutation) {
+export async function enqueueMutation(mutation: Mutation): Promise<number> {
   const { onOptimisticApply, onRollback, ...persistable } = mutation;
 
   const record = {

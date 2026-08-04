@@ -27,12 +27,12 @@
 /**
  * Derive a stable idempotency key from a logical mutation identity.
  *
- * @param {string} method      - HTTP method, e.g. 'POST'
- * @param {string} url         - Full or relative URL, e.g. '/data/orders'
- * @param {string} logicalId   - Caller-supplied stable ID (e.g. a ULID).
- * @returns {Promise<string>}  - 64-char lowercase hex SHA-256 digest
+ * @param method      - HTTP method, e.g. 'POST'
+ * @param url         - Full or relative URL, e.g. '/data/orders'
+ * @param logicalId   - Caller-supplied stable ID (e.g. a ULID).
+ * @returns 64-char lowercase hex SHA-256 digest
  */
-export async function makeIdempotencyKey(method, url, logicalId) {
+export async function makeIdempotencyKey(method: string, url: string, logicalId: string): Promise<string> {
   const raw = `${method.toUpperCase()}|${url}|${logicalId}`;
   const encoded = new TextEncoder().encode(raw);
   const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
@@ -43,14 +43,13 @@ export async function makeIdempotencyKey(method, url, logicalId) {
 /**
  * Attach an `Idempotency-Key` header to an existing headers object.
  * Mutates `headers` in-place and also returns it for convenience.
- *
- * @param {Record<string, string>} headers
- * @param {string} method
- * @param {string} url
- * @param {string} logicalId
- * @returns {Promise<Record<string, string>>}
  */
-export async function attachIdempotencyKey(headers, method, url, logicalId) {
+export async function attachIdempotencyKey(
+  headers: Record<string, string>,
+  method: string,
+  url: string,
+  logicalId: string,
+): Promise<Record<string, string>> {
   headers['Idempotency-Key'] = await makeIdempotencyKey(method, url, logicalId);
   return headers;
 }
