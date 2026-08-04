@@ -44,12 +44,36 @@ import { formatMoney } from '@/lib/currency';
 const CHANNEL_NAME = 'bb_customer_display';
 const STORAGE_KEY = 'bb.customer_display_state';
 
+// State shape broadcast by the POS workspace — see module header comment.
+export interface DisplayItem {
+  name: string;
+  qty: number;
+  unitCents: number;
+}
+
+export interface DisplayState {
+  storeName?: string;
+  items: DisplayItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency?: string;
+  locale?: string;
+  tipOptions?: number[];
+  selectedTip?: number;
+}
+
+interface TipSelectedMessage {
+  type: 'tip_selected';
+  amount: number;
+}
+
 // ---------------------------------------------------------------------------
 // BroadcastChannel + localStorage sync
 // ---------------------------------------------------------------------------
 
 function useDisplayState() {
-  const [state, setState] = useState(() => {
+  const [state, setState] = useState<DisplayState | null>(() => {
     // Bootstrap from localStorage so a page refresh stays in sync.
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -59,15 +83,15 @@ function useDisplayState() {
     }
   });
 
-  const channelRef = useRef(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
     // --- BroadcastChannel ---
-    let ch = null;
+    let ch: BroadcastChannel | null = null;
     try {
       ch = new BroadcastChannel(CHANNEL_NAME);
       channelRef.current = ch;
-      ch.onmessage = (ev) => {
+      ch.onmessage = (ev: MessageEvent) => {
         if (ev.data && ev.data.type !== 'tip_selected') {
           setState(ev.data);
           try { localStorage.setItem(STORAGE_KEY, JSON.stringify(ev.data)); } catch { /* noop */ }
@@ -78,7 +102,7 @@ function useDisplayState() {
     }
 
     // --- storage event (cross-tab fallback) ---
-    function onStorage(ev) {
+    function onStorage(ev: StorageEvent) {
       if (ev.key === STORAGE_KEY && ev.newValue) {
         try {
           const next = JSON.parse(ev.newValue);
@@ -95,8 +119,8 @@ function useDisplayState() {
   }, []);
 
   // broadcastTip sends a tip_selected event back to the POS window.
-  const broadcastTip = useCallback((amountCents) => {
-    const msg = { type: 'tip_selected', amount: amountCents };
+  const broadcastTip = useCallback((amountCents: number) => {
+    const msg: TipSelectedMessage = { type: 'tip_selected', amount: amountCents };
     try {
       if (channelRef.current) channelRef.current.postMessage(msg);
     } catch { /* noop */ }
@@ -117,7 +141,7 @@ export default function CustomerDisplay() {
   const currency = state?.currency;
   const locale = state?.locale;
   const money = useCallback(
-    (cents) => formatMoney(cents, { currency, locale }),
+    (cents: number) => formatMoney(cents, { currency, locale }),
     [currency, locale],
   );
 
@@ -171,10 +195,10 @@ export default function CustomerDisplay() {
               <span className="tabular-nums">{money(state.tax)}</span>
             </div>
           )}
-          {state.selectedTip > 0 && (
+          {(state.selectedTip ?? 0) > 0 && (
             <div className="flex justify-between text-sm text-success">
               <span>Tip</span>
-              <span className="tabular-nums">{money(state.selectedTip)}</span>
+              <span className="tabular-nums">{money(state.selectedTip ?? 0)}</span>
             </div>
           )}
           {/* Grand total — the one figure a customer reads from across the
@@ -224,7 +248,14 @@ function IdleScreen() {
 // Tip selector
 // ---------------------------------------------------------------------------
 
-function TipSelector({ options, selected, format, onSelect }) {
+interface TipSelectorProps {
+  options: number[];
+  selected: number;
+  format: (cents: number) => string;
+  onSelect: (amount: number) => void;
+}
+
+function TipSelector({ options, selected, format, onSelect }: TipSelectorProps) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -259,9 +290,9 @@ function TipSelector({ options, selected, format, onSelect }) {
 // Import and call broadcastDisplayState(state) from workspace.jsx.
 // ---------------------------------------------------------------------------
 
-let _channel = null;
+let _channel: BroadcastChannel | null = null;
 
-function getChannel() {
+function getChannel(): BroadcastChannel | null {
   if (!_channel) {
     try {
       _channel = new BroadcastChannel(CHANNEL_NAME);
@@ -275,10 +306,8 @@ function getChannel() {
 /**
  * Push display state to the customer-display window.
  * Call from the POS workspace whenever order state changes.
- *
- * @param {{ storeName?, items, subtotal, tax, total, currency, tipOptions? }} state
  */
-export function broadcastDisplayState(state) {
+export function broadcastDisplayState(state: DisplayState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch { /* noop */ }
@@ -291,23 +320,20 @@ export function broadcastDisplayState(state) {
 /**
  * Subscribe to tip_selected events from the customer-display window.
  * Returns an unsubscribe function.
- *
- * @param {(amountCents: number) => void} callback
- * @returns {() => void}
  */
-export function onTipSelected(callback) {
+export function onTipSelected(callback: (amountCents: number) => void): () => void {
   const ch = getChannel();
   if (!ch) return () => {};
 
-  function handler(ev) {
+  function handler(ev: MessageEvent) {
     if (ev.data?.type === 'tip_selected') {
       callback(ev.data.amount ?? 0);
     }
   }
-  ch.addEventListener('message', handler);
+  ch!.addEventListener('message', handler);
 
   // Also listen via localStorage for cross-origin cases.
-  function storageHandler(ev) {
+  function storageHandler(ev: StorageEvent) {
     if (ev.key === 'bb.customer_display_tip' && ev.newValue) {
       try {
         const msg = JSON.parse(ev.newValue);
@@ -318,7 +344,7 @@ export function onTipSelected(callback) {
   window.addEventListener('storage', storageHandler);
 
   return () => {
-    ch.removeEventListener('message', handler);
+    ch!.removeEventListener('message', handler);
     window.removeEventListener('storage', storageHandler);
   };
 }

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +10,55 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Lock, User, Hash, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 
+// Real wire shape per backend/internal/staffauth/handlers.go `sessionResp`.
+//
+// KNOWN PRE-EXISTING DEFECT (found by this TS conversion, not fixed — fixing
+// would change the redirect behavior below): resolvePostLoginPath() reads
+// `data.role` and `data.capabilities` directly off this response, but the
+// real backend DTO has neither field at top level — the role lives at
+// `data.staff.role`, and no endpoint here ever returns `capabilities`. So
+// `role` is always '' and `caps` is always [], `kitchenOnly` is always
+// false, and every staff login (including kitchen-only staff) lands on
+// /pos/workspace, never /work. `role`/`capabilities` kept as optional
+// `unknown` below so the existing (broken) reads still compile without
+// inventing real fields.
+//
+// SEPARATE, MORE SEVERE PRE-EXISTING DEFECT: loginReq/pinLoginReq on the
+// backend both require a non-empty `location_id` ("location_id required"
+// 400 otherwise — see staffauth/handlers.go loginReq/pinLoginReq), but the
+// POST bodies below (and the /pos/login route itself) never carry one.
+// Every password/PIN staff login submitted from this page therefore fails
+// with 400 in production. Not fixed here — flagged for the app owner.
+interface StaffLoginResponse {
+  staff: {
+    id: string;
+    location_id: string;
+    username: string | null;
+    first_name: string;
+    last_name: string;
+    role: string;
+    is_active: boolean;
+    must_change_password: boolean;
+  };
+  access_token: string;
+  refresh_token: string;
+  access_expires_at: string;
+  token_type: string;
+  role?: unknown;
+  capabilities?: unknown;
+}
+
+interface PinButtonProps {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // PIN pad digit button
 // ---------------------------------------------------------------------------
 // eslint-disable-next-line react/prop-types
-function PinButton({ children, onClick, disabled }) {
+function PinButton({ children, onClick, disabled }: PinButtonProps) {
   return (
     <button
       type="button"
@@ -29,8 +74,13 @@ function PinButton({ children, onClick, disabled }) {
 // ---------------------------------------------------------------------------
 // PIN dot display (shows filled/empty circles for entered digits)
 // ---------------------------------------------------------------------------
+interface PinDotsProps {
+  length: number;
+  maxLength: number;
+}
+
 // eslint-disable-next-line react/prop-types
-function PinDots({ length, maxLength }) {
+function PinDots({ length, maxLength }: PinDotsProps) {
   return (
     <div className="flex items-center justify-center gap-3 my-4">
       {Array.from({ length: maxLength }).map((_, i) => (
@@ -50,25 +100,37 @@ function PinDots({ length, maxLength }) {
 // ---------------------------------------------------------------------------
 // Main POS Staff Login page
 // ---------------------------------------------------------------------------
+interface PwErrors {
+  username?: string;
+  password?: string;
+  submit?: string;
+}
+
+interface PinErrors {
+  username?: string;
+  pin?: string;
+  submit?: string;
+}
+
 const PosLoginPage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('password');
 
   // -- password tab state --
   const [pwForm, setPwForm] = useState({ username: '', password: '' });
-  const [pwErrors, setPwErrors] = useState({});
+  const [pwErrors, setPwErrors] = useState<PwErrors>({});
   const [pwLoading, setPwLoading] = useState(false);
 
   // -- pin tab state --
   const [pinForm, setPinForm] = useState({ username: '', pin: '' });
-  const [pinErrors, setPinErrors] = useState({});
+  const [pinErrors, setPinErrors] = useState<PinErrors>({});
   const [pinLoading, setPinLoading] = useState(false);
 
-  const passwordRef = useRef(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   // ---- helpers ----
 
-  const errorMessage = (status) => {
+  const errorMessage = (status?: number) => {
     if (status === 423) return 'Account is locked due to too many failed attempts. Please contact your manager.';
     if (status === 429) return 'Too many login attempts. Please wait a moment and try again.';
     return null;
@@ -79,7 +141,7 @@ const PosLoginPage = () => {
    * - Kitchen-only staff (role === 'kitchen' or only can_kitchen) → /work
    * - Everyone else → /pos/workspace
    */
-  const resolvePostLoginPath = (data) => {
+  const resolvePostLoginPath = (data: StaffLoginResponse | null) => {
     const role = data?.role ?? '';
     const caps = Array.isArray(data?.capabilities) ? data.capabilities : [];
     const hasPos = caps.includes('can_pos');
@@ -90,29 +152,29 @@ const PosLoginPage = () => {
 
   // ---- password tab handlers ----
 
-  const handlePwChange = (e) => {
+  const handlePwChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPwForm((prev) => ({ ...prev, [name]: value }));
-    if (pwErrors[name] || pwErrors.submit) {
+    if (pwErrors[name as keyof PwErrors] || pwErrors.submit) {
       setPwErrors((prev) => ({ ...prev, [name]: undefined, submit: undefined }));
     }
   };
 
   const validatePwForm = () => {
-    const errs = {};
+    const errs: PwErrors = {};
     if (!pwForm.username.trim()) errs.username = 'Username is required';
     if (!pwForm.password) errs.password = 'Password is required';
     setPwErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handlePwSubmit = useCallback(async (e) => {
+  const handlePwSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!validatePwForm()) return;
 
     setPwLoading(true);
     try {
-      const { data, error } = await api.request('POST', '/auth/staff/login', {
+      const { data, error } = await api.request<StaffLoginResponse>('POST', '/auth/staff/login', {
         auth: false,
         body: {
           username: pwForm.username.trim(),
@@ -140,14 +202,14 @@ const PosLoginPage = () => {
 
   // ---- pin tab handlers ----
 
-  const handlePinUsernameChange = (e) => {
+  const handlePinUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPinForm((prev) => ({ ...prev, username: e.target.value }));
     if (pinErrors.username || pinErrors.submit) {
       setPinErrors((prev) => ({ ...prev, username: undefined, submit: undefined }));
     }
   };
 
-  const appendDigit = (digit) => {
+  const appendDigit = (digit: string) => {
     setPinForm((prev) => {
       if (prev.pin.length >= 6) return prev;
       return { ...prev, pin: prev.pin + digit };
@@ -165,7 +227,7 @@ const PosLoginPage = () => {
   };
 
   const validatePinForm = () => {
-    const errs = {};
+    const errs: PinErrors = {};
     if (!pinForm.username.trim()) errs.username = 'Username is required';
     if (pinForm.pin.length < 4) errs.pin = 'PIN must be 4–6 digits';
     setPinErrors(errs);
@@ -177,7 +239,7 @@ const PosLoginPage = () => {
 
     setPinLoading(true);
     try {
-      const { data, error } = await api.request('POST', '/auth/staff/pin-login', {
+      const { data, error } = await api.request<StaffLoginResponse>('POST', '/auth/staff/pin-login', {
         auth: false,
         body: {
           username: pinForm.username.trim(),
@@ -212,7 +274,7 @@ const PosLoginPage = () => {
   }, [pinForm.pin]);
 
   // Keyboard Enter on PIN username field → focus pin (handled by numpad)
-  const handlePinUsernameKeyDown = (e) => {
+  const handlePinUsernameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') e.preventDefault();
   };
 
