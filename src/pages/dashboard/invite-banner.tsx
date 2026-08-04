@@ -1,8 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserPlus } from 'lucide-react';
+import type { PendingInvite } from '@/context/auth-context';
 
-const InviteBanner = ({ pendingInvites, onOpenInviteDialog }) => {
+interface InviteBannerProps {
+  pendingInvites: PendingInvite[] | null | undefined;
+  onOpenInviteDialog: () => void;
+}
+
+const InviteBanner = ({ pendingInvites, onOpenInviteDialog }: InviteBannerProps) => {
   if (!pendingInvites || pendingInvites.length === 0) {
     return null;
   }
