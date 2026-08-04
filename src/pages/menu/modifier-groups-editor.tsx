@@ -1,7 +1,7 @@
-// modifier-groups-editor.jsx — CRUD UI for modifier_groups + modifiers on a menu item.
+// modifier-groups-editor.tsx — CRUD UI for modifier_groups + modifiers on a menu item.
 // Designed to be dropped inside the Recipe modal's tab set (or as a standalone dialog).
-/* eslint-disable react/prop-types */
 import { useEffect, useState } from 'react';
+import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react';
 import { ChevronDown, ChevronRight, Loader2, Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,56 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/services/supabase-client';
 import { useMoney } from '@/context/locale-context';
 
-const emptyGroup = () => ({
+// Mirrors backend/migrations/001_baseline.sql `modifier_groups` and
+// `modifiers` tables.
+interface ModifierGroup {
+  id: string;
+  item_id: string;
+  name: string;
+  min_select: number;
+  max_select: number;
+  is_required: boolean;
+  sort_order: number;
+  [key: string]: unknown;
+}
+
+interface Modifier {
+  id: string;
+  modifier_group_id: string;
+  name: string;
+  price_delta_cents: number;
+  is_default: boolean;
+  is_active: boolean;
+  sort_order: number;
+  [key: string]: unknown;
+}
+
+// Editable-form shapes: fields become `string` while an <input> is being
+// edited (raw, unparsed text) and are parsed back to numbers on save — same
+// pattern as menu/index.tsx's MenuFormData. `id`/parent-id are absent on a
+// not-yet-created row (new group/modifier) and present once loaded from a
+// real row.
+interface ModifierGroupForm {
+  id?: string;
+  item_id?: string;
+  name: string;
+  min_select: number | string;
+  max_select: number | string;
+  is_required: boolean;
+  sort_order: number | string;
+}
+
+interface ModifierForm {
+  id?: string;
+  modifier_group_id?: string;
+  name: string;
+  price_delta_cents: number | string;
+  is_default: boolean;
+  is_active: boolean;
+  sort_order: number | string;
+}
+
+const emptyGroup = (): ModifierGroupForm => ({
   name: '',
   min_select: 0,
   max_select: 1,
@@ -20,7 +69,7 @@ const emptyGroup = () => ({
   sort_order: 0,
 });
 
-const emptyModifier = () => ({
+const emptyModifier = (): ModifierForm => ({
   name: '',
   price_delta_cents: 0,
   is_default: false,
@@ -31,14 +80,21 @@ const emptyModifier = () => ({
 // ---------------------------------------------------------------------------
 // Inline editable row for a single modifier
 // ---------------------------------------------------------------------------
-function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
+interface ModifierRowProps {
+  mod: Modifier;
+  onSave: (form: ModifierForm) => Promise<void>;
+  onDelete: (mod: Modifier) => Promise<void>;
+  onToggleActive: (mod: Modifier) => Promise<void>;
+}
+
+function ModifierRow({ mod, onSave, onDelete, onToggleActive }: ModifierRowProps) {
   const { format: formatMoneyValue, symbol } = useMoney();
-  const fmtDelta = (cents) => {
+  const fmtDelta = (cents: number) => {
     if (!cents) return '';
     return (cents > 0 ? '+' : '-') + formatMoneyValue(Math.abs(cents));
   };
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ ...mod });
+  const [form, setForm] = useState<ModifierForm>({ ...mod });
   const [saving, setSaving] = useState(false);
 
   const commit = async () => {
@@ -118,14 +174,29 @@ function ModifierRow({ mod, onSave, onDelete, onToggleActive }) {
 // ---------------------------------------------------------------------------
 // Single modifier-group section (collapsible)
 // ---------------------------------------------------------------------------
-function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
+interface GroupSectionProps {
+  group: ModifierGroup;
+  onUpdateGroup: () => Promise<void>;
+  onDeleteGroup: (group: ModifierGroup) => Promise<void>;
+  onRefresh: () => Promise<void>;
+}
+
+function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }: GroupSectionProps) {
+  // NOTE (real pre-existing bug, fixed here — not a type-only issue): this
+  // component's "Add option" inline form references `symbol` in a title
+  // attribute, but unlike its sibling ModifierRow (which destructures it
+  // from useMoney() below), GroupSection never did — an unbound identifier
+  // TypeScript cannot compile around (unlike JS, which only throws
+  // ReferenceError at render time, when a user opens this form). Added the
+  // missing destructure rather than leaving this uncompilable.
+  const { symbol } = useMoney();
   const [open, setOpen] = useState(true);
   const [editingGroup, setEditingGroup] = useState(false);
-  const [groupForm, setGroupForm] = useState({ ...group });
-  const [modifiers, setModifiers] = useState([]);
+  const [groupForm, setGroupForm] = useState<ModifierGroupForm>({ ...group });
+  const [modifiers, setModifiers] = useState<Modifier[]>([]);
   const [loadingMods, setLoadingMods] = useState(false);
   const [addingMod, setAddingMod] = useState(false);
-  const [newMod, setNewMod] = useState(emptyModifier());
+  const [newMod, setNewMod] = useState<ModifierForm>(emptyModifier());
   const [savingGroup, setSavingGroup] = useState(false);
 
   // Fetch modifiers for this group
@@ -156,10 +227,10 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
         .from('modifier_groups')
         .update({
           name: groupForm.name,
-          min_select: parseInt(groupForm.min_select) || 0,
-          max_select: Math.max(1, parseInt(groupForm.max_select) || 1),
+          min_select: parseInt(String(groupForm.min_select)) || 0,
+          max_select: Math.max(1, parseInt(String(groupForm.max_select)) || 1),
           is_required: groupForm.is_required,
-          sort_order: parseInt(groupForm.sort_order) || 0,
+          sort_order: parseInt(String(groupForm.sort_order)) || 0,
         })
         .eq('id', group.id);
       if (error) throw error;
@@ -167,22 +238,22 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
       setEditingGroup(false);
     } catch (err) {
       console.error('Failed to save group:', err);
-      alert(err.message || 'Failed to save group');
+      alert(err instanceof Error ? err.message : 'Failed to save group');
     } finally {
       setSavingGroup(false);
     }
   };
 
-  const saveMod = async (form) => {
+  const saveMod = async (form: ModifierForm) => {
     try {
       if (form.id) {
         const { error } = await supabase
           .from('modifiers')
           .update({
             name: form.name,
-            price_delta_cents: parseInt(form.price_delta_cents) || 0,
+            price_delta_cents: parseInt(String(form.price_delta_cents)) || 0,
             is_default: form.is_default,
-            sort_order: parseInt(form.sort_order) || 0,
+            sort_order: parseInt(String(form.sort_order)) || 0,
           })
           .eq('id', form.id);
         if (error) throw error;
@@ -192,32 +263,32 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
           .insert({
             modifier_group_id: group.id,
             name: form.name,
-            price_delta_cents: parseInt(form.price_delta_cents) || 0,
+            price_delta_cents: parseInt(String(form.price_delta_cents)) || 0,
             is_default: form.is_default,
             is_active: true,
-            sort_order: parseInt(form.sort_order) || 0,
+            sort_order: parseInt(String(form.sort_order)) || 0,
           });
         if (error) throw error;
       }
       await fetchMods();
     } catch (err) {
       console.error('Failed to save modifier:', err);
-      alert(err.message || 'Failed to save modifier');
+      alert(err instanceof Error ? err.message : 'Failed to save modifier');
     }
   };
 
-  const deleteMod = async (mod) => {
+  const deleteMod = async (mod: Modifier) => {
     if (!confirm(`Delete "${mod.name}"?`)) return;
     try {
       const { error } = await supabase.from('modifiers').delete().eq('id', mod.id);
       if (error) throw error;
       await fetchMods();
     } catch (err) {
-      alert(err.message || 'Delete failed');
+      alert(err instanceof Error ? err.message : 'Delete failed');
     }
   };
 
-  const toggleActive = async (mod) => {
+  const toggleActive = async (mod: Modifier) => {
     try {
       const { error } = await supabase
         .from('modifiers')
@@ -226,7 +297,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
       if (error) throw error;
       await fetchMods();
     } catch (err) {
-      alert(err.message || 'Update failed');
+      alert(err instanceof Error ? err.message : 'Update failed');
     }
   };
 
@@ -372,11 +443,15 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }) {
 // ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
-export default function ModifierGroupsEditor({ itemId }) {
-  const [groups, setGroups] = useState([]);
+interface ModifierGroupsEditorProps {
+  itemId?: string | null;
+}
+
+export default function ModifierGroupsEditor({ itemId }: ModifierGroupsEditorProps) {
+  const [groups, setGroups] = useState<ModifierGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingGroup, setAddingGroup] = useState(false);
-  const [newGroup, setNewGroup] = useState(emptyGroup());
+  const [newGroup, setNewGroup] = useState<ModifierGroupForm>(emptyGroup());
   const [savingGroup, setSavingGroup] = useState(false);
 
   const fetchGroups = async () => {
@@ -407,10 +482,10 @@ export default function ModifierGroupsEditor({ itemId }) {
       const { error } = await supabase.from('modifier_groups').insert({
         item_id: itemId,
         name: newGroup.name.trim(),
-        min_select: parseInt(newGroup.min_select) || 0,
-        max_select: Math.max(1, parseInt(newGroup.max_select) || 1),
+        min_select: parseInt(String(newGroup.min_select)) || 0,
+        max_select: Math.max(1, parseInt(String(newGroup.max_select)) || 1),
         is_required: newGroup.is_required,
-        sort_order: parseInt(newGroup.sort_order) || 0,
+        sort_order: parseInt(String(newGroup.sort_order)) || 0,
       });
       if (error) throw error;
       setNewGroup(emptyGroup());
@@ -418,20 +493,20 @@ export default function ModifierGroupsEditor({ itemId }) {
       await fetchGroups();
     } catch (err) {
       console.error('Failed to add group:', err);
-      alert(err.message || 'Failed to add modifier group');
+      alert(err instanceof Error ? err.message : 'Failed to add modifier group');
     } finally {
       setSavingGroup(false);
     }
   };
 
-  const deleteGroup = async (group) => {
+  const deleteGroup = async (group: ModifierGroup) => {
     if (!confirm(`Delete group "${group.name}" and all its options?`)) return;
     try {
       const { error } = await supabase.from('modifier_groups').delete().eq('id', group.id);
       if (error) throw error;
       await fetchGroups();
     } catch (err) {
-      alert(err.message || 'Delete failed');
+      alert(err instanceof Error ? err.message : 'Delete failed');
     }
   };
 
