@@ -229,6 +229,31 @@ interface FetchError extends Error {
   status?: number;
 }
 
+// Mirrors backend/internal/handlers/pos/store.go CreatedOrder (returned by
+// POST /pos/orders and shaped identically by /pos/orders/{id}/charge's
+// underlying store call). *_minor fields are exact integer minor units;
+// subtotal/tax/gratuity/total are float major-unit compatibility fields.
+export interface CreatedOrder {
+  order_id: string;
+  order_number: string;
+  subtotal_minor: number;
+  tax_minor: number;
+  gratuity_minor: number;
+  total_minor: number;
+  subtotal: number;
+  tax: number;
+  gratuity: number;
+  total: number;
+  currency_code: string;
+  currency_decimals: number;
+  tax_rate: number;
+  tax_inclusive: boolean;
+  tax_label: string;
+  kds_ticket_ids: string[];
+  status: string;
+  payment_method: string;
+}
+
 export async function submitPosOrder({
   locationId,
   orderType = 'dine_in',
@@ -243,7 +268,7 @@ export async function submitPosOrder({
   registerSessionId?: string;
   items: unknown[];
   notes?: string;
-}) {
+}): Promise<CreatedOrder> {
   const body: {
     location_id: string;
     order_type: string;
@@ -260,13 +285,13 @@ export async function submitPosOrder({
   if (tableNumber) body.table_number = tableNumber;
   if (notes) body.notes = notes;
 
-  const { data, error } = await api.request('POST', '/pos/orders', { body });
+  const { data, error } = await api.request<CreatedOrder>('POST', '/pos/orders', { body });
   if (error) {
     const e: FetchError = new Error(error.message || 'Failed to place order');
     e.status = error.status;
     throw e;
   }
-  return data;
+  return data!;
 }
 
 // ---- Order modification (Wave 24) ------------------------------------------
