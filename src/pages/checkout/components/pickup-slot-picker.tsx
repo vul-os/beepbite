@@ -18,10 +18,10 @@
 
 import { useEffect, useState } from 'react';
 import { Clock, Loader2 } from 'lucide-react';
-import { fetchPickupSlots } from '@/services/pickup-slots';
+import { fetchPickupSlots, type PickupSlot } from '@/services/pickup-slots';
 
 // Format an ISO timestamp to a human-readable "HH:MM" label in local time.
-function formatSlotLabel(isoString) {
+function formatSlotLabel(isoString: string) {
   try {
     const d = new Date(isoString);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -30,10 +30,17 @@ function formatSlotLabel(isoString) {
   }
 }
 
-export default function PickupSlotPicker({ locationId, date, selected, onSelect }) {
-  const [slots, setSlots] = useState([]);
+interface PickupSlotPickerProps {
+  locationId: string;
+  date: string;
+  selected: string | null;
+  onSelect: (slotIso: string) => void;
+}
+
+export default function PickupSlotPicker({ locationId, date, selected, onSelect }: PickupSlotPickerProps) {
+  const [slots, setSlots] = useState<PickupSlot[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!locationId || !date) return;
