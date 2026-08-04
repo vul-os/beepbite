@@ -1,4 +1,4 @@
-// sse-cursor.test.js — unit tests for src/offline/sse-cursor.js
+// sse-cursor.test.ts — unit tests for src/offline/sse-cursor.js
 //
 // jsdom does not implement EventSource (it is `undefined` in the test
 // environment), so a small controllable fake stands in for it: each
@@ -11,10 +11,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SseCursor } from '../offline/sse-cursor.js';
 
-let instances;
+let instances: FakeEventSource[];
+
+interface FakeMessageEvent {
+  data: string;
+  lastEventId?: string;
+}
 
 class FakeEventSource {
-  constructor(url, opts) {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 2;
+
+  url: string;
+  opts: unknown;
+  readyState: number;
+  onopen: ((ev: Event) => void) | null;
+  onmessage: ((ev: FakeMessageEvent) => void) | null;
+  onerror: ((ev: Event) => void) | null;
+  _listeners: Record<string, ((...args: unknown[]) => void)[]>;
+
+  constructor(url: string, opts?: unknown) {
     this.url = url;
     this.opts = opts;
     this.readyState = FakeEventSource.CONNECTING;
@@ -24,7 +41,7 @@ class FakeEventSource {
     this._listeners = {};
     instances.push(this);
   }
-  addEventListener(type, cb) {
+  addEventListener(type: string, cb: (...args: unknown[]) => void) {
     (this._listeners[type] ??= []).push(cb);
   }
   close() {
@@ -35,16 +52,13 @@ class FakeEventSource {
     this.readyState = FakeEventSource.OPEN;
     this.onopen?.(new Event('open'));
   }
-  emitMessage(data, lastEventId) {
+  emitMessage(data: unknown, lastEventId?: string) {
     this.onmessage?.({ data: typeof data === 'string' ? data : JSON.stringify(data), lastEventId });
   }
   emitError() {
     this.onerror?.(new Event('error'));
   }
 }
-FakeEventSource.CONNECTING = 0;
-FakeEventSource.OPEN = 1;
-FakeEventSource.CLOSED = 2;
 
 beforeEach(() => {
   instances = [];

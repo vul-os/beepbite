@@ -1,4 +1,4 @@
-// locale-data.test.js — unit tests for src/lib/locale-data.js
+// locale-data.test.ts — unit tests for src/lib/locale-data.ts
 //
 // These lists exist to populate the location settings UI, and two of their
 // properties are load-bearing rather than cosmetic:
@@ -107,9 +107,9 @@ describe('countryOptions', () => {
     // changes the output, which is the reason names are not hardcoded.
     const en = countryOptions('en').find((o) => o.code === 'JP');
     const ja = countryOptions('ja').find((o) => o.code === 'JP');
-    expect(en.name).toBeTruthy();
-    expect(ja.name).toBeTruthy();
-    expect(ja.name).not.toBe(en.name);
+    expect(en?.name).toBeTruthy();
+    expect(ja?.name).toBeTruthy();
+    expect(ja?.name).not.toBe(en?.name);
   });
 });
 

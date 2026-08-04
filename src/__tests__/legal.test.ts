@@ -1,4 +1,4 @@
-// legal.test.js — unit tests for generateStorePolicyMd() in src/services/legal.js
+// legal.test.ts — unit tests for generateStorePolicyMd() in src/services/legal.ts
 //
 // generateStorePolicyMd is a pure string-template function (no network), so it
 // is tested directly rather than through a mocked api-client. The system
@@ -9,7 +9,7 @@
 // shows the wrong day near midnight in every timezone that isn't UTC.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateStorePolicyMd } from '../services/legal';
+import { generateStorePolicyMd, type StoreOrganization } from '../services/legal';
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -25,11 +25,15 @@ afterEach(() => {
 
 describe('generateStorePolicyMd — required input', () => {
   it('throws when organization is missing', () => {
-    expect(() => generateStorePolicyMd(null)).toThrow(/organization.name is required/);
+    expect(() => generateStorePolicyMd(null as unknown as StoreOrganization)).toThrow(
+      /organization.name is required/,
+    );
   });
 
   it('throws when organization.name is missing', () => {
-    expect(() => generateStorePolicyMd({})).toThrow(/organization.name is required/);
+    expect(() => generateStorePolicyMd({} as unknown as StoreOrganization)).toThrow(
+      /organization.name is required/,
+    );
   });
 });
 
