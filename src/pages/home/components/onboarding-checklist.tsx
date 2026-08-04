@@ -14,16 +14,34 @@ import {
   ChevronRight,
   Sparkles,
   Store,
+  type LucideIcon,
 } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth, type Organization } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 import { cn } from '@/lib/utils';
 import AddLocationModal from './add-location-modal';
 
+type ServiceStyle = 'takeaway' | 'dine_in';
+
+interface OnboardingStep {
+  key: string;
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  done: boolean;
+  actionLabel: string | null;
+  onAction: (() => void) | null;
+  alwaysDone?: boolean;
+  isPrimary?: boolean;
+  disabled?: boolean;
+  disabledHint?: string | null;
+  isServiceStyleStep?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Service-style localStorage helpers
 // ---------------------------------------------------------------------------
-function getServiceStyleLS(locId) {
+function getServiceStyleLS(locId: string | undefined): ServiceStyle | null {
   if (!locId) return null; // null means "not chosen yet"
   try {
     const v = localStorage.getItem(`bb_service_style_${locId}`);
@@ -32,7 +50,7 @@ function getServiceStyleLS(locId) {
     return null;
   }
 }
-function setServiceStyleLS(locId, value) {
+function setServiceStyleLS(locId: string | undefined, value: ServiceStyle) {
   if (!locId) return;
   try { localStorage.setItem(`bb_service_style_${locId}`, value); } catch { /* ignore */ }
 }
@@ -47,10 +65,10 @@ const STEP_KEYS = {
   ORDER: 'order',
 };
 
-function useOnboardingData(activeOrganization) {
+function useOnboardingData(activeOrganization: Organization | null) {
   const { locations } = useAuth();
-  const [itemCount, setItemCount] = useState(null);
-  const [staffCount, setStaffCount] = useState(null);
+  const [itemCount, setItemCount] = useState<number | null>(null);
+  const [staffCount, setStaffCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const locationId = locations?.[0]?.id;
@@ -105,7 +123,11 @@ function useOnboardingData(activeOrganization) {
   return { itemCount, staffCount, loading, refetch: fetchData };
 }
 
-const OnboardingChecklist = ({ onComplete }) => {
+interface OnboardingChecklistProps {
+  onComplete: () => void;
+}
+
+const OnboardingChecklist = ({ onComplete }: OnboardingChecklistProps) => {
   const navigate = useNavigate();
   const { activeOrganization, locations, fetchLocations } = useAuth();
   const [addLocationOpen, setAddLocationOpen] = useState(false);
@@ -122,7 +144,7 @@ const OnboardingChecklist = ({ onComplete }) => {
     setServiceStyleState(getServiceStyleLS(firstLocation?.id));
   }, [firstLocation?.id]);
 
-  const handlePickServiceStyle = useCallback((style) => {
+  const handlePickServiceStyle = useCallback((style: ServiceStyle) => {
     setServiceStyleLS(firstLocation?.id, style);
     setServiceStyleState(style);
   }, [firstLocation?.id]);
@@ -137,7 +159,7 @@ const OnboardingChecklist = ({ onComplete }) => {
   }, [fetchLocations, refetch]);
 
   // Steps configuration
-  const steps = [
+  const steps: OnboardingStep[] = [
     {
       key: STEP_KEYS.ORG,
       icon: Building2,
@@ -430,7 +452,7 @@ const OnboardingChecklist = ({ onComplete }) => {
                         {canAct && (
                           <Button
                             size="sm"
-                            onClick={step.onAction}
+                            onClick={step.onAction ?? undefined}
                             className={cn(
                               'shrink-0 gap-1 h-9 px-3 rounded-lg focus-visible:ring-2 focus-visible:ring-offset-1',
                               !step.isPrimary && 'bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-ring'

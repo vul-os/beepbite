@@ -5,23 +5,32 @@ import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/services/supabase-client';
 
 // Stats API
-import { fetchStatsSummary, fetchStatsHeatmap } from '@/services/stats';
+import { fetchStatsSummary, fetchStatsHeatmap, type SummaryResponse, type HeatmapResponse } from '@/services/stats';
 
 // Layout helpers
 import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { Reveal } from '@/components/ui/motion';
 
 // Dashboard sub-components
-import PeriodFilter from './components/period-filter';
+import PeriodFilter, { type StatsPeriod } from './components/period-filter';
 import KpiCards from './components/kpi-cards';
 import SalesTrendChart from './components/sales-trend-chart';
 import BusyHeatmap from './components/busy-heatmap';
 import LiveOrdersPanel from './components/live-orders-panel';
 import OnboardingChecklist from './components/onboarding-checklist';
+import type { HomeOrder } from './types';
+import type { LucideIcon } from 'lucide-react';
 
 // ── Full-screen guard states ────────────────────────────────────────────────
 
-function GuardScreen({ icon: Icon, iconClass, title, subtitle }) {
+interface GuardScreenProps {
+  icon: LucideIcon;
+  iconClass: string;
+  title?: string;
+  subtitle?: string;
+}
+
+function GuardScreen({ icon: Icon, iconClass, title, subtitle }: GuardScreenProps) {
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 px-4"
@@ -41,11 +50,10 @@ function GuardScreen({ icon: Icon, iconClass, title, subtitle }) {
 
 const Home = () => {
   const { activeOrganization, activeLocation, locations, hasLoadedLocations } = useAuth();
-  const orgCurrency =
-    activeOrganization?.default_currency_code ||
+  const orgCurrency = (activeOrganization?.default_currency_code ||
     activeOrganization?.currency_code ||
     activeOrganization?.currency ||
-    'USD';
+    'USD') as string;
 
   // Resolve the location to drive the dashboard. Prefer the explicitly active
   // location; if it is null/stale (e.g. it hasn't hydrated yet after login, or
@@ -59,19 +67,19 @@ const Home = () => {
   const locationId = resolvedLocation?.id;
 
   // ── Period filter ────────────────────────────────────────────────────────
-  const [period, setPeriod] = useState('week');
+  const [period, setPeriod] = useState<StatsPeriod>('week');
 
   // ── Stats summary state ──────────────────────────────────────────────────
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryError, setSummaryError] = useState(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   // ── Heatmap state ────────────────────────────────────────────────────────
-  const [heatmap, setHeatmap] = useState(null);
+  const [heatmap, setHeatmap] = useState<HeatmapResponse | null>(null);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
 
   // ── Live orders state ────────────────────────────────────────────────────
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState<HomeOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('active');
@@ -170,7 +178,7 @@ const Home = () => {
     );
   }, [orders, orderSearchTerm]);
 
-  const updateOrderStatus = useCallback(async (orderId, newStatus) => {
+  const updateOrderStatus = useCallback(async (orderId: string, newStatus: string) => {
     setOrders((prev) =>
       prev.map((o) =>
         o.id === orderId ? { ...o, status: newStatus, updated_at: new Date().toISOString() } : o
