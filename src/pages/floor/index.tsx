@@ -26,11 +26,16 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader, PageContainer } from '@/components/ui/page-header';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
-import { useTables } from './hooks/use-tables';
+import { useTables, type FloorTable, type TableStatus } from './hooks/use-tables';
 import SectionTabs from './components/section-tabs';
 import FloorCanvas from './components/floor-canvas';
 
 const LIVE_REFRESH_MS = 15_000;
+
+interface Flash {
+  type: 'ok' | 'err';
+  message: string;
+}
 
 export default function FloorLive() {
   const { activeLocation } = useAuth();
@@ -47,8 +52,8 @@ export default function FloorLive() {
   } = useTables(locationId, { pollMs: LIVE_REFRESH_MS });
 
   const [activeSection, setActiveSection] = useState('all');
-  const [openingId, setOpeningId] = useState(null);
-  const [flash, setFlash] = useState(null); // {type, message}
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [flash, setFlash] = useState<Flash | null>(null);
 
   const visibleTables = useMemo(() => {
     if (activeSection === 'all') return tables;
@@ -56,14 +61,14 @@ export default function FloorLive() {
   }, [tables, activeSection]);
 
   const counts = useMemo(() => {
-    const c = { all: tables.length };
+    const c: Record<string, number> = { all: tables.length };
     for (const s of sections) c[s.id] = 0;
     for (const t of tables) if (t.section_id && c[t.section_id] != null) c[t.section_id]++;
     return c;
   }, [tables, sections]);
 
   const statusCounts = useMemo(() => {
-    const out = { available: 0, occupied: 0, reserved: 0, out_of_service: 0 };
+    const out: Record<TableStatus, number> = { available: 0, occupied: 0, reserved: 0, out_of_service: 0 };
     for (const t of tables) {
       const s = t.status || 'available';
       if (out[s] != null) out[s] += 1;
@@ -71,7 +76,7 @@ export default function FloorLive() {
     return out;
   }, [tables]);
 
-  const handleActivate = async (table) => {
+  const handleActivate = async (table: FloorTable) => {
     if (!table || openingId) return;
     // If the row already carries a session id, just route to it.
     if (table.status === 'occupied' && table.table_session_id) {
@@ -81,7 +86,7 @@ export default function FloorLive() {
     setOpeningId(table.id);
     setFlash(null);
     try {
-      const { data, error: err } = await api.request(
+      const { data, error: err } = await api.request<{ id?: string }>(
         'POST',
         `/tables/${table.id}/open-session`,
         { body: { party_size: 1 } }
@@ -93,7 +98,7 @@ export default function FloorLive() {
       // Refresh to pick up any server-side status changes.
       refresh();
     } catch (e) {
-      setFlash({ type: 'err', message: e.message || String(e) });
+      setFlash({ type: 'err', message: e instanceof Error ? e.message : String(e) });
     } finally {
       setOpeningId(null);
     }

@@ -42,13 +42,23 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
-import { useTables } from './hooks/use-tables';
+import { useTables, type FloorSection, type FloorTable } from './hooks/use-tables';
 import SectionTabs from './components/section-tabs';
 import FloorCanvas from './components/floor-canvas';
 import AIFloorModal from './components/ai-floor-modal';
 
 const PATCH_DEBOUNCE_MS = 500;
 const DEFAULT_DROP = { pos_x: 32, pos_y: 32 };
+
+interface Flash {
+  type: 'ok' | 'err';
+  message: string;
+}
+
+interface UndoEntry {
+  id: string;
+  prev: { pos_x: number; pos_y: number };
+}
 
 export default function FloorEditor() {
   const { activeLocation } = useAuth();
@@ -65,14 +75,14 @@ export default function FloorEditor() {
   } = useTables(locationId);
 
   const [activeSection, setActiveSection] = useState('all');
-  const [undoStack, setUndoStack] = useState([]); // [{id, prev:{pos_x,pos_y}}]
-  const [savingIds, setSavingIds] = useState(() => new Set());
-  const [flash, setFlash] = useState(null);
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+  const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
+  const [flash, setFlash] = useState<Flash | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
 
   // Per-table debounce timers for PATCH calls.
-  const patchTimers = useRef(new Map());
+  const patchTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   useEffect(() => () => {
     for (const t of patchTimers.current.values()) clearTimeout(t);
@@ -85,13 +95,13 @@ export default function FloorEditor() {
   }, [tables, activeSection]);
 
   const counts = useMemo(() => {
-    const c = { all: tables.length };
+    const c: Record<string, number> = { all: tables.length };
     for (const s of sections) c[s.id] = 0;
     for (const t of tables) if (t.section_id && c[t.section_id] != null) c[t.section_id]++;
     return c;
   }, [tables, sections]);
 
-  const markSaving = (id, on) => {
+  const markSaving = (id: string, on: boolean) => {
     setSavingIds((prev) => {
       const next = new Set(prev);
       if (on) next.add(id); else next.delete(id);
@@ -99,19 +109,19 @@ export default function FloorEditor() {
     });
   };
 
-  const persistPatch = useCallback(async (id, body) => {
+  const persistPatch = useCallback(async (id: string, body: Partial<FloorTable>) => {
     markSaving(id, true);
     try {
       const { error: err } = await api.request('PATCH', `/tables/${id}`, { body });
       if (err) throw new Error(err.message || 'PATCH failed');
     } catch (e) {
-      setFlash({ type: 'err', message: `Save failed: ${e.message}` });
+      setFlash({ type: 'err', message: `Save failed: ${e instanceof Error ? e.message : String(e)}` });
     } finally {
       markSaving(id, false);
     }
   }, []);
 
-  const queuePatch = useCallback((id, body) => {
+  const queuePatch = useCallback((id: string, body: Partial<FloorTable>) => {
     const existing = patchTimers.current.get(id);
     if (existing) clearTimeout(existing);
     const t = setTimeout(() => {
@@ -121,7 +131,7 @@ export default function FloorEditor() {
     patchTimers.current.set(id, t);
   }, [persistPatch]);
 
-  const handleDragPersist = useCallback((table, next) => {
+  const handleDragPersist = useCallback((table: FloorTable, next: { pos_x: number; pos_y: number }) => {
     const prev = { pos_x: Number(table.pos_x) || 0, pos_y: Number(table.pos_y) || 0 };
     if (prev.pos_x === next.pos_x && prev.pos_y === next.pos_y) return;
     setUndoStack((s) => [...s, { id: table.id, prev }]);
@@ -290,12 +300,21 @@ export default function FloorEditor() {
   );
 }
 
-function AddTableDialog({ open, onOpenChange, sections, defaultSectionId, locationId, onCreated }) {
+interface AddTableDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sections: FloorSection[];
+  defaultSectionId?: string;
+  locationId?: string;
+  onCreated: (row: FloorTable) => void;
+}
+
+function AddTableDialog({ open, onOpenChange, sections, defaultSectionId, locationId, onCreated }: AddTableDialogProps) {
   const [label, setLabel] = useState('');
-  const [capacity, setCapacity] = useState(4);
+  const [capacity, setCapacity] = useState<number | string>(4);
   const [sectionId, setSectionId] = useState(defaultSectionId || '');
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState(null);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -309,7 +328,7 @@ function AddTableDialog({ open, onOpenChange, sections, defaultSectionId, locati
   const submit = async () => {
     setErr(null);
     if (!label.trim()) return setErr('Label is required');
-    const cap = parseInt(capacity, 10);
+    const cap = parseInt(String(capacity), 10);
     if (!cap || cap < 1) return setErr('Capacity must be at least 1');
     if (!sectionId) return setErr('Pick a section');
     setSaving(true);
@@ -323,13 +342,13 @@ function AddTableDialog({ open, onOpenChange, sections, defaultSectionId, locati
         pos_x: DEFAULT_DROP.pos_x,
         pos_y: DEFAULT_DROP.pos_y,
       };
-      const { data, error } = await api.request('POST', '/data/tables', { body });
+      const { data, error } = await api.request<FloorTable | FloorTable[]>('POST', '/data/tables', { body });
       if (error) throw new Error(error.message || 'create failed');
       const row = Array.isArray(data) ? data[0] : data;
       if (row) onCreated(row);
       onOpenChange(false);
     } catch (e) {
-      setErr(e.message || String(e));
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }

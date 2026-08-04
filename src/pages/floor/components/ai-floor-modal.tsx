@@ -28,7 +28,24 @@ import { generateFloor, applyFloor } from '@/services/ai-floor';
 const PLACEHOLDER =
   '20 tables total: 8 for two, 8 for four, 4 for six; a bar with 6 stools; an outdoor patio with 4 tables';
 
-function planTotals(plan) {
+// Mirrors backend/internal/ai/floor.go FloorTable/FloorSection/FloorPlan.
+interface AIFloorTable {
+  label?: string;
+  capacity?: number;
+  x?: number;
+  y?: number;
+}
+
+interface AIFloorSection {
+  name?: string;
+  tables?: AIFloorTable[];
+}
+
+interface AIFloorPlan {
+  sections?: AIFloorSection[];
+}
+
+function planTotals(plan: AIFloorPlan | null) {
   const sections = Array.isArray(plan?.sections) ? plan.sections : [];
   let tables = 0;
   let seats = 0;
@@ -40,12 +57,19 @@ function planTotals(plan) {
   return { sectionCount: sections.length, tables, seats };
 }
 
-export default function AIFloorModal({ open, onOpenChange, locationId, onApplied }) {
+interface AIFloorModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  locationId?: string;
+  onApplied?: () => void;
+}
+
+export default function AIFloorModal({ open, onOpenChange, locationId, onApplied }: AIFloorModalProps) {
   const [description, setDescription] = useState('');
-  const [plan, setPlan] = useState(null);
+  const [plan, setPlan] = useState<AIFloorPlan | null>(null);
   const [generating, setGenerating] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Reset everything each time the dialog opens.
   useEffect(() => {
@@ -68,13 +92,14 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
     }
     setGenerating(true);
     try {
-      const { plan: next } = await generateFloor(locationId, description.trim());
-      setPlan(next || null);
-      if (!next?.sections?.length) {
+      const { plan: next } = await generateFloor(locationId as string, description.trim());
+      const nextPlan = (next as AIFloorPlan) || null;
+      setPlan(nextPlan);
+      if (!nextPlan?.sections?.length) {
         setError('No sections were proposed. Try adding more detail to your description.');
       }
     } catch (e) {
-      setError(e.message || String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setGenerating(false);
     }
@@ -84,11 +109,11 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
     setError(null);
     setApplying(true);
     try {
-      await applyFloor(locationId, plan);
+      await applyFloor(locationId as string, plan);
       onOpenChange(false);
       if (typeof onApplied === 'function') onApplied();
     } catch (e) {
-      setError(e.message || String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setApplying(false);
     }
@@ -139,7 +164,7 @@ export default function AIFloorModal({ open, onOpenChange, locationId, onApplied
                 {totals.seats === 1 ? '' : 's'}
               </p>
               <ul className="mt-2 space-y-1">
-                {plan.sections.map((s, i) => {
+                {(plan.sections || []).map((s, i) => {
                   const ts = Array.isArray(s.tables) ? s.tables : [];
                   const seats = ts.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0);
                   return (
