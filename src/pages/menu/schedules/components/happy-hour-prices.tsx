@@ -1,31 +1,47 @@
-// happy-hour-prices.jsx — table of items with their regular price and an editable
+// happy-hour-prices.tsx — table of items with their regular price and an editable
 // happy-hour override. Each row saves independently with a 500ms debounce.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { AlertCircle, Check, Loader2, DollarSign, Utensils } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useMoney } from '@/context/locale-context';
+import type {
+  MenuSchedule,
+  ItemPriceSchedule,
+  ScheduleMenuItem,
+  UpsertPriceScheduleInput,
+} from '../hooks/use-schedules';
 
 const DEBOUNCE_MS = 500;
 
-function PriceRow({ item, priceRow, onSave, onDelete }) {
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+interface PriceRowProps {
+  item: ScheduleMenuItem;
+  priceRow: ItemPriceSchedule | undefined;
+  onSave: (input: Omit<UpsertPriceScheduleInput, 'menuScheduleId'>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}
+
+function PriceRow({ item, priceRow, onSave, onDelete }: PriceRowProps) {
   // Prices here are major-unit floats (rands/dollars, not cents), so scale up
   // to minor units before handing them to the minor-unit-based formatter. A
   // module-level formatter can't see the active currency, so it lives here.
   const { format: formatMoneyValue, scale: currencyScaleValue, symbol } = useMoney();
   const fmt = useCallback(
-    (amount) => formatMoneyValue(Math.round((amount || 0) * currencyScaleValue)),
+    (amount?: number | null) => formatMoneyValue(Math.round((amount || 0) * currencyScaleValue)),
     [formatMoneyValue, currencyScaleValue],
   );
   // priceRow may be undefined (no override yet)
   const initial = priceRow ? String(priceRow.price) : '';
   const [value, setValue] = useState(initial);
-  const [status, setStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [status, setStatus] = useState<SaveStatus>('idle');
   const [errorMsg, setErrorMsg] = useState('');
-  const timerRef = useRef(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevRowId = useRef(priceRow?.id);
 
   // If the priceRow changes externally (e.g. after first save returns a new id), sync
@@ -35,8 +51,8 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
     }
   }, [priceRow?.id]);
 
-  const scheduleAutosave = useCallback((newVal) => {
-    clearTimeout(timerRef.current);
+  const scheduleAutosave = useCallback((newVal: string | null | undefined) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
     if (newVal === '' || newVal === null || newVal === undefined) {
       // empty → delete override if one exists
       if (priceRow?.id) {
@@ -48,7 +64,7 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
             setTimeout(() => setStatus('idle'), 1200);
           } catch (e) {
             setStatus('error');
-            setErrorMsg(e.message || 'Save failed');
+            setErrorMsg(e instanceof Error ? e.message : 'Save failed');
           }
         }, DEBOUNCE_MS);
       }
@@ -69,18 +85,18 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
         setTimeout(() => setStatus('idle'), 1200);
       } catch (e) {
         setStatus('error');
-        setErrorMsg(e.message || 'Save failed');
+        setErrorMsg(e instanceof Error ? e.message : 'Save failed');
       }
     }, DEBOUNCE_MS);
   }, [item.id, priceRow, onSave, onDelete]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setValue(e.target.value);
     scheduleAutosave(e.target.value);
   };
 
   // Cleanup on unmount
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   const hasOverride = value !== '' && !isNaN(parseFloat(value));
 
@@ -138,15 +154,23 @@ function PriceRow({ item, priceRow, onSave, onDelete }) {
   );
 }
 
+interface HappyHourPricesProps {
+  schedule: MenuSchedule;
+  fetchItems: () => Promise<ScheduleMenuItem[]>;
+  fetchPriceSchedules: (scheduleId: string) => Promise<ItemPriceSchedule[]>;
+  upsertPriceSchedule: (input: UpsertPriceScheduleInput) => Promise<ItemPriceSchedule | null>;
+  deletePriceSchedule: (id: string) => Promise<void>;
+}
+
 export default function HappyHourPrices({
   schedule,
   fetchItems,
   fetchPriceSchedules,
   upsertPriceSchedule,
   deletePriceSchedule,
-}) {
-  const [items, setItems] = useState([]);
-  const [priceRows, setPriceRows] = useState([]); // item_price_schedules for this schedule
+}: HappyHourPricesProps) {
+  const [items, setItems] = useState<ScheduleMenuItem[]>([]);
+  const [priceRows, setPriceRows] = useState<ItemPriceSchedule[]>([]); // item_price_schedules for this schedule
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -161,7 +185,7 @@ export default function HappyHourPrices({
       setItems(allItems);
       setPriceRows(existingPrices);
     } catch (e) {
-      setError(e.message || 'Failed to load data');
+      setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -169,7 +193,7 @@ export default function HappyHourPrices({
 
   useEffect(() => { load(); }, [load]);
 
-  const handleSave = useCallback(async ({ itemId, price, existingId }) => {
+  const handleSave = useCallback(async ({ itemId, price, existingId }: Omit<UpsertPriceScheduleInput, 'menuScheduleId'>) => {
     const result = await upsertPriceSchedule({
       itemId,
       menuScheduleId: schedule.id,
@@ -186,7 +210,7 @@ export default function HappyHourPrices({
     }
   }, [schedule.id, upsertPriceSchedule]);
 
-  const handleDelete = useCallback(async (id) => {
+  const handleDelete = useCallback(async (id: string) => {
     await deletePriceSchedule(id);
     setPriceRows((prev) => prev.filter((r) => r.id !== id));
   }, [deletePriceSchedule]);
