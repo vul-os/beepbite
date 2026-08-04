@@ -5,12 +5,35 @@ import { Button } from '@/components/ui/button';
 import { Clock, Users, Phone } from 'lucide-react';
 import { api } from '@/lib/api-client';
 
-function minutesWaiting(addedAt) {
+// Mirrors backend/migrations/001_baseline.sql `waitlist` table.
+export interface WaitlistEntryRow {
+  id: string;
+  organization_id: string;
+  location_id: string;
+  customer_name: string;
+  customer_phone: string | null;
+  party_size: number;
+  quoted_wait_minutes: number | null;
+  added_at: string;
+  seated_at: string | null;
+  removed_at: string | null;
+  removal_reason: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function minutesWaiting(addedAt: string) {
   const diff = Math.floor((Date.now() - new Date(addedAt).getTime()) / 60000);
   return diff;
 }
 
-export default function WaitlistEntry({ entry, onRefresh }) {
+interface WaitlistEntryProps {
+  entry: WaitlistEntryRow;
+  onRefresh?: () => void;
+}
+
+export default function WaitlistEntry({ entry, onRefresh }: WaitlistEntryProps) {
   const [busy, setBusy] = useState(false);
 
   const handleSeat = async () => {
@@ -24,7 +47,7 @@ export default function WaitlistEntry({ entry, onRefresh }) {
     }
   };
 
-  const handleRemove = async (reason) => {
+  const handleRemove = async (reason: string) => {
     setBusy(true);
     try {
       const { error } = await api.request('DELETE', `/waitlist/${entry.id}`, { body: { reason } });
