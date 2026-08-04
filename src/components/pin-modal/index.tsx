@@ -18,6 +18,7 @@ import React, {
   useContext,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ShieldCheck, User } from 'lucide-react';
@@ -36,13 +37,31 @@ import { Button } from '@/components/ui/button';
 
 import PinKeypad from './pin-keypad';
 import { pinLogin } from '@/services/staff-pin';
-import { useActor } from '@/context/actor-token-context';
+import { useActor, type ActorSetPayload } from '@/context/actor-token-context';
 
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
-const PinModalContext = createContext(undefined);
+// requestPin's resolution value is genuinely polymorphic: normal re-auth
+// resolves with the actor payload (see ActorSetPayload), manager-override
+// resolves with a one-shot token string. Callers narrow by which mode they
+// requested, so `unknown` here (not a fabricated union) is the honest type.
+interface PinRequestOptions {
+  reason?: string;
+  isManagerOverride?: boolean;
+}
+
+interface QueueItem extends PinRequestOptions {
+  resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+}
+
+interface PinModalContextValue {
+  requestPin: (opts?: PinRequestOptions) => Promise<unknown>;
+}
+
+const PinModalContext = createContext<PinModalContextValue | undefined>(undefined);
 
 export function usePinModalContext() {
   const ctx = useContext(PinModalContext);
@@ -56,11 +75,11 @@ export function usePinModalContext() {
 // Provider — wraps the app (or just the POS subtree) once
 // ---------------------------------------------------------------------------
 
-export function PinModalProvider({ children }) {
+export function PinModalProvider({ children }: { children: ReactNode }) {
   // Queue of pending requests: { resolve, reject, reason, isManagerOverride }
-  const queueRef = useRef([]);
+  const queueRef = useRef<QueueItem[]>([]);
   const [open, setOpen] = useState(false);
-  const [current, setCurrent] = useState(null); // current queue head
+  const [current, setCurrent] = useState<QueueItem | null>(null); // current queue head
 
   const openNext = useCallback(() => {
     if (queueRef.current.length === 0) {
@@ -79,7 +98,7 @@ export function PinModalProvider({ children }) {
    * If an identical request is already pending (same isManagerOverride flag),
    * we reuse the existing promise so multiple callers don't stack up modals.
    */
-  const requestPin = useCallback(({ reason = '', isManagerOverride = false } = {}) => {
+  const requestPin = useCallback(({ reason = '', isManagerOverride = false }: PinRequestOptions = {}) => {
     return new Promise((resolve, reject) => {
       queueRef.current.push({ resolve, reject, reason, isManagerOverride });
       // If the modal is already open for a different request, don't re-open.
@@ -87,13 +106,13 @@ export function PinModalProvider({ children }) {
     });
   }, [open, openNext]);
 
-  const resolveHead = useCallback((value) => {
+  const resolveHead = useCallback((value: unknown) => {
     const head = queueRef.current.shift();
     if (head) head.resolve(value);
     openNext();
   }, [openNext]);
 
-  const rejectHead = useCallback((reason) => {
+  const rejectHead = useCallback((reason?: unknown) => {
     const head = queueRef.current.shift();
     if (head) head.reject(reason || new Error('PIN modal cancelled'));
     openNext();
@@ -116,7 +135,14 @@ export function PinModalProvider({ children }) {
 // Inner dialog — owns all UI + submission state
 // ---------------------------------------------------------------------------
 
-function PinModalDialog({ open, current, onSuccess, onCancel }) {
+interface PinModalDialogProps {
+  open: boolean;
+  current: QueueItem | null;
+  onSuccess: (value: unknown) => void;
+  onCancel: (reason?: unknown) => void;
+}
+
+function PinModalDialog({ open, current, onSuccess, onCancel }: PinModalDialogProps) {
   const navigate = useNavigate();
   const { actor, setActor } = useActor();
 
@@ -149,7 +175,7 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
 
   // ---- PIN helpers ----------------------------------------------------------
 
-  const appendDigit = (d) => {
+  const appendDigit = (d: string) => {
     setPin((prev) => (prev.length >= 6 ? prev : prev + d));
     setPinError('');
     setSubmitError('');
@@ -196,8 +222,10 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
       const locationId =
         actor?.location_id ||
         session?.staff?.location_id ||
-        session?.location_id ||
-        '';
+        // location_id isn't a named StaffSession field (only staff.location_id
+        // is) — this is a defensive fallback for an older flat session shape;
+        // asserted rather than validated to preserve the existing pass-through.
+        ((session?.location_id as string | undefined) || '');
 
       if (!locationId) {
         setSubmitError('Cannot determine your store location. Please sign in again.');
@@ -219,11 +247,13 @@ function PinModalDialog({ open, current, onSuccess, onCancel }) {
         onSuccess(oneShotToken);
       } else {
         // Normal re-auth: store the new actor and return the actor object.
-        setActor(result.data);
+        // setActor() no-ops on a falsy payload at runtime (see actor-token-context),
+        // so this cast doesn't change behavior for the ok:true/data:null edge case.
+        setActor(result.data as ActorSetPayload);
         onSuccess(result.data);
       }
     } catch (err) {
-      setSubmitError(err?.message || 'Something went wrong. Try again.');
+      setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
       clearPin();
     } finally {
       setLoading(false);

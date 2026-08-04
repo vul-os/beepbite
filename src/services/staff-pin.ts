@@ -85,6 +85,29 @@ export async function pinVerifyOverlay(username: string, pin: string, location_i
   return { ok: true, data: { ...data, slug } };
 }
 
+// Mirrors backend/internal/staffauth/handlers.go sessionResp (also returned
+// by the sibling /login endpoint via the same toSession()). The index
+// signature keeps this permissive for defensive optional-field reads at call
+// sites (mirrors ActorAuthData above), same as the real payload's forward
+// compatibility.
+interface PinLoginData {
+  staff: {
+    id: string;
+    location_id: string;
+    username: string | null;
+    first_name: string;
+    last_name: string;
+    role: string;
+    is_active: boolean;
+    must_change_password: boolean;
+  };
+  access_token: string;
+  refresh_token: string;
+  access_expires_at: string;
+  token_type: string;
+  [key: string]: unknown;
+}
+
 /**
  * Legacy full-session PIN login — still used by /pos/login (kitchen tablets).
  *
@@ -97,7 +120,7 @@ export async function pinVerifyOverlay(username: string, pin: string, location_i
  *       | { ok: false, error: string }
  */
 export async function pinLogin(username: string, pin: string, location_id: string) {
-  const { data, error } = await api.request('POST', '/auth/staff/pin-login', {
+  const { data, error } = await api.request<PinLoginData>('POST', '/auth/staff/pin-login', {
     auth: false,
     body: { username, pin, location_id },
   });
