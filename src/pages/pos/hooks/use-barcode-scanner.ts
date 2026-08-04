@@ -1,4 +1,4 @@
-// use-barcode-scanner.js — keyboard-wedge barcode scanner hook (Wave 29 / Now-19)
+// use-barcode-scanner.ts — keyboard-wedge barcode scanner hook (Wave 29 / Now-19)
 //
 // A keyboard-wedge barcode scanner emits a rapid sequence of keydown events
 // ending with Enter. This hook captures that sequence, debounces it, and
@@ -41,22 +41,26 @@ import { useCallback, useEffect, useRef } from 'react';
 const DEFAULT_INTERVAL_MS = 50;
 const DEFAULT_MIN_LENGTH = 3;
 
-/**
- * @param {object} opts
- * @param {(barcode: string) => void} opts.onScan   — called with the scanned barcode string
- * @param {boolean}  [opts.enabled=true]             — set false to disable (e.g. while modal open)
- * @param {number}   [opts.minLength=3]              — minimum barcode length to fire
- * @param {number}   [opts.intervalMs=50]            — max ms between keystrokes to detect scanner
- */
+interface UseBarcodeScannerOptions {
+  /** called with the scanned barcode string */
+  onScan: (barcode: string) => void;
+  /** set false to disable (e.g. while modal open) */
+  enabled?: boolean;
+  /** minimum barcode length to fire */
+  minLength?: number;
+  /** max ms between keystrokes to detect scanner */
+  intervalMs?: number;
+}
+
 export function useBarcodeScanner({
   onScan,
   enabled = true,
   minLength = DEFAULT_MIN_LENGTH,
   intervalMs = DEFAULT_INTERVAL_MS,
-}) {
+}: UseBarcodeScannerOptions) {
   const bufferRef = useRef('');
   const lastKeyTimeRef = useRef(0);
-  const timeoutRef = useRef(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clear = useCallback(() => {
     bufferRef.current = '';
@@ -70,10 +74,12 @@ export function useBarcodeScanner({
   useEffect(() => {
     if (!enabled) return;
 
-    function onKeyDown(ev) {
+    function onKeyDown(ev: KeyboardEvent) {
       // Ignore when a text input or textarea has focus (manual typing).
-      const tag = document.activeElement?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) {
+      const activeElement = document.activeElement;
+      const tag = activeElement?.tagName;
+      const isContentEditable = activeElement instanceof HTMLElement && activeElement.isContentEditable;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || isContentEditable) {
         return;
       }
 
