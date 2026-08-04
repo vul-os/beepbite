@@ -7,7 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const PROMO_TYPE_LABELS = {
+type PromoType = 'percent_off' | 'fixed_off' | 'bogo' | 'free_item' | 'happy_hour_price' | 'free_delivery';
+type PromoScope = 'order' | 'item' | 'category' | 'delivery';
+
+const PROMO_TYPE_LABELS: Record<PromoType, string> = {
   percent_off: 'Percent off',
   fixed_off: 'Fixed off',
   bogo: 'BOGO',
@@ -16,19 +19,36 @@ const PROMO_TYPE_LABELS = {
   free_delivery: 'Free delivery',
 };
 
-const SCOPE_LABELS = {
+const SCOPE_LABELS: Record<PromoScope, string> = {
   order: 'Order',
   item: 'Item',
   category: 'Category',
   delivery: 'Delivery',
 };
 
-function formatDate(iso) {
+// Subset of backend/migrations/001_baseline.sql `promotions` table relevant
+// to this summary card; index signature covers the ~20 other columns.
+export interface Promotion {
+  id: string;
+  name: string;
+  promo_type: PromoType;
+  scope: PromoScope;
+  location_id: string | null;
+  active_until: string | null;
+  [key: string]: unknown;
+}
+
+function formatDate(iso: string | null) {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function PromotionsCard({ promotions, loading }) {
+interface PromotionsCardProps {
+  promotions: Promotion[];
+  loading: boolean;
+}
+
+export default function PromotionsCard({ promotions, loading }: PromotionsCardProps) {
   const navigate = useNavigate();
 
   return (
