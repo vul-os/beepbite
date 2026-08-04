@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Image as ImageIcon,
@@ -13,8 +13,16 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+interface PageHeaderProps {
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  lastUpdated?: ReactNode;
+  readTime?: ReactNode;
+}
+
 // ----- Page header -----
-export const PageHeader = ({ eyebrow, title, description, lastUpdated, readTime }) => (
+export const PageHeader = ({ eyebrow, title, description, lastUpdated, readTime }: PageHeaderProps) => (
   <header className="mb-8 sm:mb-10">
     {eyebrow && (
       <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-orange-600 mb-3">
@@ -36,6 +44,16 @@ export const PageHeader = ({ eyebrow, title, description, lastUpdated, readTime 
   </header>
 );
 
+interface ScreenshotProps {
+  caption?: ReactNode;
+  alt?: string;
+  src?: string;
+  variant?: 'browser' | 'mobile' | 'plain';
+  ratio?: string;
+  url?: string;
+  className?: string;
+}
+
 // ----- Screenshot placeholder -----
 // Renders a polished frame meant to host a screenshot. Variant "browser" gets
 // a fake chrome bar; "mobile" renders a phone shell; "plain" is just a card.
@@ -47,7 +65,7 @@ export const Screenshot = ({
   ratio = '16/10',
   url,
   className,
-}) => {
+}: ScreenshotProps) => {
   const ratioStyle = { aspectRatio: ratio };
 
   const Body = (
@@ -124,7 +142,9 @@ export const Screenshot = ({
 };
 
 // ----- Callout (info / tip / warn / success) -----
-const calloutTone = {
+type CalloutTone = 'info' | 'tip' | 'warn' | 'success';
+
+const calloutTone: Record<CalloutTone, { ring: string; bg: string; text: string; icon: string; title: string }> = {
   info: { ring: 'ring-sky-100', bg: 'bg-sky-50', text: 'text-sky-900', icon: 'text-sky-500', title: 'text-sky-700' },
   tip: { ring: 'ring-violet-100', bg: 'bg-violet-50', text: 'text-violet-900', icon: 'text-violet-500', title: 'text-violet-700' },
   warn: { ring: 'ring-amber-100', bg: 'bg-amber-50', text: 'text-amber-900', icon: 'text-amber-500', title: 'text-amber-700' },
@@ -137,14 +157,20 @@ const calloutTone = {
   },
 };
 
-const calloutIcon = {
+const calloutIcon: Record<CalloutTone, typeof Info> = {
   info: Info,
   tip: Lightbulb,
   warn: AlertTriangle,
   success: CheckCircle2,
 };
 
-export const Callout = ({ tone = 'info', title, children }) => {
+interface CalloutProps {
+  tone?: CalloutTone;
+  title?: ReactNode;
+  children?: ReactNode;
+}
+
+export const Callout = ({ tone = 'info', title, children }: CalloutProps) => {
   const t = calloutTone[tone] ?? calloutTone.info;
   const Icon = calloutIcon[tone] ?? Info;
   return (
@@ -159,7 +185,7 @@ export const Callout = ({ tone = 'info', title, children }) => {
 };
 
 // ----- Numbered Steps -----
-export const Steps = ({ children }) => {
+export const Steps = ({ children }: { children?: ReactNode }) => {
   const items = React.Children.toArray(children);
   return (
     <ol className="not-prose my-6 space-y-5 relative">
@@ -178,15 +204,22 @@ export const Steps = ({ children }) => {
   );
 };
 
-export const Step = ({ title, children }) => (
+export const Step = ({ title, children }: { title?: ReactNode; children?: ReactNode }) => (
   <div>
     {title && <h3 className="text-base sm:text-lg font-bold text-foreground mb-1.5">{title}</h3>}
     <div className="text-sm sm:text-base text-muted-foreground leading-relaxed">{children}</div>
   </div>
 );
 
+interface SectionProps {
+  id?: string;
+  title: ReactNode;
+  kicker?: ReactNode;
+  children?: ReactNode;
+}
+
 // ----- Section heading -----
-export const Section = ({ id, title, kicker, children }) => (
+export const Section = ({ id, title, kicker, children }: SectionProps) => (
   <section id={id} className="scroll-mt-24 mt-12 sm:mt-14">
     {kicker && (
       <div className="text-xs uppercase tracking-wider text-orange-600 font-semibold mb-1.5">{kicker}</div>
@@ -201,8 +234,13 @@ export const Section = ({ id, title, kicker, children }) => (
   </section>
 );
 
+interface KeyValueItem {
+  label: string;
+  value: ReactNode;
+}
+
 // ----- Key/value table for definitions, requirements -----
-export const KeyValueList = ({ items }) => (
+export const KeyValueList = ({ items }: { items: KeyValueItem[] }) => (
   <dl className="not-prose my-5 divide-y divide-border rounded-xl border border-border bg-card overflow-hidden">
     {items.map((item) => (
       <div key={item.label} className="grid grid-cols-3 gap-3 px-4 sm:px-5 py-3 text-sm">
@@ -213,8 +251,13 @@ export const KeyValueList = ({ items }) => (
   </dl>
 );
 
+interface CodeProps {
+  children: ReactNode;
+  language?: string;
+}
+
 // ----- Code block with copy -----
-export const Code = ({ children, language }) => {
+export const Code = ({ children, language }: CodeProps) => {
   const [copied, setCopied] = React.useState(false);
   const text = String(children);
   const onCopy = async () => {
@@ -247,8 +290,13 @@ export const Code = ({ children, language }) => {
   );
 };
 
+interface PrevNextItem {
+  href: string;
+  title: string;
+}
+
 // ----- Prev / Next nav -----
-export const PrevNext = ({ prev, next }) => (
+export const PrevNext = ({ prev, next }: { prev?: PrevNextItem | null; next?: PrevNextItem | null }) => (
   <nav className="not-prose mt-14 grid grid-cols-1 sm:grid-cols-2 gap-3">
     {prev ? (
       <Link
@@ -281,8 +329,16 @@ export const PrevNext = ({ prev, next }) => (
   </nav>
 );
 
+interface TopicCardProps {
+  to: string;
+  icon: ReactNode;
+  title: ReactNode;
+  description: ReactNode;
+  badge?: ReactNode;
+}
+
 // ----- Feature/topic card grid -----
-export const TopicCard = ({ to, icon, title, description, badge }) => (
+export const TopicCard = ({ to, icon, title, description, badge }: TopicCardProps) => (
   <Link
     to={to}
     className="group relative block rounded-2xl border border-border bg-card p-5 sm:p-6 hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all"
@@ -304,8 +360,13 @@ export const TopicCard = ({ to, icon, title, description, badge }) => (
   </Link>
 );
 
+interface TocItem {
+  id: string;
+  title: ReactNode;
+}
+
 // ----- Inline TOC for long pages -----
-export const TableOfContents = ({ items }) => (
+export const TableOfContents = ({ items }: { items: TocItem[] }) => (
   <div className="not-prose hidden xl:block xl:fixed xl:top-32 xl:right-8 w-56">
     <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">On this page</div>
     <ul className="space-y-2 text-sm border-l border-border">
