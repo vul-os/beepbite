@@ -17,7 +17,7 @@ const LS_KEY_KDS = 'bb.workspace.last_view_kds';
 // Local-storage helpers
 // ---------------------------------------------------------------------------
 
-function lsGet(key, fallback) {
+function lsGet(key: string, fallback: string): string {
   try {
     return localStorage.getItem(key) || fallback;
   } catch {
@@ -25,7 +25,7 @@ function lsGet(key, fallback) {
   }
 }
 
-function lsSet(key, value) {
+function lsSet(key: string, value: string | null | undefined) {
   try {
     if (value != null) localStorage.setItem(key, value);
     else localStorage.removeItem(key);
@@ -38,15 +38,20 @@ function lsSet(key, value) {
 // Fetch preferences
 // ---------------------------------------------------------------------------
 
+export interface UserPreferences {
+  profile_id: string;
+  last_view_pos: string;
+  last_view_kds: string;
+  updated_at: string;
+}
+
 /**
  * Load user preferences from the server.
  * Falls back to localStorage on 404 (no prefs saved yet) or network error.
- *
- * @returns {Promise<{ lastViewPOS: string, lastViewKDS: string }>}
  */
-export async function fetchPrefs() {
+export async function fetchPrefs(): Promise<{ lastViewPOS: string; lastViewKDS: string }> {
   try {
-    const { data, error } = await api.request('GET', '/me/preferences');
+    const { data, error } = await api.request<UserPreferences>('GET', '/me/preferences');
     if (!error && data) {
       // Sync the server values into localStorage as a cache.
       if (data.last_view_pos) lsSet(LS_KEY_POS, data.last_view_pos);
@@ -74,9 +79,9 @@ export async function fetchPrefs() {
  * Persist a POS view preference.
  * Writes to localStorage immediately (optimistic) then syncs to server.
  *
- * @param {string} view — 'quick' | 'full' | 'floor' | 'orders'
+ * @param view — 'quick' | 'full' | 'floor' | 'orders'
  */
-export async function savePOSView(view) {
+export async function savePOSView(view: string) {
   lsSet(LS_KEY_POS, view);
   try {
     await api.request('PUT', '/me/preferences', { body: { last_view_pos: view } });
@@ -89,9 +94,9 @@ export async function savePOSView(view) {
  * Persist a Kitchen view preference.
  * Writes to localStorage immediately (optimistic) then syncs to server.
  *
- * @param {string} view — 'station' | 'expo' | 'bumpbar'
+ * @param view — 'station' | 'expo' | 'bumpbar'
  */
-export async function saveKDSView(view) {
+export async function saveKDSView(view: string) {
   lsSet(LS_KEY_KDS, view);
   try {
     await api.request('PUT', '/me/preferences', { body: { last_view_kds: view } });

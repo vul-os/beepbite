@@ -4,6 +4,15 @@
 
 import { api } from '@/lib/api-client';
 
+export interface Assignment {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface FetchError extends Error {
+  status?: number;
+}
+
 /**
  * Fetch all active delivery assignments for this driver across every restaurant
  * that has invited them.
@@ -12,11 +21,11 @@ import { api } from '@/lib/api-client';
  * Response: Assignment[]  (empty array when user is not a driver anywhere —
  *   the backend may also return 403 which the api client surfaces as an error)
  */
-export async function fetchAssignments() {
-  const { data, error } = await api.request('GET', '/driver/assignments');
+export async function fetchAssignments(): Promise<Assignment[]> {
+  const { data, error } = await api.request<Assignment[]>('GET', '/driver/assignments');
   if (error) {
     // Surface 403 so the page can show the "not a driver" explainer.
-    const e = new Error(error.message || 'Failed to fetch assignments');
+    const e: FetchError = new Error(error.message || 'Failed to fetch assignments');
     e.status = error.status;
     throw e;
   }
@@ -31,19 +40,19 @@ export async function fetchAssignments() {
  * POST /driver/assignments/{id}/deliver
  * POST /driver/assignments/{id}/cancel
  *
- * @param {string} id      - assignment UUID
- * @param {string} action  - 'accept' | 'pickup' | 'deliver' | 'cancel'
+ * @param id      - assignment UUID
+ * @param action  - 'accept' | 'pickup' | 'deliver' | 'cancel'
  */
-export async function transitionAssignment(id, action) {
+export async function transitionAssignment(id: string, action: string) {
   if (!id) throw new Error('assignment id required');
   if (!action) throw new Error('action required');
 
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<Assignment>(
     'POST',
     `/driver/assignments/${encodeURIComponent(id)}/${encodeURIComponent(action)}`,
   );
   if (error) {
-    const e = new Error(error.message || `Failed to ${action} assignment`);
+    const e: FetchError = new Error(error.message || `Failed to ${action} assignment`);
     e.status = error.status;
     throw e;
   }
@@ -55,10 +64,8 @@ export async function transitionAssignment(id, action) {
  *
  * POST /driver/shifts/online
  * POST /driver/shifts/offline
- *
- * @param {'online'|'offline'} status
  */
-export async function setShiftStatus(status) {
+export async function setShiftStatus(status: 'online' | 'offline') {
   if (status !== 'online' && status !== 'offline') {
     throw new Error('status must be "online" or "offline"');
   }
@@ -67,11 +74,18 @@ export async function setShiftStatus(status) {
     `/driver/shifts/${encodeURIComponent(status)}`,
   );
   if (error) {
-    const e = new Error(error.message || `Failed to go ${status}`);
+    const e: FetchError = new Error(error.message || `Failed to go ${status}`);
     e.status = error.status;
     throw e;
   }
   return data;
+}
+
+export interface PingPayload {
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  assignment_id?: string;
 }
 
 /**
@@ -79,11 +93,9 @@ export async function setShiftStatus(status) {
  *
  * POST /driver/pings
  * Body: { lat, lng, accuracy?, assignment_id? }
- *
- * @param {{ lat: number, lng: number, accuracy?: number, assignment_id?: string }} payload
  */
-export async function sendPing({ lat, lng, accuracy, assignment_id } = {}) {
-  const body = { lat, lng };
+export async function sendPing({ lat, lng, accuracy, assignment_id }: Partial<PingPayload> = {}) {
+  const body: { lat?: number; lng?: number; accuracy?: number; assignment_id?: string } = { lat, lng };
   if (accuracy != null) body.accuracy = accuracy;
   if (assignment_id) body.assignment_id = assignment_id;
 
@@ -91,7 +103,7 @@ export async function sendPing({ lat, lng, accuracy, assignment_id } = {}) {
   if (error) {
     // Pings are best-effort — throw so the caller can log but the loop
     // should continue unless the error is permanent (e.g. 401).
-    const e = new Error(error.message || 'Ping failed');
+    const e: FetchError = new Error(error.message || 'Ping failed');
     e.status = error.status;
     throw e;
   }

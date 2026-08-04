@@ -16,7 +16,7 @@ import { api } from '@/lib/api-client';
  * NOTE: Until GET /stores/:slug is deployed, this falls back to a mock that
  * returns a stub response so the frontend can be developed in parallel.
  */
-export async function resolveStore(slug) {
+export async function resolveStore(slug: string) {
   try {
     const { data, error } = await api.request('GET', `/stores/${encodeURIComponent(slug)}`, {
       auth: false,
@@ -50,8 +50,16 @@ export async function resolveStore(slug) {
  *       | { ok: false, locked: true }
  *       | { ok: false, error: string }
  */
-export async function pinVerifyOverlay(username, pin, location_id, slug) {
-  const { data, error } = await api.request('POST', '/pos/pin-verify', {
+interface ActorAuthData {
+  actor_token: string;
+  expires_at: string;
+  staff: unknown;
+  capabilities: unknown;
+  [key: string]: unknown;
+}
+
+export async function pinVerifyOverlay(username: string, pin: string, location_id: string, slug?: string) {
+  const { data, error } = await api.request<ActorAuthData>('POST', '/pos/pin-verify', {
     auth: true,
     body: { username, pin, location_id },
   });
@@ -88,7 +96,7 @@ export async function pinVerifyOverlay(username, pin, location_id, slug) {
  *       | { ok: false, locked: true }    ← HTTP 423 — account locked
  *       | { ok: false, error: string }
  */
-export async function pinLogin(username, pin, location_id) {
+export async function pinLogin(username: string, pin: string, location_id: string) {
   const { data, error } = await api.request('POST', '/auth/staff/pin-login', {
     auth: false,
     body: { username, pin, location_id },

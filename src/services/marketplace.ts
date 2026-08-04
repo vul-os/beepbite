@@ -5,13 +5,41 @@ import { api } from '../lib/api-client.js';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
+export interface GetStoresParams {
+  query?: string;
+  city?: string;
+  distance?: number;
+  lat?: number;
+  lng?: number;
+  page?: number;
+  limit?: number;
+}
+
+export interface Store {
+  [key: string]: unknown;
+}
+
+export interface StoreDetail {
+  [key: string]: unknown;
+}
+
+export interface Order {
+  [key: string]: unknown;
+}
+
+export interface CartItem {
+  [key: string]: unknown;
+}
+
+export interface CartMeta {
+  fulfillment_type: 'delivery' | 'collection' | null;
+  delivery_address: string;
+}
+
 /**
  * Search / list public stores.
- *
- * @param {{ query?: string, city?: string, distance?: number, lat?: number, lng?: number, page?: number, limit?: number }} params
- * @returns {Promise<{ data: Store[], error: any }>}
  */
-export async function getStores(params = {}) {
+export async function getStores(params: GetStoresParams = {}) {
   const qs = new URLSearchParams();
   if (params.query)    qs.set('q', params.query);
   if (params.city)     qs.set('city', params.city);
@@ -22,28 +50,26 @@ export async function getStores(params = {}) {
   if (params.limit)    qs.set('limit', String(params.limit ?? 20));
 
   const path = `/stores${qs.toString() ? `?${qs.toString()}` : ''}`;
-  return api.request('GET', path, { auth: false });
+  return api.request<Store[]>('GET', path, { auth: false });
 }
 
 /**
  * Fetch a single store with its public menu.
  *
- * @param {string} slug  — URL-friendly store identifier
- * @returns {Promise<{ data: StoreDetail, error: any }>}
+ * @param slug  — URL-friendly store identifier
  */
-export async function getStore(slug) {
-  return api.request('GET', `/stores/${encodeURIComponent(slug)}`, { auth: false });
+export async function getStore(slug: string) {
+  return api.request<StoreDetail>('GET', `/stores/${encodeURIComponent(slug)}`, { auth: false });
 }
 
 /**
  * Place an order for a store.
  * Placeholder until the real checkout endpoint is wired up.
  *
- * @param {object} payload  — { store_slug, items, fulfillment, tip, customer }
- * @returns {Promise<{ data: Order, error: any }>}
+ * @param payload  — { store_slug, items, fulfillment, tip, customer }
  */
-export async function createOrder(payload) {
-  return api.request('POST', '/orders', { body: payload, auth: false });
+export async function createOrder(payload: unknown) {
+  return api.request<Order>('POST', '/orders', { body: payload, auth: false });
 }
 
 // ── Cart helpers (localStorage, keyed by store slug) ──────────────────────────
@@ -51,15 +77,15 @@ export async function createOrder(payload) {
 const CART_PREFIX = 'bb.cart.';
 const CART_META_PREFIX = 'bb.cartmeta.';
 
-export function cartKey(slug) {
+export function cartKey(slug: string) {
   return `${CART_PREFIX}${slug}`;
 }
 
-export function cartMetaKey(slug) {
+export function cartMetaKey(slug: string) {
   return `${CART_META_PREFIX}${slug}`;
 }
 
-export function readCart(slug) {
+export function readCart(slug: string): CartItem[] {
   try {
     const raw = localStorage.getItem(cartKey(slug));
     return raw ? JSON.parse(raw) : [];
@@ -68,7 +94,7 @@ export function readCart(slug) {
   }
 }
 
-export function writeCart(slug, items) {
+export function writeCart(slug: string, items: CartItem[] | null | undefined) {
   if (!items || items.length === 0) {
     localStorage.removeItem(cartKey(slug));
   } else {
@@ -76,17 +102,14 @@ export function writeCart(slug, items) {
   }
 }
 
-export function clearCart(slug) {
+export function clearCart(slug: string) {
   localStorage.removeItem(cartKey(slug));
 }
 
 /**
  * Read fulfillment metadata (fulfillment_type + delivery_address) for a cart.
- *
- * @param {string} slug
- * @returns {{ fulfillment_type: 'delivery'|'collection'|null, delivery_address: string }}
  */
-export function readCartMeta(slug) {
+export function readCartMeta(slug: string): CartMeta {
   try {
     const raw = localStorage.getItem(cartMetaKey(slug));
     return raw ? JSON.parse(raw) : { fulfillment_type: null, delivery_address: '' };
@@ -97,11 +120,8 @@ export function readCartMeta(slug) {
 
 /**
  * Write fulfillment metadata for a cart.
- *
- * @param {string} slug
- * @param {{ fulfillment_type: string, delivery_address: string }} meta
  */
-export function writeCartMeta(slug, meta) {
+export function writeCartMeta(slug: string, meta: CartMeta | null | undefined) {
   if (!meta || !meta.fulfillment_type) {
     localStorage.removeItem(cartMetaKey(slug));
   } else {
