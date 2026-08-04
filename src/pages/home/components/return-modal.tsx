@@ -26,6 +26,36 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api-client';
 import { applyOrderAdjustment, getStaff } from '@/services/pos';
 import { useMoney } from '@/context/locale-context';
+import type { HomeOrderItem } from '../types';
+
+// The order this modal operates on — either the caller's preselected stub
+// or the fuller row returned by the /data/orders lookup below (both read via
+// the generic data proxy, which is `any`-typed by design; narrowed to what
+// this component actually reads).
+interface ReturnModalOrder {
+  id: string;
+  order_number: string;
+  status?: string;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `staff` table (subset read by
+// the manager picker below).
+interface ReturnModalStaff {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  full_name?: string;
+  email?: string;
+}
+
+interface ReturnModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  locationId: string;
+  initialOrder?: ReturnModalOrder | null;
+  onSuccess?: (result: unknown) => void;
+}
 
 const REASONS = [
   { value: 'refund', label: 'Refund' },
@@ -64,7 +94,7 @@ export default function ReturnModal({
   locationId,
   initialOrder = null,
   onSuccess,
-}) {
+}: ReturnModalProps) {
   // Line totals arrive as major-unit floats; `scale` is 1 in JPY, 1000 in KWD.
   const { format, scale } = useMoney();
 
@@ -72,16 +102,16 @@ export default function ReturnModal({
   const [orderQuery, setOrderQuery] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState('');
-  const [order, setOrder] = useState(initialOrder);
-  const [orderItems, setOrderItems] = useState([]);
+  const [order, setOrder] = useState<ReturnModalOrder | null>(initialOrder);
+  const [orderItems, setOrderItems] = useState<HomeOrderItem[]>([]);
 
   // ---- return state ----
-  const [returnQty, setReturnQty] = useState({}); // { order_item_id: qty }
+  const [returnQty, setReturnQty] = useState<Record<string, number>>({}); // { order_item_id: qty }
   const [reason, setReason] = useState('refund');
 
   // ---- manager PIN state ----
   const [managerPin, setManagerPin] = useState('');
-  const [managers, setManagers] = useState([]);
+  const [managers, setManagers] = useState<ReturnModalStaff[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
   const [approverStaffId, setApproverStaffId] = useState('');
 
@@ -110,7 +140,7 @@ export default function ReturnModal({
     let cancelled = false;
     setManagersLoading(true);
     api
-      .request('GET', `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`)
+      .request<ReturnModalStaff[]>('GET', `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`)
       .then(({ data }) => {
         if (cancelled) return;
         setManagers(Array.isArray(data) ? data : []);
@@ -128,7 +158,7 @@ export default function ReturnModal({
     }
     let cancelled = false;
     api
-      .request(
+      .request<HomeOrderItem[]>(
         'GET',
         `/data/order_items?eq=order_id,${encodeURIComponent(order.id)}`,
       )
@@ -148,7 +178,7 @@ export default function ReturnModal({
     }
     setLookupLoading(true);
     try {
-      const { data, error } = await api.request(
+      const { data, error } = await api.request<ReturnModalOrder | ReturnModalOrder[]>(
         'GET',
         `/data/orders?eq=order_number,${encodeURIComponent(orderQuery.trim())}&eq=location_id,${encodeURIComponent(locationId)}&limit=1`,
       );
@@ -161,14 +191,14 @@ export default function ReturnModal({
       }
       setOrder(rows[0]);
     } catch (err) {
-      setLookupError(err.message || 'Order lookup failed');
+      setLookupError(err instanceof Error ? err.message : 'Order lookup failed');
       setOrder(null);
     } finally {
       setLookupLoading(false);
     }
   };
 
-  const updateQty = (itemId, qty) => {
+  const updateQty = (itemId: string, qty: number) => {
     setReturnQty((prev) => ({ ...prev, [itemId]: Math.max(0, qty) }));
   };
 
@@ -185,13 +215,13 @@ export default function ReturnModal({
     (reason === 'void' || reason === 'refund' || totalReturnQty > 0);
 
   const handleSubmit = async () => {
-    if (!canSubmit || submitting) return;
+    if (!canSubmit || submitting || !order) return;
     setSubmitting(true);
     setSubmitError('');
     try {
       const staff = getStaff();
       // For comp we must pass a specific item id. Pick the first selected item.
-      let itemId;
+      let itemId: string | undefined;
       if (reason === 'comp') {
         const entry = Object.entries(returnQty).find(([, q]) => q > 0);
         itemId = entry?.[0];
@@ -208,7 +238,8 @@ export default function ReturnModal({
       onSuccess?.(result);
       // Auto-close after a moment so the cashier sees confirmation.
       setTimeout(() => onOpenChange(false), 1200);
-    } catch (err) {
+    } catch (rawErr) {
+      const err = rawErr as { status?: number; message?: string };
       if (err.status === 401) {
         setSubmitError(err.message || 'Manager PIN incorrect');
         setManagerPin('');
@@ -297,7 +328,7 @@ export default function ReturnModal({
                             {oi.item_name || oi.name || `Item ${oi.id?.slice(0, 6)}`}
                           </p>
                           <p className="text-xs text-muted-foreground tabular-nums">
-                            Qty {oi.quantity} · {format(Math.round(parseFloat(oi.total_price || 0) * scale))}
+                            Qty {oi.quantity} · {format(Math.round(parseFloat(String(oi.total_price || 0)) * scale))}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5">

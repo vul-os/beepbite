@@ -13,6 +13,30 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useDateTime, useLocale, useMoney } from "@/context/locale-context";
+import type { HomeCartItem, HomeMenuItem } from '../types';
+
+interface CartSectionProps {
+  cart: HomeCartItem[];
+  items: HomeMenuItem[];
+  expandedCartItems: Set<string>;
+  tempVariationSelections: Record<string, Record<string, string>>;
+  updateCartQuantity: (cartItemKey: string, quantity: number) => void;
+  toggleCartItemExpanded: (cartItemKey: string) => void;
+  updateTempVariation: (cartItemKey: string, variationId: string, optionId: string) => void;
+  saveInlineVariationEdit: (cartItemKey: string) => void;
+  openFractionalQtyModal: (item: HomeCartItem) => void;
+  cartTotal: number;
+  clearCart: () => void;
+  setIsCreateOrderOpen: (open: boolean) => void;
+  // POS checkout props (optional — only used by the POS cashier flow)
+  registerSession?: unknown;
+  registerOpenedAt?: string;
+  onPlaceOrder?: () => void;
+  onProcessReturn?: () => void;
+  placingOrder?: boolean;
+  placeOrderError?: string | null;
+  lastPlacedOrderNumber?: string;
+}
 
 const CartSection = ({
   cart,
@@ -35,14 +59,14 @@ const CartSection = ({
   placingOrder,
   placeOrderError,
   lastPlacedOrderNumber,
-}) => {
+}: CartSectionProps) => {
   const { format, scale } = useMoney();
   const { taxRate, taxInclusive, taxLabel } = useLocale();
   const { formatTime } = useDateTime();
 
   // A shift that opened at 08:42 in the store's timezone must not read 06:42
   // because the till's browser is somewhere else.
-  const fmtOpenedTime = (iso) => {
+  const fmtOpenedTime = (iso: string | undefined) => {
     if (!iso) return '';
     try {
       return formatTime(iso, { hour: '2-digit', minute: '2-digit' });
@@ -185,9 +209,9 @@ const CartSection = ({
                               >
                                 <div className="flex justify-between items-center w-full">
                                   <span className="font-medium">{option.name}</span>
-                                  {option.price_modifier !== 0 && (
+                                  {Number(option.price_modifier) !== 0 && (
                                     <span className="text-primary">
-                                      {option.price_modifier > 0 ? '+' : ''}{format(Math.round(parseFloat(option.price_modifier || 0) * scale))}
+                                      {Number(option.price_modifier) > 0 ? '+' : ''}{format(Math.round(parseFloat(String(option.price_modifier || 0)) * scale))}
                                     </span>
                                   )}
                                 </div>
@@ -258,10 +282,10 @@ const CartSection = ({
                   {/* Price and Per-Item Cost - Bottom Right */}
                   <div className="text-right">
                     <div className="text-lg font-bold text-primary">
-                      {format(Math.round(item.price * item.quantity * scale))}
+                      {format(Math.round(Number(item.price) * item.quantity * scale))}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {format(Math.round(parseFloat(item.price) * scale))} each
+                      {format(Math.round(parseFloat(String(item.price)) * scale))} each
                     </div>
                   </div>
                 </div>

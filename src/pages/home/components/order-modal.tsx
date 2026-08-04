@@ -21,6 +21,63 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 import { useMoney } from "@/context/locale-context";
+import type {
+  HomeCartItem,
+  HomeMenuItem,
+  HomeItemVariation,
+  HomeOrder,
+  HomeOrderDetails,
+} from '../types';
+
+interface OrderModalsProps {
+  // Quick Order Creation Modal
+  isCreateOrderOpen: boolean;
+  setIsCreateOrderOpen: (open: boolean) => void;
+  customerPhone: string;
+  setCustomerPhone: (phone: string) => void;
+  orderNumber: string;
+  setOrderNumber: (num: string) => void;
+  creating: boolean;
+  createOrder: () => void;
+  cart: HomeCartItem[];
+  cartTotal: number;
+
+  // Variation Selection Modal
+  isVariationModalOpen: boolean;
+  setIsVariationModalOpen: (open: boolean) => void;
+  selectedItem: HomeMenuItem | null;
+  setSelectedItem: (item: HomeMenuItem | null) => void;
+  selectedVariations: Record<string, string>;
+  handleVariationChange: (variationId: string, optionId: string) => void;
+  // `item` can be null: the "Add to Cart" button below is not gated on
+  // `selectedItem` being set (pre-existing — flagged, not fixed).
+  addToCart: (item: HomeMenuItem | null, variations: Record<string, string>) => void;
+
+  // Order Edit Modal
+  isOrderEditModalOpen: boolean;
+  setIsOrderEditModalOpen: (open: boolean) => void;
+  editingOrder: HomeOrder | null;
+  setEditingOrder: (order: HomeOrder | null) => void;
+  updateOrderStatus: (orderId: string, status: string) => void;
+
+  // Order Details Modal
+  isOrderDetailsModalOpen: boolean;
+  setIsOrderDetailsModalOpen: (open: boolean) => void;
+  viewingOrder: HomeOrder | null;
+  orderDetails: HomeOrderDetails | null;
+  loadingOrderDetails: boolean;
+  closeOrderDetails: () => void;
+  getStatusColor: (status: string) => string;
+  getStatusLabel: (status: string) => string;
+
+  // Fractional Quantity Modal
+  isFractionalQtyOpen: boolean;
+  setIsFractionalQtyOpen: (open: boolean) => void;
+  fractionalQtyItem: HomeCartItem | null;
+  fractionalQtyValue: string;
+  setFractionalQtyValue: (value: string) => void;
+  saveFractionalQty: () => void;
+}
 
 const OrderModals = ({
   // Quick Order Creation Modal
@@ -68,11 +125,11 @@ const OrderModals = ({
   fractionalQtyValue,
   setFractionalQtyValue,
   saveFractionalQty
-}) => {
+}: OrderModalsProps) => {
   // Cart/menu prices arrive as major-unit floats; `scale` converts them to the
   // minor units format() expects, and is 1 in JPY where a literal 100 is wrong.
   const { format, scale } = useMoney();
-  const toMinor = (major) => Math.round(parseFloat(major || 0) * scale);
+  const toMinor = (major: number | string | null | undefined) => Math.round(parseFloat(String(major || 0)) * scale);
 
   return (
     <>
@@ -131,7 +188,7 @@ const OrderModals = ({
                           </span>
                         )}
                       </span>
-                      <span>{format(toMinor(item.price * item.quantity))}</span>
+                      <span>{format(toMinor(Number(item.price) * item.quantity))}</span>
                     </div>
                   ))}
                   <div className="border-t pt-1 mt-2 font-semibold flex justify-between">
@@ -210,9 +267,9 @@ const OrderModals = ({
                       >
                         <div className="flex justify-between items-center w-full">
                           <span className="font-medium">{option.name}</span>
-                          {option.price_modifier !== 0 && (
+                          {Number(option.price_modifier) !== 0 && (
                             <span className="text-sm text-primary">
-                              {option.price_modifier > 0 ? '+' : ''}{format(toMinor(option.price_modifier))}
+                              {Number(option.price_modifier) > 0 ? '+' : ''}{format(toMinor(option.price_modifier))}
                             </span>
                           )}
                         </div>
@@ -228,13 +285,13 @@ const OrderModals = ({
                   <span className="font-medium text-foreground">Total Price:</span>
                   <span className="text-lg font-bold text-primary">
                     {(() => {
-                      let total = parseFloat(selectedItem.price || 0);
-                      selectedItem.item_variations?.forEach(variation => {
+                      let total = parseFloat(String(selectedItem.price || 0));
+                      selectedItem.item_variations?.forEach((variation: HomeItemVariation) => {
                         const selectedOptionId = selectedVariations[variation.id];
                         if (selectedOptionId) {
-                          const option = variation.item_variation_options.find(opt => opt.id === selectedOptionId);
+                          const option = variation.item_variation_options?.find(opt => opt.id === selectedOptionId);
                           if (option) {
-                            total += parseFloat(option.price_modifier || 0);
+                            total += parseFloat(String(option.price_modifier || 0));
                           }
                         }
                       });
@@ -404,7 +461,7 @@ const OrderModals = ({
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-foreground">Total Price:</span>
                   <span className="text-lg font-bold text-primary">
-                    {format(toMinor(fractionalQtyItem.price * parseFloat(fractionalQtyValue)))}
+                    {format(toMinor(Number(fractionalQtyItem.price) * parseFloat(fractionalQtyValue)))}
                   </span>
                 </div>
               </div>
@@ -513,7 +570,7 @@ const OrderModals = ({
                           <div className="text-right">
                             <div className="font-bold text-primary">{format(toMinor(orderItem.total_price))}</div>
                             <div className="text-xs text-muted-foreground">
-                              {orderItem.quantity % 1 === 0 ? orderItem.quantity : parseFloat(orderItem.quantity).toFixed(2)} × {format(toMinor(orderItem.unit_price))}
+                              {Number(orderItem.quantity) % 1 === 0 ? orderItem.quantity : parseFloat(String(orderItem.quantity)).toFixed(2)} × {format(toMinor(orderItem.unit_price))}
                             </div>
                           </div>
                         </div>
