@@ -13,11 +13,28 @@ import {
 import { DollarSign, Loader2 } from 'lucide-react';
 import { useMoney } from '@/context/locale-context';
 
-export function RecordPaymentDialog({ open, onOpenChange, invoice, onPay }) {
+// Mirrors backend/migrations/001_baseline.sql `house_account_invoices` table (subset).
+export interface HouseAccountInvoice {
+  id: string;
+  invoice_number: string;
+  total_cents: number;
+  paid_amount_cents: number;
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'partial';
+  [key: string]: unknown;
+}
+
+interface RecordPaymentDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  invoice: HouseAccountInvoice | null;
+  onPay: (invoiceId: string, cents: number) => Promise<void>;
+}
+
+export function RecordPaymentDialog({ open, onOpenChange, invoice, onPay }: RecordPaymentDialogProps) {
   const { format: centsToDisplay, symbol } = useMoney();
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState(null);
+  const [err, setErr] = useState<string | null>(null);
 
   // Reset when dialog opens for a new invoice
   React.useEffect(() => {
@@ -28,8 +45,9 @@ export function RecordPaymentDialog({ open, onOpenChange, invoice, onPay }) {
     }
   }, [open, invoice]);
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!invoice) return;
     const cents = Math.round(parseFloat(amount) * 100);
     if (!cents || cents <= 0) { setErr('Enter a valid amount'); return; }
     setSaving(true);
@@ -38,7 +56,7 @@ export function RecordPaymentDialog({ open, onOpenChange, invoice, onPay }) {
       await onPay(invoice.id, cents);
       onOpenChange(false);
     } catch (e) {
-      setErr(e.message || 'Payment failed');
+      setErr(e instanceof Error ? e.message : 'Payment failed');
     } finally {
       setSaving(false);
     }
