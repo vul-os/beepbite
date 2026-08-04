@@ -14,17 +14,41 @@ import { formatMoney, currencyScale } from "@/lib/currency";
 // stay major-unit floats and are scaled to minor units right before
 // formatMoney renders them, the same convention real money uses elsewhere.
 const DEMO_MONEY_SCALE = currencyScale();
-const money = (major) => formatMoney(Math.round((major || 0) * DEMO_MONEY_SCALE));
+const money = (major: number) => formatMoney(Math.round((major || 0) * DEMO_MONEY_SCALE));
 
-const MenuManagementPreview = ({ className }) => {
+type MenuItemStatus = 'available' | 'low_stock' | 'critical' | 'out_of_stock';
+
+interface DemoMenuItem {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  stock: number;
+  status: MenuItemStatus;
+  sold_today: number;
+  cost: number;
+  margin: number;
+  popularity: number;
+  image: string;
+}
+
+interface StockUpdate {
+  id: number;
+  item: string;
+  change: number;
+  newStock: number;
+  time: string;
+}
+
+const MenuManagementPreview = ({ className }: { className?: string }) => {
   const [activeTab, setActiveTab] = useState('inventory');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingItem, setEditingItem] = useState(null);
+  const [editingItem, setEditingItem] = useState<DemoMenuItem | null>(null);
   const [animationPhase, setAnimationPhase] = useState(0);
-  const [stockUpdates, setStockUpdates] = useState([]);
+  const [stockUpdates, setStockUpdates] = useState<StockUpdate[]>([]);
 
   // Dynamic menu items with changing stock levels
-  const [menuItems, setMenuItems] = useState([
+  const [menuItems, setMenuItems] = useState<DemoMenuItem[]>([
     { 
       id: 1, 
       name: "Chicken Burger", 
@@ -151,7 +175,7 @@ const MenuManagementPreview = ({ className }) => {
     searchQuery === '' || item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: MenuItemStatus) => {
     switch (status) {
       case 'available': return 'bg-green-100 text-green-800 border-green-200';
       case 'low_stock': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -161,7 +185,7 @@ const MenuManagementPreview = ({ className }) => {
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: MenuItemStatus) => {
     switch (status) {
       case 'available': return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'low_stock': return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
@@ -171,11 +195,11 @@ const MenuManagementPreview = ({ className }) => {
     }
   };
 
-  const updateStock = (id, change) => {
+  const updateStock = (id: number, change: number) => {
     setMenuItems(prev => prev.map(item => {
       if (item.id === id) {
         const newStock = Math.max(0, item.stock + change);
-        const newStatus = newStock === 0 ? 'out_of_stock' : 
+        const newStatus: MenuItemStatus = newStock === 0 ? 'out_of_stock' :
                         newStock < 10 ? 'critical' :
                         newStock < 20 ? 'low_stock' : 'available';
         return { ...item, stock: newStock, status: newStatus };
@@ -184,12 +208,13 @@ const MenuManagementPreview = ({ className }) => {
     }));
   };
 
-  const startEditing = (item) => {
+  const startEditing = (item: DemoMenuItem) => {
     setEditingItem({ ...item });
   };
 
   const saveEdit = () => {
-    setMenuItems(prev => prev.map(item => 
+    if (!editingItem) return;
+    setMenuItems(prev => prev.map(item =>
       item.id === editingItem.id ? editingItem : item
     ));
     setEditingItem(null);
