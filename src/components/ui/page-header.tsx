@@ -1,3 +1,6 @@
+import * as React from "react";
+import type { LucideIcon } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
 /**
@@ -5,7 +8,7 @@ import { cn } from "@/lib/utils";
  * max-width + gutters already come from MainLayout; this just provides
  * consistent vertical spacing between stacked sections.
  */
-export function PageContainer({ className, children, ...props }) {
+export function PageContainer({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div className={cn("space-y-6 sm:space-y-8", className)} {...props}>
       {children}
@@ -26,6 +29,15 @@ export function PageContainer({ className, children, ...props }) {
  * The title renders in Inter at display weight (font-display), matching the rest of the app.
  * `icon` (a lucide component) renders in a soft branded chip to the left.
  */
+interface PageHeaderProps extends Omit<React.ComponentProps<"div">, "title"> {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  eyebrow?: React.ReactNode;
+  icon?: LucideIcon;
+  actions?: React.ReactNode;
+  titleClassName?: string;
+}
+
 export function PageHeader({
   title,
   description,
@@ -35,7 +47,7 @@ export function PageHeader({
   className,
   titleClassName,
   ...props
-}) {
+}: PageHeaderProps) {
   return (
     <div
       className={cn(
