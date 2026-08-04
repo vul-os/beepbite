@@ -10,11 +10,18 @@
 //   loading     bool
 //   error       string|null  shown below dots
 
+import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// eslint-disable-next-line react/prop-types
-function KeyButton({ children, onClick, disabled, variant = 'digit' }) {
+interface KeyButtonProps {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  variant?: 'digit' | 'action';
+}
+
+function KeyButton({ children, onClick, disabled, variant = 'digit' }: KeyButtonProps) {
   const base =
     'flex items-center justify-center rounded-2xl text-xl font-semibold transition-all duration-100 select-none touch-manipulation';
   const variants = {
@@ -38,8 +45,7 @@ function KeyButton({ children, onClick, disabled, variant = 'digit' }) {
   );
 }
 
-// eslint-disable-next-line react/prop-types
-function PinDots({ length, maxLength }) {
+function PinDots({ length, maxLength }: { length: number; maxLength: number }) {
   return (
     <div className="flex items-center justify-center gap-3 my-4" aria-label={`${length} of ${maxLength} digits entered`}>
       {Array.from({ length: maxLength }).map((_, i) => (
@@ -62,8 +68,19 @@ const ROWS = [
   ['7', '8', '9'],
 ];
 
-// eslint-disable-next-line react/prop-types
-const PinKeypad = ({ pin = '', maxLength = 6, minLength = 4, onDigit, onDelete, onClear, onSubmit, loading = false, error = null }) => {
+interface PinKeypadProps {
+  pin?: string;
+  maxLength?: number;
+  minLength?: number;
+  onDigit: (d: string) => void;
+  onDelete: () => void;
+  onClear: () => void;
+  onSubmit: () => void;
+  loading?: boolean;
+  error?: string | null;
+}
+
+const PinKeypad = ({ pin = '', maxLength = 6, minLength = 4, onDigit, onDelete, onClear, onSubmit, loading = false, error = null }: PinKeypadProps) => {
   const canSubmit = pin.length >= minLength && !loading;
 
   return (
