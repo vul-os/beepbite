@@ -1,18 +1,25 @@
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-const PERIODS = [
+export type StatsPeriod = 'day' | 'week' | 'month' | 'year';
+
+const PERIODS: { value: StatsPeriod; label: string }[] = [
   { value: 'day',   label: 'Today' },
   { value: 'week',  label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'year',  label: 'Year' },
 ];
 
+interface PeriodFilterProps {
+  value: StatsPeriod;
+  onChange: (value: StatsPeriod) => void;
+}
+
 /**
  * Segmented period filter — drives the stats summary fetch.
  * Min touch target: 44px height on mobile via py-2.5 (falls back to py-1 on sm+).
  */
-export default function PeriodFilter({ value, onChange }) {
+export default function PeriodFilter({ value, onChange }: PeriodFilterProps) {
   return (
     <div
       role="group"
