@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,29 +19,96 @@ import { cn } from "@/lib/utils";
 
 // Recipe complexity maps 1:1 onto the three status tokens (simple = healthy,
 // moderate = needs a look, complex = the kitchen's biggest risk) — kept as a
-// local map (duplicated in menu/index.jsx / recipe-breakdown.jsx) rather than
+// local map (duplicated in menu/index.tsx / recipe-breakdown.jsx) rather than
 // pulling from the shared lib/status-colors.js, whose PO/invoice/reservation
 // tones still predate the Ticket Rail token system and are out of this pass's scope.
-const COMPLEXITY_TOKEN_CLASSES = {
+const COMPLEXITY_TOKEN_CLASSES: Record<string, string> = {
   simple: 'bg-success/10 text-success',
   moderate: 'bg-warning/10 text-warning',
   complex: 'bg-destructive/10 text-destructive',
 };
 
-const RecipeBuilder = ({ 
-  item, 
-  onClose, 
+// Shapes below are derived from backend/migrations/001_baseline.sql `items`
+// and `item_recipes` tables (subset this component reads/writes), plus the
+// `child_item:items!item_recipes_child_item_id_fkey(...)` join used in
+// fetchRecipeComponents. Kept local (not imported from menu/index.tsx) to
+// mirror this file's existing duplication-over-coupling pattern with its
+// sibling menu pages rather than introducing a new shared cross-file type.
+interface RecipeCategoryRef {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+}
+
+interface RecipeItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  cost_price?: number | null;
+  recipe_type: string;
+  max_recipe_level: number;
+  is_recipe_ingredient?: boolean;
+  category_id?: string;
+  categories?: RecipeCategoryRef | null;
+  [key: string]: unknown;
+}
+
+interface RecipeComponentChildItem {
+  id: string;
+  name: string;
+  price: number;
+  cost_price?: number | null;
+  recipe_type: string;
+  max_recipe_level: number;
+  recipe_complexity?: string;
+  categories?: RecipeCategoryRef | null;
+  [key: string]: unknown;
+}
+
+interface RecipeComponent {
+  id: string;
+  parent_item_id: string;
+  child_item_id: string;
+  quantity_needed: number;
+  unit?: string | null;
+  cost_per_unit?: number | null;
+  notes?: string | null;
+  recipe_level?: number;
+  child_item?: RecipeComponentChildItem | null;
+  isNew?: boolean;
+  isModified?: boolean;
+  [key: string]: unknown;
+}
+
+interface RecipeStats {
+  totalCost: number;
+  totalComponents: number;
+  maxLevel: number;
+  complexity: string;
+}
+
+interface RecipeBuilderProps {
+  item: RecipeItem | null;
+  onClose?: () => void;
+  onSave?: () => void;
+  availableItems?: RecipeItem[];
+}
+
+const RecipeBuilder = ({
+  item,
+  onClose,
   onSave,
   availableItems = []
-}) => {
-  const [components, setComponents] = useState([]);
+}: RecipeBuilderProps) => {
+  const [components, setComponents] = useState<RecipeComponent[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [errors, setErrors] = useState([]);
-  const [recipeStats, setRecipeStats] = useState({
+  const [draggedItem, setDraggedItem] = useState<RecipeComponent | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [recipeStats, setRecipeStats] = useState<RecipeStats>({
     totalCost: 0,
     totalComponents: 0,
     maxLevel: 0,
@@ -124,10 +192,10 @@ const RecipeBuilder = ({
   };
 
   const validateRecipe = () => {
-    const newErrors = [];
-    
+    const newErrors: string[] = [];
+
     // Check for circular dependencies
-    const hasCircularDep = components.some(comp => comp.child_item_id === item.id);
+    const hasCircularDep = components.some(comp => comp.child_item_id === item?.id);
     if (hasCircularDep) {
       newErrors.push('Recipe cannot include itself as a component');
     }
@@ -149,12 +217,12 @@ const RecipeBuilder = ({
     return newErrors.length === 0;
   };
 
-  const addComponent = (selectedItem) => {
-    if (!selectedItem || components.some(comp => comp.child_item_id === selectedItem.id)) {
+  const addComponent = (selectedItem: RecipeItem) => {
+    if (!item || !selectedItem || components.some(comp => comp.child_item_id === selectedItem.id)) {
       return; // Already added or invalid
     }
 
-    const newComponent = {
+    const newComponent: RecipeComponent = {
       id: `temp_${Date.now()}`, // Temporary ID for new components
       parent_item_id: item.id,
       child_item_id: selectedItem.id,
@@ -162,27 +230,27 @@ const RecipeBuilder = ({
       unit: 'piece',
       cost_per_unit: selectedItem.cost_price || 0,
       notes: '',
-      child_item: selectedItem,
+      child_item: selectedItem as RecipeComponentChildItem,
       isNew: true
     };
 
     setComponents(prev => [...prev, newComponent]);
   };
 
-  const updateComponent = (componentId, updates) => {
-    setComponents(prev => prev.map(comp => 
-      comp.id === componentId 
+  const updateComponent = (componentId: string, updates: Partial<RecipeComponent>) => {
+    setComponents(prev => prev.map(comp =>
+      comp.id === componentId
         ? { ...comp, ...updates, isModified: true }
         : comp
     ));
   };
 
-  const removeComponent = (componentId) => {
+  const removeComponent = (componentId: string) => {
     setComponents(prev => prev.filter(comp => comp.id !== componentId));
   };
 
   const handleSave = async () => {
-    if (!validateRecipe()) {
+    if (!item || !validateRecipe()) {
       return;
     }
 
@@ -234,11 +302,11 @@ const RecipeBuilder = ({
 
   // Component costs are major-unit floats, so scale up to minor units before
   // handing them to the minor-unit-based formatter.
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount?: number | null) => {
     return formatMoneyValue(Math.round((amount || 0) * currencyScaleValue));
   };
 
-  const getItemTypeIcon = (type) => {
+  const getItemTypeIcon = (type?: string) => {
     switch (type) {
       case 'recipe': return <ChefHat className="h-4 w-4" />;
       case 'component': return <Package className="h-4 w-4" />;
@@ -246,10 +314,10 @@ const RecipeBuilder = ({
     }
   };
 
-  const getComplexityColor = (complexity) => COMPLEXITY_TOKEN_CLASSES[complexity] || 'bg-muted text-muted-foreground';
+  const getComplexityColor = (complexity?: string) => COMPLEXITY_TOKEN_CLASSES[complexity || ''] || 'bg-muted text-muted-foreground';
 
   // Filter available items - only show recipe ingredients
-  const filteredAvailableItems = availableItems.filter(availableItem => {
+  const filteredAvailableItems = availableItems.filter((availableItem: RecipeItem) => {
     if (availableItem.id === item?.id) return false; // Can't add self
     if (components.some(comp => comp.child_item_id === availableItem.id)) return false; // Already added
     if (!availableItem.is_recipe_ingredient) return false; // Only show items that can be used as ingredients
@@ -395,7 +463,7 @@ const RecipeBuilder = ({
                       <span className="font-medium text-foreground truncate">
                         {component.child_item?.name}
                       </span>
-                      {component.child_item?.max_recipe_level > 0 && (
+                      {component.child_item && component.child_item.max_recipe_level > 0 && (
                         <Badge variant="outline" className="text-xs">
                           <Layers className="h-3 w-3 mr-1" />
                           L{component.child_item.max_recipe_level}
@@ -544,7 +612,7 @@ const RecipeBuilder = ({
                       
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="tabular-nums">{formatCurrency(availableItem.price)}</span>
-                        {availableItem.cost_price > 0 && (
+                        {(availableItem.cost_price ?? 0) > 0 && (
                           <span className="tabular-nums">Cost: {formatCurrency(availableItem.cost_price)}</span>
                         )}
                         {availableItem.categories && (
