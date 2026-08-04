@@ -3,6 +3,7 @@ import { Search, X, Utensils, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
 import { useDateTime } from '@/context/locale-context';
+import type { KioskItem, KioskCategory } from '../index';
 
 /**
  * Compute remaining_today from raw daily countdown columns.
@@ -14,7 +15,7 @@ import { useDateTime } from '@/context/locale-context';
  * timezones. This is a plain helper (not a component), so it can't call
  * useDateTime() itself; the caller supplies the location's local today.
  */
-function computeRemainingToday(item, todayStr) {
+function computeRemainingToday(item: KioskItem, todayStr: string): number | null {
   if (item.daily_quantity == null) return null;
   const soldToday =
     item.daily_counter_date === todayStr
@@ -26,7 +27,7 @@ function computeRemainingToday(item, todayStr) {
 /**
  * Pill badge for daily countdown on a kiosk item card.
  */
-function KioskCountdownPill({ remaining }) {
+function KioskCountdownPill({ remaining }: { remaining: number | null | undefined }) {
   if (remaining === null || remaining === undefined) return null;
   if (remaining === 0) {
     return (
@@ -72,12 +73,12 @@ const ITEM_EMOJI_KEYWORDS = [
   { match: /chocolate/i, emoji: '🍫' },
   { match: /fruit|apple/i, emoji: '🍎' },
 ];
-const CATEGORY_EMOJI = {
+const CATEGORY_EMOJI: Record<string, string> = {
   burgers: '🍔', sides: '🍟', drinks: '🥤', desserts: '🍰',
   pizza: '🍕', salads: '🥗', chicken: '🍗', breakfast: '🍳',
   seafood: '🦐', coffee: '☕', alcohol: '🍺',
 };
-function emojiForItem(item) {
+function emojiForItem(item: KioskItem) {
   const name = item?.name || '';
   for (const { match, emoji } of ITEM_EMOJI_KEYWORDS) {
     if (match.test(name)) return emoji;
@@ -86,7 +87,15 @@ function emojiForItem(item) {
   return CATEGORY_EMOJI[cat] || '🍽️';
 }
 
-const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
+interface KioskMenuGridProps {
+  items: KioskItem[];
+  categories: KioskCategory[];
+  loading: boolean;
+  currency: string;
+  onAddItem: (item: KioskItem) => void;
+}
+
+const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }: KioskMenuGridProps) => {
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState('all');
   const { today } = useDateTime();
@@ -202,7 +211,7 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
                   key={item.id}
                   onClick={() => !soldOutToday && onAddItem(item)}
                   disabled={soldOutToday}
-                  aria-label={`Add ${item.name} — ${formatPrice(parseFloat(item.price || 0) * 100, currency)}${soldOutToday ? ' — sold out' : ''}`}
+                  aria-label={`Add ${item.name} — ${formatPrice(parseFloat(String(item.price || 0)) * 100, currency)}${soldOutToday ? ' — sold out' : ''}`}
                   className={cn(
                     'group relative flex flex-col overflow-hidden rounded-2xl border-2 bg-card shadow-sm transition-all duration-150 text-left',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -228,7 +237,7 @@ const KioskMenuGrid = ({ items, categories, loading, currency, onAddItem }) => {
                     </p>
                     <div className="mt-auto pt-2.5 flex items-center justify-between">
                       <span className="text-lg font-bold text-foreground tabular-nums">
-                        {formatPrice(parseFloat(item.price || 0) * 100, currency)}
+                        {formatPrice(parseFloat(String(item.price || 0)) * 100, currency)}
                       </span>
                       {!soldOutToday && (
                         <span

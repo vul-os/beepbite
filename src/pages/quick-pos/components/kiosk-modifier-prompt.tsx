@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
+import type { KioskItem, KioskModifier, KioskModifierGroup } from '../index';
 
 /**
  * Modifier prompt for the Quick POS kiosk, using the modifier_groups / modifiers model.
@@ -13,12 +14,19 @@ import { formatPrice } from '@/lib/currency';
  *   onConfirm — (selectedModifiers: Modifier[]) => void
  *   onCancel  — () => void
  */
-const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
+interface KioskModifierPromptProps {
+  item: KioskItem;
+  currency: string;
+  onConfirm: (selectedModifiers: KioskModifier[]) => void;
+  onCancel: () => void;
+}
+
+const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }: KioskModifierPromptProps) => {
   const groups = item?.modifier_groups || [];
 
   // selections: { [groupId]: Set<modifierId> }
-  const [selections, setSelections] = useState(() => {
-    const init = {};
+  const [selections, setSelections] = useState<Record<string, Set<string>>>(() => {
+    const init: Record<string, Set<string>> = {};
     for (const g of groups) {
       const defaults = (g.modifiers || []).filter(m => m.is_default);
       if (defaults.length > 0) {
@@ -28,7 +36,7 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
     return init;
   });
 
-  const toggle = (group, modifier) => {
+  const toggle = (group: KioskModifierGroup, modifier: KioskModifier) => {
     setSelections(prev => {
       const existing = new Set(prev[group.id] || []);
       if (existing.has(modifier.id)) {
@@ -57,7 +65,7 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
 
   // Flatten selected modifier objects + compute price delta
   const { selectedModifiers, extraCents } = useMemo(() => {
-    const mods = [];
+    const mods: KioskModifier[] = [];
     let extra = 0;
     for (const g of groups) {
       const sel = selections[g.id] || new Set();
@@ -71,7 +79,7 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
     return { selectedModifiers: mods, extraCents: extra };
   }, [groups, selections]);
 
-  const basePrice = parseFloat(item?.price || 0);
+  const basePrice = parseFloat(String(item?.price || 0));
   const linePriceCents = Math.round(basePrice * 100) + extraCents;
 
   const handleConfirm = () => {
@@ -82,24 +90,24 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
   // Same hand-rolled-overlay caveat as kiosk-tender-modal.jsx: this isn't
   // the Dialog primitive, so Escape/focus-trap/focus-restoration need to be
   // wired up manually rather than inherited for free.
-  const modalRef = useRef(null);
-  const previouslyFocusedRef = useRef(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<Element | null>(null);
 
   useEffect(() => {
     previouslyFocusedRef.current = document.activeElement;
-    const focusable = modalRef.current?.querySelectorAll(
+    const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
     focusable?.[0]?.focus();
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onCancel?.();
         return;
       }
       if (e.key !== 'Tab') return;
-      const current = modalRef.current?.querySelectorAll(
+      const current = modalRef.current?.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
       if (!current?.length) return;
@@ -117,7 +125,7 @@ const KioskModifierPrompt = ({ item, currency, onConfirm, onCancel }) => {
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      previouslyFocusedRef.current?.focus?.();
+      (previouslyFocusedRef.current as HTMLElement | null)?.focus?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

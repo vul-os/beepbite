@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
 
 // Common cash denomination sets per currency
-const CASH_DENOMINATIONS = {
+const CASH_DENOMINATIONS: Record<string, number[]> = {
   ZAR: [10, 20, 50, 100, 200],
   USD: [1, 5, 10, 20, 50, 100],
   NGN: [100, 200, 500, 1000],
@@ -14,10 +14,20 @@ const CASH_DENOMINATIONS = {
   GBP: [5, 10, 20, 50],
 };
 
-const NUMPAD = ['7','8','9','4','5','6','1','2','3','0','00',null];
+const NUMPAD: (string | null)[] = ['7','8','9','4','5','6','1','2','3','0','00',null];
 
-const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error, lastOrderNumber }) => {
-  const [method, setMethod] = useState(null); // 'cash' | 'card'
+interface KioskTenderModalProps {
+  total: number;
+  currency: string;
+  onClose: () => void;
+  onConfirm: (args: { method: 'cash' | 'card'; cashTendered: number | null }) => void | Promise<void>;
+  loading: boolean;
+  error: string;
+  lastOrderNumber: string | null;
+}
+
+const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error, lastOrderNumber }: KioskTenderModalProps) => {
+  const [method, setMethod] = useState<'cash' | 'card' | null>(null);
   const [cashEntry, setCashEntry] = useState('');
 
   const totalCents = Math.round(total * 100);
@@ -26,7 +36,7 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
   const cashAmount = parseFloat(cashEntry) || 0;
   const changeCents = Math.round(cashAmount * 100) - totalCents;
 
-  const handleNumpad = useCallback((key) => {
+  const handleNumpad = useCallback((key: string | null) => {
     if (key === null) return; // backspace tile (we handle via Delete key)
     setCashEntry(prev => {
       // Prevent more than 2 decimal places
@@ -43,7 +53,7 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
     setCashEntry(prev => prev.slice(0, -1));
   }, []);
 
-  const handleDenom = useCallback((d) => {
+  const handleDenom = useCallback((d: number) => {
     setCashEntry(String(d));
   }, []);
 
@@ -64,20 +74,20 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
   // to be wired up here by hand. Without this, a keyboard/screen-reader
   // user (or an accessibility-switch device driving the kiosk) could tab
   // straight through the "modal" into the menu grid behind it mid-payment.
-  const modalRef = useRef(null);
-  const previouslyFocusedRef = useRef(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<Element | null>(null);
 
   useEffect(() => {
     previouslyFocusedRef.current = document.activeElement;
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose?.();
         return;
       }
       if (e.key !== 'Tab') return;
-      const focusable = modalRef.current?.querySelectorAll(
+      const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
       if (!focusable?.length) return;
@@ -95,7 +105,7 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      previouslyFocusedRef.current?.focus?.();
+      (previouslyFocusedRef.current as HTMLElement | null)?.focus?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -104,7 +114,7 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
   // the success screen) — they're different DOM subtrees, not just a class
   // toggle, so this has to re-run on that transition, not only on mount.
   useEffect(() => {
-    const focusable = modalRef.current?.querySelectorAll(
+    const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
     focusable?.[0]?.focus();

@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 
-import { getStore } from '@/services/marketplace';
+import { getStore, type StoreDetail } from '@/services/marketplace';
 import { submitPosOrder } from '@/services/pos';
 import { supabase } from '@/services/supabase-client';
 
@@ -20,24 +20,94 @@ import KioskModifierPrompt from './components/kiosk-modifier-prompt';
 import ReceiptModal from '@/pages/pos/components/receipt-modal';
 import { OfflineBanner } from '@/components/ui/sync-status';
 
+// ---- Kiosk menu types -----------------------------------------------------
+// Mirrors backend/migrations/001_baseline.sql `categories` table (subset).
+export interface KioskCategory {
+  id: string;
+  name: string;
+  sort_order?: number;
+  [key: string]: unknown;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `modifiers` table.
+export interface KioskModifier {
+  id: string;
+  modifier_group_id?: string;
+  name: string;
+  price_delta_cents: number;
+  is_default?: boolean;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+// Mirrors backend/migrations/001_baseline.sql `modifier_groups` table, with
+// `modifiers` nested client-side in the fetch effect below.
+export interface KioskModifierGroup {
+  id: string;
+  item_id?: string;
+  name: string;
+  min_select?: number;
+  max_select?: number;
+  is_required?: boolean;
+  sort_order?: number;
+  modifiers: KioskModifier[];
+}
+
+// Mirrors backend/migrations/001_baseline.sql `items` table (subset used by
+// the kiosk), with `category` embedded (Supabase-style join) and
+// `modifier_groups` nested client-side.
+export interface KioskItem {
+  id: string;
+  category_id?: string;
+  name: string;
+  description?: string | null;
+  price: string | number;
+  daily_quantity?: number | null;
+  daily_sold_count?: number;
+  daily_counter_date?: string | null;
+  category?: { id: string; name: string } | null;
+  modifier_groups?: KioskModifierGroup[];
+  [key: string]: unknown;
+}
+
+export interface KioskCartItem extends KioskItem {
+  cartItemKey: string;
+  quantity: number;
+  price: number;
+  basePrice: number;
+  selectedModifiers: KioskModifier[];
+  selectedModifierIds: string[];
+}
+
+// Mirrors backend/internal/handlers/pos/store.go CreatedOrder — the real
+// response of POST /pos/orders. NOTE: below reads `result.id`, but the real
+// field is `order_id`; since `id` never exists, `orderId` always falls
+// through to `order_number`, so the receipt modal is opened with the order
+// NUMBER rather than the order's UUID id. Pre-existing defect, flagged not
+// fixed, preserved via this permissive type.
+interface PosOrderResult {
+  order_id: string;
+  order_number: string;
+  id?: string;
+  [key: string]: unknown;
+}
+
 // ---- cart helpers -------------------------------------------------------
 
 /**
  * Build a stable cart-item key from the item id + sorted selected modifier ids.
- * @param {string} itemId
- * @param {string[]} selectedModifierIds
  */
-function buildCartItemKey(itemId, selectedModifierIds) {
+function buildCartItemKey(itemId: string, selectedModifierIds: string[]) {
   const mKey = [...selectedModifierIds].sort().join('|');
   return `${itemId}${mKey ? '|' + mKey : ''}`;
 }
 
 /**
  * Compute line price in currency units given base price + selected modifiers.
- * @param {number} basePrice   - item.price as a float
- * @param {Array}  modifiers   - [{price_delta_cents, ...}] selected modifier objects
+ * @param basePrice   - item.price as a float
+ * @param modifiers   - selected modifier objects
  */
-function computeModifierPrice(basePrice, modifiers) {
+function computeModifierPrice(basePrice: number, modifiers: KioskModifier[]) {
   const extraCents = modifiers.reduce((s, m) => s + (m.price_delta_cents || 0), 0);
   return basePrice + extraCents / 100;
 }
@@ -45,33 +115,33 @@ function computeModifierPrice(basePrice, modifiers) {
 // ---- component ----------------------------------------------------------
 
 const QuickPOS = () => {
-  const { slug } = useParams();
+  const { slug } = useParams<{ slug: string }>();
 
   // Store / location resolution
-  const [store, setStore] = useState(null);
+  const [store, setStore] = useState<StoreDetail | null>(null);
   const [storeLoading, setStoreLoading] = useState(true);
-  const [storeError, setStoreError] = useState(null);
+  const [storeError, setStoreError] = useState<string | null>(null);
 
   // Menu data (items now include modifier_groups via separate fetch in effect below)
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [items, setItems] = useState<KioskItem[]>([]);
+  const [categories, setCategories] = useState<KioskCategory[]>([]);
   const [menuLoading, setMenuLoading] = useState(false);
 
   // Cart
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState<KioskCartItem[]>([]);
   const [cartCollapsed, setCartCollapsed] = useState(true);
 
   // Modifier prompt — item being customised (with modifier_groups attached)
-  const [modifierItem, setModifierItem] = useState(null);
+  const [modifierItem, setModifierItem] = useState<KioskItem | null>(null);
 
   // Tender modal
   const [tenderOpen, setTenderOpen] = useState(false);
   const [tenderLoading, setTenderLoading] = useState(false);
   const [tenderError, setTenderError] = useState('');
-  const [lastOrderNumber, setLastOrderNumber] = useState(null);
+  const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null);
 
   // Receipt modal — shown after a successful tender
-  const [receiptOrderId, setReceiptOrderId] = useState(null);
+  const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
 
   // ---- Resolve store by slug -------------------------------------------
@@ -91,7 +161,7 @@ const QuickPOS = () => {
       setStoreLoading(false);
     }).catch(err => {
       if (!cancelled) {
-        setStoreError(err?.message || 'Failed to load store');
+        setStoreError(err instanceof Error ? err.message : 'Failed to load store');
         setStoreLoading(false);
       }
     });
@@ -100,8 +170,13 @@ const QuickPOS = () => {
   }, [slug]);
 
   // ---- Load menu once store is resolved --------------------------------
-  const locationId = store?.location_id || store?.id;
-  const currency = store?.currency_code || store?.currency || 'USD';
+  // `location_id` never exists on the real StoreDetail DTO (see
+  // services/marketplace.ts) — dead defensive fallback preserved via a
+  // cast; store.id is what actually resolves in practice.
+  const locationId = (store?.location_id as string | undefined) || store?.id;
+  // `currency` never exists on the real StoreDetail DTO either — only
+  // `currency_code` does.
+  const currency = (store?.currency_code || store?.currency || 'USD') as string;
 
   useEffect(() => {
     if (!locationId) return;
@@ -126,7 +201,7 @@ const QuickPOS = () => {
         .order('name', { ascending: true }),
     ]).then(async ([catRes, itemRes]) => {
       if (cancelled) return;
-      const fetchedItems = itemRes.data || [];
+      const fetchedItems: KioskItem[] = itemRes.data || [];
       setCategories(catRes.data || []);
 
       // Fetch modifier_groups + modifiers for all items in one shot
@@ -146,21 +221,23 @@ const QuickPOS = () => {
         ]);
 
         if (!cancelled) {
-          const groups = gData || [];
-          const modifiers = mData || [];
+          const groups: KioskModifierGroup[] = gData || [];
+          const modifiers: KioskModifier[] = mData || [];
 
           // Index: groupId → modifiers[]
-          const modsByGroup = {};
+          const modsByGroup: Record<string, KioskModifier[]> = {};
           modifiers.forEach(m => {
-            if (!modsByGroup[m.modifier_group_id]) modsByGroup[m.modifier_group_id] = [];
-            modsByGroup[m.modifier_group_id].push(m);
+            const gid = m.modifier_group_id as string;
+            if (!modsByGroup[gid]) modsByGroup[gid] = [];
+            modsByGroup[gid].push(m);
           });
 
           // Index: itemId → groups[] (with nested modifiers)
-          const groupsByItem = {};
+          const groupsByItem: Record<string, KioskModifierGroup[]> = {};
           groups.forEach(g => {
-            if (!groupsByItem[g.item_id]) groupsByItem[g.item_id] = [];
-            groupsByItem[g.item_id].push({ ...g, modifiers: modsByGroup[g.id] || [] });
+            const iid = g.item_id as string;
+            if (!groupsByItem[iid]) groupsByItem[iid] = [];
+            groupsByItem[iid].push({ ...g, modifiers: modsByGroup[g.id] || [] });
           });
 
           setItems(fetchedItems.map(it => ({
@@ -184,13 +261,11 @@ const QuickPOS = () => {
 
   /**
    * Add (or stack) an item into the cart.
-   * @param {object} item                - menu item with modifier_groups attached
-   * @param {Array}  selectedModifiers   - [{id, name, price_delta_cents, ...}]
    */
-  const addItem = useCallback((item, selectedModifiers = []) => {
+  const addItem = useCallback((item: KioskItem, selectedModifiers: KioskModifier[] = []) => {
     const selectedModifierIds = selectedModifiers.map(m => m.id);
     const key = buildCartItemKey(item.id, selectedModifierIds);
-    const basePrice = parseFloat(item.price || 0);
+    const basePrice = parseFloat(String(item.price || 0));
     const price = computeModifierPrice(basePrice, selectedModifiers);
 
     setCart(prev => {
@@ -214,7 +289,7 @@ const QuickPOS = () => {
   }, []);
 
   // When user taps an item on the grid
-  const handleTapItem = useCallback((item) => {
+  const handleTapItem = useCallback((item: KioskItem) => {
     const hasModifierGroups = (item.modifier_groups || []).length > 0;
     if (hasModifierGroups) {
       setModifierItem(item);
@@ -224,13 +299,13 @@ const QuickPOS = () => {
   }, [addItem]);
 
   // Modifier prompt confirmed — selectedModifiers is [{id, name, price_delta_cents, ...}]
-  const handleModifierConfirm = useCallback((selectedModifiers) => {
+  const handleModifierConfirm = useCallback((selectedModifiers: KioskModifier[]) => {
     if (!modifierItem) return;
     addItem(modifierItem, selectedModifiers);
     setModifierItem(null);
   }, [modifierItem, addItem]);
 
-  const updateQty = useCallback((cartItemKey, qty) => {
+  const updateQty = useCallback((cartItemKey: string, qty: number) => {
     if (qty <= 0) {
       setCart(prev => prev.filter(ci => ci.cartItemKey !== cartItemKey));
     } else {
@@ -259,24 +334,24 @@ const QuickPOS = () => {
     setTenderOpen(true);
   }, [cart.length]);
 
-  const handleTenderConfirm = useCallback(async ({ method }) => {
+  const handleTenderConfirm = useCallback(async ({ method }: { method: 'cash' | 'card' }) => {
     setTenderLoading(true);
     setTenderError('');
     try {
       const result = await submitPosOrder({
-        locationId,
+        locationId: locationId as string,
         orderType: 'counter',
         items: cart.map(ci => {
-          const lineItem = {
+          const lineItem: { item_id: string; quantity: number; modifiers?: { modifier_id: string }[] } = {
             item_id: ci.id,
-            quantity: Math.max(1, Math.ceil(parseFloat(ci.quantity) || 1)),
+            quantity: Math.max(1, Math.ceil(parseFloat(String(ci.quantity)) || 1)),
           };
           if (ci.selectedModifierIds && ci.selectedModifierIds.length > 0) {
             lineItem.modifiers = ci.selectedModifierIds.map(id => ({ modifier_id: id }));
           }
           return lineItem;
         }),
-      });
+      }) as PosOrderResult | undefined;
       const orderNum = result?.order_number || result?.id || '?';
       setLastOrderNumber(orderNum);
       clearCart();
@@ -289,7 +364,7 @@ const QuickPOS = () => {
         setReceiptOpen(true);
       }
     } catch (err) {
-      setTenderError(err.message || 'Failed to place order. Please try again.');
+      setTenderError(err instanceof Error ? err.message : 'Failed to place order. Please try again.');
     } finally {
       setTenderLoading(false);
     }
@@ -344,7 +419,9 @@ const QuickPOS = () => {
     );
   }
 
-  const storeName = store.name || store.business_name || slug;
+  // `business_name` never exists on the real StoreDetail DTO — dead
+  // defensive fallback preserved via a cast.
+  const storeName = store.name || (store.business_name as string | undefined) || slug;
 
   return (
     // Full-screen, no scrollbars, kiosk-friendly
@@ -406,7 +483,7 @@ const QuickPOS = () => {
 
       {/* Receipt modal — shown after a successful payment */}
       <ReceiptModal
-        orderId={receiptOrderId}
+        orderId={receiptOrderId as string}
         open={receiptOpen}
         onClose={handleReceiptClose}
         onNewOrder={handleReceiptNewOrder}

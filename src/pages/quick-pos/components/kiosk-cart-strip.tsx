@@ -1,8 +1,19 @@
 import { ShoppingCart, Minus, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/currency';
+import type { KioskCartItem } from '../index';
 
-const KioskCartStrip = ({ cart, currency, onUpdateQty, onClear, onCheckout, collapsed, onToggleCollapse }) => {
+interface KioskCartStripProps {
+  cart: KioskCartItem[];
+  currency: string;
+  onUpdateQty: (cartItemKey: string, qty: number) => void;
+  onClear: () => void;
+  onCheckout: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}
+
+const KioskCartStrip = ({ cart, currency, onUpdateQty, onClear, onCheckout, collapsed, onToggleCollapse }: KioskCartStripProps) => {
   const total = cart.reduce((s, item) => s + item.price * item.quantity, 0);
   const count = cart.reduce((s, item) => s + item.quantity, 0);
   const isEmpty = cart.length === 0;
