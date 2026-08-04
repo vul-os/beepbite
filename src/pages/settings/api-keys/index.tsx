@@ -60,13 +60,16 @@ import {
   Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { listKeys, createKey, revokeKey } from '@/services/api-keys';
+import { listKeys, createKey, revokeKey, type ApiKeySummary, type ApiKeyCreated } from '@/services/api-keys';
 import {
   listEndpoints,
   createEndpoint,
   updateEndpoint,
   deleteEndpoint,
   listDeliveries,
+  type WebhookEndpoint,
+  type WebhookEndpointCreated,
+  type WebhookDelivery,
 } from '@/services/webhooks';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -97,7 +100,7 @@ const ALL_EVENTS = [
 
 // ── Tiny helpers ──────────────────────────────────────────────────────────────
 
-function fmtDate(iso) {
+function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(undefined, {
     year: 'numeric',
@@ -106,7 +109,7 @@ function fmtDate(iso) {
   });
 }
 
-function fmtDateTime(iso) {
+function fmtDateTime(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString(undefined, {
     month: 'short',
@@ -116,7 +119,7 @@ function fmtDateTime(iso) {
   });
 }
 
-function scopeColor(scope) {
+function scopeColor(scope: string) {
   if (scope.startsWith('write:')) return 'bg-primary/10 text-primary border-primary/20';
   return 'bg-muted text-muted-foreground border-border';
 }
@@ -125,7 +128,7 @@ function eventColor() {
   return 'bg-muted text-muted-foreground border-border';
 }
 
-function statusColor(status) {
+function statusColor(status: string) {
   if (status === 'success') return 'bg-success/10 text-success border-success/20';
   if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/20';
   return 'bg-warning/10 text-warning border-warning/20';
@@ -133,7 +136,7 @@ function statusColor(status) {
 
 // ── Copy-to-clipboard button ──────────────────────────────────────────────────
 
-function CopyButton({ text, className }) {
+function CopyButton({ text, className }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -175,7 +178,7 @@ function CopyButton({ text, className }) {
 
 // ── "Shown once" secret box ───────────────────────────────────────────────────
 
-function SecretRevealBox({ label, value }) {
+function SecretRevealBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
       <div className="flex items-start gap-2">
@@ -199,8 +202,13 @@ function SecretRevealBox({ label, value }) {
 
 // ── Scope / event checkbox grid ───────────────────────────────────────────────
 
-function CheckboxGrid({ items, selected, onChange, colorFn }) {
-  function toggle(item) {
+function CheckboxGrid({ items, selected, onChange, colorFn }: {
+  items: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+  colorFn: (item: string) => string;
+}) {
+  function toggle(item: string) {
     const next = selected.includes(item)
       ? selected.filter((s) => s !== item)
       : [...selected, item];
@@ -237,13 +245,17 @@ function CheckboxGrid({ items, selected, onChange, colorFn }) {
 // API KEYS SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function CreateKeyDialog({ open, onClose, onCreated }) {
+function CreateKeyDialog({ open, onClose, onCreated }: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (key: ApiKeyCreated) => void;
+}) {
   const [name, setName] = useState('');
-  const [scopes, setScopes] = useState([]);
-  const [environment, setEnvironment] = useState('live');
+  const [scopes, setScopes] = useState<string[]>([]);
+  const [environment, setEnvironment] = useState<'live' | 'test'>('live');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [createdKey, setCreatedKey] = useState(null);
+  const [createdKey, setCreatedKey] = useState<ApiKeyCreated | null>(null);
 
   function reset() {
     setName('');
@@ -399,7 +411,12 @@ function CreateKeyDialog({ open, onClose, onCreated }) {
   );
 }
 
-function RevokeKeyDialog({ apiKey, open, onClose, onRevoked }) {
+function RevokeKeyDialog({ apiKey, open, onClose, onRevoked }: {
+  apiKey: ApiKeySummary;
+  open: boolean;
+  onClose: () => void;
+  onRevoked: (id: string) => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -448,7 +465,7 @@ function RevokeKeyDialog({ apiKey, open, onClose, onRevoked }) {
   );
 }
 
-function ApiKeyRow({ apiKey, onRevoked }) {
+function ApiKeyRow({ apiKey, onRevoked }: { apiKey: ApiKeySummary; onRevoked: (id: string) => void }) {
   const [revokeOpen, setRevokeOpen] = useState(false);
   const isRevoked = !!apiKey.revoked_at;
 
@@ -527,7 +544,7 @@ function ApiKeyRow({ apiKey, onRevoked }) {
 }
 
 function ApiKeysSection() {
-  const [keys, setKeys] = useState([]);
+  const [keys, setKeys] = useState<ApiKeySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -546,7 +563,7 @@ function ApiKeysSection() {
 
   useEffect(() => { load(); }, [load]);
 
-  function handleRevoked(id) {
+  function handleRevoked(id: string) {
     setKeys((prev) =>
       prev.map((k) =>
         k.id === id ? { ...k, revoked_at: new Date().toISOString() } : k,
@@ -554,7 +571,7 @@ function ApiKeysSection() {
     );
   }
 
-  function handleCreated(newKey) {
+  function handleCreated(newKey: ApiKeyCreated) {
     // Merge new key (without the plaintext) into list
     setKeys((prev) => [
       {
@@ -642,14 +659,19 @@ function ApiKeysSection() {
 // WEBHOOKS SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
+function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (ep: WebhookEndpoint) => void;
+  editEndpoint?: WebhookEndpoint | null;
+}) {
   const isEdit = !!editEndpoint;
   const [url, setUrl] = useState('');
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [createdSecret, setCreatedSecret] = useState(null);
+  const [createdSecret, setCreatedSecret] = useState<{ endpoint: WebhookEndpoint; secret: string } | null>(null);
 
   // Pre-fill when editing
   useEffect(() => {
@@ -681,7 +703,7 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
     onClose();
   }
 
-  function validateUrl(v) {
+  function validateUrl(v: string) {
     try {
       const u = new URL(v);
       return u.protocol === 'https:';
@@ -710,14 +732,14 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
       });
       setLoading(false);
       if (apiErr) { setError(apiErr.message || 'Update failed.'); return; }
-      onCreated(data);
+      onCreated(data!);
       reset();
       onClose();
     } else {
       const { data, error: apiErr } = await createEndpoint({ url, events, description });
       setLoading(false);
       if (apiErr) { setError(apiErr.message || 'Failed to create endpoint.'); return; }
-      setCreatedSecret({ endpoint: data, secret: data.signing_secret });
+      setCreatedSecret({ endpoint: data!, secret: data!.signing_secret });
     }
   }
 
@@ -830,8 +852,8 @@ function AddEndpointDialog({ open, onClose, onCreated, editEndpoint }) {
   );
 }
 
-function DeliveriesPanel({ endpointId }) {
-  const [deliveries, setDeliveries] = useState([]);
+function DeliveriesPanel({ endpointId }: { endpointId: string }) {
+  const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -904,13 +926,17 @@ function DeliveriesPanel({ endpointId }) {
   );
 }
 
-function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
+function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }: {
+  endpoint: WebhookEndpoint;
+  onUpdated: (ep: WebhookEndpoint) => void;
+  onDeleted: (id: string) => void;
+}) {
   const [deliveriesOpen, setDeliveriesOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [activeToggling, setActiveToggling] = useState(false);
 
-  async function handleToggleActive(checked) {
+  async function handleToggleActive(checked: boolean) {
     setActiveToggling(true);
     const { data } = await updateEndpoint(endpoint.id, { is_active: checked });
     setActiveToggling(false);
@@ -1043,7 +1069,7 @@ function WebhookEndpointRow({ endpoint, onUpdated, onDeleted }) {
 }
 
 function WebhooksSection() {
-  const [endpoints, setEndpoints] = useState([]);
+  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -1059,17 +1085,17 @@ function WebhooksSection() {
 
   useEffect(() => { load(); }, [load]);
 
-  function handleCreated(newEndpoint) {
+  function handleCreated(newEndpoint: WebhookEndpoint) {
     setEndpoints((prev) => [newEndpoint, ...prev]);
   }
 
-  function handleUpdated(updated) {
+  function handleUpdated(updated: WebhookEndpoint) {
     setEndpoints((prev) =>
       prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e)),
     );
   }
 
-  function handleDeleted(id) {
+  function handleDeleted(id: string) {
     setEndpoints((prev) => prev.filter((e) => e.id !== id));
   }
 
