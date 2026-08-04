@@ -1,5 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
+import type { Supplier, SupplierContact } from '../types';
+
+// A contact as supplied by the create/edit form — not a full SupplierContact
+// row (no id/supplier_id/is_primary/timestamps yet).
+interface SupplierContactInput {
+  name?: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface SupplierCreatePayload extends Partial<Omit<Supplier, 'id' | 'created_at' | 'updated_at'>> {
+  name: string;
+  _contact?: SupplierContactInput;
+}
+
+export interface SupplierUpdatePayload extends Partial<Omit<Supplier, 'id' | 'created_at' | 'updated_at'>> {
+  _contact?: SupplierContactInput;
+  _existingContactId?: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Primary-contact helpers
@@ -9,14 +28,14 @@ import { api } from '@/lib/api-client';
  * Fetch the primary contact for a supplier.
  * Prefers is_primary=true; falls back to the first row if none is flagged.
  */
-async function fetchPrimaryContact(supplierId) {
+async function fetchPrimaryContact(supplierId: string): Promise<SupplierContact | null> {
   const { data, error: err } = await api.from('supplier_contacts')
     .select('*')
     .eq('supplier_id', supplierId)
     .order('is_primary', { ascending: false }) // true rows first
     .order('created_at', { ascending: true });
   if (err) return null;
-  const rows = data || [];
+  const rows: SupplierContact[] = data || [];
   return rows.find((r) => r.is_primary) || rows[0] || null;
 }
 
@@ -26,7 +45,7 @@ async function fetchPrimaryContact(supplierId) {
  * Any pre-existing contact with is_primary=true keeps its flag — we only
  * ever touch the one row we own.
  */
-async function upsertPrimaryContact(supplierId, contact, existingId) {
+async function upsertPrimaryContact(supplierId: string, contact: SupplierContactInput, existingId: string | null): Promise<void> {
   // name is NOT NULL in the schema.  Require it — if the caller provided only
   // email/phone without a name we still skip (avoids writing a nameless row).
   const hasData = !!(contact.name);
@@ -56,10 +75,10 @@ async function upsertPrimaryContact(supplierId, contact, existingId) {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useSuppliers(organizationId) {
-  const [suppliers, setSuppliers] = useState([]);
+export function useSuppliers(organizationId: string | undefined) {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     if (!organizationId) {
@@ -76,7 +95,7 @@ export function useSuppliers(organizationId) {
       if (err) throw new Error(err.message);
       setSuppliers(data || []);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load suppliers');
     } finally {
       setLoading(false);
     }
@@ -88,7 +107,7 @@ export function useSuppliers(organizationId) {
    * Create a supplier then write its primary contact.
    * `payload._contact` carries { name, email, phone }.
    */
-  const createSupplier = useCallback(async (payload) => {
+  const createSupplier = useCallback(async (payload: SupplierCreatePayload) => {
     const { _contact, ...rest } = payload;
     const { data, error: err } = await api.from('suppliers')
       .insert({ ...rest, organization_id: organizationId })
@@ -107,7 +126,7 @@ export function useSuppliers(organizationId) {
    * `payload._contact` carries { name, email, phone }.
    * `payload._existingContactId` is the id of the current primary contact row (if any).
    */
-  const updateSupplier = useCallback(async (id, payload) => {
+  const updateSupplier = useCallback(async (id: string, payload: SupplierUpdatePayload) => {
     const { _contact, _existingContactId, ...rest } = payload;
     const { data, error: err } = await api.from('suppliers')
       .update(rest)

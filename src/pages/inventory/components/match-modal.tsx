@@ -11,14 +11,15 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
 import { useMoney } from '@/context/locale-context';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import type { SupplierInvoice, MatchResult } from '../types';
 
-function fmtPct(v) {
+function fmtPct(v: number): string {
   return `${(v * 100).toFixed(1)}%`;
 }
 
 // A variance is "needs a second look, nothing lost yet" (warning); matched
 // is the success state; unmatched (not yet run) is neutral.
-function matchStatusVariant(status) {
+function matchStatusVariant(status: string | undefined): 'success' | 'warning' | 'secondary' {
   switch (status) {
     case 'matched': return 'success';
     case 'price_variance':
@@ -27,7 +28,7 @@ function matchStatusVariant(status) {
   }
 }
 
-function matchStatusBadge(status) {
+function matchStatusBadge(status: string | undefined) {
   return (
     <Badge variant={matchStatusVariant(status)}>
       {status?.replace('_', ' ')}
@@ -35,8 +36,15 @@ function matchStatusBadge(status) {
   );
 }
 
-export function MatchModal({ invoice, open, onClose, onMatched }) {
-  const [result, setResult] = useState(null);
+interface MatchModalProps {
+  invoice: SupplierInvoice | null;
+  open: boolean;
+  onClose: () => void;
+  onMatched?: (result: MatchResult | null) => void;
+}
+
+export function MatchModal({ invoice, open, onClose, onMatched }: MatchModalProps) {
+  const [result, setResult] = useState<MatchResult | null>(null);
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState('');
   // The invoice is denominated in the supplier's currency, which need not be
@@ -49,7 +57,7 @@ export function MatchModal({ invoice, open, onClose, onMatched }) {
     setRunning(true);
     setErr('');
     try {
-      const { data, error } = await api.request(
+      const { data, error } = await api.request<MatchResult>(
         'POST',
         `/inventory/supplier-invoices/${invoice.id}/match`,
         { body: {} }
@@ -59,7 +67,7 @@ export function MatchModal({ invoice, open, onClose, onMatched }) {
       setResult(data);
       if (onMatched) onMatched(data);
     } catch (e) {
-      setErr(e.message);
+      setErr(e instanceof Error ? e.message : 'Match failed');
     } finally {
       setRunning(false);
     }

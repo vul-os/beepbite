@@ -1,10 +1,33 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import type { Supplier, SupplierContact } from '../types';
+import type { SupplierCreatePayload } from '../hooks/use-suppliers';
 
-const EMPTY = {
+interface SupplierFormState {
+  name: string;
+  display_name: string;
+  payment_terms_days: number | string;
+  website: string;
+  notes: string;
+  is_active: boolean;
+  contact_name: string;
+  email: string;
+  phone: string;
+  address_street: string;
+  address_city: string;
+  address_country: string;
+}
+
+// The supplier this form edits, plus its resolved primary contact (fetched
+// separately by the caller via useSuppliers().getPrimaryContact).
+export interface SupplierFormInitial extends Supplier {
+  primaryContact?: SupplierContact | null;
+}
+
+const EMPTY: SupplierFormState = {
   name: '',
   display_name: '',
   payment_terms_days: 30,
@@ -22,8 +45,8 @@ const EMPTY = {
   address_country: '',
 };
 
-function toPayload(form) {
-  const address = {};
+function toPayload(form: SupplierFormState) {
+  const address: { street?: string; city?: string; country?: string } = {};
   if (form.address_street) address.street = form.address_street;
   if (form.address_city) address.city = form.address_city;
   if (form.address_country) address.country = form.address_country;
@@ -47,11 +70,18 @@ function toPayload(form) {
   };
 }
 
-export function SupplierForm({ initial, onSubmit, onCancel, saving }) {
-  const [form, setForm] = useState({ ...EMPTY, ...flattenInitial(initial) });
+interface SupplierFormProps {
+  initial?: SupplierFormInitial | null;
+  onSubmit: (payload: ReturnType<typeof toPayload>) => Promise<void> | void;
+  onCancel: () => void;
+  saving?: boolean;
+}
+
+export function SupplierForm({ initial, onSubmit, onCancel, saving }: SupplierFormProps) {
+  const [form, setForm] = useState<SupplierFormState>({ ...EMPTY, ...flattenInitial(initial) });
   const [err, setErr] = useState('');
 
-  function flattenInitial(sup) {
+  function flattenInitial(sup?: SupplierFormInitial | null): Partial<SupplierFormState> {
     if (!sup) return {};
     const pc = sup.primaryContact || null;
     return {
@@ -71,11 +101,11 @@ export function SupplierForm({ initial, onSubmit, onCancel, saving }) {
     };
   }
 
-  function set(field, value) {
+  function set<K extends keyof SupplierFormState>(field: K, value: SupplierFormState[K]) {
     setForm((p) => ({ ...p, [field]: value }));
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setErr('Name is required'); return; }
     setErr('');
