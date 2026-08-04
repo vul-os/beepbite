@@ -79,19 +79,6 @@ export interface KioskCartItem extends KioskItem {
   selectedModifierIds: string[];
 }
 
-// Mirrors backend/internal/handlers/pos/store.go CreatedOrder — the real
-// response of POST /pos/orders. NOTE: below reads `result.id`, but the real
-// field is `order_id`; since `id` never exists, `orderId` always falls
-// through to `order_number`, so the receipt modal is opened with the order
-// NUMBER rather than the order's UUID id. Pre-existing defect, flagged not
-// fixed, preserved via this permissive type.
-interface PosOrderResult {
-  order_id: string;
-  order_number: string;
-  id?: string;
-  [key: string]: unknown;
-}
-
 // ---- cart helpers -------------------------------------------------------
 
 /**
@@ -351,13 +338,15 @@ const QuickPOS = () => {
           }
           return lineItem;
         }),
-      }) as PosOrderResult | undefined;
-      const orderNum = result?.order_number || result?.id || '?';
+      });
+      const orderNum = result?.order_number || '?';
       setLastOrderNumber(orderNum);
       clearCart();
 
-      // Open receipt modal with the returned order id (prefer uuid id; fall back to order_number)
-      const orderId = result?.id || result?.order_number || null;
+      // Open receipt modal. CreatedOrder (mirrors backend/internal/handlers/
+      // pos/store.go) has no `id` field — only `order_id`/`order_number` — so
+      // this uses order_number, same as the order-number line above.
+      const orderId = result?.order_number || null;
       if (orderId) {
         setReceiptOrderId(String(orderId));
         setTenderOpen(false);

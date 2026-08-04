@@ -198,9 +198,12 @@ export async function openRegisterSession({
   denominations?: Record<string, number>;
   isBlindClose?: boolean;
   note?: string;
-}) {
+}): Promise<CashDrawerSession> {
   if (!drawerId) throw new Error('drawerId required');
-  const { data, error } = await api.request(
+  // Response mirrors backend/internal/handlers/cashdrawer/store.go Session —
+  // same shape as CashDrawerSession above (the handler writeJSON()s the row
+  // straight from OpenSession()).
+  const { data, error } = await api.request<CashDrawerSession>(
     'POST',
     `/cash-drawers/${encodeURIComponent(drawerId)}/sessions/open`,
     {
@@ -214,7 +217,7 @@ export async function openRegisterSession({
     },
   );
   if (error) throw new Error(error.message || 'Failed to open register');
-  return data;
+  return data!;
 }
 
 // ---- POS order checkout -----------------------------------------------------

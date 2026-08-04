@@ -19,6 +19,7 @@ import {
   persistRegister,
   getStaff,
   type CashDrawer,
+  type CashDrawerSession,
 } from '@/services/pos';
 import { denominationRows, denominationTotal } from '@/lib/denominations';
 import { useMoney } from '@/context/locale-context';
@@ -90,7 +91,7 @@ interface OpenRegisterModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locationId?: string;
-  onOpened?: (result: { session: unknown; drawerId: string }) => void;
+  onOpened?: (result: { session: CashDrawerSession; drawerId: string }) => void;
 }
 
 export default function OpenRegisterModal({ open, onOpenChange, locationId, onOpened }: OpenRegisterModalProps) {
@@ -153,22 +154,17 @@ export default function OpenRegisterModal({ open, onOpenChange, locationId, onOp
     setSubmitting(true);
     try {
       const staff = getStaff();
-      // openRegisterSession() returns the raw api.request() payload, which is
-      // `unknown` by default (see api-client.ts's Builder comment on the one
-      // documented `any` in this repo — that exception is _run()'s return
-      // type, not this call) — narrowed here to what persistRegister/onOpened
-      // actually read off it.
-      const session = (await openRegisterSession({
+      const session = await openRegisterSession({
         drawerId,
         openingFloatCents: totalCents,
         openedByStaffId: staff?.id || '',
         denominations: counts,
         note: openingNote,
-      })) as { id?: string; opened_at?: string } | undefined;
+      });
       persistRegister({
-        sessionId: session?.id ?? null,
+        sessionId: session.id ?? null,
         drawerId,
-        openedAt: session?.opened_at || new Date().toISOString(),
+        openedAt: session.opened_at || new Date().toISOString(),
       });
       onOpened?.({ session, drawerId });
       onOpenChange(false);
