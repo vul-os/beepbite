@@ -2,7 +2,13 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/auth-context';
 
-const ProtectedRoute = ({ 
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  redirectPath?: string;
+  loadingComponent?: React.ReactNode;
+}
+
+const ProtectedRoute = ({
   children,
   redirectPath = '/signin',
   loadingComponent = (
@@ -10,7 +16,7 @@ const ProtectedRoute = ({
       <div className="text-lg text-muted-foreground">Checking authorization...</div>
     </div>
   )
-}) => {
+}: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
