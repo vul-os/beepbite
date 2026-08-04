@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import {
   Card,
   CardContent,
@@ -35,7 +36,17 @@ import { countryOptions } from '@/lib/locale-data';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const EMPTY_FORM = {
+interface BusinessInfoForm {
+  legal_name: string;
+  registered_address: string;
+  country: string;
+  vat_number: string;
+  company_number: string;
+  contact_email: string;
+  contact_phone: string;
+}
+
+const EMPTY_FORM: BusinessInfoForm = {
   legal_name: '',
   registered_address: '',
   country: '',
@@ -56,10 +67,10 @@ export default function BusinessInfoPage() {
   const tax = taxLabel || 'Tax';
   const countries = useMemo(() => countryOptions(locale), [locale]);
 
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState<BusinessInfoForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   // ── Load ─────────────────────────────────────────────────────────────────
@@ -90,7 +101,7 @@ export default function BusinessInfoPage() {
 
   // ── Field change ─────────────────────────────────────────────────────────
 
-  function handleChange(e) {
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     // country must be a 2-letter ISO code — enforce uppercase at input time.
     const coerced = name === 'country' ? value.toUpperCase().slice(0, 2) : value;
@@ -100,7 +111,7 @@ export default function BusinessInfoPage() {
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
-  async function handleSave(e) {
+  async function handleSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setError(null);
