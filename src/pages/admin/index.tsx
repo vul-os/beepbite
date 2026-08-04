@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PageHeader, PageContainer } from '@/components/ui/page-header';
+import type { ButtonProps } from '@/components/ui/button';
 
 import {
   searchTenants,
@@ -31,10 +32,56 @@ import {
 } from '@/services/admin';
 
 // ---------------------------------------------------------------------------
+// NOTE: services/admin.ts's exported TenantSummary/TenantDetail types
+// (org_id, slug, owner_email, status; TenantDetail.org/.alarms typed
+// `unknown`) do not match the real backend response shape — see
+// backend/internal/handlers/admin/store.go: TenantSummary is actually
+// { id, name, is_active, paused_at, created_at } and TenantDetail is
+// TenantSummary + `alarms: string[]` (no `org` wrapper). This mismatch
+// predates this migration (the fields this page reads are always
+// undefined at runtime, e.g. every row renders "—" for slug/owner/status).
+// Flagging per project policy rather than fixing — the view types below
+// mirror what this file has always (incorrectly) assumed, cast at the API
+// boundary, so behavior is unchanged.
+// ---------------------------------------------------------------------------
+
+interface AdminOrgView {
+  name?: string;
+  owner_email?: string;
+  status?: string;
+  slug?: string;
+  org_id?: string;
+  id?: string;
+  created_at?: string;
+}
+
+interface AdminAlarmView {
+  id?: string;
+  name?: string;
+  type?: string;
+  message?: string;
+  triggered_at?: string;
+}
+
+interface AdminTenantDetailView {
+  org?: AdminOrgView;
+  alarms?: AdminAlarmView[];
+}
+
+interface AdminTenantRow {
+  org_id?: string;
+  name?: string;
+  slug?: string;
+  owner_email?: string;
+  status?: string;
+  created_at?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(iso) {
+function formatDate(iso?: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(undefined, {
     year: 'numeric',
@@ -43,7 +90,7 @@ function formatDate(iso) {
   });
 }
 
-function formatDateTime(iso) {
+function formatDateTime(iso?: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString(undefined, {
     year: 'numeric',
@@ -54,7 +101,7 @@ function formatDateTime(iso) {
   });
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status }: { status?: string }) {
   const s = (status || '').toLowerCase();
   if (s === 'active') {
     return <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">{status}</Badge>;
@@ -72,7 +119,18 @@ function StatusBadge({ status }) {
 // Confirm Dialog (reusable)
 // ---------------------------------------------------------------------------
 
-function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, confirmVariant = 'destructive', onConfirm, loading }) {
+interface ConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  confirmVariant?: ButtonProps['variant'];
+  onConfirm: () => void;
+  loading: boolean;
+}
+
+function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, confirmVariant = 'destructive', onConfirm, loading }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -98,15 +156,15 @@ function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, c
 // Tenant Detail Panel
 // ---------------------------------------------------------------------------
 
-function TenantDetail({ orgId, onBack }) {
-  const [detail, setDetail] = useState(null);
+function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) {
+  const [detail, setDetail] = useState<AdminTenantDetailView | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
   const [unpauseDialogOpen, setUnpauseDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,7 +172,9 @@ function TenantDetail({ orgId, onBack }) {
     const { data, error: apiErr } = await getTenant(orgId);
     setLoading(false);
     if (apiErr) { setError(apiErr.message || 'Failed to load tenant.'); return; }
-    setDetail(data);
+    // See mismatch note above: cast through the always-`unknown` TenantDetail
+    // fields to the shape this page has always (incorrectly) assumed.
+    setDetail(data as unknown as AdminTenantDetailView);
   }, [orgId]);
 
   useEffect(() => { load(); }, [load]);
@@ -319,16 +379,16 @@ function TenantDetail({ orgId, onBack }) {
 
 export default function AdminDashboardPage() {
   const [query, setQuery] = useState('');
-  const [tenants, setTenants] = useState([]);
+  const [tenants, setTenants] = useState<AdminTenantRow[]>([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [listError, setListError] = useState(null);
+  const [listError, setListError] = useState<string | null>(null);
   const [is403, setIs403] = useState(false);
-  const [selectedOrgId, setSelectedOrgId] = useState(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   // Debounce ref
-  const debounceRef = useRef(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchTenants = useCallback(async (q) => {
+  const fetchTenants = useCallback(async (q: string) => {
     setLoadingList(true);
     setListError(null);
     setIs403(false);
@@ -342,7 +402,9 @@ export default function AdminDashboardPage() {
       }
       return;
     }
-    setTenants(Array.isArray(data) ? data : []);
+    // See mismatch note above: cast to the shape this page has always
+    // (incorrectly) assumed the search results have.
+    setTenants(Array.isArray(data) ? (data as unknown as AdminTenantRow[]) : []);
   }, []);
 
   // Initial load
@@ -356,7 +418,9 @@ export default function AdminDashboardPage() {
     debounceRef.current = setTimeout(() => {
       fetchTenants(query);
     }, 350);
-    return () => clearTimeout(debounceRef.current);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [query, fetchTenants]);
 
   // If viewing a tenant detail
@@ -471,7 +535,7 @@ export default function AdminDashboardPage() {
                     <TableRow
                       key={t.org_id}
                       className="cursor-pointer hover:bg-primary/5 transition-colors"
-                      onClick={() => setSelectedOrgId(t.org_id)}
+                      onClick={() => setSelectedOrgId(t.org_id || null)}
                     >
                       <TableCell className="font-medium">{t.name || '—'}</TableCell>
                       <TableCell>
