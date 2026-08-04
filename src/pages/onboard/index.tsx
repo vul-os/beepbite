@@ -37,6 +37,7 @@ import {
   RefreshCw,
   BookOpen,
   Store,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,18 +46,21 @@ import { cn } from '@/lib/utils';
 
 import { useAuth } from '@/context/auth-context';
 import { getProgress, putProgress, getStatus } from '@/services/onboarding';
+import type { OnboardingStatus } from '@/services/onboarding';
 
 // ---------------------------------------------------------------------------
 // Service-style localStorage helpers (shared key with workspace + settings)
 // ---------------------------------------------------------------------------
-function getServiceStyleForOnboard(locId) {
+type ServiceStyle = 'takeaway' | 'dine_in';
+
+function getServiceStyleForOnboard(locId: string | undefined): ServiceStyle | null {
   if (!locId) return null;
   try {
     const v = localStorage.getItem(`bb_service_style_${locId}`);
     return v === 'takeaway' || v === 'dine_in' ? v : null;
   } catch { return null; }
 }
-function setServiceStyleForOnboard(locId, value) {
+function setServiceStyleForOnboard(locId: string | undefined, value: ServiceStyle) {
   if (!locId) return;
   try { localStorage.setItem(`bb_service_style_${locId}`, value); } catch { /* ignore */ }
 }
@@ -65,7 +69,19 @@ function setServiceStyleForOnboard(locId, value) {
 // Step definitions
 // ---------------------------------------------------------------------------
 
-const STEPS = [
+interface Step {
+  key: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  hint: string;
+  actionLabel: string | null;
+  actionPath: string | null;
+  statusKey: keyof OnboardingStatus | null;
+  isServiceStyleStep?: boolean;
+}
+
+const STEPS: Step[] = [
   {
     key: 'email',
     icon: Mail,
@@ -141,8 +157,8 @@ const STEPS = [
 
 function useOnboardingProgress() {
   const [step, setStep] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState([]);
-  const [status, setStatus] = useState(null);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -178,7 +194,7 @@ function useOnboardingProgress() {
     }
   }, [loading, refreshStatus]);
 
-  const advanceTo = useCallback(async (newStep, newCompleted) => {
+  const advanceTo = useCallback(async (newStep: number, newCompleted: string[]) => {
     setSaving(true);
     const { data, error } = await putProgress({
       step: newStep,
@@ -226,7 +242,7 @@ function BrandMark() {
 }
 
 /** Step number badge in the sidebar list */
-function StepBadge({ index, done, isCurrent }) {
+function StepBadge({ index, done, isCurrent }: { index: number; done: boolean; isCurrent: boolean }) {
   if (done) {
     return (
       <span className="w-6 h-6 rounded-full flex items-center justify-center bg-beepbite-success/10 shrink-0">
@@ -266,7 +282,7 @@ export default function OnboardPage() {
     setServiceStyleState(getServiceStyleForOnboard(firstLocationId));
   }, [firstLocationId]);
 
-  const handlePickServiceStyle = useCallback((style) => {
+  const handlePickServiceStyle = useCallback((style: ServiceStyle) => {
     setServiceStyleForOnboard(firstLocationId, style);
     setServiceStyleState(style);
   }, [firstLocationId]);
@@ -285,14 +301,14 @@ export default function OnboardPage() {
   } = useOnboardingProgress();
 
   const isStepDone = useCallback(
-    (stepKey, stepIndex) => {
+    (stepKey: string | undefined, stepIndex: number) => {
       if (stepKey === 'email') return true;
       if (stepKey === 'service_style') return serviceStyleChosen;
       const def = STEPS[stepIndex];
       if (def.statusKey && status) {
         return !!status[def.statusKey];
       }
-      return completedSteps.includes(stepKey);
+      return !!stepKey && completedSteps.includes(stepKey);
     },
     [status, completedSteps, serviceStyleChosen]
   );
@@ -317,11 +333,11 @@ export default function OnboardPage() {
     await advanceTo(prevStep, completedSteps);
   }, [step, completedSteps, advanceTo]);
 
-  const handleJumpTo = useCallback(async (idx) => {
+  const handleJumpTo = useCallback(async (idx: number) => {
     await advanceTo(idx, completedSteps);
   }, [completedSteps, advanceTo]);
 
-  const handleNavigate = useCallback((path) => {
+  const handleNavigate = useCallback((path: string) => {
     navigate(path);
   }, [navigate]);
 
@@ -649,7 +665,7 @@ export default function OnboardPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleNavigate(currentStepDef.actionPath)}
+                    onClick={() => handleNavigate(currentStepDef.actionPath as string)}
                     className="gap-1 border-primary/30 text-primary hover:bg-primary/5"
                   >
                     {currentStepDef.actionLabel}
