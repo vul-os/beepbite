@@ -45,7 +45,7 @@ import {
 // ---------------------------------------------------------------------------
 // Service-style localStorage helpers (same key as workspace.jsx)
 // ---------------------------------------------------------------------------
-function getServiceStyleLS(locId) {
+function getServiceStyleLS(locId?: string): 'dine_in' | 'takeaway' {
   if (!locId) return 'dine_in';
   try {
     const v = localStorage.getItem(`bb_service_style_${locId}`);
@@ -54,7 +54,7 @@ function getServiceStyleLS(locId) {
     return 'dine_in';
   }
 }
-function setServiceStyleLS(locId, value) {
+function setServiceStyleLS(locId: string, value: string) {
   if (!locId) return;
   try { localStorage.setItem(`bb_service_style_${locId}`, value); } catch { /* ignore */ }
 }
@@ -69,7 +69,7 @@ function setServiceStyleLS(locId, value) {
 // to fix. The database remains the authority; this exists to say what is wrong.
 
 /** BCP-47 well-formedness. Intl canonicalises valid tags and throws on the rest. */
-function isValidLocale(tag) {
+function isValidLocale(tag: string): boolean {
   if (!tag) return true; // empty means "use the reader's own", which is valid
   try {
     return Intl.getCanonicalLocales(tag).length > 0;
@@ -79,7 +79,7 @@ function isValidLocale(tag) {
 }
 
 /** Whether the runtime's tzdata recognises this zone name. */
-function isValidTimezone(zone) {
+function isValidTimezone(zone: string): boolean {
   if (!zone) return false;
   try {
     new Intl.DateTimeFormat(undefined, { timeZone: zone });
@@ -89,18 +89,72 @@ function isValidTimezone(zone) {
   }
 }
 
+// Mirrors backend/migrations/001_baseline.sql `locations` table (subset used
+// by this page). supabase.from(...) goes through the untyped api.from(...)
+// query builder (the one documented `any` in the codebase), so this
+// interface is applied locally to keep this page's own state honestly typed.
+interface LocationDetail {
+  id: string;
+  organization_id: string;
+  name: string;
+  description?: string | null;
+  whatsapp_number?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  country?: string | null;
+  currency_code?: string | null;
+  timezone: string;
+  locale?: string | null;
+  tax_rate: number;
+  tax_inclusive: boolean;
+  tax_label?: string | null;
+  phone_country_code?: string | null;
+  delivery_fee: number;
+  free_delivery_threshold: number;
+  max_delivery_distance_km: number;
+  estimated_prep_time: number;
+  accepts_delivery: boolean;
+  accepts_pickup: boolean;
+  is_active: boolean;
+}
+
+interface LocationFormData {
+  name: string;
+  description: string;
+  whatsapp_number: string;
+  address: string;
+  latitude: string | number;
+  longitude: string | number;
+  country: string;
+  currency_code: string;
+  timezone: string;
+  locale: string;
+  tax_rate: string | number;
+  tax_inclusive: boolean;
+  tax_label: string;
+  phone_country_code: string;
+  delivery_fee: string | number;
+  free_delivery_threshold: string | number;
+  max_delivery_distance_km: string | number;
+  estimated_prep_time: string | number;
+  accepts_delivery: boolean;
+  accepts_pickup: boolean;
+  is_active: boolean;
+}
+
 const LocationSettings = () => {
-  const { activeOrganization, user, fetchLocations } = useAuth();
+  const { activeOrganization, fetchLocations } = useAuth();
   const { locationId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [activeTab, setActiveTab] = useState('details');
-  const [locationData, setLocationData] = useState(null);
+  const [locationData, setLocationData] = useState<LocationDetail | null>(null);
   // Service style — stored locally per-location. Loaded on mount; persisted on save.
   const [serviceStyle, setServiceStyle] = useState(() => getServiceStyleLS(locationId));
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LocationFormData>({
     // Location details
     name: '',
     description: '',
@@ -176,7 +230,13 @@ const LocationSettings = () => {
 
       if (locationError) {
         console.error('Error loading location data:', locationError);
-        if (locationError.code === 'PGRST116') {
+        // NOTE: 'code' is a PostgREST-specific field (PGRST116 = "no rows").
+        // ApiError (src/lib/api-client.ts) — the shape the Go backend
+        // actually returns post-Supabase-migration — has no `code` field, so
+        // this branch never fires; the location-not-found empty state below
+        // (via locationData staying null) is what actually handles this case.
+        // Pre-existing dead code; not fixed here (out of scope).
+        if ((locationError as unknown as { code?: string }).code === 'PGRST116') {
           // Location not found
           navigate('/settings/organization');
           return;
@@ -226,7 +286,7 @@ const LocationSettings = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = <K extends keyof LocationFormData>(field: K, value: LocationFormData[K]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -274,8 +334,8 @@ const LocationSettings = () => {
           description: formData.description.trim() || null,
           whatsapp_number: formData.whatsapp_number.trim() || null,
           address: formData.address.trim() || null,
-          latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-          longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+          latitude: formData.latitude ? parseFloat(String(formData.latitude)) : null,
+          longitude: formData.longitude ? parseFloat(String(formData.longitude)) : null,
           // Empty regional fields are written as NULL, not as a placeholder
           // value: NULL reads unambiguously as "not configured", whereas any
           // stand-in ('XXX', 'en-US') would be indistinguishable from a
@@ -288,10 +348,10 @@ const LocationSettings = () => {
           tax_inclusive: formData.tax_inclusive,
           tax_label: formData.tax_label.trim() || null,
           phone_country_code: dialCode || null,
-          delivery_fee: formData.delivery_fee ? parseFloat(formData.delivery_fee) : null,
-          free_delivery_threshold: formData.free_delivery_threshold ? parseFloat(formData.free_delivery_threshold) : null,
-          max_delivery_distance_km: formData.max_delivery_distance_km ? parseFloat(formData.max_delivery_distance_km) : null,
-          estimated_prep_time: formData.estimated_prep_time ? parseInt(formData.estimated_prep_time) : null,
+          delivery_fee: formData.delivery_fee ? parseFloat(String(formData.delivery_fee)) : null,
+          free_delivery_threshold: formData.free_delivery_threshold ? parseFloat(String(formData.free_delivery_threshold)) : null,
+          max_delivery_distance_km: formData.max_delivery_distance_km ? parseFloat(String(formData.max_delivery_distance_km)) : null,
+          estimated_prep_time: formData.estimated_prep_time ? parseInt(String(formData.estimated_prep_time)) : null,
           accepts_delivery: formData.accepts_delivery,
           accepts_pickup: formData.accepts_pickup,
           is_active: formData.is_active,
@@ -318,7 +378,7 @@ const LocationSettings = () => {
 
     } catch (error) {
       console.error('Error saving location settings:', error);
-      setSaveMessage(error.message || 'Failed to save location settings. Please try again.');
+      setSaveMessage(error instanceof Error ? error.message : 'Failed to save location settings. Please try again.');
 
       setTimeout(() => {
         setSaveMessage('');
