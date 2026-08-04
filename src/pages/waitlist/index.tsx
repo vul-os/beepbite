@@ -4,7 +4,7 @@
 // - Shows active entries sorted by arrival time (oldest first).
 // - "Add to Waitlist" form inline at the top.
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ListOrdered, Plus, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,23 +12,34 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { api } from '@/lib/api-client';
-import WaitlistEntry from './components/waitlist-entry';
+import WaitlistEntry, { type WaitlistEntryRow } from './components/waitlist-entry';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 const POLL_MS = 30_000;
 
-const DEFAULT_ADD = { customer_name: '', customer_phone: '', party_size: 2, quoted_wait_minutes: '', notes: '' };
+interface AddForm {
+  customer_name: string;
+  customer_phone: string;
+  // Starts numeric (2); becomes a string once the number input is edited
+  // (DOM input values are always strings) — parsed back with Number() on
+  // submit, same pattern as elsewhere in this codebase.
+  party_size: number | string;
+  quoted_wait_minutes: string;
+  notes: string;
+}
+
+const DEFAULT_ADD: AddForm = { customer_name: '', customer_phone: '', party_size: 2, quoted_wait_minutes: '', notes: '' };
 
 export default function WaitlistPage() {
   const { activeLocation } = useAuth();
   const locationId = activeLocation?.id;
 
-  const [entries, setEntries] = useState([]);
+  const [entries, setEntries] = useState<WaitlistEntryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const [showAdd, setShowAdd] = useState(false);
-  const [addForm, setAddForm] = useState(DEFAULT_ADD);
+  const [addForm, setAddForm] = useState<AddForm>(DEFAULT_ADD);
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState('');
 
@@ -37,14 +48,14 @@ export default function WaitlistPage() {
     setLoading(true);
     setError('');
     try {
-      const { data, error: apiErr } = await api.request(
+      const { data, error: apiErr } = await api.request<WaitlistEntryRow[]>(
         'GET',
         `/waitlist?location_id=${locationId}`
       );
       if (apiErr) throw new Error(apiErr.message);
       setEntries(Array.isArray(data) ? data : []);
     } catch (e) {
-      setError(e.message || 'Failed to load waitlist');
+      setError(e instanceof Error ? e.message : 'Failed to load waitlist');
     } finally {
       setLoading(false);
     }
@@ -57,11 +68,11 @@ export default function WaitlistPage() {
     return () => clearInterval(id);
   }, [load]);
 
-  const handleAddChange = (field) => (e) => {
+  const handleAddChange = (field: keyof AddForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setAddForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleAddSubmit = async (e) => {
+  const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setAddError('');
     if (!addForm.customer_name.trim()) { setAddError('Name required'); return; }
@@ -85,7 +96,7 @@ export default function WaitlistPage() {
       setShowAdd(false);
       load();
     } catch (err) {
-      setAddError(err.message || 'Failed to add to waitlist');
+      setAddError(err instanceof Error ? err.message : 'Failed to add to waitlist');
     } finally {
       setAddBusy(false);
     }
