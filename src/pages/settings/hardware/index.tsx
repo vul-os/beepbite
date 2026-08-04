@@ -1,4 +1,4 @@
-// src/pages/settings/hardware/index.jsx — Hardware Settings (Wave 29 / Now-19)
+// src/pages/settings/hardware/index.tsx — Hardware Settings (Wave 29 / Now-19)
 //
 // Printer management page: list, add, edit, delete, and test ESC/POS printers
 // attached to the active location.
@@ -8,6 +8,7 @@
 
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useState } from 'react';
+import type { FormEvent, SVGProps } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -67,8 +68,24 @@ import {
   updatePrinter,
   deletePrinter,
   testPrinter,
+  type Printer as PrinterDevice,
+  type CreatePrinterPayload,
+  type UpdatePrinterChanges,
 } from '@/services/hardware';
 import { fetchStations } from '@/services/kitchen-config';
+
+// Mirrors backend/migrations/001_baseline.sql `kitchen_stations` table (subset
+// used by this page). fetchStations() goes through the untyped api.from(...)
+// query builder (the one documented `any` in the codebase), so this interface
+// is applied locally to keep our own state honestly typed.
+interface KitchenStation {
+  id: string;
+  location_id: string;
+  name: string;
+  station_type: string;
+  sort_order: number;
+  is_active: boolean;
+}
 
 // ============================================================
 // Root page
@@ -111,22 +128,28 @@ export default function HardwareSettingsPage() {
 // PrintersTab
 // ============================================================
 
-function PrintersTab({ locationId }) {
-  const [printers, setPrinters] = useState([]);
-  const [stations, setStations] = useState([]);
+interface TestResult {
+  loading: boolean;
+  ok?: boolean;
+  error?: string;
+}
+
+function PrintersTab({ locationId }: { locationId: string }) {
+  const [printers, setPrinters] = useState<PrinterDevice[]>([]);
+  const [stations, setStations] = useState<KitchenStation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = create, Printer = edit
+  const [editing, setEditing] = useState<PrinterDevice | null>(null); // null = create, PrinterDevice = edit
 
   // Delete dialog
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState<PrinterDevice | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Test state: printerID → { loading, ok, error }
-  const [testResults, setTestResults] = useState({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,7 +162,7 @@ function PrintersTab({ locationId }) {
       setPrinters(ps);
       setStations(ss);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load hardware settings.');
     } finally {
       setLoading(false);
     }
@@ -154,16 +177,16 @@ function PrintersTab({ locationId }) {
     setSheetOpen(true);
   }
 
-  function openEdit(printer) {
+  function openEdit(printer: PrinterDevice) {
     setEditing(printer);
     setSheetOpen(true);
   }
 
-  async function handleSave(payload) {
+  async function handleSave(payload: PrinterSavePayload) {
     if (editing) {
-      await updatePrinter(editing.id, payload);
+      await updatePrinter(editing.id, payload as UpdatePrinterChanges);
     } else {
-      await createPrinter({ ...payload, location_id: locationId });
+      await createPrinter({ ...(payload as CreatePrinterPayload), location_id: locationId });
     }
     setSheetOpen(false);
     await load();
@@ -177,24 +200,24 @@ function PrintersTab({ locationId }) {
       setDeleteTarget(null);
       await load();
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to delete printer.');
     } finally {
       setDeleting(false);
     }
   }
 
-  async function handleTest(printer) {
+  async function handleTest(printer: PrinterDevice) {
     setTestResults((prev) => ({ ...prev, [printer.id]: { loading: true } }));
     try {
       const res = await testPrinter(printer.id);
       setTestResults((prev) => ({
         ...prev,
-        [printer.id]: { loading: false, ok: res.sent, error: res.error },
+        [printer.id]: { loading: false, ok: res?.sent, error: res?.error },
       }));
     } catch (e) {
       setTestResults((prev) => ({
         ...prev,
-        [printer.id]: { loading: false, ok: false, error: e.message },
+        [printer.id]: { loading: false, ok: false, error: e instanceof Error ? e.message : 'Test failed.' },
       }));
     }
   }
@@ -303,7 +326,10 @@ function PrintersTab({ locationId }) {
                           ) : tr?.ok ? (
                             <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                           ) : tr?.error ? (
-                            <XCircle className="h-3.5 w-3.5 text-destructive" title={tr.error} />
+                            <XCircle
+                              className="h-3.5 w-3.5 text-destructive"
+                              {...({ title: tr.error } as unknown as SVGProps<SVGSVGElement>)}
+                            />
                           ) : (
                             <FlaskConical className="h-3.5 w-3.5" />
                           )}
@@ -375,7 +401,27 @@ function PrintersTab({ locationId }) {
 // PrinterSheet — add / edit form
 // ============================================================
 
-const EMPTY_FORM = {
+interface PrinterForm {
+  name: string;
+  kind: string;
+  connection: string;
+  host: string;
+  port: string;
+  station_id: string;
+  is_active: boolean;
+}
+
+interface PrinterSavePayload {
+  name: string;
+  kind: string;
+  connection: string;
+  is_active: boolean;
+  host?: string;
+  port?: number;
+  station_id?: string | null;
+}
+
+const EMPTY_FORM: PrinterForm = {
   name: '',
   kind: 'receipt',
   connection: 'network',
@@ -385,10 +431,16 @@ const EMPTY_FORM = {
   is_active: true,
 };
 
-function PrinterSheet({ open, onClose, onSave, printer, stations }) {
-  const [form, setForm] = useState(EMPTY_FORM);
+function PrinterSheet({ open, onClose, onSave, printer, stations }: {
+  open: boolean;
+  onClose: () => void;
+  onSave: (payload: PrinterSavePayload) => Promise<void>;
+  printer: PrinterDevice | null;
+  stations: KitchenStation[];
+}) {
+  const [form, setForm] = useState<PrinterForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Populate form when editing changes.
   useEffect(() => {
@@ -408,11 +460,11 @@ function PrinterSheet({ open, onClose, onSave, printer, stations }) {
     setFormError(null);
   }, [printer, open]);
 
-  function set(field, value) {
+  function set<K extends keyof PrinterForm>(field: K, value: PrinterForm[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFormError(null);
     if (!form.name.trim()) {
@@ -421,7 +473,7 @@ function PrinterSheet({ open, onClose, onSave, printer, stations }) {
     }
     setSaving(true);
     try {
-      const payload = {
+      const payload: PrinterSavePayload = {
         name: form.name.trim(),
         kind: form.kind,
         connection: form.connection,
@@ -435,7 +487,7 @@ function PrinterSheet({ open, onClose, onSave, printer, stations }) {
 
       await onSave(payload);
     } catch (e) {
-      setFormError(e.message);
+      setFormError(e instanceof Error ? e.message : 'Failed to save printer.');
     } finally {
       setSaving(false);
     }
