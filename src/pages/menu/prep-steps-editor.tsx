@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -24,8 +25,24 @@ const newLocalId = () => `local-${++_localIdCounter}`;
 // Phase 2 hook: add a `station_id` field per step, populated from a
 // kitchen_stations select filtered by the item's location_id.
 
-const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
-  const [steps, setSteps] = useState([]);
+// Mirrors backend/migrations/001_baseline.sql `item_prep_steps` table
+// (subset this file reads/writes), plus `_localId` — a client-only key
+// for stable React list identity before a new step has a real `id`.
+interface PrepStep {
+  id?: string;
+  step_number: number;
+  instruction: string;
+  _localId: string;
+}
+
+interface PrepStepsEditorProps {
+  itemId?: string | null;
+  onSaved?: () => void;
+  defaultOpen?: boolean;
+}
+
+const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }: PrepStepsEditorProps) => {
+  const [steps, setSteps] = useState<PrepStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -45,10 +62,10 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
         .order('step_number');
       if (fetchError) throw fetchError;
       setSteps(
-        (data || []).map((s) => ({ ...s, _localId: newLocalId() }))
+        (data || []).map((s: { id: string; step_number: number; instruction: string }) => ({ ...s, _localId: newLocalId() }))
       );
     } catch (err) {
-      setError(err.message || 'Failed to load prep steps.');
+      setError(err instanceof Error ? err.message : 'Failed to load prep steps.');
     } finally {
       setLoading(false);
     }
@@ -71,18 +88,18 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
     ]);
   };
 
-  const updateInstruction = (localId, value) => {
+  const updateInstruction = (localId: string, value: string) => {
     if (value.length > 500) return;
     setSteps((prev) =>
       prev.map((s) => (s._localId === localId ? { ...s, instruction: value } : s))
     );
   };
 
-  const removeStep = (localId) => {
+  const removeStep = (localId: string) => {
     setSteps((prev) => prev.filter((s) => s._localId !== localId));
   };
 
-  const moveStep = (localId, direction) => {
+  const moveStep = (localId: string, direction: 'up' | 'down') => {
     setSteps((prev) => {
       const idx = prev.findIndex((s) => s._localId === localId);
       if (idx < 0) return prev;
@@ -137,7 +154,7 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }) => {
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
     } catch (err) {
-      setError(err.message || 'Failed to save prep steps.');
+      setError(err instanceof Error ? err.message : 'Failed to save prep steps.');
     } finally {
       setSaving(false);
     }
