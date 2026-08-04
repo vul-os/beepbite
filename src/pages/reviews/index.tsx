@@ -23,22 +23,48 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/auth-context';
-import reviewsService from '@/services/reviews';
+import reviewsService, { type Review } from '@/services/reviews';
+
+interface RatingDistributionItem {
+  rating: number;
+  count: number;
+  percentage: number | string;
+}
+
+interface RatingStats {
+  average: number | string;
+  distribution: RatingDistributionItem[];
+}
+
+interface ReviewsSummary {
+  totalReviews: number;
+  averageRating: number;
+  anonymousReviews: number;
+  publicReviews: number;
+  reviewsWithComments: number;
+}
+
+interface ReviewsPageData {
+  reviews: Review[];
+  summary: ReviewsSummary;
+  ratingStats: RatingStats;
+  trends: unknown[];
+}
 
 const Reviews = () => {
   const { user, activeLocation } = useAuth();
-  const [reviews, setReviews] = useState([]);
-  const [reviewsData, setReviewsData] = useState(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsData, setReviewsData] = useState<ReviewsPageData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState('30d');
   const [searchTerm, setSearchTerm] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
-  const [selectedReview, setSelectedReview] = useState(null);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replySaving, setReplySaving] = useState(false);
-  const [replyError, setReplyError] = useState(null);
+  const [replyError, setReplyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeLocation) {
@@ -57,16 +83,20 @@ const Reviews = () => {
     try {
       // The public reviews endpoint is keyed by the store *slug*, not the
       // location UUID — passing the id returned 404 "store not found".
-      reviewsService.setLocationId(activeLocation.slug);
-      const data = await reviewsService.getReviewsData(timeRange, 100);
+      reviewsService.setLocationId(activeLocation.slug ?? null);
+      // getReviewsData's real `ratingStats.distribution` is always `[]`
+      // (unimplemented server-side aggregation) — cast to the richer shape
+      // this page has always assumed downstream (rating/count/percentage
+      // per bucket), which the local error-fallback below also produces.
+      const data = await reviewsService.getReviewsData(timeRange, 100) as unknown as ReviewsPageData;
       console.log('Reviews data received:', data);
-      
+
       setReviewsData(data);
       setReviews(data.reviews || []);
     } catch (error) {
       console.error('Error fetching reviews:', error);
-      setError(error.message);
-      
+      setError(error instanceof Error ? error.message : 'Failed to fetch reviews');
+
       // Fallback to empty state
       setReviewsData({
         reviews: [],
@@ -89,7 +119,7 @@ const Reviews = () => {
     }
   };
 
-  const handleReply = async (reviewId) => {
+  const handleReply = async (reviewId: string) => {
     setReplySaving(true);
     setReplyError(null);
     try {
@@ -112,14 +142,14 @@ const Reviews = () => {
     }
   };
 
-  const openReplyModal = (review) => {
+  const openReplyModal = (review: Review) => {
     setSelectedReview(review);
     setReplyText(review.owner_reply || '');
     setReplyError(null);
     setIsReplyModalOpen(true);
   };
 
-  const getStarDisplay = (rating) => {
+  const getStarDisplay = (rating: number) => {
     // Convert 10-point scale to 5-star display
     const starRating = Math.round(rating / 2);
     return [...Array(5)].map((_, i) => (
@@ -134,7 +164,7 @@ const Reviews = () => {
     ));
   };
 
-  const getRatingColor = (rating) => {
+  const getRatingColor = (rating: number) => {
     if (rating >= 8) return 'text-success bg-success/10 border-success/25';
     if (rating >= 6) return 'text-warning bg-warning/10 border-warning/25';
     return 'text-destructive bg-destructive/10 border-destructive/25';
@@ -273,7 +303,7 @@ const Reviews = () => {
                   {ratingStats.average}
                 </div>
                 <div className="flex justify-center mb-2">
-                  {getStarDisplay(Math.round(parseFloat(ratingStats.average)))}
+                  {getStarDisplay(Math.round(parseFloat(String(ratingStats.average))))}
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Based on {reviews.length} reviews
