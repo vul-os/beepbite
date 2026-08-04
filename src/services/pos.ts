@@ -9,6 +9,24 @@ const REGISTER_SESSION_KEY = 'pos.register_session_id';
 const REGISTER_DRAWER_KEY = 'pos.register_drawer_id';
 const REGISTER_OPENED_AT_KEY = 'pos.register_opened_at';
 
+export interface StaffRecord {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  role?: string;
+  location_id?: string;
+  capabilities?: string[] | Record<string, boolean>;
+  [key: string]: unknown;
+}
+
+export interface StaffSession {
+  staff?: StaffRecord;
+  access_token?: string;
+  capabilities?: string[] | Record<string, boolean>;
+  [key: string]: unknown;
+}
+
 // ---- Staff session helpers --------------------------------------------------
 
 /**
@@ -16,7 +34,7 @@ const REGISTER_OPENED_AT_KEY = 'pos.register_opened_at';
  * The staff PIN/password login persists this under `bb.auth`.
  * Returns shape: { staff: { id, first_name, last_name, role, location_id }, access_token, ... }
  */
-export function readStaffSession() {
+export function readStaffSession(): StaffSession | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -29,7 +47,7 @@ export function readStaffSession() {
 /**
  * Convenience: extract just the staff record (or null).
  */
-export function getStaff() {
+export function getStaff(): StaffRecord | null {
   const session = readStaffSession();
   return session?.staff || null;
 }
@@ -43,7 +61,7 @@ export function getStaff() {
  * Owners/admins using a Supabase email session (no bb.auth staff record) are
  * granted all capabilities.
  */
-export function hasCapability(name) {
+export function hasCapability(name: string): boolean {
   const session = readStaffSession();
   // No staff session at all means an owner/admin Supabase login — full access.
   if (!session) return true;
@@ -57,7 +75,7 @@ export function hasCapability(name) {
 /**
  * Convenience: return a display name for the staff member.
  */
-export function getStaffDisplayName() {
+export function getStaffDisplayName(): string {
   const staff = getStaff();
   if (!staff) return '';
   const first = staff.first_name || '';
@@ -68,7 +86,13 @@ export function getStaffDisplayName() {
 
 // ---- Register-session persistence ------------------------------------------
 
-export function readStoredRegister() {
+export interface StoredRegister {
+  sessionId: string | null;
+  drawerId: string | null;
+  openedAt: string | null;
+}
+
+export function readStoredRegister(): StoredRegister | null {
   try {
     const sessionId = localStorage.getItem(REGISTER_SESSION_KEY) || null;
     const drawerId = localStorage.getItem(REGISTER_DRAWER_KEY) || null;
@@ -80,7 +104,7 @@ export function readStoredRegister() {
   }
 }
 
-export function persistRegister({ sessionId, drawerId, openedAt }) {
+export function persistRegister({ sessionId, drawerId, openedAt }: StoredRegister) {
   try {
     if (sessionId) localStorage.setItem(REGISTER_SESSION_KEY, sessionId);
     else localStorage.removeItem(REGISTER_SESSION_KEY);
@@ -102,7 +126,7 @@ export function clearStoredRegister() {
 /**
  * List active drawers for a location.
  */
-export async function listDrawers(locationId) {
+export async function listDrawers(locationId: string): Promise<any[]> {
   if (!locationId) return [];
   const { data } = await api.request(
     'GET',
@@ -115,7 +139,7 @@ export async function listDrawers(locationId) {
  * Fetch the open session (if any) for a drawer.
  * Backend route: GET /cash-drawers/{drawer_id}/sessions?status=open
  */
-export async function getOpenSession(drawerId) {
+export async function getOpenSession(drawerId: string): Promise<any | null> {
   if (!drawerId) return null;
   const { data, error } = await api.request(
     'GET',
@@ -137,6 +161,13 @@ export async function openRegisterSession({
   denominations,
   isBlindClose = false,
   note = '',
+}: {
+  drawerId: string;
+  openingFloatCents: number;
+  openedByStaffId?: string;
+  denominations?: Record<string, number>;
+  isBlindClose?: boolean;
+  note?: string;
 }) {
   if (!drawerId) throw new Error('drawerId required');
   const { data, error } = await api.request(
@@ -164,6 +195,10 @@ export async function openRegisterSession({
  *   { location_id, order_type, table_number?, register_session_id, items: [...] }
  *   response: { order_id, order_number, total, kds_ticket_ids: [] }
  */
+interface FetchError extends Error {
+  status?: number;
+}
+
 export async function submitPosOrder({
   locationId,
   orderType = 'dine_in',
@@ -171,8 +206,22 @@ export async function submitPosOrder({
   registerSessionId,
   items,
   notes,
+}: {
+  locationId: string;
+  orderType?: string;
+  tableNumber?: string;
+  registerSessionId?: string;
+  items: unknown[];
+  notes?: string;
 }) {
-  const body = {
+  const body: {
+    location_id: string;
+    order_type: string;
+    register_session_id?: string;
+    items: unknown[];
+    table_number?: string;
+    notes?: string;
+  } = {
     location_id: locationId,
     order_type: orderType,
     register_session_id: registerSessionId,
@@ -183,7 +232,7 @@ export async function submitPosOrder({
 
   const { data, error } = await api.request('POST', '/pos/orders', { body });
   if (error) {
-    const e = new Error(error.message || 'Failed to place order');
+    const e: FetchError = new Error(error.message || 'Failed to place order');
     e.status = error.status;
     throw e;
   }
@@ -202,21 +251,35 @@ export async function submitPosOrder({
  *   200 → { order_id, subtotal, tax, total, currency_code, kds_ticket_ids }
  *   409 → order already in preparation, cannot modify
  *
- * @param {string} orderId
- * @param {Array<{item_id: string, quantity: number, modifiers?: Array<{modifier_id: string}>, course_id?: string, notes?: string}>} items
- * @returns {Promise<{order_id: string, subtotal: number, tax: number, total: number, currency_code: string, kds_ticket_ids: string[]}>}
  */
-export async function modifyOrder(orderId, items) {
+export interface ModifyOrderItem {
+  item_id: string;
+  quantity: number;
+  modifiers?: Array<{ modifier_id: string }>;
+  course_id?: string;
+  notes?: string;
+}
+
+export interface ModifyOrderResult {
+  order_id: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency_code: string;
+  kds_ticket_ids: string[];
+}
+
+export async function modifyOrder(orderId: string, items: ModifyOrderItem[]) {
   if (!orderId) throw new Error('orderId required');
   if (!Array.isArray(items) || items.length === 0) throw new Error('items must be a non-empty array');
 
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<ModifyOrderResult>(
     'PATCH',
     `/pos/orders/${encodeURIComponent(orderId)}/items`,
     { body: { items } },
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to modify order');
+    const e: FetchError = new Error(error.message || 'Failed to modify order');
     e.status = error.status;
     throw e;
   }
@@ -240,10 +303,17 @@ export async function applyOrderAdjustment({
   approverStaffId,
   approverPin,
   itemId,            // required for comp
+}: {
+  orderId: string;
+  reason: 'refund' | 'void' | 'comp' | 'manager_discount' | string;
+  appliedByStaffId?: string;
+  approverStaffId?: string;
+  approverPin?: string;
+  itemId?: string;
 }) {
   if (!orderId) throw new Error('orderId required');
 
-  let endpoint;
+  let endpoint: string;
   switch (reason) {
     case 'void':
       endpoint = `/orders/${encodeURIComponent(orderId)}/void`;
@@ -271,7 +341,7 @@ export async function applyOrderAdjustment({
 
   const { data, error } = await api.request('POST', endpoint, { body });
   if (error) {
-    const e = new Error(error.message || 'Adjustment failed');
+    const e: FetchError = new Error(error.message || 'Adjustment failed');
     e.status = error.status;
     throw e;
   }

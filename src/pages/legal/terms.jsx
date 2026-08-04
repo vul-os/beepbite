@@ -2,7 +2,7 @@
 // Renders the current Terms of Service fetched from GET /legal/terms/current.
 // Route: /legal/terms
 import React from 'react';
-import { getCurrentDocument } from '../../services/legal.js';
+import { getCurrentDocument } from '../../services/legal';
 
 // Minimal Markdown-to-HTML renderer for safe, predictable rendering.
 // Handles headings (h1–h4), bold, italic, inline code, horizontal rules,

@@ -1,4 +1,4 @@
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 /**
  * Payments service — on-delivery settlement helpers.

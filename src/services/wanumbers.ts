@@ -2,7 +2,7 @@
 // All endpoints require a platform-admin JWT (Bearer token in localStorage,
 // sent automatically via api.request).
 
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 export interface WANumber {
   id: string;

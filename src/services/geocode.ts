@@ -11,7 +11,7 @@
 // error (network, non-2xx, malformed payload) so callers can degrade gracefully
 // to plain manual entry.
 
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 export interface AddressSuggestion {
   place_name: string;

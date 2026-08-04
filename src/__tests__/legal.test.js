@@ -9,7 +9,7 @@
 // shows the wrong day near midnight in every timezone that isn't UTC.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateStorePolicyMd } from '../services/legal.js';
+import { generateStorePolicyMd } from '../services/legal';
 
 beforeEach(() => {
   vi.useFakeTimers();

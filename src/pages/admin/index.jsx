@@ -28,7 +28,7 @@ import {
   getTenant,
   pauseTenant,
   unpauseTenant,
-} from '@/services/admin.js';
+} from '@/services/admin';
 
 // ---------------------------------------------------------------------------
 // Helpers

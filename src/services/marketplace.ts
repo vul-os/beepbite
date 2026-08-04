@@ -1,7 +1,7 @@
 // marketplace.js — public store discovery + store detail API calls.
 // No auth required; calls use { auth: false } so no token is attached.
 
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 

@@ -1,5 +1,40 @@
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
+
+export interface DailySalesSummaryRow {
+  location_id: string;
+  sale_date: string;
+  order_count: number;
+  net_sales: number;
+  [key: string]: unknown;
+}
+
+export interface HourlySalesHeatmapRow {
+  location_id: string;
+  hour_of_day: number;
+  order_count: number;
+  total_revenue: number;
+  [key: string]: unknown;
+}
+
+export interface AnalyticsData {
+  averageResponseTime: { minutes: number; seconds: number; trend: string; trendDirection: string };
+  totalOrders: { count: number; trend: string; trendDirection: string };
+  averageRating: { rating: number; trend: string; trendDirection: string };
+  completionRate: { percentage: number; trend: string; trendDirection: string };
+  recentOrders: unknown[];
+  performanceByHour: Array<{ hour: string; orders: number; avgTimeMinutes: number; avgTime: string; responseTime: number }>;
+  responseTimeTrend: Array<{ date: string; avgResponse: number; orders: number }>;
+  orderStatusDistribution: unknown[];
+  weeklyOrderVolume: Array<{ day: string; orders: number; revenue: number }>;
+  customerAnalytics: {
+    totalCustomers: number;
+    newCustomers: number;
+    returningCustomers: number;
+    avgOrdersPerCustomer: number;
+    retentionRate: number;
+  };
+}
 
 /**
  * Analytics service — reads from reporting views via the REST data layer.
@@ -9,6 +44,8 @@ import { format, subDays, eachDayOfInterval } from 'date-fns';
  *   labor_hours_daily, theoretical_vs_actual_cogs, revenue_by_payment_method
  */
 class AnalyticsService {
+  private _locationId: string | null;
+
   constructor() {
     this._locationId = null;
   }
@@ -22,7 +59,7 @@ class AnalyticsService {
    * persists the active location, then falls back to the first location the
    * API returns for the authenticated user.
    */
-  async getLocationId() {
+  async getLocationId(): Promise<string | null> {
     if (this._locationId) return this._locationId;
 
     // 1. Try the value written by auth-context.
@@ -38,7 +75,7 @@ class AnalyticsService {
     } catch (_) { /* ignore parse errors */ }
 
     // 2. Fall back: fetch the first location accessible to this user.
-    const { data, error } = await api.request('GET', '/data/locations?limit=1');
+    const { data, error } = await api.request<{ id: string }[]>('GET', '/data/locations?limit=1');
     if (!error && Array.isArray(data) && data.length > 0) {
       this._locationId = data[0].id;
       return this._locationId;
@@ -48,7 +85,7 @@ class AnalyticsService {
   }
 
   /** Allow callers (e.g. auth-context) to push the active location in. */
-  setLocationId(locationId) {
+  setLocationId(locationId: string | null) {
     this._locationId = locationId;
   }
 
@@ -58,9 +95,8 @@ class AnalyticsService {
 
   /**
    * Main entry: mirrors the old getAnalyticsData(timeRangeOrDates) signature.
-   * @param {string|{from:Date,to:Date}} timeRangeOrDates
    */
-  async getAnalyticsData(timeRangeOrDates = '7d') {
+  async getAnalyticsData(timeRangeOrDates: string | { from: Date; to: Date } = '7d'): Promise<AnalyticsData> {
     try {
       const locationId = await this.getLocationId();
       if (!locationId) throw new Error('No location found for user');
@@ -68,7 +104,7 @@ class AnalyticsService {
       if (typeof timeRangeOrDates === 'object' && timeRangeOrDates.from && timeRangeOrDates.to) {
         return await this._fetchByDateRange(locationId, timeRangeOrDates);
       }
-      return await this._fetchByPeriod(locationId, timeRangeOrDates);
+      return await this._fetchByPeriod(locationId, timeRangeOrDates as string);
     } catch (error) {
       console.error('Error fetching analytics data:', error);
       throw error;
@@ -80,7 +116,7 @@ class AnalyticsService {
   // ------------------------------------------------------------------
 
   /** Convert a period string like '7d' to a {from, to} date range. */
-  _periodToRange(period) {
+  _periodToRange(period: string): { from: Date; to: Date } {
     const to = new Date();
     let days = 7;
     if (period === '1d')  days = 1;
@@ -89,21 +125,21 @@ class AnalyticsService {
     return { from: subDays(to, days - 1), to };
   }
 
-  async _fetchByPeriod(locationId, period) {
+  async _fetchByPeriod(locationId: string, period: string): Promise<AnalyticsData> {
     return this._fetchByDateRange(locationId, this._periodToRange(period));
   }
 
-  async _fetchByDateRange(locationId, { from, to }) {
+  async _fetchByDateRange(locationId: string, { from, to }: { from: Date; to: Date }): Promise<AnalyticsData> {
     const startDate = format(from, 'yyyy-MM-dd');
     const endDate   = format(to,   'yyyy-MM-dd');
 
     // Fetch daily_sales_summary and hourly_sales_heatmap in parallel.
     const [dailyRes, hourlyRes] = await Promise.all([
-      api.request(
+      api.request<DailySalesSummaryRow[]>(
         'GET',
         `/data/daily_sales_summary?eq=location_id,${locationId}&gte=sale_date,${startDate}&lte=sale_date,${endDate}&order=sale_date.asc`
       ),
-      api.request(
+      api.request<HourlySalesHeatmapRow[]>(
         'GET',
         `/data/hourly_sales_heatmap?eq=location_id,${locationId}`
       ),
@@ -122,7 +158,7 @@ class AnalyticsService {
   // Data transformation — produces the same shape the UI expects
   // ------------------------------------------------------------------
 
-  _transform(dailyRows, hourlyRows, { from, to }) {
+  _transform(dailyRows: DailySalesSummaryRow[], hourlyRows: HourlySalesHeatmapRow[], { from, to }: { from: Date; to: Date }): AnalyticsData {
     // ---- summary metrics from daily_sales_summary ----
     const totalOrders = dailyRows.reduce((s, r) => s + Number(r.order_count || 0), 0);
     const totalNetSales = dailyRows.reduce((s, r) => s + Number(r.net_sales || 0), 0);
@@ -134,7 +170,7 @@ class AnalyticsService {
     // per day and set avgResponse = 0.
     // TODO: requires new view (response_time per day not in reporting views)
     const days = eachDayOfInterval({ start: from, end: to });
-    const dailyByDate = new Map();
+    const dailyByDate = new Map<string, { orders: number; net: number }>();
     for (const r of dailyRows) {
       const key = r.sale_date;
       const cur = dailyByDate.get(key) || { orders: 0, net: 0 };
@@ -166,7 +202,7 @@ class AnalyticsService {
 
     // ---- performanceByHour from hourly_sales_heatmap ----
     // Aggregate across all days_of_week — view is trailing 90d, not date-filtered.
-    const hourMap = new Map(); // hour_of_day -> { orders, revenue }
+    const hourMap = new Map<number, { orders: number; revenue: number }>(); // hour_of_day -> { orders, revenue }
     for (const r of hourlyRows) {
       const h = Number(r.hour_of_day);
       const cur = hourMap.get(h) || { orders: 0, revenue: 0 };
@@ -188,11 +224,11 @@ class AnalyticsService {
 
     // ---- orderStatusDistribution ----
     // TODO: requires new view (no order status breakdown in reporting views)
-    const orderStatusDistribution = [];
+    const orderStatusDistribution: unknown[] = [];
 
     // ---- recentOrders ----
     // TODO: requires new view (no per-order detail in reporting views)
-    const recentOrders = [];
+    const recentOrders: unknown[] = [];
 
     // ---- averageRating, completionRate ----
     // TODO: requires new view (not in reporting views)
@@ -233,13 +269,13 @@ class AnalyticsService {
   // Individual named fetchers kept for any direct callers
   // ------------------------------------------------------------------
 
-  async getAnalyticsSummary(timeRange = '7d') {
+  async getAnalyticsSummary(timeRange = '7d'): Promise<DailySalesSummaryRow[]> {
     const locationId = await this.getLocationId();
     if (!locationId) throw new Error('No location found for user');
     const { from, to } = this._periodToRange(timeRange);
     const startDate = format(from, 'yyyy-MM-dd');
     const endDate   = format(to,   'yyyy-MM-dd');
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<DailySalesSummaryRow[]>(
       'GET',
       `/data/daily_sales_summary?eq=location_id,${locationId}&gte=sale_date,${startDate}&lte=sale_date,${endDate}`
     );
@@ -247,10 +283,10 @@ class AnalyticsService {
     return data || [];
   }
 
-  async getOrdersByHour() {
+  async getOrdersByHour(): Promise<HourlySalesHeatmapRow[]> {
     const locationId = await this.getLocationId();
     if (!locationId) throw new Error('No location found for user');
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<HourlySalesHeatmapRow[]>(
       'GET',
       `/data/hourly_sales_heatmap?eq=location_id,${locationId}`
     );
@@ -258,13 +294,13 @@ class AnalyticsService {
     return data || [];
   }
 
-  async getDailyTrends(timeRange = '7d') {
+  async getDailyTrends(timeRange = '7d'): Promise<DailySalesSummaryRow[]> {
     const locationId = await this.getLocationId();
     if (!locationId) throw new Error('No location found for user');
     const { from, to } = this._periodToRange(timeRange);
     const startDate = format(from, 'yyyy-MM-dd');
     const endDate   = format(to,   'yyyy-MM-dd');
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<DailySalesSummaryRow[]>(
       'GET',
       `/data/daily_sales_summary?eq=location_id,${locationId}&gte=sale_date,${startDate}&lte=sale_date,${endDate}&order=sale_date.asc`
     );
@@ -273,17 +309,17 @@ class AnalyticsService {
   }
 
   // TODO: requires new view — no order status distribution in reporting views
-  async getOrderStatusDistribution(_timeRange = '7d') {
+  async getOrderStatusDistribution(_timeRange = '7d'): Promise<unknown[]> {
     return [];
   }
 
   // TODO: requires new view — no per-order response-time detail in reporting views
-  async getRecentOrdersWithResponseTimes(_limit = 10) {
+  async getRecentOrdersWithResponseTimes(_limit = 10): Promise<unknown[]> {
     return [];
   }
 
   // TODO: requires new view — no customer analytics in reporting views
-  async getCustomerAnalytics(_timeRange = '30d') {
+  async getCustomerAnalytics(_timeRange = '30d'): Promise<Record<string, unknown>> {
     return {};
   }
 }

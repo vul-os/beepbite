@@ -1,7 +1,7 @@
 // customerchat.js — Customer chat assistant API service.
 // POST /chat  requires a valid bearer token (customer JWT).
 
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 export interface ChatMessage {
   role: string;

@@ -18,7 +18,7 @@ import {
   currencyDecimals,
   currencyScale,
   parseMoney,
-} from '../lib/currency.js';
+} from '../lib/currency';
 
 // Intl inserts U+00A0 / U+202F around currency symbols; normalise for matching.
 const norm = (s) => s.replace(/[  ]/g, ' ');

@@ -15,7 +15,7 @@ import { formatMoney, parseMoney } from '@/lib/currency';
  * 'card_in_person' means the shop ran the card on its OWN machine. BeepBite
  * records the amount and the slip reference; it never processes a card.
  */
-export const PAYMENT_METHODS = [
+export const PAYMENT_METHODS: { code: string; label: string; icon: string }[] = [
   { code: 'cash',           label: 'Cash', icon: '💵' },
   { code: 'card_in_person', label: 'Card', icon: '💳' },
   { code: 'eft',            label: 'Transfer', icon: '🏦' },
@@ -36,6 +36,31 @@ export const PAYMENT_METHODS = [
  * Route: POST /pos/orders/{order_id}/charge
  * Returns: { order_id, payment_id, payment_ids, payment_status, session_closed }
  */
+export interface PaymentLeg {
+  payment_method_code: string;
+  amount_paid_cents: number;
+  tip_amount_cents?: number;
+  change_given_cents?: number;
+  payment_reference?: string;
+  [key: string]: unknown;
+}
+
+export interface ChargeOrderParams {
+  orderId: string;
+  paymentMethodCode?: string;
+  amountPaidCents?: number;
+  tipAmountCents?: number;
+  changeGivenCents?: number;
+  paymentReference?: string;
+  processedByStaffId?: string;
+  // Split-tender: array of { payment_method_code, amount_paid_cents, ... }
+  payments?: PaymentLeg[];
+}
+
+interface FetchError extends Error {
+  status?: number;
+}
+
 export async function chargeOrder({
   orderId,
   paymentMethodCode,
@@ -44,12 +69,19 @@ export async function chargeOrder({
   changeGivenCents,
   paymentReference,
   processedByStaffId,
-  // Split-tender: array of { payment_method_code, amount_paid_cents, ... }
   payments,
-}) {
+}: ChargeOrderParams) {
   if (!orderId) throw new Error('orderId required');
 
-  let body;
+  let body: {
+    payments?: PaymentLeg[];
+    processed_by_staff_id?: string;
+    payment_method_code?: string;
+    amount_paid_cents?: number;
+    tip_amount_cents?: number;
+    change_given_cents?: number;
+    payment_reference?: string;
+  };
   if (payments && payments.length > 0) {
     // Split-tender path
     body = {
@@ -75,28 +107,42 @@ export async function chargeOrder({
     { body },
   );
   if (error) {
-    const e = new Error(error.message || 'Failed to charge order');
+    const e: FetchError = new Error(error.message || 'Failed to charge order');
     e.status = error.status;
     throw e;
   }
   return data;
 }
 
+export interface UnpaidOrder {
+  id: string;
+  total_cents: number;
+  [key: string]: unknown;
+}
+
+export interface TenderLeg {
+  method: string;
+  amountCents: number;
+  reference?: string;
+  changeCents?: number;
+}
+
 /**
  * Charge all unpaid orders on a ticket using an array of TenderLegs
  * (produced by TenderModal). Each leg becomes a payment_method_code + amount.
  *
- * @param {Object} params
- * @param {Array<{id: string, total_cents: number}>} params.orders  — unpaid orders
- * @param {Array<{method: string, amountCents: number, reference?: string, changeCents?: number}>} params.legs
- * @param {string} [params.processedByStaffId]
- * @returns {Promise<Array>} array of charge responses (one per order)
+ * @param params.orders  — unpaid orders
+ * @returns array of charge responses (one per order)
  */
-export async function chargeOrdersWithLegs({ orders, legs, processedByStaffId }) {
+export async function chargeOrdersWithLegs({ orders, legs, processedByStaffId }: {
+  orders: UnpaidOrder[];
+  legs: TenderLeg[];
+  processedByStaffId?: string;
+}) {
   if (!orders || orders.length === 0) throw new Error('No orders to charge');
   if (!legs || legs.length === 0) throw new Error('No payment legs provided');
 
-  const results = [];
+  const results: unknown[] = [];
 
   if (orders.length === 1) {
     // Simple case: one order, pass all legs directly
@@ -145,11 +191,11 @@ export async function chargeOrdersWithLegs({ orders, legs, processedByStaffId })
  * should prefer useMoney().format. There is no default currency: an
  * unconfigured location renders a bare number rather than a foreign symbol.
  *
- * @param {number|string} minor    amount in the currency's smallest unit
- * @param {string}        [currency] ISO 4217 code
- * @param {string}        [locale]   BCP-47 tag; omit for the reader's own
+ * @param minor    amount in the currency's smallest unit
+ * @param currency ISO 4217 code
+ * @param locale   BCP-47 tag; omit for the reader's own
  */
-export function formatAmount(minor, currency, locale) {
+export function formatAmount(minor: number | string, currency?: string, locale?: string): string {
   return formatMoney(minor, { currency, locale });
 }
 
@@ -160,9 +206,9 @@ export function formatAmount(minor, currency, locale) {
  * The currency decides the scale: a fixed ×100 charges a yen customer 100× the
  * ticket and a dinar customer a tenth of it.
  *
- * @returns {number} minor units; 0 for unparseable or negative input
+ * @returns minor units; 0 for unparseable or negative input
  */
-export function minorFromInput(value, currency) {
+export function minorFromInput(value: string | number, currency?: string): number {
   const minor = parseMoney(value, currency);
   if (minor == null || minor < 0) return 0;
   return minor;

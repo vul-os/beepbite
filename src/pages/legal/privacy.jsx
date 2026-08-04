@@ -2,7 +2,7 @@
 // Renders the current Privacy Policy fetched from GET /legal/privacy/current.
 // Route: /legal/privacy
 import React from 'react';
-import { getCurrentDocument } from '../../services/legal.js';
+import { getCurrentDocument } from '../../services/legal';
 
 // Reuse the same lightweight Markdown renderer as terms.jsx.
 // (Intentionally duplicated here to keep pages self-contained and avoid a

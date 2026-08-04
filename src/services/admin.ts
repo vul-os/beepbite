@@ -2,7 +2,7 @@
 // All endpoints require a platform-admin JWT (the same Bearer token stored
 // in localStorage by api-client is sent automatically via api.request).
 
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 export interface TenantSummary {
   org_id: string;

@@ -47,7 +47,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { formatDistanceToNow, addDays } from 'date-fns';
-import analyticsService from '../../services/analytics.js';
+import analyticsService from '../../services/analytics';
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 // Shared recharts tooltip style

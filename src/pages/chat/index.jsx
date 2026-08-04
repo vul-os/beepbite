@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useMoney } from '@/context/locale-context';
-import { sendChatMessage } from '../../services/customerchat.js';
+import { sendChatMessage } from '../../services/customerchat';
 import { Button } from '@/components/ui/button';
 
 // ── Simple ID generator ────────────────────────────────────────────────────────

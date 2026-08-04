@@ -37,7 +37,7 @@ import {
   createWANumber,
   updateWANumber,
   deactivateWANumber,
-} from '@/services/wanumbers.js';
+} from '@/services/wanumbers';
 
 // ---------------------------------------------------------------------------
 // Helpers

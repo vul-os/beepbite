@@ -6,7 +6,7 @@
 //
 // Both functions return { data, error } in the same style as api.request().
 
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 export interface StatsKPIs {
   gross_sales_cents: number;

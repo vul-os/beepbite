@@ -1,7 +1,7 @@
 // legal.js — legal document API calls and per-tenant privacy policy generator.
 // No auth required for document fetching; acceptance recording requires a JWT.
 
-import { api } from '../lib/api-client.js';
+import { api } from '../lib/api-client';
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
