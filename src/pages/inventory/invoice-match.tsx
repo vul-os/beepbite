@@ -9,11 +9,12 @@ import { formatMoney } from '@/lib/currency';
 import { api } from '@/lib/api-client';
 import { MatchModal } from './components/match-modal';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import type { SupplierInvoice, MatchResult } from './types';
 
 // Badge variant per supplier-invoice status. "disputed" is the one genuinely
 // blocking outcome (destructive); matched/paid are the healthy end states;
 // approved is an in-flight positive step; pending/cancelled are neutral.
-function invoiceStatusVariant(status) {
+function invoiceStatusVariant(status: string): 'success' | 'destructive' | 'default' | 'secondary' {
   switch (status) {
     case 'matched':
     case 'paid': return 'success';
@@ -26,7 +27,7 @@ function invoiceStatusVariant(status) {
 // Badge variant per 3-way match status — a variance is "needs a second
 // look, not yet lost anything" (warning), matched is the success state,
 // unmatched is just the neutral not-yet-attempted state.
-function matchStatusVariant(status) {
+function matchStatusVariant(status: string | undefined): 'success' | 'warning' | 'secondary' {
   switch (status) {
     case 'matched': return 'success';
     case 'price_variance':
@@ -39,10 +40,10 @@ export default function InvoiceMatchPage() {
   const { activeLocation } = useAuth();
   const { locale } = useLocale();
   const { formatDate } = useDateTime();
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState<SupplierInvoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<SupplierInvoice | null>(null);
 
   const fetchInvoices = useCallback(async () => {
     if (!activeLocation) return;
@@ -56,7 +57,7 @@ export default function InvoiceMatchPage() {
       if (err) throw new Error(err.message);
       setInvoices(data || []);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load invoices');
     } finally {
       setLoading(false);
     }
@@ -66,12 +67,12 @@ export default function InvoiceMatchPage() {
 
   // Each invoice carries its own currency: a supplier may bill in a currency
   // the store does not trade in, so the record wins over the location.
-  const fmtCents = (cents, currency) =>
+  const fmtCents = (cents: number | null | undefined, currency: string) =>
     formatMoney(cents ?? 0, { currency, locale });
 
-  const fmtDate = (iso) => (iso ? formatDate(iso) : '—');
+  const fmtDate = (iso: string | null | undefined) => (iso ? formatDate(iso) : '—');
 
-  function handleMatched(result) {
+  function handleMatched(result: MatchResult) {
     // Optimistically update the invoice in the list
     setInvoices((prev) =>
       prev.map((inv) =>

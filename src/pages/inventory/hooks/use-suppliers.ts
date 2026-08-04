@@ -5,7 +5,7 @@ import type { Supplier, SupplierContact } from '../types';
 // A contact as supplied by the create/edit form — not a full SupplierContact
 // row (no id/supplier_id/is_primary/timestamps yet).
 interface SupplierContactInput {
-  name?: string;
+  name?: string | null;
   email?: string | null;
   phone?: string | null;
 }

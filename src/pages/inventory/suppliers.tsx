@@ -13,7 +13,7 @@ import {
 import { Building2, Plus, Edit, Search, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useSuppliers } from './hooks/use-suppliers';
-import { SupplierForm } from './components/supplier-form';
+import { SupplierForm, type SupplierFormInitial, type SupplierFormPayload } from './components/supplier-form';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
 export default function SuppliersPage() {
@@ -21,7 +21,7 @@ export default function SuppliersPage() {
   const { suppliers, loading, error, createSupplier, updateSupplier, getPrimaryContact } = useSuppliers(activeOrganization?.id);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState<SupplierFormInitial | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState('');
 
@@ -38,7 +38,7 @@ export default function SuppliersPage() {
     s.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  async function handleSubmit(payload) {
+  async function handleSubmit(payload: SupplierFormPayload) {
     setSaving(true);
     setSaveErr('');
     try {
@@ -57,7 +57,7 @@ export default function SuppliersPage() {
       setModalOpen(false);
       setEditTarget(null);
     } catch (e) {
-      setSaveErr(e.message);
+      setSaveErr(e instanceof Error ? e.message : 'Failed to save supplier');
     } finally {
       setSaving(false);
     }
@@ -69,7 +69,7 @@ export default function SuppliersPage() {
     setModalOpen(true);
   }
 
-  async function openEdit(sup) {
+  async function openEdit(sup: SupplierFormInitial) {
     setSaveErr('');
     // Fetch primary contact so the form can prefill the contact fields.
     const primaryContact = await getPrimaryContact(sup.id);

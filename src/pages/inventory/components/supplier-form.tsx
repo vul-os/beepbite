@@ -45,6 +45,8 @@ const EMPTY: SupplierFormState = {
   address_country: '',
 };
 
+export type SupplierFormPayload = ReturnType<typeof toPayload>;
+
 function toPayload(form: SupplierFormState) {
   const address: { street?: string; city?: string; country?: string } = {};
   if (form.address_street) address.street = form.address_street;
@@ -72,7 +74,7 @@ function toPayload(form: SupplierFormState) {
 
 interface SupplierFormProps {
   initial?: SupplierFormInitial | null;
-  onSubmit: (payload: ReturnType<typeof toPayload>) => Promise<void> | void;
+  onSubmit: (payload: SupplierFormPayload) => Promise<void> | void;
   onCancel: () => void;
   saving?: boolean;
 }

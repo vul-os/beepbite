@@ -40,7 +40,7 @@ interface MatchModalProps {
   invoice: SupplierInvoice | null;
   open: boolean;
   onClose: () => void;
-  onMatched?: (result: MatchResult | null) => void;
+  onMatched?: (result: MatchResult) => void;
 }
 
 export function MatchModal({ invoice, open, onClose, onMatched }: MatchModalProps) {
@@ -65,7 +65,9 @@ export function MatchModal({ invoice, open, onClose, onMatched }: MatchModalProp
       // 200 = matched, 422 = variance — both return a body
       if (error && !data) throw new Error(error.message);
       setResult(data);
-      if (onMatched) onMatched(data);
+      // Same as the original untyped JS: no null-check here — a 200 with an
+      // empty body would crash downstream in onMatched, exactly as before.
+      if (onMatched) onMatched(data as MatchResult);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Match failed');
     } finally {
