@@ -19,11 +19,11 @@ import { Stamp, Gift, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
-import { getCustomerStamps, accrueStamp } from '@/services/loyalty-stamps';
+import { getCustomerStamps, accrueStamp, type CustomerStamps, type AccrueResult } from '@/services/loyalty-stamps';
 
 // ---------------------------------------------------------------------------
 
-function StampDot({ filled }) {
+function StampDot({ filled }: { filled: boolean }) {
   return (
     <div
       className={cn(
@@ -40,12 +40,18 @@ function StampDot({ filled }) {
 
 // ---------------------------------------------------------------------------
 
-export default function StampCard({ customerId, onReward, className }) {
-  const [stamps,       setStamps]       = useState(null);   // CustomerStamps object
+interface StampCardProps {
+  customerId?: string | null;
+  onReward?: () => void;
+  className?: string;
+}
+
+export default function StampCard({ customerId, onReward, className }: StampCardProps) {
+  const [stamps,       setStamps]       = useState<CustomerStamps | AccrueResult | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [accruing,     setAccruing]     = useState(false);
   const [rewardEarned, setRewardEarned] = useState(false);
-  const [error,        setError]        = useState(null);
+  const [error,        setError]        = useState<string | null>(null);
 
   // Fetch stamp state.
   const load = useCallback(async () => {

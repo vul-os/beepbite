@@ -2,13 +2,33 @@ import { Plus, Users, Circle, LayoutGrid, PencilRuler } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useMoney } from "@/context/locale-context"
+import type { RestaurantTable } from "@/services/tables"
 
 // Maps table status to visual tokens
-const STATUS = {
+const STATUS: Record<RestaurantTable['status'], { stripe: string; bg: string; text: string; dot: string }> = {
   available:       { stripe: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", dot: "text-emerald-500" },
   occupied:        { stripe: "bg-red-400",    bg: "bg-red-50",     text: "text-red-700",    dot: "text-red-400"    },
   reserved:        { stripe: "bg-slate-400",  bg: "bg-slate-50",   text: "text-slate-600",  dot: "text-slate-400"  },
   out_of_service:  { stripe: "bg-gray-300",   bg: "bg-gray-100",   text: "text-gray-400",   dot: "text-gray-300"   },
+}
+
+// Tile shape assembled by workspace.jsx's `tableTiles` memo: a RestaurantTable
+// row plus a computed section name / active-ticket subtotal, with `status`
+// overridden to 'occupied' while a ticket is open. `guest_count` has no
+// backing column in public.tables (see backend/migrations/001_baseline.sql)
+// and is never populated by that memo today; kept optional so this mirrors
+// the real (always-empty) shape rather than inventing a guarantee.
+interface TableTileData extends RestaurantTable {
+  section_name?: string;
+  subtotal_cents?: number;
+  guest_count?: number;
+}
+
+interface WalkInTileData {
+  id: string;
+  label: string;
+  subtotal_cents?: number;
+  item_count: number;
 }
 
 function SkeletonTile() {
@@ -17,7 +37,13 @@ function SkeletonTile() {
   )
 }
 
-function TableTile({ table, isActive, onSelect }) {
+interface TableTileProps {
+  table: TableTileData;
+  isActive: boolean;
+  onSelect: (id: string, kind: 'table' | 'walkin') => void;
+}
+
+function TableTile({ table, isActive, onSelect }: TableTileProps) {
   const { format } = useMoney()
   const s = STATUS[table.status] ?? STATUS.available
   const disabled = table.status === "out_of_service"
@@ -68,7 +94,7 @@ function TableTile({ table, isActive, onSelect }) {
               {subtotal}
             </span>
           )}
-          {table.guest_count > 0 && (
+          {(table.guest_count ?? 0) > 0 && (
             <span className="ml-0.5 text-[9px] bg-red-400 text-white rounded-full px-1 leading-tight">
               {table.guest_count}
             </span>
@@ -79,7 +105,13 @@ function TableTile({ table, isActive, onSelect }) {
   )
 }
 
-function WalkInTile({ walkIn, isActive, onSelect }) {
+interface WalkInTileProps {
+  walkIn: WalkInTileData;
+  isActive: boolean;
+  onSelect: (id: string, kind: 'table' | 'walkin') => void;
+}
+
+function WalkInTile({ walkIn, isActive, onSelect }: WalkInTileProps) {
   const { format } = useMoney()
   const subtotalCents = walkIn.subtotal_cents
   const subtotal = subtotalCents ? format(subtotalCents) : null
@@ -131,7 +163,12 @@ function WalkInTile({ walkIn, isActive, onSelect }) {
 // to the floor editor; everyone else gets guidance to ask a manager.
 // Only rendered for dine-in businesses — takeaway/counter locations never
 // see this prompt.
-function NoFloorPlanCard({ canDesignFloor, onDesignFloor }) {
+interface NoFloorPlanCardProps {
+  canDesignFloor: boolean;
+  onDesignFloor?: () => void;
+}
+
+function NoFloorPlanCard({ canDesignFloor, onDesignFloor }: NoFloorPlanCardProps) {
   return (
     <div
       role="status"
@@ -165,6 +202,18 @@ function NoFloorPlanCard({ canDesignFloor, onDesignFloor }) {
   )
 }
 
+interface TablesStripProps {
+  tables?: TableTileData[];
+  walkIns?: WalkInTileData[];
+  activeTicketId?: string | null;
+  onSelect: (id: string, kind: 'table' | 'walkin') => void;
+  onAddWalkIn?: () => void;
+  loading?: boolean;
+  canDesignFloor?: boolean;
+  onDesignFloor?: () => void;
+  isDineInMode?: boolean;
+}
+
 export function TablesStrip({
   tables = [],
   walkIns = [],
@@ -175,7 +224,7 @@ export function TablesStrip({
   canDesignFloor = false,
   onDesignFloor,
   isDineInMode = true,
-}) {
+}: TablesStripProps) {
   // No floor plan designed yet (zero tables for this location). The walk-in
   // tickets the cashier may already have open should still be reachable, so
   // only swap to the pure empty-state when there are no walk-ins either.

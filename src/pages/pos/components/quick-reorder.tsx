@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useMoney } from '@/context/locale-context';
-import { fetchRecentOrders } from '@/services/reorder';
+import { fetchRecentOrders, type RecentOrder, type RecentOrderModifier } from '@/services/reorder';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,7 +42,7 @@ import { fetchRecentOrders } from '@/services/reorder';
  * Returns a human-readable relative time string, e.g. "3 days ago".
  * Kept simple and dependency-free.
  */
-function relativeTime(dateStr) {
+function relativeTime(dateStr: string) {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;
@@ -67,7 +67,7 @@ function relativeTime(dateStr) {
  * e.g. "Classic Burger ×2, Fries ×1"
  * Truncates to the first 3 items and appends "+N more" when needed.
  */
-function summariseItems(items) {
+function summariseItems(items: RecentOrder['items']) {
   if (!items || items.length === 0) return 'No items';
   const MAX_SHOWN = 3;
   const shown = items.slice(0, MAX_SHOWN);
@@ -97,7 +97,12 @@ function LoadingSkeleton() {
 // Single order card
 // ---------------------------------------------------------------------------
 
-function ReorderCard({ order, onSelect }) {
+interface ReorderCardProps {
+  order: RecentOrder;
+  onSelect: (order: RecentOrder) => void;
+}
+
+function ReorderCard({ order, onSelect }: ReorderCardProps) {
   const { format } = useMoney();
   const summary = summariseItems(order.items);
   const price = format(order.total_cents);
@@ -161,15 +166,22 @@ function ReorderCard({ order, onSelect }) {
  *
  * @param {{ customerId: string, onReorder: function, limit?: number, className?: string }} props
  */
+interface QuickReorderProps {
+  customerId?: string | null;
+  onReorder?: (items: RecentOrder['items']) => void;
+  limit?: number;
+  className?: string;
+}
+
 export default function QuickReorder({
   customerId,
   onReorder,
   limit = 3,
   className,
-}) {
-  const [orders, setOrders] = useState([]);
+}: QuickReorderProps) {
+  const [orders, setOrders] = useState<RecentOrder[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!customerId) {
@@ -186,7 +198,7 @@ export default function QuickReorder({
         if (!cancelled) setOrders(data);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message || 'Failed to load recent orders');
+        if (!cancelled) setError((err instanceof Error && err.message) || 'Failed to load recent orders');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -196,7 +208,7 @@ export default function QuickReorder({
   }, [customerId, limit]);
 
   const handleSelect = useCallback(
-    (order) => {
+    (order: RecentOrder) => {
       if (!onReorder) return;
       // Clone the line items into the payload shape the POS cart expects.
       const cloned = order.items.map((it) => ({
