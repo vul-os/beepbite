@@ -1,8 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const StatusFilters = ({ statusFilter, onFilterChange, statusCounts }) => {
-  const statusOptions = [
+type OrderStatusFilter = 'current' | 'all' | 'pending' | 'preparing' | 'ready' | 'completed';
+
+interface StatusFiltersProps {
+  statusFilter: OrderStatusFilter;
+  onFilterChange: (status: OrderStatusFilter) => void;
+  statusCounts: Record<OrderStatusFilter, number>;
+}
+
+const StatusFilters = ({ statusFilter, onFilterChange, statusCounts }: StatusFiltersProps) => {
+  const statusOptions: { key: OrderStatusFilter; label: string; count: number; color: string }[] = [
     { key: 'current', label: 'Current', count: statusCounts.current, color: 'bg-orange-100 text-orange-800' },
     { key: 'all', label: 'All', count: statusCounts.all, color: 'bg-muted text-foreground' },
     { key: 'pending', label: 'Pending', count: statusCounts.pending, color: 'bg-yellow-100 text-yellow-800' },
