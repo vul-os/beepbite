@@ -45,13 +45,13 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/currency';
-import { fetchReceipt } from '@/services/receipts';
+import { fetchReceipt, type Receipt } from '@/services/receipts';
 
 // ---------------------------------------------------------------------------
 // Helpers (shared with receipt-view.jsx style)
 // ---------------------------------------------------------------------------
 
-function formatDate(iso) {
+function formatDate(iso?: string | null) {
   if (!iso) return '';
   try {
     return new Date(iso).toLocaleString(undefined, {
@@ -66,7 +66,7 @@ function formatDate(iso) {
   }
 }
 
-function humaniseMethod(code) {
+function humaniseMethod(code?: string | null) {
   return (code || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -83,7 +83,15 @@ function Divider() {
   return <hr className="ticket-perforation my-2 print:border-muted-foreground" />;
 }
 
-function Row({ label, value, bold = false, indent = false, accent = false }) {
+interface RowProps {
+  label: string;
+  value: string;
+  bold?: boolean;
+  indent?: boolean;
+  accent?: boolean;
+}
+
+function Row({ label, value, bold = false, indent = false, accent = false }: RowProps) {
   return (
     <div
       className={cn(
@@ -107,7 +115,12 @@ function Row({ label, value, bold = false, indent = false, accent = false }) {
 // Receipt paper — pure rendering, no fetch logic
 // ---------------------------------------------------------------------------
 
-function ReceiptPaper({ receipt, printId }) {
+interface ReceiptPaperProps {
+  receipt: Receipt;
+  printId: string;
+}
+
+function ReceiptPaper({ receipt, printId }: ReceiptPaperProps) {
   // The RECEIPT's own currency, not the operator's current one. A receipt is a
   // record of a completed sale: reprinting one from a branch that trades in a
   // different currency — or after the operator changed theirs — must show the
@@ -119,8 +132,14 @@ function ReceiptPaper({ receipt, printId }) {
   // verified onto one is worse than printing a bare number, which is what
   // formatMoney does when the code is empty.
   const currency = receipt.currency_code || '';
-  const locale = receipt.locale || '';
-  const fmt = (cents) => formatMoney(cents ?? 0, { currency, locale });
+  // NOTE: the real /orders/{id}/receipt response (backend/internal/handlers/
+  // receipts/store.go) has no `locale` field — it was never part of the wire
+  // shape (see services/receipts.ts `Receipt`) — so this has always resolved
+  // to '' and formatMoney falls back to the reader's own Intl locale. Cast
+  // (not an added `any`) documents that rather than inventing the field on
+  // the shared Receipt type.
+  const locale = (receipt as Receipt & { locale?: string }).locale || '';
+  const fmt = (cents?: number | null) => formatMoney(cents ?? 0, { currency, locale });
 
   return (
     <div
@@ -260,10 +279,17 @@ function ReceiptPaper({ receipt, printId }) {
  *   onNewOrder?: () => void,
  * }} props
  */
-export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
-  const [receipt, setReceipt] = useState(null);
+interface ReceiptModalProps {
+  orderId?: string | null;
+  open: boolean;
+  onClose?: () => void;
+  onNewOrder?: () => void;
+}
+
+export default function ReceiptModal({ orderId, open, onClose, onNewOrder }: ReceiptModalProps) {
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Stable ID used to scope print CSS to this specific receipt element.
   // useId gives a unique value per component instance.
@@ -311,7 +337,7 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
   }, [onNewOrder, onClose]);
 
   const handleOpenChange = useCallback(
-    (isOpen) => {
+    (isOpen: boolean) => {
       if (!isOpen) onClose?.();
     },
     [onClose],
@@ -320,7 +346,7 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }) {
   const handleRetry = useCallback(() => {
     setError(null);
     setLoading(true);
-    fetchReceipt(orderId).then(({ data, error: err }) => {
+    fetchReceipt(orderId || '').then(({ data, error: err }) => {
       setLoading(false);
       if (err) setError(err.message || 'Failed to load receipt.');
       else setReceipt(data);

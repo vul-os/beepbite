@@ -42,17 +42,30 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useMoney } from '@/context/locale-context';
+import type { TenderLeg } from '@/services/payment';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const METHODS = [
+type MethodColor = 'green' | 'blue' | 'purple' | 'amber';
+
+const METHODS: { code: string; label: string; icon: typeof Banknote; color: MethodColor }[] = [
   { code: 'cash',          label: 'Cash',          icon: Banknote,  color: 'green' },
   { code: 'card_in_person',label: 'Card',          icon: CreditCard, color: 'blue' },
   { code: 'gift_card',     label: 'Gift Card',     icon: Gift,       color: 'purple' },
   { code: 'house_account', label: 'House Account', icon: Building2,  color: 'amber' },
 ];
+
+// A tender leg being edited in this modal: same fields as the final TenderLeg
+// (services/payment.ts) except the amount is kept as a raw editable string
+// until confirmation, when it's parsed against the active currency.
+interface EditableLeg {
+  id: string;
+  method: string;
+  rawInput: string;
+  reference: string;
+}
 
 // Categorical palette for telling the 4 payment methods apart at a glance —
 // this is a *category* signal (which method is this row?), not a state
@@ -63,7 +76,7 @@ const METHODS = [
 // previous `hover:${colors.active}` construction here never worked, since a
 // JIT scanner can't see through string interpolation, so the hover state on
 // the "add a method" chips silently did nothing.
-const COLOR_MAP = {
+const COLOR_MAP: Record<MethodColor, { bg: string; border: string; text: string; hover: string }> = {
   green:  {
     bg: 'bg-chart-3/10', border: 'border-chart-3/30', text: 'text-chart-3',
     hover: 'hover:bg-chart-3 hover:text-white hover:border-chart-3',
@@ -86,7 +99,15 @@ const COLOR_MAP = {
 // Sub-component: a single payment leg row
 // ---------------------------------------------------------------------------
 
-function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }) {
+interface LegRowProps {
+  leg: EditableLeg;
+  onChange: (legId: string, field: 'rawInput' | 'reference', value: string) => void;
+  onRemove: (legId: string) => void;
+  canRemove: boolean;
+  remainingCents: number;
+}
+
+function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }: LegRowProps) {
   const method = METHODS.find((m) => m.code === leg.method) || METHODS[0];
   const colors = COLOR_MAP[method.color];
   const Icon = method.icon;
@@ -96,7 +117,7 @@ function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }) {
   // must stay a plain '.'-separated decimal whatever the reader's locale is, so
   // it is built from scale/decimals rather than from format(). A zero-decimal
   // currency (JPY) gets '1000', not '1000.00', and a whole-unit step.
-  const toInput = (minor) => (minor / scale).toFixed(decimals);
+  const toInput = (minor: number) => (minor / scale).toFixed(decimals);
   const step = String(1 / scale);
 
   return (
@@ -150,7 +171,12 @@ function LegRow({ leg, onChange, onRemove, canRemove, remainingCents }) {
 // Method picker row (add another payment type)
 // ---------------------------------------------------------------------------
 
-function MethodPicker({ usedCodes, onAdd }) {
+interface MethodPickerProps {
+  usedCodes: string[];
+  onAdd: (code: string) => void;
+}
+
+function MethodPicker({ usedCodes, onAdd }: MethodPickerProps) {
   const available = METHODS.filter((m) => !usedCodes.includes(m.code));
   if (available.length === 0) return null;
   return (
@@ -186,6 +212,15 @@ function MethodPicker({ usedCodes, onAdd }) {
 let _legId = 0;
 const nextLegId = () => `leg-${++_legId}`;
 
+interface TenderModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  totalCents?: number;
+  submitting?: boolean;
+  errorMessage?: string | null;
+  onConfirm: (legs: TenderLeg[]) => void;
+}
+
 export default function TenderModal({
   open,
   onOpenChange,
@@ -193,12 +228,12 @@ export default function TenderModal({
   submitting = false,
   errorMessage,
   onConfirm,
-}) {
-  const [legs, setLegs] = useState([]);
+}: TenderModalProps) {
+  const [legs, setLegs] = useState<EditableLeg[]>([]);
   const { format, parse, scale, decimals } = useMoney();
 
   const toInput = useCallback(
-    (minor) => (minor / scale).toFixed(decimals),
+    (minor: number) => (minor / scale).toFixed(decimals),
     [scale, decimals],
   );
 
@@ -206,7 +241,7 @@ export default function TenderModal({
   // '1000' in a JPY store is ¥1000, and '12.345' in a 2-decimal one is a typo
   // that must not become a charge.
   const parseAmount = useCallback(
-    (str) => {
+    (str: string) => {
       const n = parse(str);
       return n && n > 0 ? n : 0;
     },
@@ -246,17 +281,17 @@ export default function TenderModal({
   // Handlers
   // ---------------------------------------------------------------------------
 
-  const handleChangeLeg = useCallback((legId, field, value) => {
+  const handleChangeLeg = useCallback((legId: string, field: 'rawInput' | 'reference', value: string) => {
     setLegs((prev) =>
       prev.map((l) => (l.id === legId ? { ...l, [field]: value } : l)),
     );
   }, []);
 
-  const handleRemoveLeg = useCallback((legId) => {
+  const handleRemoveLeg = useCallback((legId: string) => {
     setLegs((prev) => prev.filter((l) => l.id !== legId));
   }, []);
 
-  const handleAddMethod = useCallback((code) => {
+  const handleAddMethod = useCallback((code: string) => {
     const remaining = totalCents - legs.reduce((s, l) => s + parseAmount(l.rawInput), 0);
     setLegs((prev) => [
       ...prev,
