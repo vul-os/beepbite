@@ -12,8 +12,24 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { useActor } from '@/context/actor-token-context';
+import { useActor, type Actor } from '@/context/actor-token-context';
 import { usePinModalContext } from '@/components/pin-modal';
+
+// usePinModalContext lives in a not-yet-converted .jsx file
+// (src/components/pin-modal), so its inferred type from a bare
+// `createContext(undefined)` collapses to `never` after the
+// undefined-check inside it. Bridge the boundary with the shape that
+// PinModalProvider's requestPin actually resolves/accepts (see
+// src/components/pin-modal/index.jsx). Replace this cast once that file
+// is converted to TS.
+export interface RequestPinOptions {
+  reason?: string;
+  isManagerOverride?: boolean;
+}
+export type RequestPinResult = Actor | string;
+interface PinModalContextValue {
+  requestPin: (options?: RequestPinOptions) => Promise<RequestPinResult>;
+}
 
 // Routes that require an active actor and should auto-prompt on expiry.
 const ACTOR_REQUIRED_PATTERNS = [
@@ -22,7 +38,7 @@ const ACTOR_REQUIRED_PATTERNS = [
   /^\/cash$/,
 ];
 
-function routeRequiresActor(pathname) {
+function routeRequiresActor(pathname: string) {
   return ACTOR_REQUIRED_PATTERNS.some((re) => re.test(pathname));
 }
 
@@ -47,7 +63,7 @@ function routeRequiresActor(pathname) {
  */
 export function usePinModal() {
   const { isExpired } = useActor();
-  const { requestPin } = usePinModalContext();
+  const { requestPin } = usePinModalContext() as unknown as PinModalContextValue;
   const location = useLocation();
 
   // Track whether we've already triggered a re-auth for this expiry event so we

@@ -59,7 +59,7 @@ const resources = {
  */
 const RTL_LANGUAGES = new Set(['ar']);
 
-function applyDocumentDir(lng) {
+function applyDocumentDir(lng: string) {
   document.documentElement.dir = RTL_LANGUAGES.has(lng) ? 'rtl' : 'ltr';
   // Also stamp a data attribute so CSS selectors like [data-lang="ar"] work.
   document.documentElement.setAttribute('data-lang', lng);
