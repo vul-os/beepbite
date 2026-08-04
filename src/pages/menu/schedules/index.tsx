@@ -12,7 +12,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/context/auth-context';
-import { useSchedules } from './hooks/use-schedules';
+import { useSchedules, type MenuSchedule, type CreateScheduleInput } from './hooks/use-schedules';
 import ScheduleList from './components/schedule-list';
 import HoursGrid from './components/hours-grid';
 import ItemsPicker from './components/items-picker';
@@ -20,7 +20,7 @@ import HappyHourPrices from './components/happy-hour-prices';
 
 export default function MenuSchedules() {
   const { activeLocation } = useAuth();
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<MenuSchedule | null>(null);
   const [activeTab, setActiveTab] = useState('hours');
 
   const {
@@ -51,19 +51,19 @@ export default function MenuSchedules() {
     );
   }
 
-  const handleSelectSchedule = (schedule) => {
+  const handleSelectSchedule = (schedule: MenuSchedule) => {
     setSelected(schedule);
     setActiveTab('hours');
   };
 
-  const handleCreate = async (form) => {
+  const handleCreate = async (form: CreateScheduleInput) => {
     const created = await createSchedule(form);
     // select the newly created schedule
     const newSchedule = Array.isArray(created) ? created[0] : created;
     if (newSchedule) setSelected(newSchedule);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     await deleteSchedule(id);
     if (selected?.id === id) setSelected(null);
   };
@@ -114,8 +114,11 @@ export default function MenuSchedules() {
             <div className="space-y-4">
               <div>
                 <h2 className="font-display text-lg font-semibold text-foreground">{selected.name}</h2>
-                {selected.description && (
-                  <p className="text-sm text-muted-foreground mt-0.5">{selected.description}</p>
+                {/* NOTE: `description` does not exist on the real MenuSchedule row (see
+                    hooks/use-schedules.ts) — menu_schedules has no such column. Pre-existing
+                    dead read, preserved as-is via this narrow cast. */}
+                {(selected as MenuSchedule & { description?: string }).description && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{(selected as MenuSchedule & { description?: string }).description}</p>
                 )}
               </div>
 
