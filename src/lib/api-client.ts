@@ -161,6 +161,20 @@ async function refreshIfNeeded(): Promise<boolean> {
   return refreshing;
 }
 
+// Shape of a JSON error body returned by the Go backend, e.g.
+// { "error": "missing_capability", "capability": "can_void" }. Only the error
+// path inspects this; a successful response's payload is the caller's own T.
+interface ErrorEnvelope {
+  error?: string;
+  capability?: string;
+}
+
+function asErrorEnvelope(payload: unknown): ErrorEnvelope | null {
+  return payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? (payload as ErrorEnvelope)
+    : null;
+}
+
 async function request<T = unknown>(method: string, path: string, opts: RequestOpts = {}): Promise<ApiResult<T>> {
   let res = await raw(method, path, opts);
   if (res.status === 401 && opts.auth !== false) {
@@ -169,28 +183,29 @@ async function request<T = unknown>(method: string, path: string, opts: RequestO
   }
   if (res.status === 204) return { data: null, error: null };
   const text = await res.text();
-  let payload: any = null;
+  let payload: unknown = null;
   if (text) {
     try { payload = JSON.parse(text); } catch { payload = text; }
   }
   if (!res.ok) {
-    const msg = (payload && payload.error) || res.statusText || 'request failed';
+    const errPayload = asErrorEnvelope(payload);
+    const msg = errPayload?.error || res.statusText || 'request failed';
 
     // Manager-override path: on 403 missing_capability, if a handler is
     // registered, ask for a manager PIN and replay the request ONCE with
     // the one-shot token attached. The actor session is NOT changed globally.
     if (
       res.status === 403 &&
-      payload &&
-      payload.error === 'missing_capability' &&
-      payload.capability &&
+      errPayload &&
+      errPayload.error === 'missing_capability' &&
+      errPayload.capability &&
       _managerOverrideHandler &&
       !opts._managerOverrideAttempted // prevent infinite retry
     ) {
       try {
         const oneShotToken = await _managerOverrideHandler({
-          capability: payload.capability,
-          reason: payload.capability.replace(/_/g, ' '),
+          capability: errPayload.capability,
+          reason: errPayload.capability.replace(/_/g, ' '),
         });
         if (oneShotToken) {
           // Replay the request with the override token injected.
@@ -211,12 +226,16 @@ async function request<T = unknown>(method: string, path: string, opts: RequestO
 
     // Fire global missing_capability subscribers so any subscribed toast handler
     // can notify the user without per-call boilerplate.
-    if (res.status === 403 && payload && payload.error === 'missing_capability' && payload.capability) {
-      emitMissingCapability(payload.capability);
+    if (res.status === 403 && errPayload && errPayload.error === 'missing_capability' && errPayload.capability) {
+      emitMissingCapability(errPayload.capability);
     }
-    return { data: null, error: { message: msg, status: res.status, capability: payload?.capability } };
+    return { data: null, error: { message: msg, status: res.status, capability: errPayload?.capability } };
   }
-  return { data: payload, error: null };
+  // Success: payload is the caller's declared response shape. JSON.parse
+  // necessarily loses static type information, so this assertion is the
+  // deserialization boundary — the same trust callers already place in the
+  // generic type argument T they pass to request<T>().
+  return { data: payload as T, error: null };
 }
 
 // ---- auth surface (matches supabase.auth.*) ----
@@ -463,7 +482,7 @@ function findEdge(map: Record<string, FKEdge>, j: Join): FKEdge | null {
 // Rows are opaque records keyed by column name — the shape varies by table
 // and is not modeled here (mirrors the untyped rows the old supabase-js
 // client returned).
-type Row = Record<string, any>;
+type Row = Record<string, unknown>;
 
 async function resolveEmbeds(parentTable: string, rows: Row[], joins: Join[]): Promise<Row[]> {
   if (!joins.length || !rows.length) return rows;
@@ -639,6 +658,15 @@ class Builder {
     return s ? `?${s}` : '';
   }
 
+  // Builder is untyped over its result shape by design: it mimics the old
+  // supabase-js query builder across arbitrary tables (.from('any_table')),
+  // and .select()/.eq()/.order() etc. all return `this` rather than a
+  // narrowed type, so there's no call-site generic to thread the result
+  // type through without a structural rewrite of the fluent chain. Callers
+  // that want a typed result cast the returned `data` themselves (see
+  // services/*.ts). `any` here (not `unknown`) is intentional: `unknown`
+  // would force a cast at every one of the ~40 call sites for no added
+  // safety, since none of them are narrowed today.
   async _run(): Promise<ApiResult<any>> {
     const path = `/data/${encodeURIComponent(this._table)}`;
     switch (this._mode) {
