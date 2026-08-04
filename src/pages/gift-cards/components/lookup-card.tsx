@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,35 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Search, RefreshCw } from 'lucide-react';
 import { useMoney, useDateTime } from '@/context/locale-context';
+import type { BadgeProps } from '@/components/ui/badge';
+
+// Mirrors backend/internal/handlers/giftcards/store.go LookupResult.
+interface LookupResult {
+  id: string;
+  masked_code: string;
+  current_balance_cents: number;
+  currency: string;
+  status: string;
+  expires_at?: string | null;
+}
+
+// Mirrors backend/internal/handlers/giftcards/store.go GiftCardTransaction —
+// the response shape of POST /gift-cards/reload and /gift-cards/refund.
+interface GiftCardTransaction {
+  id: string;
+  gift_card_id: string;
+  txn_type: string;
+  amount_cents: number;
+  balance_after_cents: number;
+  order_id?: string | null;
+  payment_id?: string | null;
+  performed_by_staff_id?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
 
 // Map backend status values to badge variants.
-const STATUS_VARIANT = {
+const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
   active: 'default',
   redeemed: 'secondary',
   expired: 'destructive',
@@ -31,12 +57,12 @@ export function LookupCard() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [card, setCard] = useState(null); // LookupResult
+  const [card, setCard] = useState<LookupResult | null>(null);
   const { format: formatCurrency, parse: parseAmount } = useMoney({
     currency: card?.currency,
   });
   const { formatDate } = useDateTime();
-  const fmtExpiry = (iso) =>
+  const fmtExpiry = (iso?: string | null) =>
     iso ? formatDate(iso, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never';
 
   // Reload sub-form state
@@ -52,7 +78,7 @@ export function LookupCard() {
   const [refundError, setRefundError] = useState('');
   const [refundSuccess, setRefundSuccess] = useState('');
 
-  async function handleLookup(e) {
+  async function handleLookup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!code.trim()) return;
     setLoading(true);
@@ -64,7 +90,7 @@ export function LookupCard() {
     const qs = new URLSearchParams({ code: code.trim() });
     if (pin.trim()) qs.set('pin', pin.trim());
 
-    const { data, error: err } = await api.request('GET', `/gift-cards/lookup?${qs}`);
+    const { data, error: err } = await api.request<LookupResult>('GET', `/gift-cards/lookup?${qs}`);
     setLoading(false);
     if (err) {
       setError(err.message || 'Lookup failed.');
@@ -73,7 +99,7 @@ export function LookupCard() {
     setCard(data);
   }
 
-  async function handleReload(e) {
+  async function handleReload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     // parseAmount understands the currency's own exponent and the operator's
     // decimal mark, and returns null on a typo like '12.345' in a 2-decimal
@@ -87,7 +113,7 @@ export function LookupCard() {
     setReloadError('');
     setReloadSuccess('');
 
-    const { data, error: err } = await api.request('POST', '/gift-cards/reload', {
+    const { data, error: err } = await api.request<GiftCardTransaction>('POST', '/gift-cards/reload', {
       body: {
         code: code.trim(),
         amount_cents: cents,
@@ -103,16 +129,18 @@ export function LookupCard() {
       return;
     }
     // Refresh balance using the new balance_after_cents from the transaction.
+    // A card is guaranteed loaded here: this form only renders once `card`
+    // is truthy (see the guard around the reload/refund <Card> below).
     setCard((prev) => ({
-      ...prev,
-      current_balance_cents: data.balance_after_cents,
+      ...(prev as LookupResult),
+      current_balance_cents: data!.balance_after_cents,
     }));
     setReloadAmount('');
-    setReloadSuccess(`Reloaded ${formatCurrency(cents)}. New balance: ${formatCurrency(data.balance_after_cents)}`);
+    setReloadSuccess(`Reloaded ${formatCurrency(cents)}. New balance: ${formatCurrency(data!.balance_after_cents)}`);
     setReloadLoading(false);
   }
 
-  async function handleRefund(e) {
+  async function handleRefund(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const cents = parseAmount(refundAmount);
     if (cents === null || cents <= 0) {
@@ -123,7 +151,7 @@ export function LookupCard() {
     setRefundError('');
     setRefundSuccess('');
 
-    const { data, error: err } = await api.request('POST', '/gift-cards/refund', {
+    const { data, error: err } = await api.request<GiftCardTransaction>('POST', '/gift-cards/refund', {
       body: {
         code: code.trim(),
         amount_cents: cents,
@@ -139,12 +167,12 @@ export function LookupCard() {
       return;
     }
     setCard((prev) => ({
-      ...prev,
-      current_balance_cents: data.balance_after_cents,
+      ...(prev as LookupResult),
+      current_balance_cents: data!.balance_after_cents,
     }));
     setRefundAmount('');
     setRefundNotes('');
-    setRefundSuccess(`Refunded ${formatCurrency(cents)}. New balance: ${formatCurrency(data.balance_after_cents)}`);
+    setRefundSuccess(`Refunded ${formatCurrency(cents)}. New balance: ${formatCurrency(data!.balance_after_cents)}`);
     setRefundLoading(false);
   }
 
