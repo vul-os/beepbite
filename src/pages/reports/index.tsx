@@ -48,7 +48,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { formatDistanceToNow, addDays } from 'date-fns';
 import analyticsService from '../../services/analytics';
+import type { AnalyticsData } from '../../services/analytics';
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
+
+interface RecentOrderRow {
+  id: string | number;
+  order_number: string | number;
+  status: string;
+  created_at?: string;
+  response_time?: string;
+}
+
+interface OrderStatusRow {
+  name: string;
+  value: number;
+}
+
+interface Insights {
+  working: string[];
+  improvements: string[];
+}
 
 // Shared recharts tooltip style
 const tooltipStyle = {
@@ -65,7 +85,7 @@ const gridStroke = 'hsl(var(--border))';
 const ORANGE_PALETTE = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-3) / 0.6)'];
 
 // Empty state shown inside a chart area
-function ChartEmpty({ message }) {
+function ChartEmpty({ message }: { message: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
       <Activity className="h-8 w-8 opacity-30" />
@@ -76,11 +96,11 @@ function ChartEmpty({ message }) {
 
 const Reports = () => {
   const [timeRange, setTimeRange] = useState('7d');
-  const [customDateRange, setCustomDateRange] = useState(null);
+  const [customDateRange, setCustomDateRange] = useState<DateRange | null>(null);
   const [useCustomRange, setUseCustomRange] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState(null);
-  const [error, setError] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
@@ -92,16 +112,19 @@ const Reports = () => {
     try {
       console.log('Fetching analytics data for:', useCustomRange ? customDateRange : timeRange);
 
-      const queryParam = useCustomRange && customDateRange ? customDateRange : timeRange;
+      const queryParam =
+        useCustomRange && customDateRange?.from && customDateRange?.to
+          ? { from: customDateRange.from, to: customDateRange.to }
+          : timeRange;
       const data = await analyticsService.getAnalyticsData(queryParam);
 
       console.log('Analytics data received:', data);
       setAnalyticsData(data);
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      setError(error.message);
+      setError(error instanceof Error ? error.message : String(error));
 
-      const mockAnalytics = {
+      const mockAnalytics: AnalyticsData = {
         averageResponseTime: { minutes: 0, seconds: 0, trend: 'No data', trendDirection: 'up' },
         totalOrders: { count: 0, trend: 'No data', trendDirection: 'up' },
         averageRating: { rating: 0, trend: 'No data', trendDirection: 'up' },
@@ -110,7 +133,14 @@ const Reports = () => {
         performanceByHour: [],
         responseTimeTrend: [],
         orderStatusDistribution: [],
-        weeklyOrderVolume: []
+        weeklyOrderVolume: [],
+        customerAnalytics: {
+          totalCustomers: 0,
+          newCustomers: 0,
+          returningCustomers: 0,
+          avgOrdersPerCustomer: 0,
+          retentionRate: 0,
+        },
       };
       setAnalyticsData(mockAnalytics);
     } finally {
@@ -118,7 +148,7 @@ const Reports = () => {
     }
   };
 
-  const handleTimeRangeChange = (value) => {
+  const handleTimeRangeChange = (value: string) => {
     if (value === 'custom') {
       setUseCustomRange(true);
       setTimeRange('custom');
@@ -132,14 +162,14 @@ const Reports = () => {
     }
   };
 
-  const handleCustomDateRangeChange = (dateRange) => {
-    setCustomDateRange(dateRange);
+  const handleCustomDateRangeChange = (dateRange: DateRange | undefined) => {
+    setCustomDateRange(dateRange ?? null);
   };
 
-  const generateInsights = () => {
+  const generateInsights = (): Insights => {
     if (!analyticsData) return { working: [], improvements: [] };
 
-    const insights = { working: [], improvements: [] };
+    const insights: Insights = { working: [], improvements: [] };
     const totalOrders = analyticsData.totalOrders.count;
     const completionRate = analyticsData.completionRate.percentage;
     const avgRating = analyticsData.averageRating.rating;
@@ -205,7 +235,7 @@ const Reports = () => {
 
       {useCustomRange && (
         <DateRangePicker
-          date={customDateRange}
+          date={customDateRange ?? undefined}
           setDate={handleCustomDateRangeChange}
           className="w-full sm:w-80"
           placeholder="Select date range"
@@ -434,7 +464,7 @@ const Reports = () => {
                         labelLine={false}
                         style={{ fontSize: 11 }}
                       >
-                        {analyticsData.orderStatusDistribution.map((_, index) => (
+                        {(analyticsData.orderStatusDistribution as OrderStatusRow[]).map((_, index) => (
                           <Cell key={`cell-${index}`} fill={ORANGE_PALETTE[index % 4]} />
                         ))}
                       </Pie>
@@ -635,7 +665,7 @@ const Reports = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {analyticsData.recentOrders.map((order) => (
+                  {(analyticsData.recentOrders as RecentOrderRow[]).map((order) => (
                     <tr key={order.id} className="transition-colors hover:bg-muted/30">
                       <td className="px-5 sm:px-6 py-3.5 font-medium text-foreground">
                         #{order.order_number}
