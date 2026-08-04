@@ -4,14 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Copy, Check, Printer } from 'lucide-react';
 
+export interface IssueResult {
+  id: string;
+  masked_code: string;
+}
+
+interface CardResultProps {
+  result: IssueResult;
+  onDismiss: () => void;
+}
+
 /**
  * CardResult — shown after a successful POST /gift-cards/issue.
- *
- * Props:
- *   result: { id, masked_code }   — IssueResult from backend
- *   onDismiss: () => void         — called when user clicks "Issue Another"
  */
-export function CardResult({ result, onDismiss }) {
+export function CardResult({ result, onDismiss }: CardResultProps) {
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
