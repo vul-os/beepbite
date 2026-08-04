@@ -47,12 +47,13 @@ import {
   issueInvoice,
   downloadInvoicePDF,
 } from '@/services/invoicing';
+import type { Invoice } from '@/services/invoicing';
 import { useLocale } from '@/context/locale-context';
 import { formatMoney } from '@/lib/currency';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtDate(iso) {
+function fmtDate(iso: string | null | undefined) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(undefined, {
     day: '2-digit',
@@ -61,7 +62,7 @@ function fmtDate(iso) {
   });
 }
 
-const STATUS_VARIANT = {
+const STATUS_VARIANT: Record<string, 'secondary' | 'default' | 'success' | 'warning' | 'destructive'> = {
   draft:     'secondary',
   sent:      'default',
   paid:      'success',
@@ -70,7 +71,7 @@ const STATUS_VARIANT = {
   void:      'destructive',
 };
 
-const STATUS_LABEL = {
+const STATUS_LABEL: Record<string, string> = {
   draft:     'Draft',
   sent:      'Sent',
   paid:      'Paid',
@@ -88,14 +89,14 @@ export default function InvoicesPage() {
   // lives inside the component rather than as a module-level helper. An
   // invoice's own currency wins; the active location is only a fallback for
   // invoices that predate the currency field.
-  const fmtCents = (cents, currency) =>
+  const fmtCents = (cents: number | null | undefined, currency?: string | null) =>
     cents == null ? '—' : formatMoney(cents, { currency: currency || activeCurrency || '', locale });
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [actionLoading, setActionLoading] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // ── Load ─────────────────────────────────────────────────────────────────
 
@@ -115,7 +116,8 @@ export default function InvoicesPage() {
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
-  async function handleDelete(id) {
+  async function handleDelete(id: string | null) {
+    if (!id) return;
     setDeletingId(id);
     const { error: err } = await deleteInvoice(id);
     if (err) {
@@ -127,7 +129,7 @@ export default function InvoicesPage() {
     setConfirmDeleteId(null);
   }
 
-  async function handleIssue(id) {
+  async function handleIssue(id: string) {
     setActionLoading(id);
     const { data, error: err } = await issueInvoice(id);
     if (err) {
@@ -138,12 +140,12 @@ export default function InvoicesPage() {
     setActionLoading(null);
   }
 
-  async function handleDownload(id) {
+  async function handleDownload(id: string) {
     setActionLoading(id);
     try {
       await downloadInvoicePDF(id);
     } catch (e) {
-      setError(e.message || 'PDF download failed.');
+      setError(e instanceof Error ? e.message : 'PDF download failed.');
     }
     setActionLoading(null);
   }
