@@ -27,21 +27,30 @@ import {
 import { Label } from '@/components/ui/label';
 import { UserPlus, Trash2, Loader2, Users } from 'lucide-react';
 import { useMoney } from '@/context/locale-context';
+import type { HouseAccountMember, Customer } from '../hooks/use-house-account';
 
-function customerLabel(c) {
+function customerLabel(c: Customer) {
   const name = [c.first_name, c.last_name].filter(Boolean).join(' ');
   return name || c.email || c.id;
 }
 
-export function MembersTab({ members = [], orgId, addMember, removeMember, fetchCustomers }) {
+interface MembersTabProps {
+  members?: HouseAccountMember[];
+  orgId: string | undefined;
+  addMember: (customerId: string) => Promise<unknown>;
+  removeMember: (customerId: string) => Promise<void>;
+  fetchCustomers: (orgId: string) => Promise<Customer[]>;
+}
+
+export function MembersTab({ members = [], orgId, addMember, removeMember, fetchCustomers }: MembersTabProps) {
   const { format: formatMoneyValue } = useMoney();
   const [addOpen, setAddOpen] = useState(false);
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [removingId, setRemovingId] = useState(null);
-  const [err, setErr] = useState(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   // Load customers when dialog opens
   useEffect(() => {
@@ -53,7 +62,7 @@ export function MembersTab({ members = [], orgId, addMember, removeMember, fetch
         const memberIds = new Set(members.map((m) => m.customer_id));
         setCustomers(data.filter((c) => !memberIds.has(c.id)));
       })
-      .catch((e) => setErr(e.message))
+      .catch((e) => setErr(e instanceof Error ? e.message : 'Failed to load customers'))
       .finally(() => setLoadingCustomers(false));
   }, [addOpen, orgId, members, fetchCustomers]);
 
@@ -66,19 +75,19 @@ export function MembersTab({ members = [], orgId, addMember, removeMember, fetch
       setSelectedCustomerId('');
       setAddOpen(false);
     } catch (e) {
-      setErr(e.message || 'Failed to add member');
+      setErr(e instanceof Error ? e.message : 'Failed to add member');
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleRemove(member) {
+  async function handleRemove(member: HouseAccountMember) {
     if (!confirm(`Remove this member from the account?`)) return;
     setRemovingId(member.customer_id);
     try {
       await removeMember(member.customer_id);
     } catch (e) {
-      alert(e.message || 'Failed to remove member');
+      alert(e instanceof Error ? e.message : 'Failed to remove member');
     } finally {
       setRemovingId(null);
     }
