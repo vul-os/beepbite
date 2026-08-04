@@ -35,19 +35,59 @@ import { supabase } from '@/services/supabase-client';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 
+// Mirrors backend/migrations/001_baseline.sql `categories` table.
+interface Category {
+  id: string;
+  location_id: string;
+  organization_id: string;
+  parent_id: string | null;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CategoryFormData {
+  name: string;
+  description: string;
+  parent_id: string;
+  // Starts numeric (0); becomes a string once the number input is edited
+  // (DOM input values are always strings) — parsed back with parseInt on
+  // submit. Typed to match, not "fixed", to preserve existing behavior.
+  sort_order: number | string;
+  is_active: boolean;
+}
+
+interface CategoryUpdates {
+  name?: string;
+  description?: string | null;
+  parent_id?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+  updated_at?: string;
+}
+
+interface InlineEditState {
+  id: string;
+  name: string;
+  description: string;
+}
+
 const Categories = () => {
   const { activeLocation } = useAuth();
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState(new Set());
-  const [editingInline, setEditingInline] = useState(null);
-  const [formData, setFormData] = useState({
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [editingInline, setEditingInline] = useState<InlineEditState | null>(null);
+  const [formData, setFormData] = useState<CategoryFormData>({
     name: '',
     description: '',
     parent_id: 'none',
@@ -85,7 +125,7 @@ const Categories = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = <K extends keyof CategoryFormData>(field: K, value: CategoryFormData[K]) => {
     setFormData(prev => ({
       ...prev,
       [field]: field === 'parent_id' && value === '' ? 'none' : value
@@ -117,14 +157,21 @@ const Categories = () => {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           parent_id: formData.parent_id === 'none' ? null : formData.parent_id || null,
-          sort_order: parseInt(formData.sort_order) || 0,
+          sort_order: parseInt(String(formData.sort_order)) || 0,
           is_active: formData.is_active
         })
         .select()
         .single();
 
       if (error) {
-        if (error.code === '23505') {
+        // NOTE: the generic /data/:table insert endpoint
+        // (backend/internal/handlers/data/handler.go insert()) collapses
+        // every DB error — including a 23505 unique-violation on
+        // (location_id, name) — into a single generic 400 "request could
+        // not be completed" with no `code` field. This branch was already
+        // dead before the migration (ApiError never carries `code`); typed
+        // via a defensive cast to preserve exact existing behavior.
+        if ((error as { code?: string }).code === '23505') {
           throw new Error('A category with this name already exists');
         }
         throw error;
@@ -135,13 +182,13 @@ const Categories = () => {
       fetchCategories();
     } catch (error) {
       console.error('Error adding category:', error);
-      alert(error.message || 'Failed to add category');
+      alert(error instanceof Error ? error.message : 'Failed to add category');
     } finally {
       setSaving(false);
     }
   };
 
-  const updateCategory = async (categoryId, updates) => {
+  const updateCategory = async (categoryId: string, updates: CategoryUpdates) => {
     try {
       const { error } = await supabase
         .from('categories')
@@ -171,7 +218,7 @@ const Categories = () => {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         parent_id: formData.parent_id === 'none' ? null : formData.parent_id || null,
-        sort_order: parseInt(formData.sort_order) || 0,
+        sort_order: parseInt(String(formData.sort_order)) || 0,
         is_active: formData.is_active
       });
 
@@ -180,13 +227,13 @@ const Categories = () => {
       resetForm();
     } catch (error) {
       console.error('Error updating category:', error);
-      alert(error.message || 'Failed to update category');
+      alert(error instanceof Error ? error.message : 'Failed to update category');
     } finally {
       setSaving(false);
     }
   };
 
-  const deleteCategory = async (categoryId, categoryName) => {
+  const deleteCategory = async (categoryId: string, categoryName: string) => {
     const hasSubcategories = categories.some(cat => cat.parent_id === categoryId);
 
     if (hasSubcategories) {
@@ -213,7 +260,7 @@ const Categories = () => {
     }
   };
 
-  const toggleCategoryStatus = async (categoryId, currentStatus) => {
+  const toggleCategoryStatus = async (categoryId: string, currentStatus: boolean) => {
     setActionLoading(categoryId);
     try {
       await updateCategory(categoryId, { is_active: !currentStatus });
@@ -225,7 +272,7 @@ const Categories = () => {
     }
   };
 
-  const updateSortOrder = async (categoryId, newSortOrder) => {
+  const updateSortOrder = async (categoryId: string, newSortOrder: number) => {
     setActionLoading(categoryId);
     try {
       await updateCategory(categoryId, { sort_order: newSortOrder });
@@ -237,7 +284,7 @@ const Categories = () => {
     }
   };
 
-  const openEditModal = (category) => {
+  const openEditModal = (category: Category) => {
     setEditingCategory(category);
     setFormData({
       name: category.name || '',
@@ -249,7 +296,7 @@ const Categories = () => {
     setIsEditModalOpen(true);
   };
 
-  const toggleExpanded = (categoryId) => {
+  const toggleExpanded = (categoryId: string) => {
     setExpandedCategories(prev => {
       const newExpanded = new Set(prev);
       if (newExpanded.has(categoryId)) {
@@ -261,7 +308,7 @@ const Categories = () => {
     });
   };
 
-  const handleInlineEdit = (category) => {
+  const handleInlineEdit = (category: Category) => {
     setEditingInline({
       id: category.id,
       name: category.name,
@@ -290,7 +337,7 @@ const Categories = () => {
 
   // Organize categories into hierarchy
   const mainCategories = categories.filter(cat => !cat.parent_id);
-  const getSubcategories = (parentId) => categories.filter(cat => cat.parent_id === parentId);
+  const getSubcategories = (parentId: string) => categories.filter(cat => cat.parent_id === parentId);
 
   const filteredMainCategories = mainCategories.filter(category => {
     const name = category.name?.toLowerCase() || '';
@@ -338,7 +385,7 @@ const Categories = () => {
     );
   }
 
-  const CategoryForm = ({ isEdit = false }) => (
+  const CategoryForm = ({ isEdit = false }: { isEdit?: boolean }) => (
     <div className="space-y-6 mt-6">
       <div className="space-y-2">
         <label className="text-sm font-semibold text-foreground block">
@@ -421,7 +468,7 @@ const Categories = () => {
     </div>
   );
 
-  const CategoryCard = ({ category, isSubcategory = false }) => {
+  const CategoryCard = ({ category, isSubcategory = false }: { category: Category; isSubcategory?: boolean }) => {
     const subcategories = getSubcategories(category.id);
     const hasSubcategories = subcategories.length > 0;
     const isExpanded = expandedCategories.has(category.id);
@@ -473,16 +520,16 @@ const Categories = () => {
                 </span>
 
                 <div className="flex-1 min-w-0">
-                  {isInlineEditing ? (
+                  {isInlineEditing && editingInline ? (
                     <div className="space-y-3">
                       <Input
                         value={editingInline.name}
-                        onChange={(e) => setEditingInline(prev => ({ ...prev, name: e.target.value }))}
+                        onChange={(e) => setEditingInline(prev => (prev ? { ...prev, name: e.target.value } : prev))}
                         className="text-base font-medium rounded-xl"
                       />
                       <Textarea
                         value={editingInline.description}
-                        onChange={(e) => setEditingInline(prev => ({ ...prev, description: e.target.value }))}
+                        onChange={(e) => setEditingInline(prev => (prev ? { ...prev, description: e.target.value } : prev))}
                         className="text-sm rounded-xl resize-none"
                         rows={2}
                       />
