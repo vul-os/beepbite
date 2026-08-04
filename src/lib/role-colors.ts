@@ -6,7 +6,7 @@
 // deliberately don't reach for success/warning/destructive (those are
 // reserved for outcomes like paid/needs-a-look/irreversible). Instead each
 // role gets a distinct but on-theme tint that still tracks light/dark mode.
-export const ROLE_COLORS = {
+export const ROLE_COLORS: Record<string, string> = {
   owner: 'bg-primary/20 text-primary border-primary/30',
   admin: 'bg-primary/10 text-primary border-primary/20',
   manager: 'bg-accent text-accent-foreground border-transparent',
@@ -16,6 +16,6 @@ export const ROLE_COLORS = {
 
 export const DEFAULT_ROLE_COLOR = 'bg-muted text-muted-foreground border-border';
 
-export function getRoleColor(role) {
+export function getRoleColor(role: string): string {
   return ROLE_COLORS[role] ?? DEFAULT_ROLE_COLOR;
 }

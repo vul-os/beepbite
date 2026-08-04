@@ -11,6 +11,38 @@
 // lazy (dynamic) to avoid a circular-module issue — the context file imports
 // nothing from here, but we still defer the read to call-time.
 
+export interface AuthSession {
+  access_token?: string;
+  refresh_token?: string;
+  user?: unknown;
+  [key: string]: unknown;
+}
+
+export interface ApiError {
+  message: string;
+  status?: number;
+  capability?: string;
+}
+
+export interface ApiResult<T = unknown> {
+  data: T | null;
+  error: ApiError | null;
+}
+
+type AuthEvent = 'SIGNED_IN' | 'SIGNED_OUT' | 'TOKEN_REFRESHED' | 'INITIAL_SESSION';
+type AuthListener = (event: AuthEvent, session: AuthSession | null) => void;
+type CapabilityListener = (capability: string) => void;
+type ManagerOverrideHandler = (
+  args: { capability: string; reason: string },
+) => Promise<string | null | undefined>;
+
+interface RequestOpts {
+  body?: unknown;
+  headers?: Record<string, string>;
+  auth?: boolean;
+  _managerOverrideAttempted?: boolean;
+}
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 const STORAGE_KEY = 'bb.auth';
@@ -22,14 +54,17 @@ const STORAGE_KEY = 'bb.auth';
 // race (essentially impossible in practice since the Provider mounts before
 // any authenticated request fires).
 // Shape when set: { _token: string, _expiresAt: number, ... }
-let _actorRefSync = null;
+interface ActorRef {
+  current: { _token: string; _expiresAt: number } | null;
+}
+let _actorRefSync: ActorRef | null = null;
 import('@/context/actor-token-context')
   .then((mod) => { _actorRefSync = mod._actorRef; })
   .catch(() => { _actorRefSync = { current: null }; });
 
 // ---- token storage ----
 
-function readAuth() {
+function readAuth(): AuthSession | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -38,13 +73,13 @@ function readAuth() {
   }
 }
 
-function writeAuth(v) {
+function writeAuth(v: AuthSession | null) {
   if (v) localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
   else localStorage.removeItem(STORAGE_KEY);
 }
 
-let listeners = new Set();
-function emitAuth(event, session) {
+let listeners = new Set<AuthListener>();
+function emitAuth(event: AuthEvent, session: AuthSession | null) {
   for (const cb of listeners) {
     try { cb(event, session); } catch (e) { console.error(e); }
   }
@@ -53,12 +88,12 @@ function emitAuth(event, session) {
 // ---- global missing_capability subscriber ----------------------------------
 // Components subscribe once (e.g. in a root layout useEffect) to receive a
 // toast whenever the server returns 403 { error:"missing_capability", capability:"can_xxx" }.
-let capabilityListeners = new Set();
-export function onMissingCapability(cb) {
+let capabilityListeners = new Set<CapabilityListener>();
+export function onMissingCapability(cb: CapabilityListener) {
   capabilityListeners.add(cb);
   return () => capabilityListeners.delete(cb);
 }
-function emitMissingCapability(capability) {
+function emitMissingCapability(capability: string) {
   for (const cb of capabilityListeners) {
     try { cb(capability); } catch (e) { console.error(e); }
   }
@@ -75,16 +110,16 @@ function emitMissingCapability(capability) {
 //   const token = await requestPin({ reason: capability, isManagerOverride: true });
 //   return token;
 // });
-let _managerOverrideHandler = null;
-export function registerManagerOverrideHandler(fn) {
+let _managerOverrideHandler: ManagerOverrideHandler | null = null;
+export function registerManagerOverrideHandler(fn: ManagerOverrideHandler) {
   _managerOverrideHandler = fn;
   return () => { if (_managerOverrideHandler === fn) _managerOverrideHandler = null; };
 }
 
 // ---- low-level fetch ----
 
-async function raw(method, path, { body, headers = {}, auth = true } = {}) {
-  const h = { 'Content-Type': 'application/json', ...headers };
+async function raw(method: string, path: string, { body, headers = {}, auth = true }: RequestOpts = {}) {
+  const h: Record<string, string> = { 'Content-Type': 'application/json', ...headers };
   if (auth) {
     const a = readAuth();
     if (a?.access_token) h.Authorization = `Bearer ${a.access_token}`;
@@ -104,9 +139,9 @@ async function raw(method, path, { body, headers = {}, auth = true } = {}) {
   return res;
 }
 
-let refreshing = null;
+let refreshing: Promise<boolean> | null = null;
 
-async function refreshIfNeeded() {
+async function refreshIfNeeded(): Promise<boolean> {
   const a = readAuth();
   if (!a?.refresh_token) return false;
   if (!refreshing) {
@@ -126,7 +161,7 @@ async function refreshIfNeeded() {
   return refreshing;
 }
 
-async function request(method, path, opts = {}) {
+async function request<T = unknown>(method: string, path: string, opts: RequestOpts = {}): Promise<ApiResult<T>> {
   let res = await raw(method, path, opts);
   if (res.status === 401 && opts.auth !== false) {
     const ok = await refreshIfNeeded();
@@ -134,7 +169,7 @@ async function request(method, path, opts = {}) {
   }
   if (res.status === 204) return { data: null, error: null };
   const text = await res.text();
-  let payload = null;
+  let payload: any = null;
   if (text) {
     try { payload = JSON.parse(text); } catch { payload = text; }
   }
@@ -159,7 +194,7 @@ async function request(method, path, opts = {}) {
         });
         if (oneShotToken) {
           // Replay the request with the override token injected.
-          const overrideOpts = {
+          const overrideOpts: RequestOpts = {
             ...opts,
             _managerOverrideAttempted: true,
             headers: {
@@ -167,7 +202,7 @@ async function request(method, path, opts = {}) {
               'X-Actor-Token': oneShotToken,
             },
           };
-          return request(method, path, overrideOpts);
+          return request<T>(method, path, overrideOpts);
         }
       } catch {
         // Handler threw (user cancelled) — fall through to normal error.
@@ -187,26 +222,26 @@ async function request(method, path, opts = {}) {
 // ---- auth surface (matches supabase.auth.*) ----
 
 const auth = {
-  async signUp({ email, password, options }) {
-    const { data, error } = await request('POST', '/auth/signup', {
+  async signUp({ email, password, options }: { email: string; password: string; options?: { data?: unknown } }) {
+    const { data, error } = await request<AuthSession & { user?: unknown }>('POST', '/auth/signup', {
       auth: false,
       body: { email, password, meta: options?.data },
     });
     if (error) return { data: null, error };
     writeAuth(data);
     emitAuth('SIGNED_IN', data);
-    return { data: { user: data.user, session: data }, error: null };
+    return { data: { user: data!.user, session: data }, error: null };
   },
 
-  async signInWithPassword({ email, password }) {
-    const { data, error } = await request('POST', '/auth/signin', {
+  async signInWithPassword({ email, password }: { email: string; password: string }) {
+    const { data, error } = await request<AuthSession & { user?: unknown }>('POST', '/auth/signin', {
       auth: false,
       body: { email, password },
     });
     if (error) return { data: null, error };
     writeAuth(data);
     emitAuth('SIGNED_IN', data);
-    return { data: { user: data.user, session: data }, error: null };
+    return { data: { user: data!.user, session: data }, error: null };
   },
 
   async signOut() {
@@ -251,7 +286,7 @@ const auth = {
     };
   },
 
-  async resetPasswordForEmail(email /* , opts */) {
+  async resetPasswordForEmail(email: string /* , opts */) {
     // POST /auth/password/forgot always returns 200 — backend never reveals
     // whether the address exists. Mirrors the Supabase surface so call-sites
     // don't need changes.
@@ -263,7 +298,7 @@ const auth = {
     return { data, error: null };
   },
 
-  onAuthStateChange(cb) {
+  onAuthStateChange(cb: AuthListener) {
     listeners.add(cb);
     // fire once with current state to match supabase's behavior.
     setTimeout(() => cb('INITIAL_SESSION', readAuth()), 0);
@@ -289,7 +324,13 @@ const auth = {
 // A 'one' edge means the parent row carries the FK directly; we collect
 // those FK values and do IN on the child's primary key.
 
-const FK = {
+interface FKEdge {
+  table: string;
+  kind: 'one' | 'many';
+  col: string;
+}
+
+const FK: Record<string, Record<string, FKEdge>> = {
   // parent -> { childRelationName: { table, kind: 'one'|'many', col } }
   //   kind 'one':  parent[col] points at child.id
   //   kind 'many': child[col] points at parent.id
@@ -345,11 +386,23 @@ const FK = {
 // candidates resolveEmbeds() matches against FK[] — neither is assumed to be
 // a literal table name on its own, since PostgREST allows either position to
 // carry the disambiguating FK column/constraint instead.
-function parseSelect(raw) {
+interface Join {
+  name: string;
+  relation: string;
+  hint: string | null;
+  cols: string;
+}
+
+interface ParsedSelect {
+  base: string;
+  joins: Join[];
+}
+
+function parseSelect(raw: string | null | undefined): ParsedSelect {
   if (!raw || !/\(/.test(raw)) return { base: raw || '*', joins: [] };
   const normalized = raw.replace(/\s+/g, ' ').trim();
-  const joins = [];
-  const base = [];
+  const joins: Join[] = [];
+  const base: string[] = [];
   let i = 0;
   while (i < normalized.length) {
     // skip leading whitespace + commas
@@ -394,7 +447,7 @@ function parseSelect(raw) {
 // (supabase-js's `alias:fk_column (...)` shorthand); then the hint (after
 // '!') as either an FK column or a literal table name, for constraint-name
 // hints that don't match any of the above.
-function findEdge(map, j) {
+function findEdge(map: Record<string, FKEdge>, j: Join): FKEdge | null {
   if (map[j.relation]) return map[j.relation];
   for (const edge of Object.values(map)) {
     if (edge.col === j.relation) return edge;
@@ -403,7 +456,12 @@ function findEdge(map, j) {
   return null;
 }
 
-async function resolveEmbeds(parentTable, rows, joins) {
+// Rows are opaque records keyed by column name — the shape varies by table
+// and is not modeled here (mirrors the untyped rows the old supabase-js
+// client returned).
+type Row = Record<string, any>;
+
+async function resolveEmbeds(parentTable: string, rows: Row[], joins: Join[]): Promise<Row[]> {
   if (!joins.length || !rows.length) return rows;
   const map = FK[parentTable] || {};
   for (const j of joins) {
@@ -418,7 +476,7 @@ async function resolveEmbeds(parentTable, rows, joins) {
       const qs = new URLSearchParams();
       qs.append('in', ['id', ...ids].join(','));
       if (j.cols && j.cols !== '*') qs.set('select', j.cols);
-      const res = await request('GET', `/data/${edge.table}?${qs.toString()}`);
+      const res = await request<Row[]>('GET', `/data/${edge.table}?${qs.toString()}`);
       const byId = new Map((res.data || []).map(r => [r.id, r]));
       for (const r of rows) r[j.name] = byId.get(r[edge.col]) || null;
     } else {
@@ -427,12 +485,12 @@ async function resolveEmbeds(parentTable, rows, joins) {
       const qs = new URLSearchParams();
       qs.append('in', [edge.col, ...ids].join(','));
       if (j.cols && j.cols !== '*') qs.set('select', j.cols);
-      const res = await request('GET', `/data/${edge.table}?${qs.toString()}`);
-      const grouped = new Map();
+      const res = await request<Row[]>('GET', `/data/${edge.table}?${qs.toString()}`);
+      const grouped = new Map<unknown, Row[]>();
       for (const child of res.data || []) {
         const k = child[edge.col];
         if (!grouped.has(k)) grouped.set(k, []);
-        grouped.get(k).push(child);
+        grouped.get(k)!.push(child);
       }
       for (const r of rows) r[j.name] = grouped.get(r.id) || [];
     }
@@ -453,8 +511,34 @@ async function resolveEmbeds(parentTable, rows, joins) {
 //   .delete().eq(...)
 //   .upsert(row|rows[]) — (mapped to insert for now; add when needed)
 
+type FilterOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
+
+interface Filter {
+  op: FilterOp;
+  col: string;
+  val: unknown;
+}
+
+interface Order {
+  col: string;
+  asc: boolean;
+}
+
+type BuilderMode = 'select' | 'insert' | 'update' | 'delete';
+
 class Builder {
-  constructor(table) {
+  _table: string;
+  _mode: BuilderMode;
+  _cols: string;
+  _filters: Filter[];
+  _orders: Order[];
+  _limit: number | null;
+  _body: unknown;
+  _returning: boolean;
+  _single: boolean;
+  _maybeSingle: boolean;
+
+  constructor(table: string) {
     this._table = table;
     this._mode = 'select';
     this._cols = '*';
@@ -467,7 +551,7 @@ class Builder {
     this._maybeSingle = false;
   }
 
-  select(cols) {
+  select(cols?: string) {
     this._cols = cols || '*';
     if (this._mode === 'insert' || this._mode === 'update') {
       // keep current mode; mark that we want the rows back.
@@ -478,18 +562,18 @@ class Builder {
     return this;
   }
 
-  insert(rows) {
+  insert(rows: unknown) {
     this._mode = 'insert';
     this._body = rows;
     return this;
   }
-  upsert(rows) {
+  upsert(rows: unknown) {
     // Fallback: behave like insert. Extend when unique-conflict needed.
     this._mode = 'insert';
     this._body = rows;
     return this;
   }
-  update(changes) {
+  update(changes: unknown) {
     this._mode = 'update';
     this._body = changes;
     return this;
@@ -500,16 +584,16 @@ class Builder {
   }
 
   // -- filters --
-  eq(col, v)    { this._filters.push({ op: 'eq', col, val: v }); return this; }
-  neq(col, v)   { this._filters.push({ op: 'neq', col, val: v }); return this; }
-  gt(col, v)    { this._filters.push({ op: 'gt', col, val: v }); return this; }
-  gte(col, v)   { this._filters.push({ op: 'gte', col, val: v }); return this; }
-  lt(col, v)    { this._filters.push({ op: 'lt', col, val: v }); return this; }
-  lte(col, v)   { this._filters.push({ op: 'lte', col, val: v }); return this; }
-  like(col, v)  { this._filters.push({ op: 'like', col, val: v }); return this; }
-  ilike(col, v) { this._filters.push({ op: 'ilike', col, val: v }); return this; }
-  in(col, arr)  { this._filters.push({ op: 'in', col, val: arr }); return this; }
-  is(col, v) {
+  eq(col: string, v: unknown)    { this._filters.push({ op: 'eq', col, val: v }); return this; }
+  neq(col: string, v: unknown)   { this._filters.push({ op: 'neq', col, val: v }); return this; }
+  gt(col: string, v: unknown)    { this._filters.push({ op: 'gt', col, val: v }); return this; }
+  gte(col: string, v: unknown)   { this._filters.push({ op: 'gte', col, val: v }); return this; }
+  lt(col: string, v: unknown)    { this._filters.push({ op: 'lt', col, val: v }); return this; }
+  lte(col: string, v: unknown)   { this._filters.push({ op: 'lte', col, val: v }); return this; }
+  like(col: string, v: unknown)  { this._filters.push({ op: 'like', col, val: v }); return this; }
+  ilike(col: string, v: unknown) { this._filters.push({ op: 'ilike', col, val: v }); return this; }
+  in(col: string, arr: unknown[])  { this._filters.push({ op: 'in', col, val: arr }); return this; }
+  is(col: string, v: unknown) {
     let s;
     if (v === null) s = 'null';
     else if (v === true) s = 'true';
@@ -519,20 +603,20 @@ class Builder {
     return this;
   }
 
-  order(col, { ascending = true } = {}) {
+  order(col: string, { ascending = true }: { ascending?: boolean } = {}) {
     this._orders.push({ col, asc: ascending });
     return this;
   }
-  limit(n) { this._limit = n; return this; }
+  limit(n: number) { this._limit = n; return this; }
 
   single() { this._single = true; return this; }
   maybeSingle() { this._maybeSingle = true; return this; }
 
-  _qs(extra = {}) {
+  _qs(extra: { baseCols?: string; single?: boolean } = {}) {
     const params = new URLSearchParams();
     for (const f of this._filters) {
       if (f.op === 'in') {
-        params.append('in', [f.col, ...f.val].join(','));
+        params.append('in', [f.col, ...(f.val as unknown[])].join(','));
       } else if (f.op === 'is') {
         params.append('is', `${f.col},${f.val}`);
       } else {
@@ -551,7 +635,7 @@ class Builder {
     return s ? `?${s}` : '';
   }
 
-  async _run() {
+  async _run(): Promise<ApiResult<any>> {
     const path = `/data/${encodeURIComponent(this._table)}`;
     switch (this._mode) {
       case 'select': {
@@ -559,7 +643,7 @@ class Builder {
         // Force multi-row fetch so we can resolve embeds, then unwrap to single.
         const wantSingle = this._single;
         const qs = this._qs({ baseCols: parsed.base, single: wantSingle && !parsed.joins.length });
-        const res = await request('GET', `${path}${qs}`);
+        const res = await request<Row | Row[]>('GET', `${path}${qs}`);
         let { data, error } = res;
         if (error) {
           if (this._maybeSingle && error.status === 404) return { data: null, error: null };
@@ -579,14 +663,14 @@ class Builder {
         return { data, error: null };
       }
       case 'insert': {
-        const { data, error } = await request('POST', path, { body: this._body });
+        const { data, error } = await request<Row | Row[]>('POST', path, { body: this._body });
         if (error) return { data, error };
         if (this._single) return { data: Array.isArray(data) ? data[0] : data, error: null };
         return { data, error: null };
       }
       case 'update': {
         const qs = this._qs();
-        const { data, error } = await request('PATCH', `${path}${qs}`, { body: this._body });
+        const { data, error } = await request<Row | Row[]>('PATCH', `${path}${qs}`, { body: this._body });
         if (error) return { data, error };
         if (this._single) return { data: Array.isArray(data) ? data[0] : data, error: null };
         return { data, error: null };
@@ -598,30 +682,33 @@ class Builder {
     }
   }
 
-  then(onF, onR) { return this._run().then(onF, onR); }
-  catch(onR)     { return this._run().catch(onR); }
-  finally(onF)   { return this._run().finally(onF); }
+  then<TResult1 = ApiResult<any>, TResult2 = never>(
+    onF?: ((value: ApiResult<any>) => TResult1 | PromiseLike<TResult1>) | null,
+    onR?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ) { return this._run().then(onF, onR); }
+  catch(onR: (reason: unknown) => any)     { return this._run().catch(onR); }
+  finally(onF: () => void)   { return this._run().finally(onF); }
 }
 
-function serialize(v) {
+function serialize(v: unknown): string {
   if (v === null || v === undefined) return '';
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
 
-function from(table) { return new Builder(table); }
+function from(table: string) { return new Builder(table); }
 
-async function rpc(fn, args = {}) {
+async function rpc(fn: string, args: unknown = {}) {
   return request('POST', `/rpc/${encodeURIComponent(fn)}`, { body: args });
 }
 
 // ---- edge-function-style invoke (matches supabase.functions.invoke) ----
 
-async function invokeFunction(name, { body } = {}) {
+async function invokeFunction(name: string, { body }: { body?: unknown } = {}) {
   // Map supabase function names → our Go endpoints.
-  const route = {
+  const route = ({
     'chatbot-whatsapp-send': '/chatbot/whatsapp/send',
-  }[name];
+  } as Record<string, string>)[name];
   if (!route) return { data: null, error: { message: `unknown function ${name}` } };
   return request('POST', route, { body });
 }

@@ -38,7 +38,7 @@
  * correctly. Keeping the list explicit also documents the cases that a `/100`
  * silently breaks.
  */
-const EXPONENTS = {
+const EXPONENTS: Record<string, number> = {
   // Zero-decimal: the major unit IS the minor unit. ¥1000 is 1000, not 100000.
   BIF: 0, CLP: 0, DJF: 0, GNF: 0, ISK: 0, JPY: 0, KMF: 0, KRW: 0,
   PYG: 0, RWF: 0, UGX: 0, UYI: 0, VND: 0, VUV: 0, XAF: 0, XOF: 0, XPF: 0,
@@ -55,7 +55,7 @@ const DEFAULT_EXPONENT = 2;
  * @param {string} currency ISO 4217 code
  * @returns {number} 0, 2 or 3
  */
-export function currencyDecimals(currency) {
+export function currencyDecimals(currency?: string | null): number {
   if (!currency) return DEFAULT_EXPONENT;
   const code = String(currency).toUpperCase();
   return Object.prototype.hasOwnProperty.call(EXPONENTS, code)
@@ -69,16 +69,20 @@ export function currencyDecimals(currency) {
  * @param {string} currency ISO 4217 code
  * @returns {number}
  */
-export function currencyScale(currency) {
+export function currencyScale(currency?: string | null): number {
   return 10 ** currencyDecimals(currency);
 }
 
 // Intl.NumberFormat construction is not free and money is rendered in tight
 // loops (every line of a ticket, every row of a report), so formatters are
 // memoised per locale+currency+style.
-const formatterCache = new Map();
+const formatterCache = new Map<string, Intl.NumberFormat>();
 
-function getFormatter(locale, currency, options) {
+function getFormatter(
+  locale: string | undefined | null,
+  currency: string,
+  options: Intl.NumberFormatOptions,
+): Intl.NumberFormat {
   const key = `${locale}|${currency}|${JSON.stringify(options)}`;
   let fmt = formatterCache.get(key);
   if (fmt) return fmt;
@@ -108,7 +112,7 @@ function getFormatter(locale, currency, options) {
  * @param {string} currency
  * @returns {number}
  */
-function toMajor(minor, currency) {
+function toMajor(minor: number | string, currency?: string | null): number {
   const n = typeof minor === 'number' ? minor : Number(minor);
   if (!Number.isFinite(n)) return 0;
   return n / currencyScale(currency);
@@ -131,7 +135,13 @@ function toMajor(minor, currency) {
  *   is ambiguous across USD, CAD, AUD, SGD and a dozen more.
  * @returns {string}
  */
-export function formatMoney(minor, opts = {}) {
+export interface FormatMoneyOptions {
+  currency?: string | null;
+  locale?: string | null;
+  showCode?: boolean;
+}
+
+export function formatMoney(minor: number | string, opts: FormatMoneyOptions = {}): string {
   const { currency, locale, showCode = false } = opts;
   const decimals = currencyDecimals(currency);
   const major = toMajor(minor, currency);
@@ -177,7 +187,7 @@ export function formatMoney(minor, opts = {}) {
  * @param {string} [locale]
  * @returns {string}
  */
-export function currencySymbol(currency, locale) {
+export function currencySymbol(currency?: string | null, locale?: string | null): string {
   if (!currency) return '';
   const code = String(currency).toUpperCase();
   try {
@@ -209,7 +219,7 @@ export function currencySymbol(currency, locale) {
  * @param {string} currency
  * @returns {number|null} integer minor units, or null if unparseable
  */
-export function parseMoney(input, currency) {
+export function parseMoney(input: string | number | null | undefined, currency?: string | null): number | null {
   const decimals = currencyDecimals(currency);
   let raw = String(input ?? '').trim();
   if (!raw) return null;
@@ -262,6 +272,6 @@ export function parseMoney(input, currency) {
  * @param {string}        [locale]
  * @returns {string}
  */
-export function formatPrice(minor, currency, locale) {
+export function formatPrice(minor: number | string, currency?: string | null, locale?: string | null): string {
   return formatMoney(minor, { currency, locale });
 }

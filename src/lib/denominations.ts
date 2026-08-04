@@ -36,7 +36,7 @@ import { currencyScale } from '@/lib/currency';
  * would bother counting. Very high notes and sub-cent coins are omitted because
  * a grid of twenty tiles is slower to use than one of ten.
  */
-const MAJOR_DENOMINATIONS = {
+const MAJOR_DENOMINATIONS: Record<string, number[]> = {
   ZAR: [200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1],
   USD: [100, 50, 20, 10, 5, 1, 0.25, 0.1, 0.05, 0.01],
   EUR: [200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1],
@@ -80,7 +80,7 @@ const FALLBACK_MINOR = [
  *   render no tiles — the same "visibly unconfigured" posture formatMoney takes.
  * @returns {number[]} minor-unit amounts, descending, never fractional
  */
-export function denominationValues(currency) {
+export function denominationValues(currency?: string | null): number[] {
   if (!currency) return [];
   const code = String(currency).toUpperCase();
   const major = MAJOR_DENOMINATIONS[code];
@@ -105,7 +105,7 @@ export function denominationValues(currency) {
  * @param {string} [currency]
  * @returns {{key: string, minor: number}[]}
  */
-export function denominationRows(currency) {
+export function denominationRows(currency?: string | null): { key: string; minor: number }[] {
   return denominationValues(currency).map((minor) => ({
     key: `d${minor}`,
     minor,
@@ -122,7 +122,7 @@ export function denominationRows(currency) {
  * @param {string} [currency]
  * @returns {number} total in minor units
  */
-export function denominationTotal(counts, currency) {
+export function denominationTotal(counts: Record<string, number> | null | undefined, currency?: string | null): number {
   return denominationRows(currency).reduce(
     (sum, d) => sum + (Number(counts?.[d.key]) || 0) * d.minor,
     0,
@@ -141,6 +141,6 @@ export function denominationTotal(counts, currency) {
  * @returns {number[]} minor-unit amounts, ASCENDING (a tender row reads small
  *   to large, unlike a counting grid which reads large to small)
  */
-export function quickTenderValues(currency, limit = 5) {
+export function quickTenderValues(currency?: string | null, limit = 5): number[] {
   return denominationValues(currency).slice(0, limit).reverse();
 }

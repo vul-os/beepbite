@@ -9,7 +9,7 @@
 // house accounts, reservations and menu recipes.
 
 // Reusable shade-100/700 tone pairings.
-export const TONE = {
+export const TONE: Record<string, string> = {
   neutral: 'bg-muted text-muted-foreground',
   info: 'bg-blue-100 text-blue-700',
   success: 'bg-green-100 text-green-700',

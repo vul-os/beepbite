@@ -99,7 +99,7 @@ const FALLBACK_TIMEZONES = [
  *
  * @returns {string[]}
  */
-export function timezoneOptions() {
+export function timezoneOptions(): string[] {
   try {
     const zones = Intl.supportedValuesOf?.('timeZone');
     if (Array.isArray(zones) && zones.length) {
@@ -118,7 +118,7 @@ export function timezoneOptions() {
  *
  * @returns {string}
  */
-export function detectedTimezone() {
+export function detectedTimezone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   } catch {
@@ -133,10 +133,10 @@ export function detectedTimezone() {
  * @param {string} [locale]
  * @returns {string} the localised name, or the code itself if Intl cannot name it
  */
-export function countryName(code, locale) {
+export function countryName(code?: string | null, locale?: string | null): string {
   if (!code) return '';
   try {
-    const names = new Intl.DisplayNames([locale || undefined].filter(Boolean), {
+    const names = new Intl.DisplayNames((locale ? [locale] : []), {
       type: 'region',
     });
     return names.of(code) || code;
@@ -152,10 +152,10 @@ export function countryName(code, locale) {
  * @param {string} [locale]
  * @returns {string}
  */
-export function currencyName(code, locale) {
+export function currencyName(code?: string | null, locale?: string | null): string {
   if (!code) return '';
   try {
-    const names = new Intl.DisplayNames([locale || undefined].filter(Boolean), {
+    const names = new Intl.DisplayNames((locale ? [locale] : []), {
       type: 'currency',
     });
     return names.of(code) || code;
@@ -175,7 +175,7 @@ export function currencyName(code, locale) {
  * @param {string} [locale]
  * @returns {{code: string, name: string}[]}
  */
-export function countryOptions(locale) {
+export function countryOptions(locale?: string | null): { code: string; name: string }[] {
   const collator = new Intl.Collator(locale || undefined);
   return COUNTRY_CODES
     .map((code) => ({ code, name: countryName(code, locale) }))
@@ -192,6 +192,6 @@ export function countryOptions(locale) {
  * @param {string} [locale]
  * @returns {{code: string, name: string}[]}
  */
-export function currencyOptions(locale) {
+export function currencyOptions(locale?: string | null): { code: string; name: string }[] {
   return CURRENCY_CODES.map((code) => ({ code, name: currencyName(code, locale) }));
 }

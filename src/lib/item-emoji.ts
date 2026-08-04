@@ -1,7 +1,7 @@
 // item-emoji.js — shared emoji helper used by both the POS workspace and the
 // Menu page so item icons stay in sync across the app.
 
-export const ITEM_EMOJI = [
+export const ITEM_EMOJI: { match: RegExp; e: string }[] = [
   { match: /burger|patty/i, e: '🍔' },
   { match: /pizza/i, e: '🍕' },
   { match: /fries|chips/i, e: '🍟' },
@@ -20,4 +20,5 @@ export const ITEM_EMOJI = [
   { match: /donut/i, e: '🍩' },
   { match: /cookie/i, e: '🍪' },
 ];
-export const emojiFor = (it) => ITEM_EMOJI.find((x) => x.match.test(it?.name || ''))?.e || '🍽️';
+export const emojiFor = (it?: { name?: string } | null): string =>
+  ITEM_EMOJI.find((x) => x.match.test(it?.name || ''))?.e || '🍽️';
