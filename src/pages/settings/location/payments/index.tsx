@@ -19,11 +19,11 @@ export default function LocationPaymentsPage() {
   const location = locations?.find((l) => l.id === locationId);
   const locationName = location?.name ?? locationId ?? 'this location';
 
-  const [methods, setMethods] = useState([]);
+  const [methods, setMethods] = useState<string[]>([]);
 
   const syncFromLocation = useCallback(() => {
     const m = location?.on_delivery_payment_methods;
-    setMethods(Array.isArray(m) ? m : []);
+    setMethods(Array.isArray(m) ? (m as string[]) : []);
   }, [location]);
 
   useEffect(() => {
