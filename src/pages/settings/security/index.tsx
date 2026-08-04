@@ -35,6 +35,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import type { FormEvent } from 'react';
 import {
   getTOTPStatus,
   enrollTOTP,
@@ -52,11 +53,13 @@ const STEP = {
   BACKUP_SHOWN: 'backup',    // newly generated backup codes visible
   ENABLED: 'enabled',        // 2FA on
   DISABLING: 'disabling',    // form to disable
-};
+} as const;
+
+type Step = typeof STEP[keyof typeof STEP];
 
 // ── Backup code copy helper ──────────────────────────────────────────────────
 
-function BackupCodes({ codes }) {
+function BackupCodes({ codes }: { codes: string[] }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -88,9 +91,9 @@ function BackupCodes({ codes }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function SecuritySettings() {
-  const [step, setStep] = useState(STEP.LOADING);
+  const [step, setStep] = useState<Step>(STEP.LOADING);
   const [otpauthURL, setOtpauthURL] = useState('');
-  const [backupCodes, setBackupCodes] = useState([]);
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [backupRemaining, setBackupRemaining] = useState(0);
   const [verifyCode, setVerifyCode] = useState('');
   const [disableCode, setDisableCode] = useState('');
@@ -103,12 +106,13 @@ export default function SecuritySettings() {
   // Load current status on mount.
   const loadStatus = useCallback(async () => {
     setStep(STEP.LOADING);
-    const { data, error: err } = await getTOTPStatus();
+    const { data: result, error: err } = await getTOTPStatus();
     if (err) {
       setError(err.message || 'Failed to load 2FA status');
       setStep(STEP.DISABLED);
       return;
     }
+    const data = result!;
     if (data.enabled) {
       setBackupRemaining(data.backup_codes_remaining);
       setStep(STEP.ENABLED);
@@ -135,14 +139,14 @@ export default function SecuritySettings() {
       setError(err.message || 'Failed to start enrollment');
       return;
     }
-    setOtpauthURL(data.otpauth_url);
+    setOtpauthURL(data!.otpauth_url);
     setVerifyCode('');
     setStep(STEP.ENROLLING);
   };
 
   // ── Verify: validate code + get backup codes ──────────────────────────────
 
-  const handleVerify = async (e) => {
+  const handleVerify = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     clearError();
     if (!verifyCode.trim()) {
@@ -156,13 +160,13 @@ export default function SecuritySettings() {
       setError(err.message || 'Invalid code — try again');
       return;
     }
-    setBackupCodes(data.backup_codes);
+    setBackupCodes(data!.backup_codes);
     setStep(STEP.BACKUP_SHOWN);
   };
 
   // ── Disable 2FA ───────────────────────────────────────────────────────────
 
-  const handleDisable = async (e) => {
+  const handleDisable = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     clearError();
     if (!disableCode.trim() && !disableBackup.trim()) {
