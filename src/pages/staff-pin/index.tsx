@@ -15,16 +15,25 @@ import { Button } from '@/components/ui/button';
 
 import PinKeypad from './components/pin-keypad';
 import { resolveStore, pinVerifyOverlay, pinLogin } from '@/services/staff-pin';
-import { useActor } from '@/context/actor-token-context';
+import { useActor, type ActorSetPayload } from '@/context/actor-token-context';
+
+// resolveStore's data is untyped (api.request<unknown>) — GET /stores/:slug
+// isn't formally documented at the service layer beyond "location_id,
+// display_name, ...". Narrowed here to what this page actually reads.
+interface ResolvedStore {
+  location_id: string;
+  display_name: string;
+  [key: string]: unknown;
+}
 
 /**
  * Determine post-login destination based on staff role / capabilities.
  * Kitchen-only staff → /work (Kitchen tab defaults to kitchen)
  * Everyone else      → /pos/workspace
  */
-function resolvePostLoginPath(payload) {
+function resolvePostLoginPath(payload: { role?: string; staff?: { role?: string }; capabilities?: unknown } | null | undefined) {
   const role = payload?.role ?? payload?.staff?.role ?? '';
-  const caps = Array.isArray(payload?.capabilities) ? payload.capabilities : [];
+  const caps: string[] = Array.isArray(payload?.capabilities) ? (payload.capabilities as string[]) : [];
   const hasPos = caps.includes('can_pos');
   const hasKitchen = caps.includes('can_kitchen');
   const kitchenOnly = role === 'kitchen' || (!hasPos && hasKitchen);
@@ -85,8 +94,8 @@ const StaffPinPage = () => {
   const { setActor } = useActor();
 
   // ---- store resolution state ----
-  const [storeState, setStoreState] = useState('loading'); // 'loading' | 'found' | 'not_found' | 'error'
-  const [store, setStore] = useState(null); // { location_id, display_name }
+  const [storeState, setStoreState] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
+  const [store, setStore] = useState<ResolvedStore | null>(null);
 
   // ---- form state ----
   const [username, setUsername] = useState('');
@@ -96,22 +105,22 @@ const StaffPinPage = () => {
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const usernameRef = useRef(null);
+  const usernameRef = useRef<HTMLInputElement>(null);
 
   // ---- resolve slug on mount ----
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      const result = await resolveStore(slug);
+      const result = await resolveStore(slug ?? '');
       if (cancelled) return;
 
       if (result.ok) {
-        setStore(result.data);
+        setStore(result.data as ResolvedStore);
         setStoreState('found');
         // Auto-focus username field after store resolves
         setTimeout(() => usernameRef.current?.focus(), 100);
-      } else if (result.notFound) {
+      } else if ('notFound' in result && result.notFound) {
         setStoreState('not_found');
       } else {
         setStoreState('error');
@@ -125,7 +134,7 @@ const StaffPinPage = () => {
   useEffect(() => {
     if (storeState !== 'found') return;
 
-    const handleKey = (e) => {
+    const handleKey = (e: KeyboardEvent) => {
       // Only handle digit keys when focus is NOT on the username input
       if (document.activeElement === usernameRef.current) return;
 
@@ -144,7 +153,7 @@ const StaffPinPage = () => {
   }, [storeState, pin, username, loading]);
 
   // ---- PIN helpers ----
-  const appendDigit = (d) => {
+  const appendDigit = (d: string) => {
     setPin((prev) => {
       if (prev.length >= 6) return prev;
       return prev + d;
@@ -195,33 +204,35 @@ const StaffPinPage = () => {
       // member bearer token in localStorage (the device owner's session).
       // If the device has no member session yet, fall back to the legacy
       // full-session PIN login so the flow degrades gracefully.
-      let result = await pinVerifyOverlay(username.trim(), pin, store.location_id, slug);
+      // store is guaranteed non-null here: this form only renders (and can
+      // only be submitted) once storeState === 'found'.
+      const overlayResult = await pinVerifyOverlay(username.trim(), pin, store!.location_id, slug);
 
-      if (!result.ok && result.error && /401|unauthorized|not authenticated/i.test(result.error)) {
+      if (!overlayResult.ok && 'error' in overlayResult && overlayResult.error && /401|unauthorized|not authenticated/i.test(overlayResult.error)) {
         // Device is not authenticated as a member — fall back to legacy login.
-        result = await pinLogin(username.trim(), pin, store.location_id);
-        if (!result.ok) {
-          setSubmitError(result.error);
+        const legacyResult = await pinLogin(username.trim(), pin, store!.location_id);
+        if (!legacyResult.ok) {
+          setSubmitError('error' in legacyResult ? legacyResult.error ?? '' : '');
           clearPin();
           return;
         }
         // Legacy path: persist full session token.
-        if (result.data?.access_token) {
-          localStorage.setItem('bb.auth', JSON.stringify(result.data));
+        if (legacyResult.data?.access_token) {
+          localStorage.setItem('bb.auth', JSON.stringify(legacyResult.data));
         }
-        navigate(resolvePostLoginPath(result.data));
+        navigate(resolvePostLoginPath(legacyResult.data));
         return;
       }
 
-      if (!result.ok) {
-        setSubmitError(result.error);
+      if (!overlayResult.ok) {
+        setSubmitError('error' in overlayResult ? overlayResult.error ?? '' : '');
         clearPin();
         return;
       }
 
       // Overlay path: set actor in memory, do NOT touch localStorage.
-      setActor(result.data);
-      navigate(resolvePostLoginPath(result.data));
+      setActor(overlayResult.data as ActorSetPayload);
+      navigate(resolvePostLoginPath(overlayResult.data as { role?: string; staff?: { role?: string }; capabilities?: unknown }));
     } finally {
       setLoading(false);
     }
@@ -279,7 +290,7 @@ const StaffPinPage = () => {
           </h1>
           {/* Store display name — the key branding for this scoped route */}
           <p className="text-sm font-semibold text-foreground/80 truncate px-2">
-            {store.display_name}
+            {store?.display_name}
           </p>
           <p className="text-xs text-muted-foreground">Staff PIN Login</p>
         </div>
