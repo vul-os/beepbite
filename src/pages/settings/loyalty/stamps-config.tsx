@@ -8,6 +8,7 @@
 // Uses shadcn/ui form primitives consistent with the rest of the settings pages.
 
 import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Stamp, Save, Loader2 } from 'lucide-react';
 
 import { Button }   from '@/components/ui/button';
@@ -26,11 +27,11 @@ const DEFAULT_REQUIRED = 10;
 export default function StampsConfig() {
   const [loading, setLoading]   = useState(true);
   const [saving,  setSaving]    = useState(false);
-  const [error,   setError]     = useState(null);
+  const [error,   setError]     = useState<string | null>(null);
   const [success, setSuccess]   = useState(false);
 
   const [enabled,  setEnabled]  = useState(false);
-  const [required, setRequired] = useState(DEFAULT_REQUIRED);
+  const [required, setRequired] = useState<number | string>(DEFAULT_REQUIRED);
   const [itemId,   setItemId]   = useState('');
 
   // Load current config on mount.
@@ -51,12 +52,12 @@ export default function StampsConfig() {
     return () => { cancelled = true; };
   }, []);
 
-  async function handleSave(e) {
+  async function handleSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
-    const req = parseInt(required, 10);
+    const req = parseInt(String(required), 10);
     if (!req || req < 1) {
       setError('Stamps required must be a positive number.');
       return;
