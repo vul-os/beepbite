@@ -1,4 +1,4 @@
-// tracking.test.js — unit tests for src/services/tracking.js
+// tracking.test.ts — unit tests for src/services/tracking.ts
 //
 // normalizeTracking() is not exported — it is exercised through the public
 // fetchTracking() entry point, with api.request mocked so no network call
@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const requestMock = vi.fn();
 vi.mock('@/lib/api-client', () => ({
-  api: { request: (...args) => requestMock(...args) },
+  api: { request: (...args: unknown[]) => requestMock(...args) },
 }));
 
 const { fetchTracking } = await import('../services/tracking.js');
@@ -35,8 +35,8 @@ describe('fetchTracking — token guard', () => {
   });
 
   it('returns a 400 error for undefined/null token', async () => {
-    expect((await fetchTracking(undefined)).error.status).toBe(400);
-    expect((await fetchTracking(null)).error.status).toBe(400);
+    expect((await fetchTracking(undefined as unknown as string)).error?.status).toBe(400);
+    expect((await fetchTracking(null as unknown as string)).error?.status).toBe(400);
   });
 });
 
@@ -79,7 +79,7 @@ describe('fetchTracking — normalises the flat wire shape into the nested UI sh
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.store).toEqual({ lat: -26.2041, lng: 28.0473 });
+    expect(data!.store).toEqual({ lat: -26.2041, lng: 28.0473 });
   });
 
   it('nests delivery_lat/delivery_lng + delivery_address into delivery_address: {lat, lng, label}', async () => {
@@ -94,7 +94,7 @@ describe('fetchTracking — normalises the flat wire shape into the nested UI sh
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.delivery_address).toEqual({ lat: -26.1, lng: 28.05, label: '123 Main St' });
+    expect(data!.delivery_address).toEqual({ lat: -26.1, lng: 28.05, label: '123 Main St' });
   });
 
   it('nests the driver position unchanged when present', async () => {
@@ -107,7 +107,7 @@ describe('fetchTracking — normalises the flat wire shape into the nested UI sh
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.driver).toEqual({ lat: 1, lng: 2 });
+    expect(data!.driver).toEqual({ lat: 1, lng: 2 });
   });
 
   it('carries fulfillment_type over as fulfillmentType (camelCase bridge)', async () => {
@@ -116,7 +116,7 @@ describe('fetchTracking — normalises the flat wire shape into the nested UI sh
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.fulfillmentType).toBe('pickup');
+    expect(data!.fulfillmentType).toBe('pickup');
   });
 
   it('store is null when only one of the two coordinates is present (never a half-populated point)', async () => {
@@ -125,7 +125,7 @@ describe('fetchTracking — normalises the flat wire shape into the nested UI sh
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.store).toBeNull();
+    expect(data!.store).toBeNull();
   });
 
   it('delivery_address keeps its label but nulls the coords when they are absent (pre-dispatch)', async () => {
@@ -134,7 +134,7 @@ describe('fetchTracking — normalises the flat wire shape into the nested UI sh
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.delivery_address).toEqual({ lat: null, lng: null, label: '5 Oak Ave' });
+    expect(data!.delivery_address).toEqual({ lat: null, lng: null, label: '5 Oak Ave' });
   });
 
   it('driver is null when the backend has not sent one', async () => {
@@ -143,7 +143,7 @@ describe('fetchTracking — normalises the flat wire shape into the nested UI sh
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.driver).toBeNull();
+    expect(data!.driver).toBeNull();
   });
 });
 
@@ -163,7 +163,7 @@ describe('fetchTracking — eta_minutes derivation', () => {
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.eta_minutes).toBe(15);
+    expect(data!.eta_minutes).toBe(15);
   });
 
   it('clamps a past estimated_delivery_time to 0 rather than going negative', async () => {
@@ -176,7 +176,7 @@ describe('fetchTracking — eta_minutes derivation', () => {
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.eta_minutes).toBe(0);
+    expect(data!.eta_minutes).toBe(0);
   });
 
   it('is null when no estimated_delivery_time is sent', async () => {
@@ -185,7 +185,7 @@ describe('fetchTracking — eta_minutes derivation', () => {
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.eta_minutes).toBeNull();
+    expect(data!.eta_minutes).toBeNull();
   });
 
   it('is null (not NaN) for an unparseable estimated_delivery_time', async () => {
@@ -198,7 +198,7 @@ describe('fetchTracking — eta_minutes derivation', () => {
       error: null,
     });
     const { data } = await fetchTracking('tok');
-    expect(data.eta_minutes).toBeNull();
-    expect(Number.isNaN(data.eta_minutes)).toBe(false);
+    expect(data!.eta_minutes).toBeNull();
+    expect(Number.isNaN(data!.eta_minutes)).toBe(false);
   });
 });

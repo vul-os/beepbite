@@ -1,4 +1,4 @@
-// locale-context.test.jsx — unit tests for src/context/locale-context.jsx
+// locale-context.test.tsx — unit tests for src/context/locale-context.tsx
 //
 // This context is the single place the app resolves "what currency/locale/
 // timezone/tax posture is active", replacing ~60 call sites that used to
@@ -8,6 +8,7 @@
 // output rather than through a rendered component's markup — which keeps
 // these tests unaffected by any unrelated UI changes elsewhere in the app.
 
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import {
@@ -15,11 +16,13 @@ import {
   useLocale,
   useMoney,
   useDateTime,
+  type LocaleContextValue,
+  type LocationLike,
 } from '../context/locale-context';
 
-function wrapperFor(props) {
+function wrapperFor(props: { location?: LocationLike | null; value?: Partial<LocaleContextValue> }) {
   // eslint-disable-next-line react/prop-types
-  return function Wrapper({ children }) {
+  return function Wrapper({ children }: { children: ReactNode }) {
     return <LocaleProvider {...props}>{children}</LocaleProvider>;
   };
 }

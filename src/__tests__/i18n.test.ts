@@ -1,4 +1,4 @@
-// i18n.test.js — unit tests for src/i18n/index.js
+// i18n.test.ts — unit tests for src/i18n/index.js
 //
 // Tests (pure, no network, jsdom environment):
 //   1. All locale JSON files parse correctly and expose the same
@@ -33,10 +33,12 @@ import i18n from '../i18n/index.js';
  * Collect every dot-joined leaf path in a nested object.
  * e.g. { a: { b: 'x' } } → ['a.b']
  */
-function leafPaths(obj, prefix = '') {
+function leafPaths(obj: Record<string, unknown>, prefix = ''): string[] {
   return Object.entries(obj).flatMap(([k, v]) => {
     const path = prefix ? `${prefix}.${k}` : k;
-    return v !== null && typeof v === 'object' ? leafPaths(v, path) : [path];
+    return v !== null && typeof v === 'object' && !Array.isArray(v)
+      ? leafPaths(v as Record<string, unknown>, path)
+      : [path];
   });
 }
 
@@ -95,11 +97,14 @@ describe('locale key parity (all locales vs en.json)', () => {
 // every key in en.json that uses `{{...}}` interpolation and asserts each
 // locale's value for that key references exactly the same variable names.
 
-function getPath(obj, path) {
-  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+function getPath(obj: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((o, k) => {
+    if (o == null || typeof o !== 'object') return undefined;
+    return (o as Record<string, unknown>)[k];
+  }, obj);
 }
 
-function placeholderVars(str) {
+function placeholderVars(str: unknown): string[] {
   if (typeof str !== 'string') return [];
   return [...str.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]).sort();
 }
