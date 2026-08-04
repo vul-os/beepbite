@@ -28,13 +28,13 @@ import {
   ChevronRight,
   AlertCircle,
 } from 'lucide-react';
-import { listAuditLog } from '@/services/auditviewer';
+import { listAuditLog, type AuditEntry, type ListAuditLogOpts } from '@/services/auditviewer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PER_PAGE = 50;
 
-const ACTOR_COLORS = {
+const ACTOR_COLORS: Record<string, string> = {
   member:   'bg-blue-100 text-blue-800 border-blue-200',
   staff:    'bg-purple-100 text-purple-800 border-purple-200',
   system:   'bg-gray-100 text-gray-700 border-gray-200',
@@ -45,7 +45,7 @@ const ACTOR_COLORS = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtDate(iso) {
+function fmtDate(iso?: string | null) {
   if (!iso) return '';
   return new Date(iso).toLocaleString(undefined, {
     month: 'short',
@@ -55,7 +55,7 @@ function fmtDate(iso) {
   });
 }
 
-function ActorBadge({ type, label }) {
+function ActorBadge({ type, label }: { type: string; label?: string | null }) {
   return (
     <div className="flex items-center gap-1.5">
       <span
@@ -76,7 +76,21 @@ function ActorBadge({ type, label }) {
 
 // ── Filter panel ──────────────────────────────────────────────────────────────
 
-function FilterPanel({ filters, onChange, onApply, onReset }) {
+interface FilterState {
+  actor: string;
+  action: string;
+  from: string;
+  to: string;
+}
+
+interface FilterPanelProps {
+  filters: FilterState;
+  onChange: (key: keyof FilterState, value: string) => void;
+  onApply: () => void;
+  onReset: () => void;
+}
+
+function FilterPanel({ filters, onChange, onApply, onReset }: FilterPanelProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-muted/40 rounded-lg border">
       <div className="space-y-1">
@@ -135,24 +149,24 @@ function FilterPanel({ filters, onChange, onApply, onReset }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AuditViewer() {
-  const [entries, setEntries] = useState([]);
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  const emptyFilters = { actor: '', action: '', from: '', to: '' };
-  const [filters, setFilters] = useState(emptyFilters);
-  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const emptyFilters: FilterState = { actor: '', action: '', from: '', to: '' };
+  const [filters, setFilters] = useState<FilterState>(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState<FilterState>(emptyFilters);
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
-  const fetchLog = useCallback(async (currentPage, applied) => {
+  const fetchLog = useCallback(async (currentPage: number, applied: FilterState) => {
     setLoading(true);
     setError('');
 
-    const params = {
+    const params: ListAuditLogOpts = {
       page: currentPage,
       per_page: PER_PAGE,
     };
@@ -168,15 +182,15 @@ export default function AuditViewer() {
       setError(err.message || 'Failed to load audit log');
       return;
     }
-    setEntries(data.data ?? []);
-    setTotal(data.total ?? 0);
+    setEntries(data?.data ?? []);
+    setTotal(data?.total ?? 0);
   }, []);
 
   useEffect(() => {
     fetchLog(page, appliedFilters);
   }, [page, appliedFilters, fetchLog]);
 
-  const handleFilterChange = (key, val) => {
+  const handleFilterChange = (key: keyof FilterState, val: string) => {
     setFilters((f) => ({ ...f, [key]: val }));
   };
 
