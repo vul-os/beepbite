@@ -46,12 +46,15 @@ import {
   voidInvoice,
   downloadInvoicePDF,
 } from '@/services/invoicing';
+import type { Invoice, InvoiceLine } from '@/services/invoicing';
 import { useLocale } from '@/context/locale-context';
 import { formatMoney } from '@/lib/currency';
 
+type InvoiceDetail = Invoice & { lines: InvoiceLine[] };
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtDate(iso) {
+function fmtDate(iso: string | null | undefined) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(undefined, {
     day: '2-digit',
@@ -60,7 +63,7 @@ function fmtDate(iso) {
   });
 }
 
-const STATUS_VARIANT = {
+const STATUS_VARIANT: Record<string, 'secondary' | 'default' | 'success' | 'warning' | 'destructive'> = {
   draft:     'secondary',
   sent:      'default',
   paid:      'success',
@@ -69,7 +72,7 @@ const STATUS_VARIANT = {
   void:      'destructive',
 };
 
-const STATUS_LABEL = {
+const STATUS_LABEL: Record<string, string> = {
   draft:     'Draft',
   sent:      'Sent',
   paid:      'Paid',
@@ -86,12 +89,12 @@ export default function InvoiceDetailPage() {
   const { currency: activeCurrency, locale } = useLocale();
   // fmtCents needs the reader's locale, which only the hook can supply, so it
   // lives inside the component rather than as a module-level helper.
-  const fmtCents = (cents, currency) =>
+  const fmtCents = (cents: number | null | undefined, currency: string | undefined) =>
     cents == null ? '—' : formatMoney(cents, { currency, locale });
-  const [invoice, setInvoice] = useState(null);
+  const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [actionLoading, setActionLoading] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirmVoid, setConfirmVoid] = useState(false);
 
   // ── Load ─────────────────────────────────────────────────────────────────
@@ -104,7 +107,7 @@ export default function InvoiceDetailPage() {
     if (err) {
       setError(err.message || 'Failed to load invoice.');
     } else {
-      setInvoice(data);
+      setInvoice(data ?? null);
     }
     setLoading(false);
   }, [id]);
@@ -114,36 +117,40 @@ export default function InvoiceDetailPage() {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   async function handleIssue() {
+    if (!id) return;
     setActionLoading('issue');
     const { data, error: err } = await issueInvoice(id);
     if (err) setError(err.message || 'Failed to issue invoice.');
-    else if (data) setInvoice((prev) => ({ ...prev, ...data }));
+    else if (data) setInvoice((prev) => prev ? { ...prev, ...data } : prev);
     setActionLoading(null);
   }
 
   async function handlePay() {
+    if (!id) return;
     setActionLoading('pay');
     const { data, error: err } = await markInvoicePaid(id);
     if (err) setError(err.message || 'Failed to mark as paid.');
-    else if (data) setInvoice((prev) => ({ ...prev, ...data }));
+    else if (data) setInvoice((prev) => prev ? { ...prev, ...data } : prev);
     setActionLoading(null);
   }
 
   async function handleVoid() {
+    if (!id) return;
     setActionLoading('void');
     setConfirmVoid(false);
     const { data, error: err } = await voidInvoice(id);
     if (err) setError(err.message || 'Failed to void invoice.');
-    else if (data) setInvoice((prev) => ({ ...prev, ...data }));
+    else if (data) setInvoice((prev) => prev ? { ...prev, ...data } : prev);
     setActionLoading(null);
   }
 
   async function handleDownload() {
+    if (!id) return;
     setActionLoading('pdf');
     try {
       await downloadInvoicePDF(id);
     } catch (e) {
-      setError(e.message || 'PDF download failed.');
+      setError(e instanceof Error ? e.message : 'PDF download failed.');
     }
     setActionLoading(null);
   }
@@ -158,7 +165,7 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  if (!invoice && !loading) {
+  if (!invoice) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-6">
         <Alert variant="destructive">

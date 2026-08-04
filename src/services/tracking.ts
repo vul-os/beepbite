@@ -20,7 +20,7 @@ import { api } from '@/lib/api-client';
  *   driver?: { lat: number, lng: number, recorded_at: string }
  * }
  *
- * The UI (track/index.jsx and friends) wants a friendlier normalised shape:
+ * The UI (track/index.tsx and friends) wants a friendlier normalised shape:
  * { status, eta_minutes, store: {lat,lng}|null,
  *   delivery_address: {lat,lng,label}|null, driver }
  * normalizeTracking() bridges the two so the page never has to know about
