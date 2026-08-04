@@ -1,4 +1,4 @@
-// courses.jsx — CRUD UI for kitchen fire courses at the active location.
+// courses.tsx — CRUD UI for kitchen fire courses at the active location.
 //
 // Lives at /menu/courses (accessible from the main-layout app shell).
 // Uses the generic REST data layer via `api.from('courses')`.
@@ -9,8 +9,8 @@
 // RLS on the `courses` table is location→org scoped so only members of the
 // owning org can read / write.
 
-/* eslint-disable react/prop-types */
 import { useState, useEffect, useCallback } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import {
   ChefHat,
   Plus,
@@ -58,14 +58,35 @@ import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
 
+// Mirrors backend/migrations/001_baseline.sql `courses` table.
+interface Course {
+  id: string;
+  location_id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  fire_on_previous_course_bumped: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Payload shape for create()/update() — location_id is added at the create()
+// call site, not part of the form itself.
+interface CourseInput {
+  name: string;
+  sort_order: number;
+  fire_on_previous_course_bumped: boolean;
+  is_active: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-function useCourses(locationId) {
-  const [courses, setCourses] = useState([]);
+function useCourses(locationId: string | null) {
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     if (!locationId) { setCourses([]); return; }
@@ -81,7 +102,7 @@ function useCourses(locationId) {
       if (err) throw new Error(err.message);
       setCourses(data || []);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -89,14 +110,14 @@ function useCourses(locationId) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const create = useCallback(async (body) => {
+  const create = useCallback(async (body: CourseInput & { location_id: string }) => {
     const { data, error: err } = await api.from('courses').insert(body);
     if (err) throw new Error(err.message);
     await fetch();
     return data;
   }, [fetch]);
 
-  const update = useCallback(async (id, body) => {
+  const update = useCallback(async (id: string, body: Partial<CourseInput>) => {
     const { data, error: err } = await api
       .from('courses').update(body).eq('id', id);
     if (err) throw new Error(err.message);
@@ -104,7 +125,7 @@ function useCourses(locationId) {
     return data;
   }, [fetch]);
 
-  const remove = useCallback(async (id) => {
+  const remove = useCallback(async (id: string) => {
     const { error: err } = await api.from('courses').delete().eq('id', id);
     if (err) throw new Error(err.message);
     await fetch();
@@ -117,28 +138,46 @@ function useCourses(locationId) {
 // Form dialog
 // ---------------------------------------------------------------------------
 
-const EMPTY_FORM = {
+// Editable-form shape: sort_order becomes `string` while the <input> is
+// being edited (raw text) and is parsed back to a number on submit — same
+// pattern as menu/index.tsx's MenuFormData.
+interface CourseForm {
+  name: string;
+  sort_order: number | string;
+  fire_on_previous_course_bumped: boolean;
+  is_active: boolean;
+}
+
+const EMPTY_FORM: CourseForm = {
   name: '',
   sort_order: 0,
   fire_on_previous_course_bumped: false,
   is_active: true,
 };
 
-function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }) {
-  const [form, setForm] = useState(EMPTY_FORM);
+interface CourseFormDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (values: CourseInput) => void;
+  initial: Course | null;
+  submitting: boolean;
+}
+
+function CourseFormDialog({ open, onClose, onSubmit, initial, submitting }: CourseFormDialogProps) {
+  const [form, setForm] = useState<CourseForm>(EMPTY_FORM);
 
   useEffect(() => {
     if (open) setForm(initial ? { ...initial } : EMPTY_FORM);
   }, [open, initial]);
 
-  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  const set = <K extends keyof CourseForm>(key: K, value: CourseForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
     onSubmit({
       name: form.name.trim(),
-      sort_order: parseInt(form.sort_order, 10) || 0,
+      sort_order: parseInt(String(form.sort_order), 10) || 0,
       fire_on_previous_course_bumped: Boolean(form.fire_on_previous_course_bumped),
       is_active: Boolean(form.is_active),
     });
@@ -238,14 +277,15 @@ export default function CoursesPage() {
   const { courses, loading, error, create, update, remove } = useCourses(locationId);
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);   // course row | null
+  const [editTarget, setEditTarget] = useState<Course | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // course row | null
+  const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
 
   const openCreate = () => { setEditTarget(null); setFormOpen(true); };
-  const openEdit = (c) => { setEditTarget(c); setFormOpen(true); };
+  const openEdit = (c: Course) => { setEditTarget(c); setFormOpen(true); };
 
-  const handleSubmit = async (values) => {
+  const handleSubmit = async (values: CourseInput) => {
+    if (!locationId) return;
     setSubmitting(true);
     try {
       if (editTarget) {
@@ -258,7 +298,7 @@ export default function CoursesPage() {
       setFormOpen(false);
       setEditTarget(null);
     } catch (e) {
-      toast({ variant: 'destructive', title: 'Save failed', description: e.message });
+      toast({ variant: 'destructive', title: 'Save failed', description: e instanceof Error ? e.message : String(e) });
     } finally {
       setSubmitting(false);
     }
@@ -270,17 +310,17 @@ export default function CoursesPage() {
       await remove(deleteTarget.id);
       toast({ title: `"${deleteTarget.name}" deleted` });
     } catch (e) {
-      toast({ variant: 'destructive', title: 'Delete failed', description: e.message });
+      toast({ variant: 'destructive', title: 'Delete failed', description: e instanceof Error ? e.message : String(e) });
     } finally {
       setDeleteTarget(null);
     }
   };
 
-  const handleToggleActive = async (c) => {
+  const handleToggleActive = async (c: Course) => {
     try {
       await update(c.id, { is_active: !c.is_active });
     } catch (e) {
-      toast({ variant: 'destructive', title: 'Update failed', description: e.message });
+      toast({ variant: 'destructive', title: 'Update failed', description: e instanceof Error ? e.message : String(e) });
     }
   };
 
