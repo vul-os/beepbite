@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,8 +10,22 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { api } from '@/lib/api-client';
+import type { Reservation } from './reservation-card';
 
-const DEFAULT_FORM = {
+interface ReservationFormState {
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  // Start numeric; become strings once the number input is edited (DOM
+  // input values are always strings) — parsed back with Number() on submit,
+  // same pattern used elsewhere in this codebase.
+  party_size: number | string;
+  reservation_at: string;
+  duration_minutes: number | string;
+  special_requests: string;
+}
+
+const DEFAULT_FORM: ReservationFormState = {
   customer_name: '',
   customer_phone: '',
   customer_email: '',
@@ -21,16 +35,24 @@ const DEFAULT_FORM = {
   special_requests: '',
 };
 
-export default function ReservationForm({ open, onClose, onCreated, organizationId, locationId }) {
-  const [form, setForm] = useState(DEFAULT_FORM);
+interface ReservationFormProps {
+  open: boolean;
+  onClose: () => void;
+  onCreated?: (reservation: Reservation) => void;
+  organizationId: string;
+  locationId: string;
+}
+
+export default function ReservationForm({ open, onClose, onCreated, organizationId, locationId }: ReservationFormProps) {
+  const [form, setForm] = useState<ReservationFormState>(DEFAULT_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (field) => (e) => {
+  const handleChange = (field: keyof ReservationFormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
 
@@ -40,7 +62,7 @@ export default function ReservationForm({ open, onClose, onCreated, organization
 
     setBusy(true);
     try {
-      const { data, error: apiErr } = await api.request('POST', '/reservations', {
+      const { data, error: apiErr } = await api.request<Reservation>('POST', '/reservations', {
         body: {
           organization_id: organizationId,
           location_id: locationId,
@@ -55,10 +77,10 @@ export default function ReservationForm({ open, onClose, onCreated, organization
       });
       if (apiErr) throw new Error(apiErr.message);
       setForm(DEFAULT_FORM);
-      if (onCreated) onCreated(data);
+      if (onCreated && data) onCreated(data);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create reservation');
+      setError(err instanceof Error ? err.message : 'Failed to create reservation');
     } finally {
       setBusy(false);
     }
