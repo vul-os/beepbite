@@ -1,4 +1,4 @@
-// stamps-config.jsx — owner-facing settings form for the stamp programme.
+// stamps-config.tsx — owner-facing settings form for the stamp programme.
 //
 // Allows an org owner to:
 //   • Toggle the stamp programme on / off
