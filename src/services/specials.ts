@@ -17,21 +17,40 @@
 
 import { api } from '@/lib/api-client';
 
+export interface Special {
+  id: string;
+  name: string;
+  location_id: string;
+  price_cents: number;
+  special_price_cents: number | null;
+  special_date: string | null;
+  image_url: string | null;
+}
+
+export interface SetItemSpecialPayload {
+  is_daily_special: boolean;
+  special_price_cents?: number | null;
+  special_date?: string | null;
+}
+
+interface FetchError extends Error {
+  status?: number;
+}
+
 /**
  * Fetch today's specials for a location.
  *
- * @param {string} locationId  - UUID of the location to fetch specials for
- * @returns {Promise<Array>}   - Array of Special objects (empty when none)
- * @throws {Error}             - On HTTP error or network failure
+ * @param locationId  - UUID of the location to fetch specials for
+ * @throws {Error}     - On HTTP error or network failure
  */
-export async function fetchSpecials(locationId) {
+export async function fetchSpecials(locationId: string): Promise<Special[]> {
   if (!locationId) throw new Error('locationId is required');
 
   const qs = new URLSearchParams({ location_id: locationId });
-  const { data, error } = await api.request('GET', `/specials?${qs}`);
+  const { data, error } = await api.request<Special[]>('GET', `/specials?${qs}`);
 
   if (error) {
-    const e = new Error(error.message || 'Failed to fetch specials');
+    const e: FetchError = new Error(error.message || 'Failed to fetch specials');
     e.status = error.status;
     throw e;
   }
@@ -43,20 +62,19 @@ export async function fetchSpecials(locationId) {
  * Toggle or update an item's daily-special status.
  * Requires the caller to have owner or manager role.
  *
- * @param {string} itemId - UUID of the item to update
- * @param {{ is_daily_special: boolean, special_price_cents?: number|null, special_date?: string|null }} payload
- * @returns {Promise<{ item_id: string, is_daily_special: boolean }>}
+ * @param itemId - UUID of the item to update
  * @throws {Error} - On HTTP error or network failure
  */
-export async function setItemSpecial(itemId, payload) {
+export async function setItemSpecial(itemId: string, payload: SetItemSpecialPayload) {
   if (!itemId) throw new Error('itemId is required');
 
-  const { data, error } = await api.request('PUT', `/items/${encodeURIComponent(itemId)}/special`, {
-    body: payload,
-  });
+  const { data, error } = await api.request<{ item_id: string; is_daily_special: boolean }>(
+    'PUT', `/items/${encodeURIComponent(itemId)}/special`,
+    { body: payload },
+  );
 
   if (error) {
-    const e = new Error(error.message || 'Failed to update special');
+    const e: FetchError = new Error(error.message || 'Failed to update special');
     e.status = error.status;
     throw e;
   }

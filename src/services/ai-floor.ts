@@ -9,18 +9,34 @@
 
 import { api } from '@/lib/api-client';
 
+interface FetchError extends Error {
+  status?: number;
+}
+
+interface GenerateResponse {
+  success: boolean;
+  message?: string;
+  plan: unknown;
+  stats: unknown;
+}
+
+interface ApplyResponse {
+  success: boolean;
+  message?: string;
+  stats: { sections_created: number; tables_created: number };
+}
+
 /**
  * Ask the backend to generate a floor-plan proposal from a description.
  * Route: POST /ai/floor  { action:"generate", location_id, description }
- * @returns {Promise<{plan: object, stats: object}>}
  */
-export async function generateFloor(locationId, description) {
+export async function generateFloor(locationId: string, description: string) {
   if (!locationId) throw new Error('locationId required');
-  const { data, error } = await api.request('POST', '/ai/floor', {
+  const { data, error } = await api.request<GenerateResponse>('POST', '/ai/floor', {
     body: { action: 'generate', location_id: locationId, description },
   });
   if (error) {
-    const e = new Error(error.message || 'Failed to generate floor plan');
+    const e: FetchError = new Error(error.message || 'Failed to generate floor plan');
     e.status = error.status;
     throw e;
   }
@@ -33,16 +49,15 @@ export async function generateFloor(locationId, description) {
 /**
  * Persist a previously-generated (and reviewed) plan.
  * Route: POST /ai/floor  { action:"confirm", location_id, plan }
- * @returns {Promise<{stats: {sections_created: number, tables_created: number}}>}
  */
-export async function applyFloor(locationId, plan) {
+export async function applyFloor(locationId: string, plan: unknown) {
   if (!locationId) throw new Error('locationId required');
   if (!plan) throw new Error('plan required');
-  const { data, error } = await api.request('POST', '/ai/floor', {
+  const { data, error } = await api.request<ApplyResponse>('POST', '/ai/floor', {
     body: { action: 'confirm', location_id: locationId, plan },
   });
   if (error) {
-    const e = new Error(error.message || 'Failed to apply floor plan');
+    const e: FetchError = new Error(error.message || 'Failed to apply floor plan');
     e.status = error.status;
     throw e;
   }

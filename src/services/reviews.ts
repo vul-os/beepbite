@@ -10,32 +10,44 @@
 
 import { api } from '@/lib/api-client';
 
+export interface Review {
+  id: string;
+  stars: number;
+  rating?: number;
+  text?: string;
+  photos: string[];
+  created_at: string;
+  owner_reply?: string | null;
+  owner_replied_at?: string | null;
+}
+
 /**
  * Fetch public reviews for a store.
  *
- * @param {string} slug    — store URL slug
- * @param {number} [limit] — maximum reviews to return
- * @returns {Promise<{ data: Review[] | null, error: any }>}
+ * @param slug    — store URL slug
+ * @param limit — maximum reviews to return
  */
-export async function fetchStoreReviews(slug, limit) {
+export async function fetchStoreReviews(slug: string, limit?: number) {
   if (!slug) {
     return { data: null, error: { message: 'slug is required' } };
   }
   const qs = new URLSearchParams();
   if (limit != null) qs.set('limit', String(limit));
   const query = qs.toString() ? `?${qs.toString()}` : '';
-  return api.request('GET', `/stores/${encodeURIComponent(slug)}/reviews${query}`, { auth: false });
+  return api.request<Review[]>('GET', `/stores/${encodeURIComponent(slug)}/reviews${query}`, { auth: false });
 }
 
 /**
  * Submit a review for an order.  Requires the user to be authenticated.
  * Returns { data, error } — on 409 (already reviewed) `error.status === 409`.
- *
- * @param {{ orderId: string, stars: number, text?: string, photos?: string[] }} opts
- * @returns {Promise<{ data: any, error: any }>}
  */
-export async function submitReview({ orderId, stars, text, photos }) {
-  const body = { order_id: orderId, stars };
+export async function submitReview({ orderId, stars, text, photos }: {
+  orderId: string;
+  stars: number;
+  text?: string;
+  photos?: string[];
+}) {
+  const body: { order_id: string; stars: number; text?: string; photos?: string[] } = { order_id: orderId, stars };
   if (text)   body.text   = text;
   if (photos) body.photos = photos;
   return api.request('POST', '/reviews', { body });
@@ -44,11 +56,10 @@ export async function submitReview({ orderId, stars, text, photos }) {
 /**
  * Add or update an owner reply on a review.  Requires owner authentication.
  *
- * @param {string} reviewId — UUID of the review
- * @param {string} reply    — reply text
- * @returns {Promise<{ data: any, error: any }>}
+ * @param reviewId — UUID of the review
+ * @param reply    — reply text
  */
-export async function replyToReview(reviewId, reply) {
+export async function replyToReview(reviewId: string, reply: string) {
   return api.request('POST', `/reviews/${encodeURIComponent(reviewId)}/reply`, { body: { reply } });
 }
 
@@ -57,12 +68,12 @@ export async function replyToReview(reviewId, reply) {
 // Provides an instance-style API wrapping the named functions above.
 // ---------------------------------------------------------------------------
 
-let _locationId = null;
+let _locationId: string | null = null;
 
 const reviewsService = {
-  setLocationId(id) { _locationId = id; },
+  setLocationId(id: string | null) { _locationId = id; },
 
-  async getReviewsData(timeRange, limit = 100) {
+  async getReviewsData(timeRange?: unknown, limit = 100) {
     const slug = _locationId ?? '';
     const { data, error } = await fetchStoreReviews(slug, limit);
     // A store that isn't published to the marketplace yet (or has no slug)
@@ -79,12 +90,12 @@ const reviewsService = {
     return {
       reviews,
       summary: { totalReviews, averageRating, anonymousReviews: 0, publicReviews: totalReviews, reviewsWithComments: reviews.filter(r => r.text).length },
-      ratingStats: { average: averageRating.toFixed(1), distribution: [] },
-      trends: [],
+      ratingStats: { average: averageRating.toFixed(1), distribution: [] as unknown[] },
+      trends: [] as unknown[],
     };
   },
 
-  async saveReviewReply(reviewId, reply) {
+  async saveReviewReply(reviewId: string, reply: string) {
     const { data, error } = await replyToReview(reviewId, reply);
     if (error) throw new Error(error.message || 'Failed to save reply');
     return data;

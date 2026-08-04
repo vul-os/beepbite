@@ -10,23 +10,35 @@
 
 import { api } from '@/lib/api-client';
 
+export interface FavoriteItem {
+  id: string;
+  item_id: string;
+  name: string;
+  price_cents: number;
+  image_url: string | null;
+  created_at: string;
+}
+
+interface FetchError extends Error {
+  status?: number;
+}
+
 /**
  * List all favourite items for a customer.
  *
- * @param {string} customerId - UUID of the customer
- * @returns {Promise<Array>}  - Array of FavoriteItem objects, newest first
- * @throws {Error}            - On HTTP error or network failure
+ * @param customerId - UUID of the customer
+ * @throws {Error}    - On HTTP error or network failure
  */
-export async function listFavorites(customerId) {
+export async function listFavorites(customerId: string): Promise<FavoriteItem[]> {
   if (!customerId) throw new Error('customerId is required');
 
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<FavoriteItem[]>(
     'GET',
     `/customers/${encodeURIComponent(customerId)}/favorites`,
   );
 
   if (error) {
-    const e = new Error(error.message || 'Failed to fetch favorites');
+    const e: FetchError = new Error(error.message || 'Failed to fetch favorites');
     e.status = error.status;
     throw e;
   }
@@ -37,23 +49,23 @@ export async function listFavorites(customerId) {
 /**
  * Add an item to the customer's favourites (idempotent).
  *
- * @param {string} customerId - UUID of the customer
- * @param {string} itemId     - UUID of the menu item to favourite
- * @returns {Promise<Object>} - The created (or existing) FavoriteItem
- * @throws {Error}            - On HTTP error or network failure
+ * @param customerId - UUID of the customer
+ * @param itemId     - UUID of the menu item to favourite
+ * @returns The created (or existing) FavoriteItem
+ * @throws {Error}   - On HTTP error or network failure
  */
-export async function addFavorite(customerId, itemId) {
+export async function addFavorite(customerId: string, itemId: string) {
   if (!customerId) throw new Error('customerId is required');
   if (!itemId) throw new Error('itemId is required');
 
-  const { data, error } = await api.request(
+  const { data, error } = await api.request<FavoriteItem>(
     'POST',
     `/customers/${encodeURIComponent(customerId)}/favorites`,
     { body: { item_id: itemId } },
   );
 
   if (error) {
-    const e = new Error(error.message || 'Failed to add favorite');
+    const e: FetchError = new Error(error.message || 'Failed to add favorite');
     e.status = error.status;
     throw e;
   }
@@ -64,12 +76,11 @@ export async function addFavorite(customerId, itemId) {
 /**
  * Remove an item from the customer's favourites.
  *
- * @param {string} customerId - UUID of the customer
- * @param {string} itemId     - UUID of the menu item to un-favourite
- * @returns {Promise<void>}
- * @throws {Error}            - On HTTP error or network failure
+ * @param customerId - UUID of the customer
+ * @param itemId     - UUID of the menu item to un-favourite
+ * @throws {Error}   - On HTTP error or network failure
  */
-export async function removeFavorite(customerId, itemId) {
+export async function removeFavorite(customerId: string, itemId: string): Promise<void> {
   if (!customerId) throw new Error('customerId is required');
   if (!itemId) throw new Error('itemId is required');
 
@@ -79,7 +90,7 @@ export async function removeFavorite(customerId, itemId) {
   );
 
   if (error) {
-    const e = new Error(error.message || 'Failed to remove favorite');
+    const e: FetchError = new Error(error.message || 'Failed to remove favorite');
     e.status = error.status;
     throw e;
   }

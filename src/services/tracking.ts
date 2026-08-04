@@ -26,7 +26,34 @@ import { api } from '@/lib/api-client';
  * normalizeTracking() bridges the two so the page never has to know about
  * the flat wire format.
  */
-function normalizeTracking(raw) {
+type TrackingStatus =
+  | 'pending' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery'
+  | 'delivered' | 'completed' | 'cancelled';
+
+interface RawTracking {
+  token: string;
+  order_id: string;
+  status: TrackingStatus;
+  fulfillment_type: string;
+  estimated_delivery_time?: string;
+  store_lat?: number;
+  store_lng?: number;
+  delivery_address?: string;
+  delivery_lat?: number;
+  delivery_lng?: number;
+  driver?: { lat: number; lng: number; recorded_at: string };
+}
+
+export interface TrackingPayload {
+  status: TrackingStatus;
+  fulfillmentType: string;
+  eta_minutes: number | null;
+  store: { lat?: number; lng?: number } | null;
+  delivery_address: { lat: number | null; lng: number | null; label: string | null };
+  driver: { lat: number; lng: number } | null;
+}
+
+function normalizeTracking(raw: RawTracking | null): TrackingPayload | null {
   if (!raw) return raw;
 
   const hasStoreCoords = raw.store_lat != null && raw.store_lng != null;
@@ -46,8 +73,8 @@ function normalizeTracking(raw) {
     // there's no name/address field to carry through here.
     store: hasStoreCoords ? { lat: raw.store_lat, lng: raw.store_lng } : null,
     delivery_address: {
-      lat: hasDeliveryCoords ? raw.delivery_lat : null,
-      lng: hasDeliveryCoords ? raw.delivery_lng : null,
+      lat: hasDeliveryCoords ? raw.delivery_lat ?? null : null,
+      lng: hasDeliveryCoords ? raw.delivery_lng ?? null : null,
       label: raw.delivery_address || null,
     },
     driver: raw.driver ? { lat: raw.driver.lat, lng: raw.driver.lng } : null,
@@ -57,14 +84,13 @@ function normalizeTracking(raw) {
 /**
  * Fetch live tracking data for an order by its tracking token.
  *
- * @param {string} token  — URL-safe tracking token from the customer link
- * @returns {Promise<{ data: TrackingPayload | null, error: { message: string, status: number } | null }>}
+ * @param token  — URL-safe tracking token from the customer link
  */
-export async function fetchTracking(token) {
+export async function fetchTracking(token: string) {
   if (!token) {
     return { data: null, error: { message: 'No tracking token provided', status: 400 } };
   }
-  const { data, error } = await api.request('GET', `/track/${encodeURIComponent(token)}`, { auth: false });
+  const { data, error } = await api.request<RawTracking>('GET', `/track/${encodeURIComponent(token)}`, { auth: false });
   if (error) return { data: null, error };
   return { data: normalizeTracking(data), error: null };
 }

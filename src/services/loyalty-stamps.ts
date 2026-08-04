@@ -21,24 +21,44 @@
 
 import { api } from '@/lib/api-client';
 
+export interface StampConfig {
+  organization_id: string;
+  stamps_enabled: boolean;
+  stamps_required: number;
+  stamp_item_id: string | null;
+  updated_at: string;
+}
+
+export interface CustomerStamps {
+  customer_id: string;
+  organization_id: string;
+  stamps: number;
+  stamps_required: number;
+  stamps_until_free: number;
+  location_id: string;
+  updated_at: string;
+}
+
+export interface AccrueResult extends CustomerStamps {
+  reward_earned: boolean;
+}
+
 /**
  * Fetch the org's stamp programme configuration.
- *
- * @returns {Promise<{ data: StampConfig, error: object }>}
- *   StampConfig: { organization_id, stamps_enabled, stamps_required, stamp_item_id, updated_at }
  */
 export async function getStampConfig() {
-  return api.request('GET', '/loyalty/stamps/config');
+  return api.request<StampConfig>('GET', '/loyalty/stamps/config');
 }
 
 /**
  * Save the org's stamp programme configuration.
- *
- * @param {{ stampsEnabled: boolean, stampsRequired: number, stampItemId?: string|null }} opts
- * @returns {Promise<{ data: StampConfig, error: object }>}
  */
-export async function setStampConfig({ stampsEnabled, stampsRequired, stampItemId }) {
-  return api.request('PUT', '/loyalty/stamps/config', {
+export async function setStampConfig({ stampsEnabled, stampsRequired, stampItemId }: {
+  stampsEnabled: boolean;
+  stampsRequired: number;
+  stampItemId?: string | null;
+}) {
+  return api.request<StampConfig>('PUT', '/loyalty/stamps/config', {
     body: {
       stamps_enabled: stampsEnabled,
       stamps_required: stampsRequired,
@@ -50,13 +70,10 @@ export async function setStampConfig({ stampsEnabled, stampsRequired, stampItemI
 /**
  * Fetch the current stamp count for a customer.
  *
- * @param {string} customerId  — UUID of the customer
- * @returns {Promise<{ data: CustomerStamps, error: object }>}
- *   CustomerStamps: { customer_id, organization_id, stamps, stamps_required,
- *                     stamps_until_free, location_id, updated_at }
+ * @param customerId  — UUID of the customer
  */
-export async function getCustomerStamps(customerId) {
-  return api.request('GET', `/customers/${customerId}/stamps`);
+export async function getCustomerStamps(customerId: string) {
+  return api.request<CustomerStamps>('GET', `/customers/${customerId}/stamps`);
 }
 
 /**
@@ -66,13 +83,11 @@ export async function getCustomerStamps(customerId) {
  * the response includes `reward_earned: true` — the caller is responsible for
  * issuing the free item or coupon.
  *
- * @param {string} customerId  — UUID of the customer
- * @param {number} [count=1]   — number of stamps to add (≥ 1)
- * @returns {Promise<{ data: AccrueResult, error: object }>}
- *   AccrueResult: CustomerStamps & { reward_earned: boolean }
+ * @param customerId  — UUID of the customer
+ * @param count   — number of stamps to add (≥ 1)
  */
-export async function accrueStamp(customerId, count = 1) {
-  return api.request('POST', `/customers/${customerId}/stamps/accrue`, {
+export async function accrueStamp(customerId: string, count = 1) {
+  return api.request<AccrueResult>('POST', `/customers/${customerId}/stamps/accrue`, {
     body: { count },
   });
 }
