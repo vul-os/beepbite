@@ -18,9 +18,14 @@ export interface Domain {
 
 /**
  * List all custom domains for a location.
+ *
+ * The backend wraps the array as `{ data: Domain[] }` (see
+ * backend/internal/handlers/customdomains/handler.go's `writeJSON(w, http.StatusOK,
+ * map[string]interface{}{"data": domains})`) rather than returning a bare array —
+ * callers must unwrap `.data`.
  */
 export async function listDomains(locationId: string) {
-  return api.request<Domain[]>('GET', `/domains?location_id=${encodeURIComponent(locationId)}`);
+  return api.request<{ data: Domain[] } | Domain[]>('GET', `/domains?location_id=${encodeURIComponent(locationId)}`);
 }
 
 /**

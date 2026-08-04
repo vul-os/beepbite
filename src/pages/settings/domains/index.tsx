@@ -66,13 +66,14 @@ import {
   addDomain,
   removeDomain,
   verifyDomain,
+  type Domain,
 } from '@/services/domains';
 
 // ---------------------------------------------------------------------------
 // Status helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_LABEL = {
+const STATUS_LABEL: Record<string, string> = {
   pending:      'Pending DNS',
   verifying:    'Verifying',
   verified:     'Verified',
@@ -85,7 +86,7 @@ const STATUS_LABEL = {
 // non-terminal state: pending/verifying are neutral (nothing to act on yet),
 // verified/live are the "this is good" success signal, cert_issuing is a
 // transient in-progress caution, failed is the genuinely destructive one.
-const STATUS_VARIANT = {
+const STATUS_VARIANT: Record<string, string> = {
   pending:      'secondary',
   verifying:    'secondary',
   verified:     'success',
@@ -94,9 +95,9 @@ const STATUS_VARIANT = {
   failed:       'destructive',
 };
 
-function StatusBadge({ status }) {
+function StatusBadge({ status }: { status: string }) {
   return (
-    <Badge variant={STATUS_VARIANT[status] ?? 'secondary'}>
+    <Badge variant={(STATUS_VARIANT[status] ?? 'secondary') as 'secondary' | 'success' | 'warning' | 'destructive'}>
       {STATUS_LABEL[status] ?? status}
     </Badge>
   );
@@ -106,7 +107,7 @@ function StatusBadge({ status }) {
 // Copy-to-clipboard button
 // ---------------------------------------------------------------------------
 
-function CopyButton({ value }) {
+function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -135,7 +136,7 @@ function CopyButton({ value }) {
 // DNS instructions card
 // ---------------------------------------------------------------------------
 
-function DnsInstructions({ domain }) {
+function DnsInstructions({ domain }: { domain: Domain }) {
   const txtHost = `_beepbite-verify.${domain.hostname}`;
   const txtValue = domain.verification_token;
   const cnameTarget = 'mystore.beepbite.io';
@@ -198,7 +199,12 @@ function DnsInstructions({ domain }) {
 // Domain row
 // ---------------------------------------------------------------------------
 
-function DomainRow({ domain, onVerify, onRemove, verifying }) {
+function DomainRow({ domain, onVerify, onRemove, verifying }: {
+  domain: Domain;
+  onVerify: (id: string) => void;
+  onRemove: (domain: Domain) => void;
+  verifying: string | null;
+}) {
   const [expanded, setExpanded] = useState(false);
   const needsDns = ['pending', 'verifying', 'failed'].includes(domain.status);
 
@@ -276,22 +282,22 @@ function DomainRow({ domain, onVerify, onRemove, verifying }) {
 export default function DomainsSettingsPage() {
   const { activeLocation } = useAuth();
 
-  const [domains, setDomains] = useState([]);
+  const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Add dialog state
   const [addOpen, setAddOpen] = useState(false);
   const [hostname, setHostname] = useState('');
-  const [addError, setAddError] = useState(null);
+  const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   // Verify state
-  const [verifying, setVerifying] = useState(null); // domain id being verified
-  const [verifyError, setVerifyError] = useState(null);
+  const [verifying, setVerifying] = useState<string | null>(null); // domain id being verified
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   // Remove alert state
-  const [removeTarget, setRemoveTarget] = useState(null);
+  const [removeTarget, setRemoveTarget] = useState<Domain | null>(null);
   const [removing, setRemoving] = useState(false);
 
   // ---------------------------------------------------------------------------
@@ -306,7 +312,7 @@ export default function DomainsSettingsPage() {
     if (err) {
       setError(err.message || 'Failed to load domains');
     } else {
-      setDomains(data?.data ?? data ?? []);
+      setDomains(Array.isArray(data) ? data : (data?.data ?? []));
     }
     setLoading(false);
   }, [activeLocation?.id]);
@@ -319,6 +325,7 @@ export default function DomainsSettingsPage() {
 
   async function handleAdd() {
     if (!hostname.trim()) { setAddError('Hostname is required'); return; }
+    if (!activeLocation) return;
     setAdding(true);
     setAddError(null);
 
@@ -333,7 +340,7 @@ export default function DomainsSettingsPage() {
       return;
     }
 
-    setDomains((prev) => [data, ...prev]);
+    setDomains((prev) => [data!, ...prev]);
     setHostname('');
     setAddOpen(false);
     setAdding(false);
@@ -343,7 +350,7 @@ export default function DomainsSettingsPage() {
   // Verify
   // ---------------------------------------------------------------------------
 
-  async function handleVerify(id) {
+  async function handleVerify(id: string) {
     setVerifying(id);
     setVerifyError(null);
 
@@ -352,7 +359,7 @@ export default function DomainsSettingsPage() {
     if (err) {
       setVerifyError(err.message || 'Verification failed');
     } else {
-      setDomains((prev) => prev.map((d) => (d.id === id ? data : d)));
+      setDomains((prev) => prev.map((d) => (d.id === id ? data! : d)));
     }
     setVerifying(null);
   }
