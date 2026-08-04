@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
 
-// GeoJSON Polygon, as produced/consumed by components/polygon-editor.jsx
+// GeoJSON Polygon, as produced/consumed by components/polygon-editor.tsx
 // (coordinates: array of linear rings, each ring an array of [lng, lat]).
 export interface GeoJSONPolygon {
   type: 'Polygon';

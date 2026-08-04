@@ -17,9 +17,15 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Trash2, Undo2, ChevronDown, ChevronUp } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import type { GeoJSONPolygon } from '../hooks/use-delivery-zones';
+
+interface LatLng {
+  lat: number;
+  lng: number;
+}
 
 // Fix Leaflet's broken default icon URLs when bundled with Vite
-delete L.Icon.Default.prototype._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -29,13 +35,13 @@ L.Icon.Default.mergeOptions({
 // ---- coordinate conversion helpers ----
 
 /** GeoJSON [lng, lat] ring → Leaflet [lat, lng] positions */
-function geoJsonRingToLatLngs(ring) {
+function geoJsonRingToLatLngs(ring: number[][]): LatLng[] {
   // ring is [[lng, lat], ...] — GeoJSON is lng-first
   return ring.map(([lng, lat]) => ({ lat, lng }));
 }
 
 /** Leaflet {lat, lng}[] → GeoJSON [lng, lat][][] */
-function latLngsToGeoJson(positions) {
+function latLngsToGeoJson(positions: LatLng[]): GeoJSONPolygon | null {
   if (positions.length < 3) return null;
   // GeoJSON requires the ring to be closed (first === last)
   const ring = positions.map(({ lat, lng }) => [lng, lat]);
@@ -43,12 +49,12 @@ function latLngsToGeoJson(positions) {
   return { type: 'Polygon', coordinates: [ring] };
 }
 
-function polygonToText(poly) {
+function polygonToText(poly?: GeoJSONPolygon | null): string {
   if (!poly) return '';
   try { return JSON.stringify(poly, null, 2); } catch { return ''; }
 }
 
-function textToPolygon(text) {
+function textToPolygon(text: string): { ok: true; polygon: GeoJSONPolygon } | { ok: false; error: string } {
   try {
     const obj = JSON.parse(text);
     if (obj && obj.type === 'Polygon' && Array.isArray(obj.coordinates)) {
@@ -56,13 +62,13 @@ function textToPolygon(text) {
     }
     return { ok: false, error: 'Must be a GeoJSON Polygon with a "coordinates" array.' };
   } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: false, error: e instanceof Error ? e.message : 'Invalid JSON.' };
   }
 }
 
 // ---- map click listener (must be a child of MapContainer) ----
 
-function ClickHandler({ onMapClick }) {
+function ClickHandler({ onMapClick }: { onMapClick: (latlng: LatLng) => void }) {
   useMapEvents({
     click(e) {
       onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
@@ -73,9 +79,15 @@ function ClickHandler({ onMapClick }) {
 
 // ---- main export ----
 
-const CAPE_TOWN = [-33.9249, 18.4241];
+const CAPE_TOWN: [number, number] = [-33.9249, 18.4241];
 
-export default function PolygonEditor({ value, onChange, center }) {
+interface PolygonEditorProps {
+  value?: GeoJSONPolygon | null;
+  onChange: (polygon: GeoJSONPolygon | null) => void;
+  center?: [number, number];
+}
+
+export default function PolygonEditor({ value, onChange, center }: PolygonEditorProps) {
   // Initialise vertex list from existing GeoJSON (if any)
   const initialPositions = React.useMemo(() => {
     if (!value?.coordinates?.[0]?.length) return [];
@@ -87,22 +99,22 @@ export default function PolygonEditor({ value, onChange, center }) {
     return geoJsonRingToLatLngs(open);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [positions, setPositions] = useState(initialPositions); // [{lat, lng}]
+  const [positions, setPositions] = useState<LatLng[]>(initialPositions);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rawText, setRawText] = useState(() => value ? polygonToText(value) : '');
-  const [rawError, setRawError] = useState(null);
+  const [rawError, setRawError] = useState<string | null>(null);
 
   // Determine map centre: prop > location lat/lng > Cape Town default
   const mapCenter = center ?? CAPE_TOWN;
 
   // Commit the current positions array as GeoJSON and notify parent
-  const commit = useCallback((next) => {
+  const commit = useCallback((next: LatLng[]) => {
     const geojson = latLngsToGeoJson(next);
     onChange(geojson); // may be null if < 3 vertices — parent validates on submit
     setRawText(geojson ? polygonToText(geojson) : '');
   }, [onChange]);
 
-  const handleMapClick = useCallback((latlng) => {
+  const handleMapClick = useCallback((latlng: LatLng) => {
     const next = [...positions, latlng];
     setPositions(next);
     commit(next);
@@ -121,7 +133,7 @@ export default function PolygonEditor({ value, onChange, center }) {
   };
 
   // Advanced textarea: parse GeoJSON and populate map
-  const handleRawChange = (e) => {
+  const handleRawChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setRawText(text);
     const result = textToPolygon(text);
@@ -139,7 +151,7 @@ export default function PolygonEditor({ value, onChange, center }) {
     }
   };
 
-  const leafletPositions = positions.map((p) => [p.lat, p.lng]);
+  const leafletPositions: [number, number][] = positions.map((p) => [p.lat, p.lng]);
 
   return (
     <div className="space-y-3">

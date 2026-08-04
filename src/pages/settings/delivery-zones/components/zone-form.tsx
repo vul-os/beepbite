@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import type { ReactNode, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import PolygonEditor from './polygon-editor';
+import type { DeliveryZone, GeoJSONPolygon } from '../hooks/use-delivery-zones';
+import type { Location } from '@/context/auth-context';
 
-function field(label, children) {
+function field(label: string, children: ReactNode) {
   return (
     <div className="space-y-1">
       <Label className="text-sm font-medium">{label}</Label>
@@ -14,17 +17,27 @@ function field(label, children) {
   );
 }
 
-export default function ZoneForm({ initial, organizationId, locationId, location, onSubmit, onCancel, saving }) {
+interface ZoneFormProps {
+  initial?: DeliveryZone | null;
+  organizationId?: string;
+  locationId?: string;
+  location?: Location | null;
+  onSubmit: (payload: Partial<DeliveryZone>) => void;
+  onCancel: () => void;
+  saving: boolean;
+}
+
+export default function ZoneForm({ initial, organizationId, locationId, location, onSubmit, onCancel, saving }: ZoneFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [deliveryFeeCents, setDeliveryFeeCents] = useState(initial?.delivery_fee_cents ?? 0);
-  const [minOrderCents, setMinOrderCents] = useState(initial?.min_order_cents ?? 0);
-  const [etaMinutes, setEtaMinutes] = useState(initial?.estimated_eta_minutes ?? 30);
-  const [priority, setPriority] = useState(initial?.priority ?? 0);
+  const [deliveryFeeCents, setDeliveryFeeCents] = useState<number | string>(initial?.delivery_fee_cents ?? 0);
+  const [minOrderCents, setMinOrderCents] = useState<number | string>(initial?.min_order_cents ?? 0);
+  const [etaMinutes, setEtaMinutes] = useState<number | string>(initial?.estimated_eta_minutes ?? 30);
+  const [priority, setPriority] = useState<number | string>(initial?.priority ?? 0);
   const [isActive, setIsActive] = useState(initial?.is_active ?? true);
-  const [polygon, setPolygon] = useState(initial?.polygon ?? null);
+  const [polygon, setPolygon] = useState<GeoJSONPolygon | null>(initial?.polygon ?? null);
   const [polygonError, setPolygonError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!name.trim()) return;
     if (!polygon || !polygon.coordinates?.[0]?.length) {

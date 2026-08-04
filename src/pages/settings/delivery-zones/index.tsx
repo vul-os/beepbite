@@ -40,7 +40,7 @@ import { useAuth } from '@/context/auth-context';
 import { useMoney } from '@/context/locale-context';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader, PageContainer } from '@/components/ui/page-header';
-import { useDeliveryZones } from './hooks/use-delivery-zones';
+import { useDeliveryZones, type DeliveryZone } from './hooks/use-delivery-zones';
 import ZoneForm from './components/zone-form';
 
 // ---- page ----
@@ -61,17 +61,17 @@ export default function DeliveryZonesPage() {
   } = useDeliveryZones(activeLocation?.id);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = new, obj = edit
+  const [editing, setEditing] = useState<DeliveryZone | null>(null); // null = new, obj = edit
   const [saving, setSaving] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
+  const [toDelete, setToDelete] = useState<DeliveryZone | null>(null);
 
   // ---- sheet actions ----
 
   const openNew = () => { setEditing(null); setSheetOpen(true); };
-  const openEdit = (zone) => { setEditing(zone); setSheetOpen(true); };
+  const openEdit = (zone: DeliveryZone) => { setEditing(zone); setSheetOpen(true); };
   const closeSheet = () => { setSheetOpen(false); setEditing(null); };
 
-  const handleSubmit = async (payload) => {
+  const handleSubmit = async (payload: Partial<DeliveryZone>) => {
     setSaving(true);
     try {
       if (editing?.id) {
@@ -82,7 +82,7 @@ export default function DeliveryZonesPage() {
       closeSheet();
       toast({ title: editing?.id ? 'Zone updated.' : 'Zone created.' });
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Save failed', description: err.message });
+      toast({ variant: 'destructive', title: 'Save failed', description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setSaving(false);
     }
@@ -96,7 +96,7 @@ export default function DeliveryZonesPage() {
       await deleteZone(toDelete.id);
       toast({ title: 'Zone deactivated.' });
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Deactivate failed', description: err.message });
+      toast({ variant: 'destructive', title: 'Deactivate failed', description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setToDelete(null);
     }
