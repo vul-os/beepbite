@@ -16,15 +16,25 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { CalendarClock, CheckCircle2, Loader2, Users, UtensilsCrossed, Wrench } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Loader2, Users, UtensilsCrossed, Wrench, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import type { FloorTable, TableStatus } from '../hooks/use-tables';
+
+interface StatusMeta {
+  label: string;
+  icon: LucideIcon;
+  roundel: string;
+  tile: string;
+  border: string;
+}
 
 // Four statuses the backend actually models (see backend/cmd/seedcopper and
 // use-tables.js) — there is no separate "needs_cleaning" enum value; a table
 // coming out of service covers both "broken" and "needs a wipe-down before
 // the next seating", so the label and icon below are written to read
 // naturally for either.
-const STATUS_META = {
+const STATUS_META: Record<TableStatus, StatusMeta> = {
   available: {
     label: 'Available',
     icon: CheckCircle2,
@@ -57,14 +67,20 @@ const STATUS_META = {
   },
 };
 
-function statusMeta(status) {
+function statusMeta(status: TableStatus) {
   return STATUS_META[status] || STATUS_META.available;
 }
 
 export const TABLE_WIDTH = 96;
 export const TABLE_HEIGHT = 72;
 
-function CardContent({ table, badge, busy }) {
+interface CardContentProps {
+  table: FloorTable;
+  badge?: ReactNode;
+  busy?: boolean;
+}
+
+function CardContent({ table, badge, busy }: CardContentProps) {
   const status = table.status || 'available';
   const meta = statusMeta(status);
   const Icon = meta.icon;
@@ -114,13 +130,21 @@ function CardContent({ table, badge, busy }) {
   );
 }
 
+interface TableCardProps {
+  table: FloorTable;
+  editable?: boolean;
+  onActivate?: (table: FloorTable) => void;
+  badge?: ReactNode;
+  busy?: boolean;
+}
+
 export default function TableCard({
   table,
   editable = false,
   onActivate,
   badge = null,
   busy = false,
-}) {
+}: TableCardProps) {
   const x = Number(table.pos_x) || 0;
   const y = Number(table.pos_y) || 0;
   const status = table.status || 'available';
@@ -152,7 +176,16 @@ export default function TableCard({
   return <DraggableTable table={table} x={x} y={y} badge={badge} busy={busy} meta={meta} />;
 }
 
-function DraggableTable({ table, x, y, badge, busy, meta }) {
+interface DraggableTableProps {
+  table: FloorTable;
+  x: number;
+  y: number;
+  badge?: ReactNode;
+  busy?: boolean;
+  meta: StatusMeta;
+}
+
+function DraggableTable({ table, x, y, badge, busy, meta }: DraggableTableProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: table.id, data: { table } });
 
@@ -171,8 +204,6 @@ function DraggableTable({ table, x, y, badge, busy, meta }) {
       ref={setNodeRef}
       style={style}
       className="absolute touch-none focus-ring-strong"
-      role="button"
-      tabIndex={0}
       aria-label={`Table ${table.label}, ${meta.label}, seats ${table.capacity}. Drag to reposition.`}
       {...listeners}
       {...attributes}

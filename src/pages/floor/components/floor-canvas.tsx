@@ -5,20 +5,22 @@
 // Snap-to-grid: positions are rounded to the nearest GRID_PX (16px) before
 // emitting onDragPersist.
 
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
 import {
   DndContext,
   PointerSensor,
   useSensor,
   useSensors,
+  type DragEndEvent,
 } from '@dnd-kit/core';
 import TableCard, { TABLE_WIDTH, TABLE_HEIGHT } from './table-card';
+import type { FloorTable } from '../hooks/use-tables';
 
 const GRID_PX = 16;
 const CANVAS_W = 1200;
 const CANVAS_H = 720;
 
-function snap(n) {
+function snap(n: number) {
   return Math.max(0, Math.round(n / GRID_PX) * GRID_PX);
 }
 
@@ -45,6 +47,15 @@ function GridBackground() {
   );
 }
 
+interface FloorCanvasProps {
+  tables?: FloorTable[];
+  editable?: boolean;
+  onActivate?: (table: FloorTable) => void;
+  onDragPersist?: (table: FloorTable, pos: { pos_x: number; pos_y: number }) => void;
+  renderBadge?: (table: FloorTable) => ReactNode;
+  busyIds?: Set<string>;
+}
+
 export default function FloorCanvas({
   tables = [],
   editable = false,
@@ -52,14 +63,14 @@ export default function FloorCanvas({
   onDragPersist,
   renderBadge,
   busyIds = new Set(),
-}) {
+}: FloorCanvasProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const canvasRef = useRef(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
-  const handleDragEnd = (event) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     if (!editable || !onDragPersist) return;
     const { active, delta } = event;
-    const tbl = active?.data?.current?.table;
+    const tbl = active?.data?.current?.table as FloorTable | undefined;
     if (!tbl) return;
     const x = snap(Number(tbl.pos_x || 0) + delta.x);
     const y = snap(Number(tbl.pos_y || 0) + delta.y);
