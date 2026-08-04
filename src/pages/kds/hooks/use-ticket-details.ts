@@ -17,16 +17,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
+import type { KdsTicketDetail } from '../types';
 
-export function useTicketDetails(ticketIds) {
+export function useTicketDetails(ticketIds: string[]) {
   // Map<ticket_id, detailObj>
-  const [cache, setCache] = useState(() => new Map());
+  const [cache, setCache] = useState<Map<string, KdsTicketDetail>>(() => new Map());
   // Set<ticket_id>
-  const [loading, setLoading] = useState(() => new Set());
+  const [loading, setLoading] = useState<Set<string>>(() => new Set());
   // Map<ticket_id, errMsg> — kept separately so we can decide to retry
-  const [errors, setErrors] = useState(() => new Map());
+  const [errors, setErrors] = useState<Map<string, string>>(() => new Map());
 
-  const inFlightRef = useRef(new Set());
+  const inFlightRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
 
   // Reset true on mount — React 18 StrictMode unmounts then remounts, and a
@@ -36,7 +37,7 @@ export function useTicketDetails(ticketIds) {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const fetchOne = useCallback(async (ticketId, { force = false } = {}) => {
+  const fetchOne = useCallback(async (ticketId: string, { force = false }: { force?: boolean } = {}) => {
     if (!ticketId) return null;
     if (!force && inFlightRef.current.has(ticketId)) return null;
     inFlightRef.current.add(ticketId);
@@ -47,7 +48,7 @@ export function useTicketDetails(ticketIds) {
       return next;
     });
 
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<KdsTicketDetail>(
       'GET',
       `/kds/tickets/${encodeURIComponent(ticketId)}/details`,
     );
@@ -77,11 +78,13 @@ export function useTicketDetails(ticketIds) {
       next.delete(ticketId);
       return next;
     });
-    setCache((prev) => {
-      const next = new Map(prev);
-      next.set(ticketId, data);
-      return next;
-    });
+    if (data) {
+      setCache((prev) => {
+        const next = new Map(prev);
+        next.set(ticketId, data);
+        return next;
+      });
+    }
     return data;
   }, []);
 
@@ -107,7 +110,7 @@ export function useTicketDetails(ticketIds) {
     const live = new Set(ticketIds.filter(Boolean));
     setCache((prev) => {
       let changed = false;
-      const next = new Map();
+      const next = new Map<string, KdsTicketDetail>();
       for (const [k, v] of prev) {
         if (live.has(k)) { next.set(k, v); } else { changed = true; }
       }
@@ -115,10 +118,10 @@ export function useTicketDetails(ticketIds) {
     });
   }, [ticketIds]);
 
-  const getDetails = useCallback((id) => cache.get(id) || null, [cache]);
-  const isLoading  = useCallback((id) => loading.has(id), [loading]);
-  const getError   = useCallback((id) => errors.get(id) || null, [errors]);
-  const refresh    = useCallback((id) => fetchOne(id, { force: true }), [fetchOne]);
+  const getDetails = useCallback((id: string) => cache.get(id) || null, [cache]);
+  const isLoading  = useCallback((id: string) => loading.has(id), [loading]);
+  const getError   = useCallback((id: string) => errors.get(id) || null, [errors]);
+  const refresh    = useCallback((id: string) => fetchOne(id, { force: true }), [fetchOne]);
 
   return { getDetails, isLoading, getError, refresh };
 }

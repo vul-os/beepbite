@@ -24,7 +24,7 @@ import { useEffect, useRef, useState } from 'react';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const AUTH_KEY = 'bb.auth';
 
-function readToken() {
+function readToken(): string | null {
   try {
     const raw = localStorage.getItem(AUTH_KEY);
     if (!raw) return null;
@@ -37,6 +37,15 @@ function readToken() {
 
 const BACKOFF_STEPS_MS = [1000, 2000, 4000, 8000, 16000, 30000];
 
+export type SSEStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed' | 'error';
+
+interface UseSSEOpts<T = unknown> {
+  onMessage?: (payload: T, ev: MessageEvent) => void;
+  onOpen?: () => void;
+  onError?: (err: unknown) => void;
+  enabled?: boolean;
+}
+
 /**
  * useSSE — open and maintain an EventSource against `path` (relative to API_URL).
  *
@@ -45,8 +54,8 @@ const BACKOFF_STEPS_MS = [1000, 2000, 4000, 8000, 16000, 30000];
  *
  * Callbacks are read from a ref so changing them doesn't tear down the stream.
  */
-export function useSSE(path, { onMessage, onOpen, onError, enabled = true } = {}) {
-  const [status, setStatus] = useState('idle');
+export function useSSE<T = unknown>(path: string | null, { onMessage, onOpen, onError, enabled = true }: UseSSEOpts<T> = {}) {
+  const [status, setStatus] = useState<SSEStatus>('idle');
   const cbsRef = useRef({ onMessage, onOpen, onError });
   cbsRef.current = { onMessage, onOpen, onError };
 
@@ -57,8 +66,8 @@ export function useSSE(path, { onMessage, onOpen, onError, enabled = true } = {}
     }
 
     let cancelled = false;
-    let es = null;
-    let retryTimer = null;
+    let es: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
     // Track whether we've ever opened cleanly with cookie auth. If a connection
     // dies before we received `onopen`, we suspect 401 and switch to ?token=.
@@ -78,7 +87,7 @@ export function useSSE(path, { onMessage, onOpen, onError, enabled = true } = {}
       setStatus(attempt === 0 ? 'connecting' : 'reconnecting');
 
       let url = `${API_URL}${path}`;
-      const opts = {};
+      const opts: EventSourceInit = {};
       if (useTokenFallback) {
         const tok = readToken();
         if (tok) {
@@ -108,9 +117,9 @@ export function useSSE(path, { onMessage, onOpen, onError, enabled = true } = {}
 
       es.onmessage = (ev) => {
         if (cancelled) return;
-        let payload = ev.data;
+        let payload: unknown = ev.data;
         try { payload = JSON.parse(ev.data); } catch { /* keep raw */ }
-        cbsRef.current.onMessage?.(payload, ev);
+        cbsRef.current.onMessage?.(payload as T, ev);
       };
 
       es.onerror = (err) => {

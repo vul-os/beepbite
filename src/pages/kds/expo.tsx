@@ -22,6 +22,7 @@ import { api } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { ExpoOrderCard } from './components/expo-order-card';
 import { useTick } from './hooks/use-tick';
+import type { ExpoOrder, ExpoStationTicket } from './types';
 
 const POLL_MS = 10_000;
 // Must match the orders.status CHECK constraint
@@ -31,6 +32,35 @@ const POLL_MS = 10_000;
 // We show all in-flight statuses on the expo board.
 const OPEN_ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
 
+// Mirrors the columns this page's own
+// `.select('id, order_number, order_type, status, created_at')` requests
+// from `orders` (backend/migrations/001_baseline.sql). `table_number` is
+// read below but is neither selected here nor a real column on `orders`
+// (dine-in seating lives on table_session_id instead) — pre-existing dead
+// read, flagged not fixed.
+interface OpenOrderRow {
+  id: string;
+  order_number?: string;
+  order_type?: string;
+  status?: string;
+  created_at?: string;
+  table_number?: string;
+}
+
+// Mirrors backend/internal/handlers/kds/store.go ExpoRow — the response of
+// GET /kds/orders/{order_id}/expo. `station_tickets` arrives as a
+// base64-encoded JSON string (Go []byte through json.Encoder); decoded by
+// decodeStationTickets() below.
+interface ExpoViewResponse {
+  order_id: string;
+  location_id?: string;
+  earliest_fired_at?: string;
+  all_ready?: boolean;
+  any_in_progress?: boolean;
+  station_tickets?: string | ExpoStationTicket[];
+  max_priority?: number;
+}
+
 // ---------------------------------------------------------------------------
 // base64 + JSON decode helper
 // station_tickets arrives as a base64-encoded JSONB string from the Go
@@ -38,7 +68,7 @@ const OPEN_ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_
 // base64). Decode with atob() first; fall back to direct JSON.parse in case
 // the format ever changes (e.g. a future endpoint that returns raw JSON).
 // ---------------------------------------------------------------------------
-function decodeStationTickets(raw) {
+function decodeStationTickets(raw: string | ExpoStationTicket[] | undefined): ExpoStationTicket[] {
   if (Array.isArray(raw)) return raw;
   if (typeof raw !== 'string') return [];
   // Try base64 → JSON first (current backend behaviour).
@@ -48,10 +78,10 @@ function decodeStationTickets(raw) {
 }
 
 export default function ExpoPage() {
-  const [orders, setOrders] = useState([]); // merged: order + station_tickets[]
+  const [orders, setOrders] = useState<ExpoOrder[]>([]); // merged: order + station_tickets[]
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const now = useTick();
   const mountedRef = useRef(true);
 
@@ -63,7 +93,7 @@ export default function ExpoPage() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const load = useCallback(async ({ background = false } = {}) => {
+  const load = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (background) setRefreshing(true); else setLoading(true);
     setError(null);
 
@@ -78,12 +108,12 @@ export default function ExpoPage() {
         .limit(100);
 
       if (ordersErr) throw new Error(ordersErr.message || 'failed to list orders');
-      const openOrders = Array.isArray(rawOrders) ? rawOrders : [];
+      const openOrders: OpenOrderRow[] = Array.isArray(rawOrders) ? rawOrders : [];
 
       // 2. Hydrate each with the kds expo view. Failures per-order are
       // tolerated — the order just shows up without station data.
-      const results = await Promise.all(openOrders.map(async (o) => {
-        const { data, error: expoErr } = await api.request('GET', `/kds/orders/${encodeURIComponent(o.id)}/expo`);
+      const results = await Promise.all(openOrders.map(async (o): Promise<ExpoOrder> => {
+        const { data, error: expoErr } = await api.request<ExpoViewResponse>('GET', `/kds/orders/${encodeURIComponent(o.id)}/expo`);
         if (expoErr || !data) {
           return {
             order_id: o.id,
@@ -119,7 +149,7 @@ export default function ExpoPage() {
       if (!mountedRef.current) return;
       setOrders(results);
     } catch (e) {
-      if (mountedRef.current) setError(e.message || 'failed to load expo data');
+      if (mountedRef.current) setError(e instanceof Error ? e.message : 'failed to load expo data');
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -260,7 +290,7 @@ function ExpoEmptyState() {
   );
 }
 
-function ExpoErrorState({ error, onRetry }) {
+function ExpoErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="mx-auto mt-12 flex max-w-md flex-col items-center gap-4 rounded-xl border border-red-800 bg-red-950/60 p-8 text-center">
       <AlertCircle className="size-10 text-red-400" aria-hidden="true" />

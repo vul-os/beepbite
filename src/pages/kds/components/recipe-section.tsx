@@ -9,24 +9,30 @@
 // fired tickets and stays true once at least one step has been ticked, so a
 // cook who's mid-recipe never loses their place if the parent re-renders.
 
-/* eslint-disable react/prop-types */
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, ListOrdered, Soup } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import type { KdsTicketItem } from '../types';
 
-function fmtIngredientQty(qty, unit) {
+function fmtIngredientQty(qty?: number, unit?: string) {
   const n = Number(qty);
   if (!Number.isFinite(n) || n <= 0) return unit || '';
   const display = Number.isInteger(n) ? n.toString() : n.toFixed(2).replace(/\.?0+$/, '');
   return unit ? `${display} ${unit}` : display;
 }
 
+interface RecipeSectionProps {
+  item: KdsTicketItem;
+  defaultOpen?: boolean;
+  storageKey?: string;
+}
+
 export function RecipeSection({
   item,
   defaultOpen = true,
   storageKey,
-}) {
+}: RecipeSectionProps) {
   const ingredients = Array.isArray(item?.ingredients) ? item.ingredients : [];
   const steps = Array.isArray(item?.prep_steps) ? item.prep_steps : [];
   const hasContent = ingredients.length > 0 || steps.length > 0;
@@ -34,7 +40,7 @@ export function RecipeSection({
   // Local "is open" + checked-step state. Keyed by storageKey if provided so
   // a remount (e.g. cache update from SSE) preserves the cook's progress.
   const [open, setOpen] = useState(defaultOpen);
-  const [checked, setChecked] = useState(() => new Set());
+  const [checked, setChecked] = useState<Set<number>>(() => new Set());
 
   // If the caller passes a new defaultOpen (e.g. ticket status flipped from
   // fired → in_progress externally), respect it — but never auto-close once
@@ -43,7 +49,7 @@ export function RecipeSection({
     if (checked.size === 0) setOpen(defaultOpen);
   }, [defaultOpen, checked.size]);
 
-  const toggleStep = (n) => {
+  const toggleStep = (n: number) => {
     setChecked((prev) => {
       const next = new Set(prev);
       if (next.has(n)) next.delete(n); else next.add(n);

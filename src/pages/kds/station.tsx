@@ -10,8 +10,7 @@
 //   5. Bump-bar keyboard hotkeys via useHotkeys (Wave 12):
 //      1-9 bump Nth ticket, Space bump focused, r recall, ? toggle help overlay.
 
-/* eslint-disable react/prop-types */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertCircle, Keyboard, Loader2, RefreshCw, RotateCcw, Wifi, WifiOff, X } from 'lucide-react';
 
@@ -23,30 +22,43 @@ import { useSSE } from './hooks/use-sse';
 import { useTick } from './hooks/use-tick';
 import { useTicketDetails } from './hooks/use-ticket-details';
 import { useHotkeys } from './hooks/use-hotkeys';
+import type { KdsTicket, KdsSSEEvent } from './types';
+import type { SSEStatus } from './hooks/use-sse';
 
 const RECALL_WINDOW_MS = 30_000;
 
+interface LastBump {
+  ticket: KdsTicket;
+  bumpedAtMs: number;
+}
+
+interface OptimisticActions {
+  apply: () => void;
+  rollback: () => void;
+  commit?: (data: KdsTicket | null) => void;
+}
+
 export default function StationPage() {
-  const { stationId } = useParams();
-  const [tickets, setTickets] = useState([]); // active tickets only
+  const { stationId } = useParams<{ stationId: string }>();
+  const [tickets, setTickets] = useState<KdsTicket[]>([]); // active tickets only
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
-  const [actionError, setActionError] = useState(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Track the last-bumped ticket so we can show a Recall button briefly.
   // { ticket, snapshot, bumpedAtMs } — snapshot is the pre-bump row for rollback.
-  const [lastBump, setLastBump] = useState(null);
+  const [lastBump, setLastBump] = useState<LastBump | null>(null);
 
   // Stash of tickets we've optimistically removed; used to rollback bumps that fail.
-  const removedCacheRef = useRef(new Map()); // ticket_id -> ticket
-  const inFlightRef = useRef(new Set());
+  const removedCacheRef = useRef<Map<string, KdsTicket>>(new Map()); // ticket_id -> ticket
+  const inFlightRef = useRef<Set<string>>(new Set());
 
   const now = useTick();
 
   // -------- initial + recovery fetch --------
   const refetch = useCallback(async () => {
     setFetchError(null);
-    const { data, error } = await api.request('GET', `/kds/stations/${encodeURIComponent(stationId)}/tickets`);
+    const { data, error } = await api.request<KdsTicket[]>('GET', `/kds/stations/${encodeURIComponent(stationId as string)}/tickets`);
     if (error) {
       setFetchError(error.message || 'Failed to load tickets');
       setLoading(false);
@@ -65,7 +77,7 @@ export default function StationPage() {
   }, [stationId, refetch]);
 
   // -------- SSE handler --------
-  const handleSSE = useCallback((evt) => {
+  const handleSSE = useCallback((evt: KdsSSEEvent) => {
     if (!evt || typeof evt !== 'object') return;
     const { ticket_id, event_type } = evt;
     if (!ticket_id) return;
@@ -99,20 +111,20 @@ export default function StationPage() {
     ? `/kds/stations/${encodeURIComponent(stationId)}/stream`
     : null;
 
-  const { status: sseStatus } = useSSE(ssePath, {
+  const { status: sseStatus } = useSSE<KdsSSEEvent>(ssePath, {
     onMessage: handleSSE,
     enabled: !!stationId,
   });
 
   // -------- mutation helpers --------
-  const doAction = useCallback(async (action, ticket, { optimistic } = {}) => {
+  const doAction = useCallback(async (action: string, ticket: KdsTicket, { optimistic }: { optimistic?: OptimisticActions } = {}) => {
     inFlightRef.current.add(ticket.id);
     setActionError(null);
 
     // Apply optimistic UI before the request.
     optimistic?.apply();
 
-    const { data, error } = await api.request(
+    const { data, error } = await api.request<KdsTicket>(
       'POST',
       `/kds/tickets/${encodeURIComponent(ticket.id)}/${action}`,
       { body: {} }
@@ -129,7 +141,7 @@ export default function StationPage() {
     return data;
   }, []);
 
-  const onBump = useCallback((ticket) => {
+  const onBump = useCallback((ticket: KdsTicket) => {
     const snapshot = ticket;
     doAction('bump', ticket, {
       optimistic: {
@@ -153,10 +165,10 @@ export default function StationPage() {
     });
   }, [doAction]);
 
-  const onRecall = useCallback((ticket) => {
+  const onRecall = useCallback((ticket: KdsTicket) => {
     // Re-insert the cached snapshot back into the list as 'fired'.
     const cached = removedCacheRef.current.get(ticket.id) || ticket;
-    const restored = { ...cached, status: 'fired', bumped_at: null };
+    const restored: KdsTicket = { ...cached, status: 'fired', bumped_at: null };
     doAction('recall', ticket, {
       optimistic: {
         apply: () => {
@@ -170,7 +182,7 @@ export default function StationPage() {
     });
   }, [doAction]);
 
-  const onRefire = useCallback((ticket) => {
+  const onRefire = useCallback((ticket: KdsTicket) => {
     doAction('refire', ticket, {
       optimistic: {
         apply: () => setTickets((prev) => prev.map((t) =>
@@ -183,7 +195,7 @@ export default function StationPage() {
     });
   }, [doAction]);
 
-  const onRush = useCallback((ticket) => {
+  const onRush = useCallback((ticket: KdsTicket) => {
     doAction('rush', ticket, {
       optimistic: {
         apply: () => setTickets((prev) => prev.map((t) =>
@@ -212,7 +224,7 @@ export default function StationPage() {
     return [...tickets].sort((a, b) => {
       const pa = a.priority || 0, pb = b.priority || 0;
       if (pa !== pb) return pb - pa;
-      return Date.parse(a.fired_at || 0) - Date.parse(b.fired_at || 0);
+      return Date.parse(a.fired_at || '0') - Date.parse(b.fired_at || '0');
     });
   }, [tickets]);
 
@@ -421,7 +433,7 @@ export default function StationPage() {
 // ---- RecallCountdown ----
 // Small countdown bar showing how many seconds remain in the recall window.
 
-function RecallCountdown({ bumpedAtMs, now, totalMs }) {
+function RecallCountdown({ bumpedAtMs, now, totalMs }: { bumpedAtMs: number; now: number; totalMs: number }) {
   const remaining = Math.max(0, totalMs - (now - bumpedAtMs));
   const pct = Math.round((remaining / totalMs) * 100);
   const secs = Math.ceil(remaining / 1000);
@@ -437,8 +449,8 @@ function RecallCountdown({ bumpedAtMs, now, totalMs }) {
 
 // ---- ConnectionPill ----
 
-function ConnectionPill({ status }) {
-  const map = {
+function ConnectionPill({ status }: { status: SSEStatus }) {
+  const map: Record<string, { icon: ComponentType<{ className?: string }>; label: string; cls: string }> = {
     open:         { icon: Wifi,    label: 'Live',         cls: 'text-emerald-400' },
     connecting:   { icon: Loader2, label: 'Connecting',   cls: 'text-gray-400 animate-pulse' },
     reconnecting: { icon: Loader2, label: 'Reconnecting', cls: 'text-amber-400 animate-pulse' },
@@ -492,7 +504,7 @@ function EmptyState() {
   );
 }
 
-function ErrorState({ error, onRetry }) {
+function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="mx-auto mt-12 flex max-w-md flex-col items-center gap-4 rounded-xl border border-red-800 bg-red-950/60 p-8 text-center">
       <AlertCircle className="size-10 text-red-400" aria-hidden="true" />
@@ -526,7 +538,7 @@ const HOTKEYS = [
   { keys: ['Esc'],          desc: 'Close this overlay' },
 ];
 
-function HotkeyOverlay({ onClose }) {
+function HotkeyOverlay({ onClose }: { onClose: () => void }) {
   return (
     /* backdrop */
     <div

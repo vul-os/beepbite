@@ -12,26 +12,26 @@
 // gracefully renders without `details`; the parent fetches lazily and the
 // recipe panel shows a quiet placeholder until the data lands.
 
-/* eslint-disable react/prop-types */
 import { useMemo } from 'react';
 import {
   AlertTriangle, Bell, Check, Flame, Loader2, MapPin, RotateCcw, StickyNote, Utensils,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RecipeSection } from './recipe-section';
+import type { KdsTicket, KdsTicketDetail, KdsTicketItem } from '../types';
 
 // Color thresholds (minutes since fired).
 const AMBER_MIN = 5;
 const RED_MIN = 10;
 
-function ageBucket(elapsedMs) {
+function ageBucket(elapsedMs: number) {
   const mins = elapsedMs / 60000;
   if (mins >= RED_MIN) return 'red';
   if (mins >= AMBER_MIN) return 'amber';
   return 'green';
 }
 
-function fmtElapsed(elapsedMs) {
+function fmtElapsed(elapsedMs: number) {
   if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return '0:00';
   const totalSec = Math.floor(elapsedMs / 1000);
   const m = Math.floor(totalSec / 60);
@@ -43,7 +43,10 @@ function fmtElapsed(elapsedMs) {
 // Backgrounds are strong so they read across a kitchen. Timer text is very
 // large and uses maximum-contrast foreground colors.
 
-const CARD_BY_BUCKET = {
+const CARD_BY_BUCKET: Record<string, {
+  card: string; header: string; headerText: string; timer: string;
+  label: string; labelCls: string; pulseDot: string;
+}> = {
   // Fresh ticket (< 5 min): dark emerald header, subtle border
   green: {
     card:   'bg-gray-900 border-2 border-emerald-600',
@@ -77,7 +80,7 @@ const CARD_BY_BUCKET = {
 };
 
 // Per-item color: subtle dots and pills readable at a glance.
-const ITEM_STATUS_STYLES = {
+const ITEM_STATUS_STYLES: Record<string, { dot: string; pill: string; label: string }> = {
   fired: {
     dot:   'bg-gray-500',
     pill:  'bg-gray-700 text-gray-300',
@@ -95,10 +98,23 @@ const ITEM_STATUS_STYLES = {
   },
 };
 
+interface TicketCardProps {
+  ticket: KdsTicket;
+  details?: KdsTicketDetail | null;   // optional; from GET /kds/tickets/{id}/details
+  detailsLoading?: boolean;
+  now: number;
+  onBump?: (ticket: KdsTicket) => void;
+  onRecall?: (ticket: KdsTicket) => void;
+  onRefire?: (ticket: KdsTicket) => void;
+  onRush?: (ticket: KdsTicket) => void;
+  showRecall?: boolean;
+  busy?: boolean;
+}
+
 export function TicketCard({
   ticket,
-  details,            // optional; from GET /kds/tickets/{id}/details
-  detailsLoading,     // optional bool
+  details,
+  detailsLoading,
   now,
   onBump,
   onRecall,
@@ -106,7 +122,7 @@ export function TicketCard({
   onRush,
   showRecall = false,
   busy = false,
-}) {
+}: TicketCardProps) {
   const firedAtMs = ticket.fired_at
     ? Date.parse(ticket.fired_at)
     : (details?.fired_at ? Date.parse(details.fired_at) : Date.now());
@@ -310,13 +326,19 @@ export function TicketCard({
 // ---- TicketItem ----
 // One row in the ticket: name, qty, variations, notes, optional recipe panel.
 
-function TicketItem({ item, recipeDefaultOpen, storageKey }) {
+interface TicketItemProps {
+  item: KdsTicketItem;
+  recipeDefaultOpen: boolean;
+  storageKey: string;
+}
+
+function TicketItem({ item, recipeDefaultOpen, storageKey }: TicketItemProps) {
   const name = item.item_name || item.name || 'Item';
   const qty = Number(item.quantity ?? 1);
   const variations = Array.isArray(item.variations) ? item.variations : [];
   const allergens = Array.isArray(item.allergens) ? item.allergens : [];
   const statusKey = item.status || item.item_status || null;
-  const status = ITEM_STATUS_STYLES[statusKey] || null;
+  const status = statusKey ? ITEM_STATUS_STYLES[statusKey] || null : null;
 
   return (
     <li className="space-y-2 rounded-xl border border-gray-700 bg-gray-800/60 p-3">

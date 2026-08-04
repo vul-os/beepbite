@@ -9,15 +9,15 @@
 // one is still firing — the expo needs to chase the slow station.
 // Color-coded urgency header: green < 5 min, amber 5-15 min, red > 15 min.
 
-/* eslint-disable react/prop-types */
 import { Bell, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { ExpoOrder } from '../types';
 
 // ---- Urgency thresholds (minutes) ------------------------------------------
 const AMBER_MIN = 5;
 const RED_MIN   = 15;
 
-function urgencyBucket(firedAtMs, now) {
+function urgencyBucket(firedAtMs: number | null, now: number) {
   if (!firedAtMs) return 'green';
   const mins = (now - firedAtMs) / 60000;
   if (mins >= RED_MIN)   return 'red';
@@ -26,7 +26,7 @@ function urgencyBucket(firedAtMs, now) {
 }
 
 // Dark-mode first palette that reads from across a kitchen.
-const URGENCY = {
+const URGENCY: Record<string, { card: string; header: string; headerText: string; timer: string; dot: string }> = {
   green: {
     card:       'border-2 border-emerald-700 bg-gray-900',
     header:     'bg-emerald-900',
@@ -51,7 +51,7 @@ const URGENCY = {
 };
 
 // ---- Station status ---------------------------------------------------------
-const STATION_STATUS = {
+const STATION_STATUS: Record<string, { label: string; cls: string }> = {
   fired: {
     label: 'Fired',
     cls:   'bg-orange-900/60 text-orange-300 border border-orange-700/50',
@@ -78,7 +78,7 @@ const STATION_STATUS = {
 };
 
 // Per-item dot colors
-const ITEM_STATUS_DOT = {
+const ITEM_STATUS_DOT: Record<string, string> = {
   fired:       'bg-orange-500',
   in_progress: 'bg-slate-400',
   ready:       'bg-emerald-400',
@@ -92,14 +92,14 @@ const ITEM_STATUS_DOT = {
 // corner of the ticket it was in. Type is a short word and reads fine as
 // text; giving the whole axis back to status is what makes an actually late
 // ticket jump out. This also retires the last purple and blue on this screen.
-const ORDER_TYPE_BADGE = {
+const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
   dine_in:    { label: 'Dine-In',    cls: 'bg-slate-800 text-slate-300 border border-slate-600/50' },
   collection: { label: 'Collection', cls: 'bg-slate-800 text-slate-300 border border-slate-600/50' },
   delivery:   { label: 'Delivery',   cls: 'bg-slate-800 text-slate-300 border border-slate-600/50' },
 };
 
 // ---- Helpers ----------------------------------------------------------------
-function fmtElapsed(ms, now) {
+function fmtElapsed(ms: string | number | null | undefined, now: number) {
   if (!ms) return '';
   const t = typeof ms === 'string' ? Date.parse(ms) : ms;
   const totalSec = Math.max(0, Math.floor((now - t) / 1000));
@@ -109,7 +109,12 @@ function fmtElapsed(ms, now) {
 }
 
 // ---- Component --------------------------------------------------------------
-export function ExpoOrderCard({ order, now }) {
+interface ExpoOrderCardProps {
+  order: ExpoOrder;
+  now: number;
+}
+
+export function ExpoOrderCard({ order, now }: ExpoOrderCardProps) {
   const stations = Array.isArray(order.station_tickets) ? order.station_tickets : [];
 
   // Urgency from earliest_fired_at (already a JS timestamp or ISO string).
@@ -128,7 +133,7 @@ export function ExpoOrderCard({ order, now }) {
 
   // Order number: prefer human-readable, fall back to short UUID prefix.
   const displayId = order.order_number || order.order_id?.slice(0, 8) || '—';
-  const typeMeta = ORDER_TYPE_BADGE[order.order_type] || null;
+  const typeMeta = order.order_type ? ORDER_TYPE_BADGE[order.order_type] || null : null;
 
   return (
     <div
@@ -201,8 +206,8 @@ export function ExpoOrderCard({ order, now }) {
           </p>
         ) : (
           stations.map((st) => {
-            const statusMeta = STATION_STATUS[st.status]
-              || { label: st.status, cls: 'bg-gray-800 text-gray-400 border border-gray-700' };
+            const statusMeta = (st.status && STATION_STATUS[st.status])
+              || { label: st.status || '', cls: 'bg-gray-800 text-gray-400 border border-gray-700' };
             const items = Array.isArray(st.items) ? st.items : [];
 
             // Highlight slow stations that are blocking the order.
@@ -241,7 +246,7 @@ export function ExpoOrderCard({ order, now }) {
                 {items.length > 0 && (
                   <ul className="divide-y divide-gray-700/60">
                     {items.map((it, idx) => {
-                      const dotCls = ITEM_STATUS_DOT[it.item_status] || 'bg-gray-600';
+                      const dotCls = (it.item_status && ITEM_STATUS_DOT[it.item_status]) || 'bg-gray-600';
                       const qty = Number(it.quantity ?? 1);
                       return (
                         <li

@@ -17,16 +17,22 @@
 //     useHotkeys({ tickets, onBump, onRecall, lastBump, recallVisible });
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { KdsTicket } from '../types';
 
-/**
- * @param {object} opts
- * @param {Array}  opts.tickets       - The sorted, visible ticket list.
- * @param {function} opts.onBump      - Called with a ticket object to bump it.
- * @param {function} opts.onRecall    - Called with a ticket object to recall it.
- * @param {object|null} opts.lastBump - { ticket, bumpedAtMs } from station state.
- * @param {boolean} opts.recallVisible - Whether the recall window is still open.
- */
-export function useHotkeys({ tickets, onBump, onRecall, lastBump, recallVisible }) {
+interface LastBump {
+  ticket: KdsTicket;
+  bumpedAtMs: number;
+}
+
+interface UseHotkeysOpts {
+  tickets: KdsTicket[];
+  onBump?: (ticket: KdsTicket) => void;
+  onRecall?: (ticket: KdsTicket) => void;
+  lastBump: LastBump | null;
+  recallVisible: boolean;
+}
+
+export function useHotkeys({ tickets, onBump, onRecall, lastBump, recallVisible }: UseHotkeysOpts) {
   // Logical focus index into the visible ticket list (0-based).
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -55,9 +61,9 @@ export function useHotkeys({ tickets, onBump, onRecall, lastBump, recallVisible 
     setFocusedIndex((prev) => Math.min(prev, tickets.length - 1));
   }, [tickets.length]);
 
-  const handleKeyDown = useCallback((e) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Ignore when the user is typing into an input field.
-    const tag = e.target?.tagName?.toLowerCase();
+    const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     // Ignore modifier combos (ctrl+r for refresh, etc.).
     if (e.ctrlKey || e.metaKey || e.altKey) return;
