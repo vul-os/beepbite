@@ -99,36 +99,49 @@ export default function TrackOrderPage() {
 
   const load = useCallback(async () => {
     if (!token) return;
-    const { data, error: err } = await fetchTracking(token);
-    if (!mountedRef.current) return;
+    // fetchTracking() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) throws instead.
+    // Without this try/catch, a failed poll tick left `loading` stuck true
+    // (self-healing on the next successful tick, but with an unhandled
+    // rejection on every failed one in the meantime) and showed no error.
+    try {
+      const { data, error: err } = await fetchTracking(token);
+      if (!mountedRef.current) return;
 
-    if (err) {
-      setError(err);
+      if (err) {
+        setError(err);
+        setLoading(false);
+        return;
+      }
+
+      setTracking(data);
+      setLastUpdated(Date.now());
+      setError(null);
       setLoading(false);
-      return;
-    }
 
-    setTracking(data);
-    setLastUpdated(Date.now());
-    setError(null);
-    setLoading(false);
-
-    // Stop polling once the order reaches a terminal state.
-    if (data && isTerminal(data.status)) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+      // Stop polling once the order reaches a terminal state.
+      if (data && isTerminal(data.status)) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      }
+    } catch (err) {
+      console.error('Error loading tracking status:', err);
+      if (mountedRef.current) {
+        setError({ message: 'Unable to reach the server.' });
+        setLoading(false);
       }
     }
   }, [token]);
 
   useEffect(() => {
     mountedRef.current = true;
-    load();
+    void load();
 
     // Start polling — load() will clear the interval itself when terminal.
     intervalRef.current = setInterval(() => {
-      load();
+      void load();
     }, POLL_INTERVAL_MS);
 
     return () => {
