@@ -320,11 +320,12 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      # Unlike the advisory step above, this is a hard gate: it doesn't care
-      # how many lint findings there are, only that type-aware linting is
-      # actually resolving type information, typescript is pinned to the
-      # version node_modules actually has installed, and ESLint is still
-      # covering the real file count. See web/scripts/check-lint-config.mjs.
+      # Unlike the ESLint step above, which fails on lint errors, this one
+      # fails when the lint config itself stops being able to find them: it
+      # doesn't care how many lint findings there are, only that type-aware
+      # linting is actually resolving type information, typescript is pinned
+      # to the version node_modules actually has installed, and ESLint is
+      # still covering the real file count. See web/scripts/check-lint-config.mjs.
       - name: Lint config actually does what it claims
         run: npm run check:lint-config
 
