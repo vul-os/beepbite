@@ -78,7 +78,8 @@ export default function MemberInvitesPanel() {
     }
   }, []);
 
-  useEffect(() => { load(); loadMembers(); }, [load, loadMembers]);
+  // Both load() and loadMembers() are fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); void loadMembers(); }, [load, loadMembers]);
 
   const handleInvite = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
