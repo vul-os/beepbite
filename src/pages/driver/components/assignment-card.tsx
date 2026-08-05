@@ -37,10 +37,7 @@ export default function AssignmentCard({ assignment, onAction }: AssignmentCardP
   const [busy, setBusy] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
 
-  // NOTE: `customer_address` does not exist on the real Assignment DTO (the
-  // backend sends `delivery_address`) — see services/driver.ts. Pre-existing
-  // mismatch, preserved as-is via the type's index signature.
-  const { status, store_name, customer_address, total_cents, id } = assignment as Assignment & { customer_address?: string };
+  const { status, store_name, delivery_address, total_cents, id } = assignment;
   const statusMeta = STATUS_META[status] ?? { label: status, colour: 'bg-muted text-muted-foreground border-border' };
   const next = NEXT_ACTION[status];
 
@@ -72,7 +69,7 @@ export default function AssignmentCard({ assignment, onAction }: AssignmentCardP
         {/* Delivery address */}
         <div className="flex items-start gap-2 text-sm text-muted-foreground">
           <MapPin className="w-4 h-4 text-primary/60 flex-shrink-0 mt-0.5" />
-          <span className="leading-snug">{customer_address || 'Address not provided'}</span>
+          <span className="leading-snug">{delivery_address || 'Address not provided'}</span>
         </div>
 
         {/* Order total */}
