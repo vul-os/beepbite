@@ -170,8 +170,10 @@ interface ErrorEnvelope {
 }
 
 function asErrorEnvelope(payload: unknown): ErrorEnvelope | null {
+  // No cast needed: ErrorEnvelope's fields are all optional, so any plain
+  // object already structurally satisfies it once narrowed below.
   return payload && typeof payload === 'object' && !Array.isArray(payload)
-    ? (payload as ErrorEnvelope)
+    ? payload
     : null;
 }
 
@@ -275,7 +277,12 @@ const auth = {
     return { error: null };
   },
 
-  async getSession() {
+  // Not async: purely local (reads the in-memory/localStorage session), no
+  // network I/O. Kept alongside the real async auth.* methods to mirror
+  // the supabase-js surface — callers already `await` it, and `await` on a
+  // non-Promise value is a safe no-op, so dropping `async` here doesn't
+  // change any caller's behavior.
+  getSession() {
     const a = readAuth();
     if (!a) return { data: { session: null }, error: null };
     return { data: { session: a }, error: null };
@@ -295,7 +302,11 @@ const auth = {
     return { data: { session: readAuth() }, error: null };
   },
 
-  async updateUser(_updates?: { password?: string; [key: string]: unknown }) {
+  // Not async, same reasoning as getSession() above: this is a stub with
+  // no network I/O (see the TODO below), and await on a non-Promise value
+  // is a safe no-op for the existing `await supabase.auth.updateUser(...)`
+  // call sites.
+  updateUser(_updates?: { password?: string; [key: string]: unknown }) {
     // TODO(backend): no self-service "change own password while authenticated"
     // endpoint exists yet. The email password-reset flow (POST /auth/password/forgot
     // → token email → POST /auth/password/reset) is the supported path.
