@@ -56,7 +56,8 @@ export default function ItemsPicker({
     }
   }, [schedule.id, fetchItems, fetchItemSchedules]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); }, [load]);
 
   const linkedSet = new Set(linked.map((l) => l.item_id));
 
