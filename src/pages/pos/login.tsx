@@ -191,7 +191,7 @@ const PosLoginPage = () => {
         localStorage.setItem('bb.auth', JSON.stringify(data));
       }
 
-      navigate(resolvePostLoginPath(data));
+      void navigate(resolvePostLoginPath(data));
     } finally {
       setPwLoading(false);
     }
@@ -256,7 +256,7 @@ const PosLoginPage = () => {
         localStorage.setItem('bb.auth', JSON.stringify(data));
       }
 
-      navigate(resolvePostLoginPath(data));
+      void navigate(resolvePostLoginPath(data));
     } finally {
       setPinLoading(false);
     }
@@ -266,7 +266,8 @@ const PosLoginPage = () => {
   // Auto-submit PIN once 6 digits entered
   React.useEffect(() => {
     if (pinForm.pin.length === 6) {
-      handlePinSubmit();
+      // handlePinSubmit() is fully try/catch/finally-wrapped.
+      void handlePinSubmit();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinForm.pin]);
