@@ -54,8 +54,19 @@ const OnboardingPopup = () => {
       });
     } catch (err: unknown) {
       const errObj = err && typeof err === 'object' ? (err as Record<string, unknown>) : null;
-      const detail = errObj?.message || errObj?.error || JSON.stringify(err);
-      const status = errObj?.status ? ` (${errObj.status})` : '';
+      // .message/.error aren't guaranteed to be strings (a validation error
+      // could carry a nested object/array) — no-base-to-string/
+      // restrict-template-expressions caught the old
+      // `errObj?.message || errObj?.error || JSON.stringify(err)` template-
+      // interpolating whatever came back, which would show a literal
+      // "[object Object]" to the user instead of anything useful.
+      const detail =
+        typeof errObj?.message === 'string' ? errObj.message :
+        typeof errObj?.error === 'string' ? errObj.error :
+        JSON.stringify(err);
+      const status = typeof errObj?.status === 'number' || typeof errObj?.status === 'string'
+        ? ` (${errObj.status})`
+        : '';
       console.error('Onboarding error:', err);
       toast({
         title: 'Setup failed',
