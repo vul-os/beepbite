@@ -420,7 +420,14 @@ export default function AdminDashboardPage() {
         return;
       }
       // See mismatch note above: cast to the shape this page has always
-      // (incorrectly) assumed the search results have.
+      // (incorrectly) assumed the search results have. no-unnecessary-
+      // type-assertion is right that the cast changes nothing TS-wise —
+      // that's the symptom of the tracked "admin tenant types mismatch
+      // admin/store.go" backend-contract gap (separate backlog item, not
+      // fixed by this lint pass: fixing it means reconciling
+      // AdminTenantRow against what admin/store.go's search endpoint
+      // actually returns, not a lint change).
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       setTenants(Array.isArray(data) ? (data as unknown as AdminTenantRow[]) : []);
     } catch (err) {
       console.error('Error fetching tenants:', err);
