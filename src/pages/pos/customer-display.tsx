@@ -329,7 +329,7 @@ export function onTipSelected(callback: (amountCents: number) => void): () => vo
       callback(ev.data.amount ?? 0);
     }
   }
-  ch!.addEventListener('message', handler);
+  ch.addEventListener('message', handler);
 
   // Also listen via localStorage for cross-origin cases.
   function storageHandler(ev: StorageEvent) {
@@ -343,7 +343,7 @@ export function onTipSelected(callback: (amountCents: number) => void): () => vo
   window.addEventListener('storage', storageHandler);
 
   return () => {
-    ch!.removeEventListener('message', handler);
+    ch.removeEventListener('message', handler);
     window.removeEventListener('storage', storageHandler);
   };
 }
