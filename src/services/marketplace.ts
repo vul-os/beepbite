@@ -6,23 +6,16 @@ import { api } from '../lib/api-client';
 export interface GetStoresParams {
   query?: string;
   city?: string;
+  /** Search radius in km — sent as `radius_km`, the query param
+   *  parseListParams (handler.go) actually reads. */
   distance?: number;
   lat?: number;
   lng?: number;
-  page?: number;
   limit?: number;
 }
 
 // Mirrors backend/internal/handlers/marketplace/store.go StoreListItem — the
-// real shape of each element GET /stores actually returns. NOTE: several
-// fields the discover-page UI reads (cuisine_type, rating, review_count,
-// distance_km, is_open, cover_image_url, logo_url, currency variants,
-// min/max_price_cents, delivery_time_min/max) do NOT exist on this DTO —
-// the backend never sends them (avg_rating is the closest analog to
-// `rating`, and is `null` whenever no visible reviews exist). This mismatch
-// predates this migration; the index signature below preserves the existing
-// defensive reads (always `unknown`/undefined at runtime) without asserting
-// they're real, per project policy (flag, don't fix).
+// real shape of each element in GET /stores's `data` array.
 export interface Store {
   id: string;
   name: string;
@@ -32,7 +25,15 @@ export interface Store {
   address: string | null;
   description: string | null;
   avg_rating: number | null;
-  [key: string]: unknown;
+}
+
+// Mirrors handler.go's listStores response envelope — GET /stores does not
+// return a bare array (writeJSON(w, http.StatusOK, map[string]interface{}{
+// "data": stores, "limit": p.Limit, "offset": p.Offset})).
+export interface StoreListResponse {
+  data: Store[];
+  limit: number;
+  offset: number;
 }
 
 export interface MarketplaceVariationOption {
@@ -71,15 +72,14 @@ export interface MarketplaceMenuCategory {
 }
 
 // Mirrors backend/internal/handlers/marketplace/store.go StoreProfile — the
-// real shape GET /stores/{slug} returns. NOTE: checkout (pages/checkout/
-// index.tsx) reads `on_delivery_payment_methods` (array) and
+// real shape GET /stores/{slug} returns. checkout (pages/checkout/index.tsx)
+// used to read `on_delivery_payment_methods` (array) and
 // `payment_credentials` (array of {is_active}) to decide the payment mode —
-// NEITHER field exists on this DTO. The only payment-related field the
-// backend actually sends is `online_payment_available: boolean`
-// (deployment-wide, not per-method). Since those two fields are always
-// undefined, checkout's `paymentMode` resolves to 'none' for every store in
-// production — a pre-existing defect, flagged not fixed. The index
-// signature preserves that exact (dead) read.
+// NEITHER field exists on this DTO, so `paymentMode` was permanently stuck
+// on 'none' in production. Fixed: checkout now reads the field the backend
+// actually sends, `online_payment_available: boolean` (deployment-wide, not
+// per-method) — true selects the online flow, false falls back to
+// on-delivery, mirroring checkout.go's own fallback behaviour.
 export interface StoreDetail {
   id: string;
   name: string;
@@ -100,15 +100,7 @@ export interface StoreDetail {
 }
 
 // Mirrors backend/internal/handlers/marketplace/checkout.go CheckoutResp —
-// the real response of POST /stores/{slug}/orders. NOTE: this page's
-// createOrder() actually POSTs to `/orders` (see below), a route that is
-// NOT registered anywhere in the Go backend — confirmed by grepping every
-// `r.Post(...)` route table. That 404 is expected and already handled by
-// checkout/index.tsx's own "Placeholder success for dev — real endpoint not
-// yet wired up" fallback (its comment, not this one). Even if `/orders`
-// were later pointed at this handler, checkout reads `data?.id`, but the
-// real field is `order_id` — another latent mismatch preserved via the
-// index signature rather than fixed.
+// the real response of POST /stores/{slug}/orders.
 export interface Order {
   order_id: string;
   order_number: string;
@@ -117,6 +109,19 @@ export interface Order {
   total: number;
   pay_url?: string;
   [key: string]: unknown;
+}
+
+// Mirrors backend/internal/handlers/marketplace/checkout.go CheckoutReq —
+// the real request body POST /stores/{slug}/orders expects. customer_id is
+// a reference to an existing customers row; guest checkout (no logged-in
+// marketplace customer) must omit it rather than send an arbitrary string,
+// since the backend inserts it verbatim as a foreign key.
+export interface CheckoutOrderPayload {
+  customer_id?: string;
+  fulfillment_type: 'delivery' | 'collection' | 'dine_in';
+  on_delivery_method?: string;
+  delivery_address?: string;
+  items: { item_id: string; quantity: number; notes?: string }[];
 }
 
 // Client-only concept (localStorage cart) — no backend schema. Derived from
@@ -148,14 +153,13 @@ export async function getStores(params: GetStoresParams = {}) {
   const qs = new URLSearchParams();
   if (params.query)    qs.set('q', params.query);
   if (params.city)     qs.set('city', params.city);
-  if (params.distance) qs.set('distance_km', String(params.distance));
+  if (params.distance) qs.set('radius_km', String(params.distance));
   if (params.lat)      qs.set('lat', String(params.lat));
   if (params.lng)      qs.set('lng', String(params.lng));
-  if (params.page)     qs.set('page', String(params.page));
   if (params.limit)    qs.set('limit', String(params.limit ?? 20));
 
   const path = `/stores${qs.toString() ? `?${qs.toString()}` : ''}`;
-  return api.request<Store[]>('GET', path, { auth: false });
+  return api.request<StoreListResponse>('GET', path, { auth: false });
 }
 
 /**
@@ -169,12 +173,16 @@ export async function getStore(slug: string) {
 
 /**
  * Place an order for a store.
- * Placeholder until the real checkout endpoint is wired up.
  *
- * @param payload  — { store_slug, items, fulfillment, tip, customer }
+ * POST /stores/{slug}/orders — backend/internal/handlers/marketplace/
+ * checkout.go createCheckoutOrder. There is no top-level `/orders` route;
+ * the store slug is part of the path, not the body.
+ *
+ * @param slug     — the store's URL-friendly identifier
+ * @param payload  — CheckoutReq-shaped body (see CheckoutOrderPayload)
  */
-export async function createOrder(payload: unknown) {
-  return api.request<Order>('POST', '/orders', { body: payload, auth: false });
+export async function createOrder(slug: string, payload: CheckoutOrderPayload) {
+  return api.request<Order>('POST', `/stores/${encodeURIComponent(slug)}/orders`, { body: payload, auth: false });
 }
 
 // ── Cart helpers (localStorage, keyed by store slug) ──────────────────────────

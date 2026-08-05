@@ -10,8 +10,8 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { getStores, type GetStoresParams } from '@/services/marketplace';
-import StoreCard, { type DiscoverStoreView } from './components/store-card';
+import { getStores, type GetStoresParams, type Store } from '@/services/marketplace';
+import StoreCard from './components/store-card';
 
 const DISTANCES = [
   { label: 'Any distance', value: '' },
@@ -42,7 +42,7 @@ export default function DiscoverPage() {
   const [query, setQuery] = useState('');
   const [city, setCity] = useState('');
   const [distance, setDistance] = useState('');
-  const [stores, setStores] = useState<DiscoverStoreView[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -56,17 +56,11 @@ export default function DiscoverPage() {
     try {
       const { data, error: err } = await getStores(params);
       if (err) throw new Error(err.message || 'Failed to load stores');
-      // API may return { stores: [...] } or a plain array. Store is cast to
-      // DiscoverStoreView here — see store-card.tsx's note: the real DTO
-      // (services/marketplace.ts Store) doesn't carry most of the fields
-      // this page/card have always assumed.
-      const wrapped = data as unknown as { stores?: DiscoverStoreView[] } | DiscoverStoreView[] | null;
-      const list: DiscoverStoreView[] = Array.isArray(wrapped)
-        ? wrapped
-        : Array.isArray(wrapped?.stores)
-          ? wrapped.stores
-          : [];
-      setStores(list);
+      // GET /stores wraps the list in an envelope — { data, limit, offset }
+      // (see handler.go's listStores) — not a bare array and not the
+      // { stores: [...] } shape this page used to look for, which meant
+      // `list` was always empty regardless of what the backend returned.
+      setStores(data?.data ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load stores');
       // Fall back to empty demo list so the UI is still usable during dev

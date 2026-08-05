@@ -4,12 +4,7 @@
 
 import { api } from '@/lib/api-client';
 
-// Mirrors backend/internal/handlers/driver/store.go Assignment. NOTE: the
-// UI (assignment-card.tsx) has always read `customer_address`, but the real
-// field the backend sends is `delivery_address` — `customer_address` does
-// not exist anywhere in the Go backend. Pre-existing mismatch, flagged not
-// fixed; the index signature below preserves that defensive (always
-// undefined) read.
+// Mirrors backend/internal/handlers/driver/store.go Assignment.
 export interface Assignment {
   id: string;
   order_id: string;
@@ -25,7 +20,6 @@ export interface Assignment {
   delivery_address?: string | null;
   total_cents: number;
   store_name: string;
-  [key: string]: unknown;
 }
 
 interface FetchError extends Error {
