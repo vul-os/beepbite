@@ -54,7 +54,8 @@ export default function GRNsPage() {
     }
   }, [activeLocation]);
 
-  useEffect(() => { fetchGRNs(); }, [fetchGRNs]);
+  // fetchGRNs() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchGRNs(); }, [fetchGRNs]);
 
   async function handleReceive() {
     if (!confirmGRN) return;
