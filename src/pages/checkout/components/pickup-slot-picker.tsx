@@ -58,6 +58,16 @@ export default function PickupSlotPicker({ locationId, date, selected, onSelect 
         return;
       }
       setSlots(Array.isArray(data) ? data : []);
+    }).catch((err: unknown) => {
+      // fetchPickupSlots()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading pickup slots:', err);
+        setLoading(false);
+        setError('Failed to load time slots.');
+        setSlots([]);
+      }
     });
 
     return () => { cancelled = true; };
