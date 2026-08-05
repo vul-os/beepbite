@@ -103,7 +103,8 @@ const Reports = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAnalytics();
+    // fetchAnalytics() is fully try/catch/finally-wrapped below.
+    void fetchAnalytics();
   }, [timeRange, customDateRange, useCustomRange]);
 
   const fetchAnalytics = async () => {
@@ -417,7 +418,7 @@ const Reports = () => {
                       <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={36}
                         label={{ value: 'Min', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }}
                       />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v} min`, 'Avg Response Time']} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${String(v)} min`, 'Avg Response Time']} />
                       <Line
                         type="monotone"
                         dataKey="avgResponse"
@@ -607,7 +608,7 @@ const Reports = () => {
                     <Tooltip
                       contentStyle={tooltipStyle}
                       formatter={(v, n) => [
-                        n === 'orders' ? v : `${v} min`,
+                        n === 'orders' ? v : `${String(v)} min`,
                         n === 'orders' ? 'Orders' : 'Avg Response Time',
                       ]}
                     />
