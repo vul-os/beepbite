@@ -36,7 +36,7 @@ export default function StoreCard({ store }: { store: DiscoverStoreView }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/store/${store.slug}`);
+    void navigate(`/store/${store.slug}`);
   };
 
   const ratingDisplay = store.rating
