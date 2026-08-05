@@ -330,41 +330,61 @@ export default function AssistantPage() {
     setInput('');
     setSending(true);
 
-    const { data, error } = await sendMessage({
-      message: text,
-      location_id: activeLocation?.id || '',
-    });
+    // sendMessage() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that skipped
+    // setSending(false) and left `sending` stuck true, which permanently
+    // disables the send button/input (see the `if (!text || sending)
+    // return;` guard above) with no error message shown and the rejection
+    // silently swallowed.
+    try {
+      const { data, error } = await sendMessage({
+        message: text,
+        location_id: activeLocation?.id || '',
+      });
 
-    setSending(false);
+      if (error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now() + '-err',
+            role: 'assistant',
+            content: `Error: ${error.message || 'Something went wrong.'}`,
+            draft: null,
+          },
+        ]);
+        return;
+      }
 
-    if (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + '-a',
+          role: 'assistant',
+          content: data?.reply || '',
+          draft: data?.draft || null,
+        },
+      ]);
+    } catch (err) {
+      console.error('Assistant send failed:', err);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + '-err',
           role: 'assistant',
-          content: `Error: ${error.message || 'Something went wrong.'}`,
+          content: 'Error: unable to reach the server.',
           draft: null,
         },
       ]);
-      return;
+    } finally {
+      setSending(false);
     }
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now() + '-a',
-        role: 'assistant',
-        content: data?.reply || '',
-        draft: data?.draft || null,
-      },
-    ]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
