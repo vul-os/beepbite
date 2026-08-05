@@ -145,7 +145,8 @@ const Staff = () => {
 
   useEffect(() => {
     if (activeLocation) {
-      fetchStaff();
+      // fetchStaff() is fully try/catch/finally-wrapped — safe fire-and-forget.
+      void fetchStaff();
     } else {
       setStaff([]);
       setLoading(false);
@@ -276,7 +277,7 @@ const Staff = () => {
 
       setIsAddModalOpen(false);
       resetForm();
-      fetchStaff();
+      void fetchStaff();
       toast({ title: 'Staff member added successfully.' });
     } catch (error) {
       console.error('Error adding staff:', error);
@@ -344,7 +345,7 @@ const Staff = () => {
       setIsEditModalOpen(false);
       setEditingStaff(null);
       resetForm();
-      fetchStaff();
+      void fetchStaff();
       toast({ title: 'Staff member updated successfully.' });
     } catch (error) {
       console.error('Error updating staff:', error);
@@ -372,7 +373,7 @@ const Staff = () => {
         .eq('id', staffId);
 
       if (error) throw error;
-      fetchStaff();
+      void fetchStaff();
       toast({ title: 'Staff member deleted successfully.' });
       setDeleteTarget(null);
     } catch (error) {
@@ -397,7 +398,7 @@ const Staff = () => {
         .eq('id', staffId);
 
       if (error) throw error;
-      fetchStaff();
+      void fetchStaff();
     } catch (error) {
       console.error('Error updating staff status:', error);
       const message = error instanceof Error ? error.message : undefined;
@@ -513,7 +514,7 @@ const Staff = () => {
 
       if (error) throw error;
 
-      fetchTimeEntries(selectedStaffId);
+      void fetchTimeEntries(selectedStaffId);
     } catch (error) {
       console.error('Error recording time entry:', error);
       const message = error instanceof Error ? error.message : undefined;
@@ -1093,7 +1094,7 @@ const Staff = () => {
                     value={selectedStaffId || 'all'}
                     onValueChange={(value) => {
                       setSelectedStaffId(value === 'all' ? null : value);
-                      fetchTimeEntries(value === 'all' ? null : value);
+                      void fetchTimeEntries(value === 'all' ? null : value);
                     }}
                   >
                     <SelectTrigger className="border-primary/25 focus:ring-primary/20 focus:border-primary/35">
