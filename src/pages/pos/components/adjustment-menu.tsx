@@ -137,7 +137,11 @@ function buildEndpoint(type: AdjustmentType, orderId: string, itemId: string | n
     case 'price_override':
       return `/orders/${orderId}/items/${itemId}/price-override`;
     default:
-      throw new Error(`Unknown adjustment type: ${type}`);
+      // The switch above is exhaustive over AdjustmentType, so TS narrows
+      // `type` to `never` here — String(type) instead of a bare template
+      // interpolation so this still reports something useful if an
+      // un-narrowed value ever reaches this branch at runtime.
+      throw new Error(`Unknown adjustment type: ${String(type)}`);
   }
 }
 
@@ -202,17 +206,27 @@ function AdjustmentFlow({
   const fetchManagers = useCallback(async () => {
     if (!locationId) return;
     setLoadingManagers(true);
-    const { data, error } = await api.request<ManagerOption[]>(
-      'GET',
-      `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`,
-    );
-    setLoadingManagers(false);
-    if (!error && Array.isArray(data)) setManagers(data);
+    // api.request() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // manager-approval step stuck loading forever with the rejection
+    // silently swallowed.
+    try {
+      const { data, error } = await api.request<ManagerOption[]>(
+        'GET',
+        `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`,
+      );
+      if (!error && Array.isArray(data)) setManagers(data);
+    } catch (err) {
+      console.error('Error fetching managers:', err);
+    } finally {
+      setLoadingManagers(false);
+    }
   }, [locationId]);
 
   useEffect(() => {
     if (step === STEP_MANAGER && managers.length === 0) {
-      fetchManagers();
+      void fetchManagers();
     }
   }, [step, managers.length, fetchManagers]);
 
@@ -239,7 +253,7 @@ function AdjustmentFlow({
     if (reasonObj?.requires_manager_approval) {
       setStep(STEP_MANAGER);
     } else {
-      handleSubmit();
+      void handleSubmit();
     }
   }
 
@@ -275,35 +289,52 @@ function AdjustmentFlow({
       return;
     }
 
-    const { data, error } = await api.request('POST', endpoint, { body });
-    setSubmitting(false);
+    // api.request() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that skipped
+    // setSubmitting(false), permanently disabling this order adjustment
+    // (refund/comp/price-override) form's submit button with no error
+    // shown, and left the caller unsure whether the adjustment went
+    // through.
+    try {
+      const { data, error } = await api.request('POST', endpoint, { body });
 
-    if (error) {
-      if (error.status === 401 && managerOverride) {
-        setApproverPin('');
-        setPinError(error.message || 'Incorrect PIN. Try again.');
-        return;
-      }
-      if (error.status === 409) {
+      if (error) {
+        if (error.status === 401 && managerOverride) {
+          setApproverPin('');
+          setPinError(error.message || 'Incorrect PIN. Try again.');
+          return;
+        }
+        if (error.status === 409) {
+          toast({
+            variant: 'destructive',
+            title: 'Cannot adjust',
+            description: error.message || 'This order has already been adjusted.',
+          });
+          onClose();
+          return;
+        }
         toast({
           variant: 'destructive',
-          title: 'Cannot adjust',
-          description: error.message || 'This order has already been adjusted.',
+          title: 'Adjustment failed',
+          description: error.message || 'Unexpected error.',
         });
-        onClose();
         return;
       }
+
+      toast({ title: `${(adjType ? TYPE_META[adjType]?.label : undefined) ?? 'Adjustment'} applied` });
+      if (onSuccess) onSuccess(data);
+      onClose();
+    } catch (err) {
+      console.error('Adjustment submit failed:', err);
       toast({
         variant: 'destructive',
         title: 'Adjustment failed',
-        description: error.message || 'Unexpected error.',
+        description: 'Unable to reach the server. Please try again.',
       });
-      return;
+    } finally {
+      setSubmitting(false);
     }
-
-    toast({ title: `${(adjType ? TYPE_META[adjType]?.label : undefined) ?? 'Adjustment'} applied` });
-    if (onSuccess) onSuccess(data);
-    onClose();
   }
 
   // ---- derived validity -----------------------------------------------------
