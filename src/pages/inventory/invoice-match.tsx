@@ -63,7 +63,8 @@ export default function InvoiceMatchPage() {
     }
   }, [activeLocation]);
 
-  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+  // fetchInvoices() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchInvoices(); }, [fetchInvoices]);
 
   // Each invoice carries its own currency: a supplier may bill in a currency
   // the store does not trade in, so the record wins over the location.
