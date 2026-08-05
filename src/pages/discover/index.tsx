@@ -80,7 +80,8 @@ export default function DiscoverPage() {
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      fetchStores({
+      // fetchStores() is fully try/catch/finally-wrapped above.
+      void fetchStores({
         query: query.trim() || undefined,
         city: city || undefined,
         distance: distance ? Number(distance) : undefined,
