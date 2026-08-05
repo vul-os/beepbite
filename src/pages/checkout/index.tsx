@@ -17,7 +17,7 @@ import {
   ShoppingBag,
   Truck,
 } from 'lucide-react';
-import { createOrder, clearCart, getStore, type CartItem } from '@/services/marketplace';
+import { createOrder, clearCart, getStore, type CartItem, type CheckoutOrderPayload } from '@/services/marketplace';
 import { formatPrice, currencyScale } from '@/lib/currency';
 import { useLocale } from '@/context/locale-context';
 import ReceiptModal from '@/pages/pos/components/receipt-modal';
@@ -169,49 +169,42 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitError(null);
+
+    if (!slug) {
+      setSubmitError('Missing store reference — go back and try again.');
+      return;
+    }
+
     setSubmitting(true);
 
     const isOnDelivery = paymentMode === 'on_delivery';
 
-    const payload = {
-      store_slug: slug,
-      fulfillment,
-      delivery_address:
-        fulfillment === 'delivery'
-          ? { ...address }
-          : null,
-      tip_amount: tipAmount,
-      subtotal,
-      total,
-      customer: {
-        name: customerName.trim(),
-        phone: customerPhone.trim(),
-      },
+    // Wire body must match backend/internal/handlers/marketplace/checkout.go
+    // CheckoutReq exactly (see services/marketplace.ts's CheckoutOrderPayload)
+    // — customer_id is a real customers.id foreign key, so it's omitted
+    // entirely for guest checkout rather than sent as an arbitrary string.
+    // NOTE: CheckoutReq has no field for tip amount or customer name/phone —
+    // the backend computes its own total from item prices and has nowhere to
+    // record a guest's contact details. Those stay local-only for now.
+    const deliveryAddressLine = [address.street, address.suburb, address.city]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(', ');
+
+    const payload: CheckoutOrderPayload = {
+      fulfillment_type: fulfillment,
       items: items.map((i) => ({
-        item_id: i.id,
-        name: i.name,
+        item_id: i.id ?? '',
         quantity: i.quantity ?? 1,
-        unit_price: Number(i.price ?? 0),
       })),
-      ...(isOnDelivery
-        ? { payment_method: `on_delivery_${selectedDeliveryMethod}` }
-        : {}),
+      ...(fulfillment === 'delivery' ? { delivery_address: deliveryAddressLine } : {}),
+      ...(isOnDelivery && selectedDeliveryMethod ? { on_delivery_method: selectedDeliveryMethod } : {}),
     };
 
-    const { data, error } = await createOrder(payload);
+    const { data, error } = await createOrder(slug, payload);
 
     if (error) {
-      // Placeholder success for dev — real endpoint not yet wired up
-      if (error.status === 404 || error.status === 405 || error.status === 501) {
-        const ref = `ORD-${Date.now().toString(36).toUpperCase()}`;
-        clearCart(slug);
-        setOrderRef(ref);
-        setConfirmedMethod(isOnDelivery ? selectedDeliveryMethod : null);
-        setConfirmed(true);
-        setReceiptOpen(true);
-      } else {
-        setSubmitError(error.message || 'Something went wrong. Please try again.');
-      }
+      setSubmitError(error.message || 'Something went wrong. Please try again.');
       setSubmitting(false);
       return;
     }
@@ -230,10 +223,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    // `data?.id` doesn't exist on the real response (the field is
-    // `order_id`) — see services/marketplace.ts's Order gap note. Preserved
-    // via a defensive cast rather than corrected to `order_id`.
-    const ref = data?.order_number || (data as unknown as { id?: string })?.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
+    const ref = data?.order_number || data?.order_id || `ORD-${Date.now().toString(36).toUpperCase()}`;
     clearCart(slug);
     setOrderRef(ref);
     setConfirmedMethod(isOnDelivery ? selectedDeliveryMethod : null);

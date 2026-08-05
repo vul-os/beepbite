@@ -99,15 +99,7 @@ export interface StoreDetail {
 }
 
 // Mirrors backend/internal/handlers/marketplace/checkout.go CheckoutResp —
-// the real response of POST /stores/{slug}/orders. NOTE: this page's
-// createOrder() actually POSTs to `/orders` (see below), a route that is
-// NOT registered anywhere in the Go backend — confirmed by grepping every
-// `r.Post(...)` route table. That 404 is expected and already handled by
-// checkout/index.tsx's own "Placeholder success for dev — real endpoint not
-// yet wired up" fallback (its comment, not this one). Even if `/orders`
-// were later pointed at this handler, checkout reads `data?.id`, but the
-// real field is `order_id` — another latent mismatch preserved via the
-// index signature rather than fixed.
+// the real response of POST /stores/{slug}/orders.
 export interface Order {
   order_id: string;
   order_number: string;
@@ -116,6 +108,19 @@ export interface Order {
   total: number;
   pay_url?: string;
   [key: string]: unknown;
+}
+
+// Mirrors backend/internal/handlers/marketplace/checkout.go CheckoutReq —
+// the real request body POST /stores/{slug}/orders expects. customer_id is
+// a reference to an existing customers row; guest checkout (no logged-in
+// marketplace customer) must omit it rather than send an arbitrary string,
+// since the backend inserts it verbatim as a foreign key.
+export interface CheckoutOrderPayload {
+  customer_id?: string;
+  fulfillment_type: 'delivery' | 'collection' | 'dine_in';
+  on_delivery_method?: string;
+  delivery_address?: string;
+  items: { item_id: string; quantity: number; notes?: string }[];
 }
 
 // Client-only concept (localStorage cart) — no backend schema. Derived from
@@ -168,12 +173,16 @@ export async function getStore(slug: string) {
 
 /**
  * Place an order for a store.
- * Placeholder until the real checkout endpoint is wired up.
  *
- * @param payload  — { store_slug, items, fulfillment, tip, customer }
+ * POST /stores/{slug}/orders — backend/internal/handlers/marketplace/
+ * checkout.go createCheckoutOrder. There is no top-level `/orders` route;
+ * the store slug is part of the path, not the body.
+ *
+ * @param slug     — the store's URL-friendly identifier
+ * @param payload  — CheckoutReq-shaped body (see CheckoutOrderPayload)
  */
-export async function createOrder(payload: unknown) {
-  return api.request<Order>('POST', '/orders', { body: payload, auth: false });
+export async function createOrder(slug: string, payload: CheckoutOrderPayload) {
+  return api.request<Order>('POST', `/stores/${encodeURIComponent(slug)}/orders`, { body: payload, auth: false });
 }
 
 // ── Cart helpers (localStorage, keyed by store slug) ──────────────────────────
