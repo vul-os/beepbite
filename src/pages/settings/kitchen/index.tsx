@@ -270,7 +270,8 @@ function StationsTab({ locationId }: { locationId: string }) {
     }
   }, [locationId]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above — safe fire-and-forget.
+  useEffect(() => { void load(); }, [load]);
 
   const openNew = () => { setEditing(null); setSheetOpen(true); };
   const openEdit = (s: KitchenStation) => { setEditing(s); setSheetOpen(true); };
@@ -491,7 +492,8 @@ function CategoryRoutingTab({ locationId }: { locationId: string }) {
     }
   }, [locationId]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above — safe fire-and-forget.
+  useEffect(() => { void load(); }, [load]);
 
   const stationById = useMemo(() => Object.fromEntries(stations.map((s) => [s.id, s])), [stations]);
   const categoryById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
@@ -655,7 +657,8 @@ function ItemRoutingTab({ locationId }: { locationId: string }) {
     }
   }, [locationId]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above — safe fire-and-forget.
+  useEffect(() => { void load(); }, [load]);
 
   const stationById = useMemo(() => Object.fromEntries(stations.map((s) => [s.id, s])), [stations]);
   const itemById = useMemo(() => Object.fromEntries(items.map((it) => [it.id, it])), [items]);
@@ -896,7 +899,8 @@ function DisplayGroupsTab({ locationId }: { locationId: string }) {
     }
   }, [locationId]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above — safe fire-and-forget.
+  useEffect(() => { void load(); }, [load]);
 
   const stationById = useMemo(() => Object.fromEntries(stations.map((s) => [s.id, s])), [stations]);
 
@@ -910,7 +914,7 @@ function DisplayGroupsTab({ locationId }: { locationId: string }) {
       if (editing?.id) {
         await updateDisplayGroup(editing.id, payload as unknown as Record<string, unknown>);
       } else {
-        await createDisplayGroup({ ...payload, location_id: locationId } as Record<string, unknown>);
+        await createDisplayGroup({ ...payload, location_id: locationId });
       }
       await load();
       closeSheet();
