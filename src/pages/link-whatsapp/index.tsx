@@ -76,6 +76,14 @@ export default function LinkWhatsAppPage() {
       } else {
         setPendingPhone(data?.phone_e164 ?? null);
       }
+    }).catch((err: unknown) => {
+      // fetchPendingPhone()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, setLoadingPhone(false) never ran, leaving the page
+      // stuck loading forever.
+      console.error('Error resolving pending phone:', err);
+      setLoadingPhone(false);
+      setTokenError('error');
     });
   }, [token]);
 
@@ -93,6 +101,11 @@ export default function LinkWhatsAppPage() {
         setLinks(data.links);
         setAtCap(data.links.length >= 3);
       }
+    }).catch((err: unknown) => {
+      // Same failure mode as fetchPendingPhone() above: a network-level
+      // rejection left setLoadingLinks(false) unreached.
+      console.error('Error loading linked numbers:', err);
+      setLoadingLinks(false);
     });
   }, [user]);
 
@@ -112,11 +125,15 @@ export default function LinkWhatsAppPage() {
       if (error.status === 409) {
         // Could be cap or duplicate phone — re-fetch links to show manage view.
         setBindError(error.message || 'Unable to add number. You may already be at the 3-number limit.');
+        // Best-effort background refresh (no dedicated loading flag) — log
+        // rather than leave an unhandled rejection if it fails.
         listLinkedNumbers().then(({ data: ld }) => {
           if (ld?.links) {
             setLinks(ld.links);
             setAtCap(ld.links.length >= 3);
           }
+        }).catch((err: unknown) => {
+          console.error('Error refreshing linked numbers after 409:', err);
         });
       } else if (error.status === 410) {
         setBindError('This link has expired or has already been used. Please request a new one.');
@@ -128,13 +145,16 @@ export default function LinkWhatsAppPage() {
       return;
     }
 
-    // Success — refresh links list.
+    // Success — refresh links list. Best-effort (no dedicated loading
+    // flag) — log rather than leave an unhandled rejection if it fails.
     setBindSuccess(true);
     listLinkedNumbers().then(({ data: ld }) => {
       if (ld?.links) {
         setLinks(ld.links);
         setAtCap(ld.links.length >= 3);
       }
+    }).catch((err: unknown) => {
+      console.error('Error refreshing linked numbers after bind:', err);
     });
   }
 
