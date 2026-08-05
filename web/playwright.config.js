@@ -15,7 +15,7 @@ import { defineConfig, devices } from '@playwright/test';
 const DEV_PORT = process.env.VITE_PORT || 5173;
 
 export default defineConfig({
-  testDir: './tests-e2e',
+  testDir: './tests/e2e',
   testMatch: '**/*.spec.js',
 
   /* Global test timeout */

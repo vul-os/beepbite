@@ -101,7 +101,11 @@ import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const ROOT = resolve(__dirname, '..')
+// __dirname is web/scripts. WEB_ROOT (web/, where package.json/src/public/
+// live) is one level up; ROOT (the repo root, where backend/, docs/, site/
+// and .env.dev live) is two.
+const WEB_ROOT = resolve(__dirname, '..')
+const ROOT = resolve(__dirname, '..', '..')
 const BACKEND_DIR = join(ROOT, 'backend')
 
 const DB_CONTAINER = 'beepbite-screenshots-pg'
@@ -130,8 +134,8 @@ const OUT_DIRS = HAS_SITE_DOCS
 // components wired with a caption naming an exact /public/docs/*.png file to
 // drop in. Where the subject matches something this script actually
 // captures, the shot is copied there too (see PUBLIC_DOCS_FILLS below and
-// docs/screenshots.md).
-const PUBLIC_DOCS_DIR = join(ROOT, 'public', 'docs')
+// docs/screenshots.md). public/ lives under web/, not the repo root.
+const PUBLIC_DOCS_DIR = join(WEB_ROOT, 'public', 'docs')
 
 const OWNER_EMAIL = 'demo@beepbite.app'
 const OWNER_PASSWORD = 'Demo1234!'
@@ -433,7 +437,7 @@ async function ensureFrontend() {
 
   console.log(`  starting frontend on ${WEB_URL}…`)
   const proc = spawnGroup('npm', ['run', 'dev', '--', '--port', WEB_PORT], {
-    cwd: ROOT,
+    cwd: WEB_ROOT,
     env: { ...process.env, VITE_API_URL: API_URL },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
