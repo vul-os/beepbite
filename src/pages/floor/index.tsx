@@ -80,7 +80,7 @@ export default function FloorLive() {
     if (!table || openingId) return;
     // If the row already carries a session id, just route to it.
     if (table.status === 'occupied' && table.table_session_id) {
-      navigate(`/pos?session=${table.table_session_id}`);
+      void navigate(`/pos?session=${table.table_session_id}`);
       return;
     }
     setOpeningId(table.id);
@@ -95,8 +95,10 @@ export default function FloorLive() {
       // Optimistically mark occupied and stash the new session id.
       patchTableLocal(table.id, { status: 'occupied', table_session_id: data?.id });
       setFlash({ type: 'ok', message: `Session opened for ${table.label}` });
-      // Refresh to pick up any server-side status changes.
-      refresh();
+      // Refresh to pick up any server-side status changes. refresh()
+      // (useTables' fetchAll) is fully try/catch/finally-wrapped — a
+      // genuinely safe fire-and-forget.
+      void refresh();
     } catch (e) {
       setFlash({ type: 'err', message: e instanceof Error ? e.message : String(e) });
     } finally {

@@ -36,6 +36,15 @@ export interface FloorTable {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Set once a table is occupied (see services/tables.ts, which already
+  // declares this as `string`). Missing here meant it fell through the
+  // index signature below as `unknown`, which floor/index.tsx's
+  // handleActivate() then truthy-checked and interpolated into a URL
+  // (`/pos?session=${table.table_session_id}`) — a real bug caught by
+  // no-base-to-string/restrict-template-expressions: if that value were
+  // ever a non-string object it would navigate to a literal
+  // "/pos?session=[object Object]" URL.
+  table_session_id?: string | null;
   [key: string]: unknown;
 }
 
@@ -75,14 +84,15 @@ export function useTables(locationId: string | undefined, { pollMs = 0 }: { poll
   useEffect(() => {
     mounted.current = true;
     setLoading(true);
-    fetchAll();
+    void fetchAll();
     return () => { mounted.current = false; };
   }, [fetchAll]);
 
-  // Optional polling for the live view.
+  // Optional polling for the live view. fetchAll() is fully try/catch/
+  // finally-wrapped above — a genuinely safe fire-and-forget.
   useEffect(() => {
     if (!pollMs || !locationId) return undefined;
-    const id = setInterval(() => { fetchAll(); }, pollMs);
+    const id = setInterval(() => { void fetchAll(); }, pollMs);
     return () => clearInterval(id);
   }, [pollMs, locationId, fetchAll]);
 
