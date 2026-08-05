@@ -9,6 +9,7 @@
     "build:main": "vite build --mode main",
     "build:dev": "vite build --mode dev",
     "lint": "eslint .",
+    "check:lint-config": "node scripts/check-lint-config.mjs",
     "preview": "vite preview",
     "test:unit": "NODE_OPTIONS=--max-old-space-size=512 vitest run",
     "test:unit:watch": "NODE_OPTIONS=--max-old-space-size=512 vitest",

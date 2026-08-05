@@ -323,6 +323,14 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      # Unlike the advisory step above, this is a hard gate: it doesn't care
+      # how many lint findings there are, only that type-aware linting is
+      # actually resolving type information, typescript is pinned to the
+      # version node_modules actually has installed, and ESLint is still
+      # covering the real file count. See web/scripts/check-lint-config.mjs.
+      - name: Lint config actually does what it claims
+        run: npm run check:lint-config
+
       - name: Vite build (catches bundler errors)
         run: npm run build
 
