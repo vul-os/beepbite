@@ -88,7 +88,8 @@ export function useHouseAccounts(orgId: string | undefined) {
 
   useEffect(() => {
     mounted.current = true;
-    fetchAccounts();
+    // fetchAccounts() is fully try/catch/finally-wrapped above.
+    void fetchAccounts();
     return () => { mounted.current = false; };
   }, [fetchAccounts]);
 
@@ -129,7 +130,8 @@ export function useHouseAccountDetail(id: string | undefined) {
 
   useEffect(() => {
     mounted.current = true;
-    fetchDetail();
+    // fetchDetail() is fully try/catch/finally-wrapped above.
+    void fetchDetail();
     return () => { mounted.current = false; };
   }, [fetchDetail]);
 
