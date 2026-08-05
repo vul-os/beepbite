@@ -4,7 +4,7 @@ import { Shield, Search, Loader2, AlertTriangle, X, Pause, Play, ArrowLeft, Bell
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -29,57 +29,22 @@ import {
   getTenant,
   pauseTenant,
   unpauseTenant,
+  type TenantSummary,
+  type TenantDetail as TenantDetailDTO,
 } from '@/services/admin';
-
-// ---------------------------------------------------------------------------
-// NOTE: services/admin.ts's exported TenantSummary/TenantDetail types
-// (org_id, slug, owner_email, status; TenantDetail.org/.alarms typed
-// `unknown`) do not match the real backend response shape — see
-// backend/internal/handlers/admin/store.go: TenantSummary is actually
-// { id, name, is_active, paused_at, created_at } and TenantDetail is
-// TenantSummary + `alarms: string[]` (no `org` wrapper). This mismatch
-// predates this migration (the fields this page reads are always
-// undefined at runtime, e.g. every row renders "—" for slug/owner/status).
-// Flagging per project policy rather than fixing — the view types below
-// mirror what this file has always (incorrectly) assumed, cast at the API
-// boundary, so behavior is unchanged.
-// ---------------------------------------------------------------------------
-
-interface AdminOrgView {
-  name?: string;
-  owner_email?: string;
-  status?: string;
-  slug?: string;
-  org_id?: string;
-  id?: string;
-  created_at?: string;
-}
-
-interface AdminAlarmView {
-  id?: string;
-  name?: string;
-  type?: string;
-  message?: string;
-  triggered_at?: string;
-}
-
-interface AdminTenantDetailView {
-  org?: AdminOrgView;
-  alarms?: AdminAlarmView[];
-}
-
-interface AdminTenantRow {
-  org_id?: string;
-  name?: string;
-  slug?: string;
-  owner_email?: string;
-  status?: string;
-  created_at?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// TenantSummary/TenantDetail (services/admin.ts) have no `status` string —
+// status is derived from is_active/paused_at, mirroring admin/store.go's
+// own alarm computation (GetTenantDetail: paused_at != nil => "paused";
+// !is_active => "inactive").
+function tenantStatus(t: { is_active: boolean; paused_at: string | null }): string {
+  if (t.paused_at) return 'paused';
+  return t.is_active ? 'active' : 'inactive';
+}
 
 function formatDate(iso?: string) {
   if (!iso) return '—';
@@ -87,17 +52,6 @@ function formatDate(iso?: string) {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  });
-}
-
-function formatDateTime(iso?: string) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -157,7 +111,7 @@ function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, c
 // ---------------------------------------------------------------------------
 
 function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) {
-  const [detail, setDetail] = useState<AdminTenantDetailView | null>(null);
+  const [detail, setDetail] = useState<TenantDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -177,10 +131,7 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
     try {
       const { data, error: apiErr } = await getTenant(orgId);
       if (apiErr) { setError(apiErr.message || 'Failed to load tenant.'); return; }
-      // See mismatch note above: cast through the always-`unknown`
-      // TenantDetail fields to the shape this page has always (incorrectly)
-      // assumed.
-      setDetail(data as unknown as AdminTenantDetailView);
+      setDetail(data);
     } catch (err) {
       console.error('Error loading tenant:', err);
       setError('Failed to load tenant.');
@@ -238,8 +189,8 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
 
   if (!detail) return null;
 
-  const { org, alarms = [] } = detail;
-  const isPaused = (org?.status || '').toLowerCase() === 'paused';
+  const { alarms } = detail;
+  const isPaused = Boolean(detail.paused_at);
 
   return (
     <div className="space-y-6">
@@ -296,27 +247,22 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle className="text-lg">{org?.name || '—'}</CardTitle>
-              <CardDescription className="mt-1">{org?.owner_email || '—'}</CardDescription>
+              <CardTitle className="text-lg">{detail.name || '—'}</CardTitle>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge status={org?.status} />
+              <StatusBadge status={tenantStatus(detail)} />
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
             <div>
-              <dt className="text-muted-foreground">Slug</dt>
-              <dd className="font-mono font-medium mt-0.5">{org?.slug || '—'}</dd>
-            </div>
-            <div>
               <dt className="text-muted-foreground">Org ID</dt>
-              <dd className="font-mono text-xs mt-0.5 truncate">{org?.org_id || org?.id || '—'}</dd>
+              <dd className="font-mono text-xs mt-0.5 truncate">{detail.id || '—'}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Created</dt>
-              <dd className="mt-0.5">{formatDate(org?.created_at)}</dd>
+              <dd className="mt-0.5">{formatDate(detail.created_at)}</dd>
             </div>
           </dl>
         </CardContent>
@@ -340,17 +286,11 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
             <ul className="space-y-2">
               {alarms.map((alarm, i) => (
                 <li
-                  key={alarm.id || i}
+                  key={`${alarm}-${i}`}
                   className="flex items-start gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20"
                 >
                   <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-destructive">{alarm.name || alarm.type || 'Alarm'}</p>
-                    {alarm.message && <p className="text-xs text-destructive/80 mt-0.5">{alarm.message}</p>}
-                    {alarm.triggered_at && (
-                      <p className="text-xs text-destructive/70 mt-1">{formatDateTime(alarm.triggered_at)}</p>
-                    )}
-                  </div>
+                  <p className="text-sm font-medium text-destructive">{alarm}</p>
                 </li>
               ))}
             </ul>
@@ -363,7 +303,7 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
         open={pauseDialogOpen}
         onOpenChange={setPauseDialogOpen}
         title="Pause this tenant?"
-        description={`This will suspend all activity for "${org?.name}". They will not be able to accept orders or access the dashboard until unpaused.`}
+        description={`This will suspend all activity for "${detail.name}". They will not be able to accept orders or access the dashboard until unpaused.`}
         confirmLabel="Yes, pause tenant"
         confirmVariant="destructive"
         onConfirm={handlePause}
@@ -374,7 +314,7 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
         open={unpauseDialogOpen}
         onOpenChange={setUnpauseDialogOpen}
         title="Unpause this tenant?"
-        description={`This will restore full access for "${org?.name}".`}
+        description={`This will restore full access for "${detail.name}".`}
         confirmLabel="Yes, unpause tenant"
         confirmVariant="default"
         onConfirm={handleUnpause}
@@ -391,7 +331,7 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
 
 export default function AdminDashboardPage() {
   const [query, setQuery] = useState('');
-  const [tenants, setTenants] = useState<AdminTenantRow[]>([]);
+  const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [is403, setIs403] = useState(false);
@@ -419,16 +359,7 @@ export default function AdminDashboardPage() {
         }
         return;
       }
-      // See mismatch note above: cast to the shape this page has always
-      // (incorrectly) assumed the search results have. no-unnecessary-
-      // type-assertion is right that the cast changes nothing TS-wise —
-      // that's the symptom of the tracked "admin tenant types mismatch
-      // admin/store.go" backend-contract gap (separate backlog item, not
-      // fixed by this lint pass: fixing it means reconciling
-      // AdminTenantRow against what admin/store.go's search endpoint
-      // actually returns, not a lint change).
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      setTenants(Array.isArray(data) ? (data as unknown as AdminTenantRow[]) : []);
+      setTenants(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching tenants:', err);
       setListError('Failed to load tenants.');
@@ -554,8 +485,7 @@ export default function AdminDashboardPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Owner Email</TableHead>
+                    <TableHead>Org ID</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
@@ -563,16 +493,15 @@ export default function AdminDashboardPage() {
                 <TableBody>
                   {tenants.map((t) => (
                     <TableRow
-                      key={t.org_id}
+                      key={t.id}
                       className="cursor-pointer hover:bg-primary/5 transition-colors"
-                      onClick={() => setSelectedOrgId(t.org_id || null)}
+                      onClick={() => setSelectedOrgId(t.id || null)}
                     >
                       <TableCell className="font-medium">{t.name || '—'}</TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{t.slug || '—'}</span>
+                        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{t.id || '—'}</span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{t.owner_email || '—'}</TableCell>
-                      <TableCell><StatusBadge status={t.status} /></TableCell>
+                      <TableCell><StatusBadge status={tenantStatus(t)} /></TableCell>
                       <TableCell className="text-muted-foreground text-xs">{formatDate(t.created_at)}</TableCell>
                     </TableRow>
                   ))}

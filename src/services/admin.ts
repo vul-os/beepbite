@@ -4,18 +4,20 @@
 
 import { api } from '../lib/api-client';
 
+// Mirrors backend/internal/handlers/admin/store.go's TenantSummary /
+// TenantDetail exactly — there is no slug, owner_email, status, or org_id
+// field (the org's primary key is `id`), and TenantDetail is TenantSummary
+// plus `alarms`, not a `{ org, alarms }` wrapper.
 export interface TenantSummary {
-  org_id: string;
+  id: string;
   name: string;
-  slug: string;
-  owner_email: string;
-  status: string;
+  is_active: boolean;
+  paused_at: string | null;
   created_at: string;
 }
 
-export interface TenantDetail {
-  org: unknown;
-  alarms: unknown;
+export interface TenantDetail extends TenantSummary {
+  alarms: string[];
 }
 
 /**
