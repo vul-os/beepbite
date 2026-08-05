@@ -60,7 +60,8 @@ const OrganizationSettings = () => {
 
   useEffect(() => {
     if (activeOrganization) {
-      loadOrganizationData();
+      // loadOrganizationData() is fully try/catch/finally-wrapped below.
+      void loadOrganizationData();
     }
   }, [activeOrganization]);
 
@@ -145,7 +146,7 @@ const OrganizationSettings = () => {
       await fetchOrganizations();
 
       // Reload data to reflect changes
-      loadOrganizationData();
+      void loadOrganizationData();
 
       setTimeout(() => {
         setSaveMessage('');
