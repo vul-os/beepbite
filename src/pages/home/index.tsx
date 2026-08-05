@@ -89,22 +89,40 @@ const Home = () => {
     if (!locationId) return;
     setSummaryLoading(true);
     setSummaryError(null);
-    const { data, error } = await fetchStatsSummary(locationId, period);
-    if (error) {
-      setSummaryError(error.message || 'Failed to load stats');
-    } else {
-      setSummary(data);
+    // fetchStatsSummary() only wraps the { data, error } API-error case —
+    // a network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // summary panel stuck on its loading spinner forever (setSummaryLoading
+    // never flipped back to false) with a silently swallowed rejection.
+    try {
+      const { data, error } = await fetchStatsSummary(locationId, period);
+      if (error) {
+        setSummaryError(error.message || 'Failed to load stats');
+      } else {
+        setSummary(data);
+      }
+    } catch (err) {
+      console.error('Error loading stats summary:', err);
+      setSummaryError('Failed to load stats');
+    } finally {
+      setSummaryLoading(false);
     }
-    setSummaryLoading(false);
   }, [locationId, period]);
 
   // ── Fetch heatmap ────────────────────────────────────────────────────────
   const loadHeatmap = useCallback(async () => {
     if (!locationId) return;
     setHeatmapLoading(true);
-    const { data } = await fetchStatsHeatmap(locationId, 12);
-    if (data) setHeatmap(data);
-    setHeatmapLoading(false);
+    // Same failure mode as loadSummary() above: a network-level rejection
+    // (not just an { error } response) left the heatmap stuck loading.
+    try {
+      const { data } = await fetchStatsHeatmap(locationId, 12);
+      if (data) setHeatmap(data);
+    } catch (err) {
+      console.error('Error loading stats heatmap:', err);
+    } finally {
+      setHeatmapLoading(false);
+    }
   }, [locationId]);
 
   // ── Fetch live orders ────────────────────────────────────────────────────
@@ -160,9 +178,9 @@ const Home = () => {
   }, [locationId, orderStatusFilter]);
 
   // ── Effects ──────────────────────────────────────────────────────────────
-  useEffect(() => { loadSummary(); }, [loadSummary]);
-  useEffect(() => { loadHeatmap(); }, [loadHeatmap]);
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { void loadSummary(); }, [loadSummary]);
+  useEffect(() => { void loadHeatmap(); }, [loadHeatmap]);
+  useEffect(() => { void fetchOrders(); }, [fetchOrders]);
 
   // ── Order helpers ────────────────────────────────────────────────────────
   const filteredOrders = useMemo(() => {
@@ -192,7 +210,7 @@ const Home = () => {
       if (error) throw error;
     } catch (err) {
       console.error('Error updating order status:', err);
-      fetchOrders();
+      void fetchOrders();
     }
   }, [fetchOrders]);
 
@@ -231,9 +249,9 @@ const Home = () => {
   const heatmapCells = heatmap?.cells ?? [];
 
   const handleRefresh = () => {
-    loadSummary();
-    loadHeatmap();
-    fetchOrders();
+    void loadSummary();
+    void loadHeatmap();
+    void fetchOrders();
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
