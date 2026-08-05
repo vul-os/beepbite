@@ -61,7 +61,7 @@ import {
   type Section,
   type TableSession,
 } from '@/services/tables';
-import { chargeOrdersWithLegs, type TenderLeg, type UnpaidOrder } from '@/services/payment';
+import { chargeOrdersWithLegs, type TenderLeg } from '@/services/payment';
 
 import { OfflineBanner } from '@/components/ui/sync-status';
 import OpenRegisterModal from '@/pages/home/components/open-register-modal';

@@ -2,7 +2,6 @@
 // day_of_week follows ISO: 1=Monday … 7=Sunday (matches the DB CHECK constraint).
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

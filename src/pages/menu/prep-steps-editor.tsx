@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

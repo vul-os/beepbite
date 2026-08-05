@@ -1,7 +1,6 @@
 // modifier-groups-editor.tsx — CRUD UI for modifier_groups + modifiers on a menu item.
 // Designed to be dropped inside the Recipe modal's tab set (or as a standalone dialog).
 import { useEffect, useState } from 'react';
-import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react';
 import { ChevronDown, ChevronRight, Loader2, Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

@@ -28,7 +28,7 @@ export async function resolveStore(slug: string) {
     }
 
     return { ok: true, data };
-  } catch (err) {
+  } catch (_err) {
     // Network failure — surface as a generic error rather than leaking slug info.
     return { ok: false, error: 'Unable to reach the server. Check your connection.' };
   }

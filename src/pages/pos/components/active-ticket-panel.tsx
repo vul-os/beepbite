@@ -592,7 +592,7 @@ export default function ActiveTicketPanel({
   onSend,                // () => void
   onCharge,              // () => void
   onAdjustGuests,        // optional () => void
-  onAdjust,              // optional ({ orderId, type }) => void — kept for back-compat (workspace modal)
+  onAdjust: _onAdjust,   // optional ({ orderId, type }) => void — kept for back-compat (workspace modal), unused here
   onAdjustSuccess,       // optional (data) => void — called after inline adjustment success
   locationId = '',       // location_id for scoping adjustment reasons + manager list
   sending = false,

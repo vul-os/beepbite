@@ -260,8 +260,7 @@ const Stepper = ({
         <div className="flex items-center justify-between relative">
           {steps.map((step, index) => {
             const status = getStepStatus(index);
-            const isLast = index === steps.length - 1;
-            
+
             return (
               <div key={index} className="flex flex-col items-center relative z-10">
                 {/* Icon */}

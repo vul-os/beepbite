@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import type { ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -184,7 +183,7 @@ const CostAnalysis = ({ activeLocation }: CostAnalysisProps) => {
                 item_uuid: item.id
               });
               calculatedCost = costData || 0;
-            } catch (costError) {
+            } catch (_costError) {
               console.warn('Failed to calculate cost for', item.name);
             }
           }

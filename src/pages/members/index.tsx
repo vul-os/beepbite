@@ -221,7 +221,7 @@ const Members = () => {
     setInviteLoading(true);
     try {
       // Insert invite directly into the database
-      const { data, error } = await supabase
+      const { data: _data, error } = await supabase
         .from('organization_invites')
         .insert({
           organization_id: activeOrganization.id,

@@ -150,7 +150,7 @@ const Categories = () => {
 
     setSaving(true);
     try {
-      const { data, error } = await supabase
+      const { data: _data, error } = await supabase
         .from('categories')
         .insert({
           location_id: activeLocation.id,

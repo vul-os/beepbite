@@ -23,13 +23,6 @@ export interface ToasterToast {
 
 type ToastInput = Omit<ToasterToast, "id" | "open" | "onOpenChange">
 
-const actionTypes = {
-  ADD_TOAST: "ADD_TOAST",
-  UPDATE_TOAST: "UPDATE_TOAST",
-  DISMISS_TOAST: "DISMISS_TOAST",
-  REMOVE_TOAST: "REMOVE_TOAST"
-} as const
-
 let count = 0
 
 function genId() {
@@ -37,11 +30,15 @@ function genId() {
   return count.toString();
 }
 
+// Action type strings are used directly as literals at every dispatch call
+// site below (never through this object at runtime), so the type union is
+// derived from the literals themselves rather than from a `typeof
+// actionTypes.X` object that would otherwise exist only to be type-queried.
 type Action =
-  | { type: typeof actionTypes.ADD_TOAST; toast: ToasterToast }
-  | { type: typeof actionTypes.UPDATE_TOAST; toast: Partial<ToasterToast> & { id: string } }
-  | { type: typeof actionTypes.DISMISS_TOAST; toastId?: string }
-  | { type: typeof actionTypes.REMOVE_TOAST; toastId?: string }
+  | { type: "ADD_TOAST"; toast: ToasterToast }
+  | { type: "UPDATE_TOAST"; toast: Partial<ToasterToast> & { id: string } }
+  | { type: "DISMISS_TOAST"; toastId?: string }
+  | { type: "REMOVE_TOAST"; toastId?: string }
 
 interface State {
   toasts: ToasterToast[]

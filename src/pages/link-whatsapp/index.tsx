@@ -105,7 +105,7 @@ export default function LinkWhatsAppPage() {
     setBinding(true);
     setBindError(null);
 
-    const { data, error } = await bindPhone(token);
+    const { data: _data, error } = await bindPhone(token);
     setBinding(false);
 
     if (error) {

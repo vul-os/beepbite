@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -394,7 +393,7 @@ const Menu = () => {
         is_recipe_ingredient: formData.is_recipe_ingredient
       };
 
-      const { data, error } = await supabase
+      const { data: _data, error } = await supabase
         .from('items')
         .insert(itemData)
         .select()

@@ -68,7 +68,6 @@ import {
   deleteEndpoint,
   listDeliveries,
   type WebhookEndpoint,
-  type WebhookEndpointCreated,
   type WebhookDelivery,
 } from '@/services/webhooks';
 

@@ -2,7 +2,6 @@
 // an item to the selected menu schedule via item_menu_schedules.
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent } from 'react';
 import { Search, AlertCircle, Utensils } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';

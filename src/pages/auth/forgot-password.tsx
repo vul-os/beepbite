@@ -39,7 +39,7 @@ const ForgotPasswordPage = () => {
         body: { email },
       });
       setIsSubmitted(true);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to send reset link. Please try again.');
     } finally {
       setIsLoading(false);

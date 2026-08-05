@@ -56,7 +56,7 @@ export default function PurchaseOrdersPage() {
   const { locale } = useLocale();
   const { formatDate } = useDateTime();
   const [statusFilter, setStatusFilter] = useState<POStatus | 'all'>('all');
-  const { pos, loading, error, refetch, createPO, submitPO } = usePOs(activeLocation?.id, statusFilter);
+  const { pos, loading, error, createPO, submitPO } = usePOs(activeLocation?.id, statusFilter);
   const { suppliers } = useSuppliers(activeOrganization?.id);
 
   const [newPOOpen, setNewPOOpen] = useState(false);

@@ -85,7 +85,7 @@ const UpdatePasswordPage = () => {
         return;
       }
       setIsUpdated(true);
-    } catch (err) {
+    } catch (_err) {
       setErrors(prev => ({ ...prev, submit: 'Failed to update password. Please try again.' }));
     } finally {
       setIsLoading(false);

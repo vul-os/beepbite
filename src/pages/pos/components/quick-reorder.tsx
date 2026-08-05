@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useMoney } from '@/context/locale-context';
-import { fetchRecentOrders, type RecentOrder, type RecentOrderModifier } from '@/services/reorder';
+import { fetchRecentOrders, type RecentOrder } from '@/services/reorder';
 
 // ---------------------------------------------------------------------------
 // Helpers

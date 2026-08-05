@@ -2,7 +2,6 @@
 import { describe, it, expect } from 'vitest';
 import { ulid } from '../offline/ulid.js';
 
-const CROCKFORD_CHARSET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const CROCKFORD_RE = /^[0123456789ABCDEFGHJKMNPQRSTVWXYZ]+$/;
 
 describe('ulid', () => {

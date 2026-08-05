@@ -140,7 +140,7 @@ const WhatsAppPreview = ({ className }: { className?: string }) => {
             >
               <div className="space-y-3 py-2">
                 <AnimatePresence>
-                  {visibleMessages.map((message, index) => (
+                  {visibleMessages.map((message) => (
                     <motion.div
                       key={message.id}
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}

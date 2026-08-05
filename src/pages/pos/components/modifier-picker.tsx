@@ -361,8 +361,7 @@ export default function ModifierPicker({ open, onOpenChange, item, onConfirm }: 
 // useModifierGroups — lightweight hook workspace.jsx uses to check if an item
 // has ANY modifier groups before deciding whether to open the picker.
 // ---------------------------------------------------------------------------
-export function useItemHasModifiers(itemId?: string) {
-  const [hasModifiers, setHasModifiers] = useState<boolean | null>(null); // null = unknown
+export function useItemHasModifiers() {
   const [groupsCache, setGroupsCache] = useState<Record<string, boolean>>({}); // itemId → boolean
 
   const check = async (id: string) => {

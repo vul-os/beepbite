@@ -10,7 +10,7 @@
 // owning org can read / write.
 
 import { useState, useEffect, useCallback } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import {
   ChefHat,
   Plus,

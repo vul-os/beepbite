@@ -115,7 +115,7 @@ export function Category86Button({ category, allItems = [], onComplete, disabled
               ) : (
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               )}
-              {is86ed ? 'Un-86 Category' : '86 This Category'}
+              {actionLabel}
             </DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 pt-1">
