@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import { useState, useEffect } from "react"
 import { CreditCard, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import {

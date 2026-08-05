@@ -6,7 +6,6 @@
 // Data flow: all reads/writes go through src/services/hardware.js which
 // wraps the /hardware/* Go backend endpoints.
 
-/* eslint-disable react/prop-types */
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent, SVGProps } from 'react';
 import {

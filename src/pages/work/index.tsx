@@ -25,7 +25,6 @@
 // The KDS Station view uses useParams() so it is wrapped in a MemoryRouter
 // with the selected station id injected.
 
-/* eslint-disable react/prop-types */
 import React, {
   lazy,
   Suspense,

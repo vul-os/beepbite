@@ -19,7 +19,6 @@
 //   currency    {string}    ISO 4217 code for price formatting (default 'USD').
 //   className   {string}    Optional additional wrapper class.
 
-/* eslint-disable react/prop-types */
 import { useEffect, useState, useCallback } from 'react';
 import { Star, ChevronRight } from 'lucide-react';
 

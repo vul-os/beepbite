@@ -57,7 +57,6 @@ interface PinButtonProps {
 // ---------------------------------------------------------------------------
 // PIN pad digit button
 // ---------------------------------------------------------------------------
-// eslint-disable-next-line react/prop-types
 function PinButton({ children, onClick, disabled }: PinButtonProps) {
   return (
     <button
@@ -79,7 +78,6 @@ interface PinDotsProps {
   maxLength: number;
 }
 
-// eslint-disable-next-line react/prop-types
 function PinDots({ length, maxLength }: PinDotsProps) {
   return (
     <div className="flex items-center justify-center gap-3 my-4">

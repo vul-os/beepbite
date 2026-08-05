@@ -11,7 +11,6 @@
 //
 // The modal is opened imperatively via the PinModalContext / usePinModal hook.
 
-/* eslint-disable react/prop-types */
 import React, {
   createContext,
   useCallback,

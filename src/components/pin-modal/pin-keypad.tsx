@@ -25,7 +25,6 @@ interface KeyButtonProps {
   variant?: 'digit' | 'action';
 }
 
-// eslint-disable-next-line react/prop-types
 function KeyButton({ children, onClick, disabled, variant = 'digit' }: KeyButtonProps) {
   const base =
     'flex items-center justify-center rounded-2xl text-xl font-semibold transition-all duration-100 select-none touch-manipulation';
@@ -54,7 +53,6 @@ interface PinDotsProps {
   maxLength: number;
 }
 
-// eslint-disable-next-line react/prop-types
 function PinDots({ length, maxLength }: PinDotsProps) {
   return (
     <div className="flex items-center justify-center gap-3 my-4" aria-label={`${length} of ${maxLength} digits entered`}>
@@ -91,7 +89,6 @@ interface PinKeypadProps {
   submitLabel?: string;
 }
 
-// eslint-disable-next-line react/prop-types
 const PinKeypad = ({
   pin = '',
   maxLength = 6,

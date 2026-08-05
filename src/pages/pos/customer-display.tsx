@@ -35,7 +35,6 @@
 // Route: /pos/customer-display  (add to routes.jsx separately as instructed)
 // No auth required — this window is opened by an already-authenticated POS.
 
-/* eslint-disable react/prop-types */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Monitor, Receipt, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';

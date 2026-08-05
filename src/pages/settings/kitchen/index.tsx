@@ -11,7 +11,6 @@
 // All data is read/written via src/services/kitchen-config.js which wraps the
 // generic /data/{table} API (api.from(...) builder from @/lib/api-client.js).
 
-/* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import {
@@ -1058,7 +1057,8 @@ function DisplayGroupForm({ initial, stations, onSubmit, onCancel, saving }: {
   const toggleStation = (id: string) => {
     setSelectedStations((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };

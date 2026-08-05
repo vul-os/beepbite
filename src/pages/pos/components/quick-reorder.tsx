@@ -23,7 +23,6 @@
 //   limit       {number}    How many past orders to show (default 3).
 //   className   {string}    Optional wrapper class.
 
-/* eslint-disable react/prop-types */
 import { useEffect, useState, useCallback } from 'react';
 import { RotateCcw, ShoppingCart, Clock } from 'lucide-react';
 

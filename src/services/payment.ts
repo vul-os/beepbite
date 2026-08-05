@@ -170,7 +170,6 @@ export async function chargeOrdersWithLegs({ orders, legs, processedByStaffId }:
       change_given_cents: leg.changeCents ? Math.round(leg.changeCents * ratio) : 0,
       payment_reference: leg.reference || '',
     }));
-    // eslint-disable-next-line no-await-in-loop
     const r = await chargeOrder({
       orderId: order.id,
       processedByStaffId,

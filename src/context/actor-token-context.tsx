@@ -214,7 +214,7 @@ export function ActorTokenProvider({ children }: { children: ReactNode }) {
   // Expose the public actor fields only (strip internal _token / _expiresAt).
   const publicActor = useMemo(() => {
     if (!actor || isExpired) return null;
-    const { _token: _t, _expiresAt: _e, ...pub } = actor; // eslint-disable-line no-unused-vars
+    const { _token: _t, _expiresAt: _e, ...pub } = actor;
     return pub;
   }, [actor, isExpired]);
 

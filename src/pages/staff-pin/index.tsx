@@ -236,7 +236,6 @@ const StaffPinPage = () => {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, pin, store, navigate, setActor, slug]);
 
   // ---- render guards ----

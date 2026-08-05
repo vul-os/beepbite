@@ -18,7 +18,6 @@
 //                                  — called when a split is tendered;
 //                                    parent records order_payments rows
 //   staffId        {string?}
-/* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, Plus, Receipt, Scissors, UserRound, Wallet, X } from 'lucide-react';
 

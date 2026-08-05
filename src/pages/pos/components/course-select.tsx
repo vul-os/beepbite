@@ -11,7 +11,6 @@
 // If `courses` is empty or still loading, the dropdown is hidden so the row
 // layout is not disrupted.
 
-/* eslint-disable react/prop-types */
 import { cn } from '@/lib/utils';
 
 // Mirrors backend/migrations/001_baseline.sql `courses` table (subset used here).

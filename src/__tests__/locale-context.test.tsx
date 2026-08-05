@@ -21,7 +21,6 @@ import {
 } from '../context/locale-context';
 
 function wrapperFor(props: { location?: LocationLike | null; value?: Partial<LocaleContextValue> }) {
-  // eslint-disable-next-line react/prop-types
   return function Wrapper({ children }: { children: ReactNode }) {
     return <LocaleProvider {...props}>{children}</LocaleProvider>;
   };

@@ -1,7 +1,6 @@
 // modifier-picker.jsx — Modal presented when a menu item with modifier_groups is tapped.
 // Respects min_select / max_select / is_required per group.
 // Returns { selectedModifiers, extraCents } via onConfirm.
-/* eslint-disable react/prop-types */
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

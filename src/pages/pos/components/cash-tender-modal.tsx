@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Banknote, CheckCircle2, Delete, Loader2 } from 'lucide-react';
 

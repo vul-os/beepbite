@@ -17,7 +17,6 @@
 // Auth: accepts EITHER a staff PIN session (localStorage) OR a Supabase
 // (owner/admin) session via useAuth(). One of them is required.
 
-/* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Banknote, ChefHat, CreditCard, Filter, Loader2, Lock, LogOut, MapPin, Plus, Receipt, RotateCcw, Scissors, Search, ShoppingBag, Unlock, User as UserIcon, UserCheck, Utensils } from 'lucide-react';
@@ -307,7 +306,7 @@ export default function PosWorkspacePage() {
       return token as string | null | undefined;
     });
     return unregister;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ----- actor overlay (T9.5) --------------------------------------------
   const { actor, clearActor } = useActor();
@@ -825,7 +824,7 @@ export default function PosWorkspacePage() {
         ],
       };
     });
-  }, [activeTicket, scale]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTicket, scale]);
 
   const handleAddItem = useCallback(async (item: MenuItem) => {
     if (!activeTicket) {

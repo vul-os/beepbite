@@ -29,7 +29,6 @@
 //   approver_pin are sent to the backend which does its own bcrypt check.
 //   (The usePinModal session-auth hook is for actor re-auth, not this flow.)
 
-/* eslint-disable react/prop-types */
 import {
   useCallback,
   useEffect,

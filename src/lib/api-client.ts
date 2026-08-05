@@ -78,7 +78,7 @@ function writeAuth(v: AuthSession | null) {
   else localStorage.removeItem(STORAGE_KEY);
 }
 
-let listeners = new Set<AuthListener>();
+const listeners = new Set<AuthListener>();
 function emitAuth(event: AuthEvent, session: AuthSession | null) {
   for (const cb of listeners) {
     try { cb(event, session); } catch (e) { console.error(e); }
@@ -88,7 +88,7 @@ function emitAuth(event: AuthEvent, session: AuthSession | null) {
 // ---- global missing_capability subscriber ----------------------------------
 // Components subscribe once (e.g. in a root layout useEffect) to receive a
 // toast whenever the server returns 403 { error:"missing_capability", capability:"can_xxx" }.
-let capabilityListeners = new Set<CapabilityListener>();
+const capabilityListeners = new Set<CapabilityListener>();
 export function onMissingCapability(cb: CapabilityListener) {
   capabilityListeners.add(cb);
   return () => capabilityListeners.delete(cb);
@@ -676,7 +676,7 @@ class Builder {
         const wantSingle = this._single;
         const qs = this._qs({ baseCols: parsed.base, single: wantSingle && !parsed.joins.length });
         const res = await request<Row | Row[]>('GET', `${path}${qs}`);
-        let { data, error } = res;
+        const { data, error } = res;
         if (error) {
           if (this._maybeSingle && error.status === 404) return { data: null, error: null };
           return { data: null, error };

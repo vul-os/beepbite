@@ -310,8 +310,8 @@ const CostAnalysis = ({ activeLocation }: CostAnalysisProps) => {
       return matchesSearch && matchesProblematic;
     })
     .sort((a, b) => {
-      let aVal = a[sortBy] || 0;
-      let bVal = b[sortBy] || 0;
+      const aVal = a[sortBy] || 0;
+      const bVal = b[sortBy] || 0;
       
       if (sortOrder === 'asc') {
         return aVal > bVal ? 1 : -1;
