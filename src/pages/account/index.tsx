@@ -31,7 +31,8 @@ const Account = () => {
 
   useEffect(() => {
     if (user) {
-      loadUserData();
+      // loadUserData() is fully try/catch/finally-wrapped below.
+      void loadUserData();
     }
   }, [user]);
 

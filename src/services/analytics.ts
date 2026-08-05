@@ -308,19 +308,22 @@ class AnalyticsService {
     return data || [];
   }
 
-  // TODO: requires new view — no order status distribution in reporting views
-  async getOrderStatusDistribution(_timeRange = '7d'): Promise<unknown[]> {
-    return [];
+  // TODO: requires new view — no order status distribution in reporting
+  // views. Promise.resolve() instead of `async` (no await in the body) —
+  // keeps the Promise<unknown[]> contract callers already `await` without
+  // an async function that never actually awaits anything.
+  getOrderStatusDistribution(_timeRange = '7d'): Promise<unknown[]> {
+    return Promise.resolve([]);
   }
 
   // TODO: requires new view — no per-order response-time detail in reporting views
-  async getRecentOrdersWithResponseTimes(_limit = 10): Promise<unknown[]> {
-    return [];
+  getRecentOrdersWithResponseTimes(_limit = 10): Promise<unknown[]> {
+    return Promise.resolve([]);
   }
 
   // TODO: requires new view — no customer analytics in reporting views
-  async getCustomerAnalytics(_timeRange = '30d'): Promise<Record<string, unknown>> {
-    return {};
+  getCustomerAnalytics(_timeRange = '30d'): Promise<Record<string, unknown>> {
+    return Promise.resolve({});
   }
 }
 

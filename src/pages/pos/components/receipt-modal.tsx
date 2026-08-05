@@ -319,6 +319,15 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }: Rec
         setReceipt(data);
       }
       setLoading(false);
+    }).catch((err: unknown) => {
+      // fetchReceipt()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading receipt:', err);
+        setError('Failed to load receipt.');
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -349,6 +358,12 @@ export default function ReceiptModal({ orderId, open, onClose, onNewOrder }: Rec
       setLoading(false);
       if (err) setError(err.message || 'Failed to load receipt.');
       else setReceipt(data);
+    }).catch((err: unknown) => {
+      // Same failure mode as the initial-load effect above: a
+      // network-level rejection left `loading` stuck true.
+      console.error('Error retrying receipt load:', err);
+      setLoading(false);
+      setError('Failed to load receipt.');
     });
   }, [orderId]);
 

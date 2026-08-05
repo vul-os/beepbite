@@ -78,26 +78,36 @@ export default function BusinessInfoPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await getTaxProfile();
-    if (!err && data) {
-      setForm({
-        legal_name:         data.legal_name         ?? '',
-        registered_address: data.registered_address ?? '',
-        country:            data.country            ?? '',
-        vat_number:         data.vat_number         ?? '',
-        company_number:     data.company_number     ?? '',
-        contact_email:      data.contact_email      ?? '',  // may be null from API
-        contact_phone:      data.contact_phone      ?? '',  // may be null from API
-      });
+    // getTaxProfile() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left this
+    // business-info settings page stuck loading forever.
+    try {
+      const { data, error: err } = await getTaxProfile();
+      if (!err && data) {
+        setForm({
+          legal_name:         data.legal_name         ?? '',
+          registered_address: data.registered_address ?? '',
+          country:            data.country            ?? '',
+          vat_number:         data.vat_number         ?? '',
+          company_number:     data.company_number     ?? '',
+          contact_email:      data.contact_email      ?? '',  // may be null from API
+          contact_phone:      data.contact_phone      ?? '',  // may be null from API
+        });
+      }
+      // 404 is fine — no profile yet; user will create one on save.
+      if (err && err.status !== 404) {
+        setError(err.message || 'Failed to load business info.');
+      }
+    } catch (err) {
+      console.error('Error loading business info:', err);
+      setError('Failed to load business info.');
+    } finally {
+      setLoading(false);
     }
-    // 404 is fine — no profile yet; user will create one on save.
-    if (err && err.status !== 404) {
-      setError(err.message || 'Failed to load business info.');
-    }
-    setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   // ── Field change ─────────────────────────────────────────────────────────
 

@@ -22,30 +22,49 @@ export function useStaffDetail(locationId: string | undefined) {
   const [shiftsError, setShiftsError] = useState<string | null>(null);
 
   // ── staff list ──────────────────────────────────────────────────────────────
+  // api.from()/api.request() only wrap the API-error case in
+  // { data, error } — a network-level failure (fetch() itself rejecting)
+  // throws instead. None of fetchStaffList/fetchRates/fetchShifts below
+  // had a try/catch, so that previously skipped their setLoading*(false)
+  // calls entirely, stranding whichever panel was loading forever. Same
+  // systemic pattern as the other stuck-loading bugs found across this
+  // codebase in this pass (home dashboard, KDS, 2FA, checkout, invoices, …).
   const fetchStaffList = useCallback(async () => {
     if (!locationId) return;
     setLoadingList(true);
     setListError(null);
-    const { data, error } = await api.from('staff')
-      .select('*')
-      .eq('location_id', locationId)
-      .order('first_name', { ascending: true });
-    setLoadingList(false);
-    if (error) { setListError(error.message); return; }
-    setStaffList(data ?? []);
+    try {
+      const { data, error } = await api.from('staff')
+        .select('*')
+        .eq('location_id', locationId)
+        .order('first_name', { ascending: true });
+      if (error) { setListError(error.message); return; }
+      setStaffList(data ?? []);
+    } catch (e) {
+      console.error('Error fetching staff list:', e);
+      setListError(e instanceof Error ? e.message : 'Failed to load staff.');
+    } finally {
+      setLoadingList(false);
+    }
   }, [locationId]);
 
-  useEffect(() => { fetchStaffList(); }, [fetchStaffList]);
+  useEffect(() => { void fetchStaffList(); }, [fetchStaffList]);
 
   // ── pay rates ───────────────────────────────────────────────────────────────
   const fetchRates = useCallback(async (staffId?: string) => {
     if (!staffId) return;
     setLoadingRates(true);
     setRatesError(null);
-    const { data, error } = await api.request<PayRate[]>('GET', `/payroll/staff/${staffId}/rates`);
-    setLoadingRates(false);
-    if (error) { setRatesError(error.message); return; }
-    setRates(data ?? []);
+    try {
+      const { data, error } = await api.request<PayRate[]>('GET', `/payroll/staff/${staffId}/rates`);
+      if (error) { setRatesError(error.message); return; }
+      setRates(data ?? []);
+    } catch (e) {
+      console.error('Error fetching pay rates:', e);
+      setRatesError(e instanceof Error ? e.message : 'Failed to load pay rates.');
+    } finally {
+      setLoadingRates(false);
+    }
   }, []);
 
   // ── shifts (week range) ─────────────────────────────────────────────────────
@@ -53,15 +72,21 @@ export function useStaffDetail(locationId: string | undefined) {
     if (!staffId) return;
     setLoadingShifts(true);
     setShiftsError(null);
-    const { data, error } = await api.from('staff_shifts')
-      .select('*')
-      .eq('staff_id', staffId)
-      .gte('shift_date', weekStart)
-      .lte('shift_date', weekEnd)
-      .order('shift_date', { ascending: true });
-    setLoadingShifts(false);
-    if (error) { setShiftsError(error.message); return; }
-    setShifts(data ?? []);
+    try {
+      const { data, error } = await api.from('staff_shifts')
+        .select('*')
+        .eq('staff_id', staffId)
+        .gte('shift_date', weekStart)
+        .lte('shift_date', weekEnd)
+        .order('shift_date', { ascending: true });
+      if (error) { setShiftsError(error.message); return; }
+      setShifts(data ?? []);
+    } catch (e) {
+      console.error('Error fetching shifts:', e);
+      setShiftsError(e instanceof Error ? e.message : 'Failed to load shifts.');
+    } finally {
+      setLoadingShifts(false);
+    }
   }, []);
 
   const createShift = useCallback(async (payload: StaffShiftInput) => {
@@ -121,7 +146,8 @@ export function useStaffDetail(locationId: string | undefined) {
     setSelectedStaff(member);
     setRates([]);
     setShifts([]);
-    if (member) fetchRates(member.id);
+    // fetchRates() is now fully try/catch/finally-wrapped above.
+    if (member) void fetchRates(member.id);
   }, [fetchRates]);
 
   return {

@@ -161,7 +161,8 @@ export function useDashboard(locationId: string | undefined, organizationId: str
 
   useEffect(() => {
     mounted.current = true;
-    fetch();
+    // fetch() is fully try/catch/finally-wrapped above.
+    void fetch();
     return () => { mounted.current = false; };
   }, [fetch]);
 

@@ -108,7 +108,8 @@ function useCourses(locationId: string | null) {
     }
   }, [locationId]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // fetch() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetch(); }, [fetch]);
 
   const create = useCallback(async (body: CourseInput & { location_id: string }) => {
     const { data, error: err } = await api.from('courses').insert(body);

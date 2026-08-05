@@ -48,8 +48,9 @@ export default function FavoritesRow({ customerId, onAdd, currency = 'USD' }: Fa
     }
   }, [customerId]);
 
+  // load() is fully try/catch/finally-wrapped above.
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   // Toggle heart: if already a favorite → remove; otherwise → add.

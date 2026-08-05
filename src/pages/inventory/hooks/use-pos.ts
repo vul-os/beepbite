@@ -71,7 +71,8 @@ export function usePOs(locationId: string | undefined, statusFilter: POStatus | 
     }
   }, [locationId, statusFilter]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // fetch() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetch(); }, [fetch]);
 
   /**
    * createPO — hits POST /inventory/purchase-orders

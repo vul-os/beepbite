@@ -81,7 +81,7 @@ const VerifyEmailPage = () => {
   const handleChangeEmail = () => {
     localStorage.removeItem('pendingVerificationEmail');
     localStorage.removeItem('pendingUserData');
-    navigate('/signup');
+    void navigate('/signup');
   };
 
   return (

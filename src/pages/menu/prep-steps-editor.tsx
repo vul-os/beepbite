@@ -71,7 +71,8 @@ const PrepStepsEditor = ({ itemId, onSaved, defaultOpen = true }: PrepStepsEdito
   }, [itemId]);
 
   useEffect(() => {
-    if (itemId) loadSteps();
+    // loadSteps() is fully try/catch/finally-wrapped above.
+    if (itemId) void loadSteps();
     else setSteps([]);
   }, [itemId, loadSteps]);
 

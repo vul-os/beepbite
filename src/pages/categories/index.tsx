@@ -97,7 +97,8 @@ const Categories = () => {
 
   useEffect(() => {
     if (activeLocation) {
-      fetchCategories();
+      // fetchCategories() is fully try/catch/finally-wrapped below.
+      void fetchCategories();
     } else {
       setCategories([]);
       setLoading(false);
@@ -179,7 +180,7 @@ const Categories = () => {
 
       setIsAddModalOpen(false);
       resetForm();
-      fetchCategories();
+      void fetchCategories();
     } catch (error) {
       console.error('Error adding category:', error);
       alert(error instanceof Error ? error.message : 'Failed to add category');
@@ -251,7 +252,7 @@ const Categories = () => {
         .eq('id', categoryId);
 
       if (error) throw error;
-      fetchCategories();
+      void fetchCategories();
     } catch (error) {
       console.error('Error deleting category:', error);
       alert('Failed to delete category. It may have items associated with it.');

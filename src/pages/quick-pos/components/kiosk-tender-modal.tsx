@@ -62,7 +62,10 @@ const KioskTenderModal = ({ total, currency, onClose, onConfirm, loading, error,
 
   const handleConfirm = () => {
     if (!method) return;
-    onConfirm({
+    // onConfirm is declared void | Promise<void> — the caller (this modal)
+    // doesn't need to await it: `loading`/`error` are passed in as props,
+    // so the parent already tracks the charge's outcome itself.
+    void onConfirm({
       method,
       cashTendered: method === 'cash' ? Math.round(cashAmount * 100) : null,
     });

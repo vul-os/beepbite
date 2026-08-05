@@ -167,7 +167,8 @@ function PrintersTab({ locationId }: { locationId: string }) {
     }
   }, [locationId]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); }, [load]);
 
   // ---- handlers ----
 

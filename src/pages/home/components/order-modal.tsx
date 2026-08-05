@@ -58,7 +58,11 @@ interface OrderModalsProps {
   setIsOrderEditModalOpen: (open: boolean) => void;
   editingOrder: HomeOrder | null;
   setEditingOrder: (order: HomeOrder | null) => void;
-  updateOrderStatus: (orderId: string, status: string) => void;
+  // Actually async in every caller (home/index.tsx's updateOrderStatus is a
+  // useCallback(async (...) => {...})) — this modal awaits it below before
+  // closing, so the prop type has to say so or await-thenable flags that
+  // await as pointless (TS otherwise sees this as sync `void`).
+  updateOrderStatus: (orderId: string, status: string) => void | Promise<void>;
 
   // Order Details Modal
   isOrderDetailsModalOpen: boolean;

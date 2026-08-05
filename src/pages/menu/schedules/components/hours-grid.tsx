@@ -161,7 +161,8 @@ export default function HoursGrid({ schedule, fetchSlots, addSlot, deleteSlot }:
     }
   }, [schedule.id, fetchSlots]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); }, [load]);
 
   const handleAdd = useCallback(async ({ dayOfWeek, startTime, endTime }: { dayOfWeek: number; startTime: string; endTime: string }) => {
     await addSlot({ menuScheduleId: schedule.id, dayOfWeek, startTime, endTime });

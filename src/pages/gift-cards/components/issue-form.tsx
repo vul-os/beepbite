@@ -87,6 +87,13 @@ export function IssueForm() {
           return;
         }
         setStaffList(data || []);
+      })
+      .catch((err: unknown) => {
+        // A network-level failure (fetch() itself rejecting) previously
+        // left this as an unhandled rejection — the staff dropdown just
+        // stays empty either way (no dedicated loading/error state), but
+        // this at least logs it instead of failing silently.
+        console.error('Failed to fetch staff for gift-card form:', err);
       });
   }, [activeLocation]);
 

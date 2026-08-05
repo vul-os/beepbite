@@ -170,8 +170,10 @@ interface ErrorEnvelope {
 }
 
 function asErrorEnvelope(payload: unknown): ErrorEnvelope | null {
+  // No cast needed: ErrorEnvelope's fields are all optional, so any plain
+  // object already structurally satisfies it once narrowed below.
   return payload && typeof payload === 'object' && !Array.isArray(payload)
-    ? (payload as ErrorEnvelope)
+    ? payload
     : null;
 }
 
@@ -275,6 +277,14 @@ const auth = {
     return { error: null };
   },
 
+  // Genuinely no `await` in the body (purely local — reads the in-memory/
+  // localStorage session, no network I/O) but kept `async` deliberately:
+  // several real call sites (context/auth-context.tsx) already
+  // `await supabase.auth.getSession()`, matching the supabase-js surface
+  // where every auth.* method returns a Promise. Dropping `async` was
+  // tried and reverted — it turns those real `await`s into new
+  // await-thenable errors instead of removing a finding.
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getSession() {
     const a = readAuth();
     if (!a) return { data: { session: null }, error: null };
@@ -295,6 +305,10 @@ const auth = {
     return { data: { session: readAuth() }, error: null };
   },
 
+  // Same reasoning as getSession() above: no await in the body, but kept
+  // `async` since context/auth-context.tsx already
+  // `await supabase.auth.updateUser(...)`.
+  // eslint-disable-next-line @typescript-eslint/require-await
   async updateUser(_updates?: { password?: string; [key: string]: unknown }) {
     // TODO(backend): no self-service "change own password while authenticated"
     // endpoint exists yet. The email password-reset flow (POST /auth/password/forgot

@@ -212,7 +212,8 @@ const LocationSettings = () => {
 
   useEffect(() => {
     if (locationId) {
-      loadLocationData();
+      // loadLocationData() is fully try/catch/finally-wrapped below.
+      void loadLocationData();
     }
   }, [locationId]);
 
@@ -238,7 +239,7 @@ const LocationSettings = () => {
         // Pre-existing dead code; not fixed here (out of scope).
         if ((locationError as unknown as { code?: string }).code === 'PGRST116') {
           // Location not found
-          navigate('/settings/organization');
+          void navigate('/settings/organization');
           return;
         }
         return;
@@ -247,7 +248,7 @@ const LocationSettings = () => {
       // Check if location belongs to active organization
       if (activeOrganization && location.organization_id !== activeOrganization.id) {
         console.error('Location does not belong to active organization');
-        navigate('/settings/organization');
+        void navigate('/settings/organization');
         return;
       }
 

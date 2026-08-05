@@ -126,32 +126,42 @@ export default function InvoiceFormPage() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const { data, error: err } = await getInvoice(id);
-    if (err) {
-      setError(err.message || 'Failed to load invoice.');
-    } else if (data) {
-      const existingLines = data.lines;
-      setForm({
-        issuer:                data.issuer                ?? 'tenant',
-        recipient_org_id:      data.recipient_org_id      ?? '',
-        recipient_customer_id: data.recipient_customer_id ?? '',
-        recipient_name:        data.recipient_name        ?? '',
-        recipient_address:     data.recipient_address     ?? '',
-        currency:              data.currency              ?? activeCurrency ?? '',
-        vat_rate_pct:          data.vat_rate_percent      ?? 0,
-        lines: (existingLines && existingLines.length > 0)
-          ? existingLines.map((l) => ({
-              description: l.description,
-              qty:         l.qty,
-              unit_cents:  l.unit_cents,
-            }))
-          : [{ ...EMPTY_LINE }],
-      });
+    // getInvoice() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // invoice edit form stuck on its loading spinner forever.
+    try {
+      const { data, error: err } = await getInvoice(id);
+      if (err) {
+        setError(err.message || 'Failed to load invoice.');
+      } else if (data) {
+        const existingLines = data.lines;
+        setForm({
+          issuer:                data.issuer                ?? 'tenant',
+          recipient_org_id:      data.recipient_org_id      ?? '',
+          recipient_customer_id: data.recipient_customer_id ?? '',
+          recipient_name:        data.recipient_name        ?? '',
+          recipient_address:     data.recipient_address     ?? '',
+          currency:              data.currency              ?? activeCurrency ?? '',
+          vat_rate_pct:          data.vat_rate_percent      ?? 0,
+          lines: (existingLines && existingLines.length > 0)
+            ? existingLines.map((l) => ({
+                description: l.description,
+                qty:         l.qty,
+                unit_cents:  l.unit_cents,
+              }))
+            : [{ ...EMPTY_LINE }],
+        });
+      }
+    } catch (err) {
+      console.error('Error loading invoice:', err);
+      setError('Failed to load invoice.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [id, activeCurrency]);
 
-  useEffect(() => { if (isEdit) load(); }, [isEdit, load]);
+  useEffect(() => { if (isEdit) void load(); }, [isEdit, load]);
 
   // ── Field helpers ─────────────────────────────────────────────────────────
 
@@ -213,7 +223,7 @@ export default function InvoiceFormPage() {
       return;
     }
     // Navigate to the detail page on success.
-    navigate(`/invoices/${result.data.id}`);
+    void navigate(`/invoices/${result.data.id}`);
   }
 
   // ── Computed ──────────────────────────────────────────────────────────────

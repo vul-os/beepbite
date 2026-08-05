@@ -75,7 +75,7 @@ const TopBar = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/signin');
+      void navigate('/signin');
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -547,7 +547,7 @@ const TopBar = () => {
                   type="button"
                   onClick={() => {
                     closeSideNav();
-                    navigate(staffLoginPath);
+                    void navigate(staffLoginPath);
                   }}
                   className="flex w-full items-center gap-3.5 rounded-md px-3 py-3 text-primary hover:bg-primary/10 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
@@ -563,7 +563,8 @@ const TopBar = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    handleSignOut();
+                    // handleSignOut() is fully try/catch-wrapped above.
+                    void handleSignOut();
                     closeSideNav();
                   }}
                   className="flex w-full items-center gap-3.5 rounded-md px-3 py-3 text-destructive hover:bg-destructive/10 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2"

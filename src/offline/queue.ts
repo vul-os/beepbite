@@ -327,8 +327,11 @@ if (typeof window !== 'undefined') {
 
   // Initial flush if already online (e.g. pending items from a previous session).
   if (navigator.onLine) {
-    // Defer to next tick so callers can register onFlush before the first flush.
-    Promise.resolve().then(() =>
+    // Defer to next tick so callers can register onFlush before the first
+    // flush. The inner flushQueue().catch() already handles rejection, so
+    // this outer chain can never actually reject — void-marked rather than
+    // given a redundant .catch().
+    void Promise.resolve().then(() =>
       flushQueue().catch((e) =>
         console.error('[offline/queue] initial flush failed', e)
       )

@@ -103,16 +103,27 @@ export default function InvoiceDetailPage() {
     if (!id) return;
     setLoading(true);
     setError(null);
-    const { data, error: err } = await getInvoice(id);
-    if (err) {
-      setError(err.message || 'Failed to load invoice.');
-    } else {
-      setInvoice(data ?? null);
+    // getInvoice() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // invoice detail page stuck loading forever — same bug already fixed
+    // in the sibling invoices/form.tsx.
+    try {
+      const { data, error: err } = await getInvoice(id);
+      if (err) {
+        setError(err.message || 'Failed to load invoice.');
+      } else {
+        setInvoice(data ?? null);
+      }
+    } catch (err) {
+      console.error('Error loading invoice:', err);
+      setError('Failed to load invoice.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
 

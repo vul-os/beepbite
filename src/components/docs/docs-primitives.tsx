@@ -252,14 +252,18 @@ export const KeyValueList = ({ items }: { items: KeyValueItem[] }) => (
 );
 
 interface CodeProps {
-  children: ReactNode;
+  // Always a plain source-text string in practice (its one real usage,
+  // docs/whatsapp-setup.tsx, passes a template literal) — narrowed from
+  // ReactNode so String(children) below can't silently produce
+  // "[object Object]" for some other child type.
+  children: string;
   language?: string;
 }
 
 // ----- Code block with copy -----
 export const Code = ({ children, language }: CodeProps) => {
   const [copied, setCopied] = React.useState(false);
-  const text = String(children);
+  const text = children;
   const onCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);

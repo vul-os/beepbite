@@ -333,7 +333,7 @@ export default function PosWorkspacePage() {
     || user?.email || 'User';
   // The device is authed if: (a) actor overlay set, (b) legacy staff session, or (c) member JWT.
   const isAuthed = Boolean(actor || staff || user);
-  useEffect(() => { if (!isAuthed) navigate('/pos/login', { replace: true }); }, [isAuthed, navigate]);
+  useEffect(() => { if (!isAuthed) void navigate('/pos/login', { replace: true }); }, [isAuthed, navigate]);
 
   // Owner/manager detection — used to gate the "Design floor plan" CTA.
   // Signals, in priority order:
@@ -417,7 +417,7 @@ export default function PosWorkspacePage() {
   const isDineInMode = serviceStyle === 'dine_in';
 
   const handleDesignFloor = useCallback(() => {
-    navigate('/floor/edit');
+    void navigate('/floor/edit');
   }, [navigate]);
 
   // Assign a course to a new (unsent) item on the active ticket.
@@ -1005,7 +1005,7 @@ export default function PosWorkspacePage() {
           return next;
         });
         setActiveTicketId(null);
-        refreshTables();
+        void refreshTables();
       } else if (activeTicket.kind === 'walkin') {
         // walk-in is done — drop it
         setTickets((prev) => {
@@ -1097,7 +1097,7 @@ export default function PosWorkspacePage() {
         });
         setActiveTicketId(newTicket.id);
         // refresh tables: old one frees up, new one occupies
-        refreshTables();
+        void refreshTables();
         toast({ title: `Moved to Table ${table.label}` });
       }
       setShowTablePicker(false);
@@ -1121,9 +1121,9 @@ export default function PosWorkspacePage() {
     // Navigate back to the slug-scoped PIN page that started this session.
     const slug = actor?.slug;
     if (slug) {
-      navigate(`/s/${slug}`, { replace: true });
+      void navigate(`/s/${slug}`, { replace: true });
     } else {
-      navigate('/pos/login', { replace: true });
+      void navigate('/pos/login', { replace: true });
     }
   };
 
@@ -1137,10 +1137,10 @@ export default function PosWorkspacePage() {
     }
     if (staff) {
       localStorage.removeItem('bb.auth');
-      navigate('/pos/login', { replace: true });
+      void navigate('/pos/login', { replace: true });
     } else {
       try { await signOut(); } catch (e) { console.error(e); }
-      navigate('/signin', { replace: true });
+      void navigate('/signin', { replace: true });
     }
   };
 
@@ -1604,7 +1604,7 @@ export default function PosWorkspacePage() {
         submitting={chargeBusy}
         errorMessage={tenderError}
         onConfirm={({ tenderedCents, changeCents }) => {
-          runCharge([{ method: 'cash', amountCents: tenderedCents, changeCents }]);
+          void runCharge([{ method: 'cash', amountCents: tenderedCents, changeCents }]);
         }}
       />
 
@@ -1619,10 +1619,10 @@ export default function PosWorkspacePage() {
         loading={tablesLoading || assigningTable}
         onSelect={(table) => {
           if (activeTicket) {
-            handleAssignTable(table);
+            void handleAssignTable(table);
           } else {
             setShowTablePicker(false);
-            handleSelectTile(table.id, 'table');
+            void handleSelectTile(table.id, 'table');
           }
         }}
       />
@@ -1635,7 +1635,7 @@ export default function PosWorkspacePage() {
         submitting={chargeBusy}
         errorMessage={tenderError}
         onConfirm={({ amountCents, reference }) => {
-          runCharge([{ method: 'card_in_person', amountCents, reference }]);
+          void runCharge([{ method: 'card_in_person', amountCents, reference }]);
         }}
       />
 

@@ -107,7 +107,7 @@ const Sidebar = ({ pathname, onItemClick = () => {} }: SidebarProps) => {
       e.preventDefault();
       const [path, hash] = item.href.split('#');
       if (pathname !== path) {
-        navigate(path);
+        void navigate(path);
         setTimeout(() => {
           const el = document.getElementById(hash);
           el?.scrollIntoView({ behavior: 'smooth' });

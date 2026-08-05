@@ -89,7 +89,8 @@ const CostAnalysis = ({ activeLocation }: CostAnalysisProps) => {
 
   useEffect(() => {
     if (activeLocation) {
-      fetchAnalysisData();
+      // fetchAnalysisData() is fully try/catch/finally-wrapped below.
+      void fetchAnalysisData();
     }
   }, [activeLocation]);
 

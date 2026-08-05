@@ -155,6 +155,15 @@ export function CashOutReport({ sessionId }: CashOutReportProps) {
         setReport(data as unknown as CashOutReportData | null);
       }
       setLoading(false);
+    }).catch((err: unknown) => {
+      // fetchCashOut()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading cash-out report:', err);
+        setError('Failed to load cash-out report');
+        setLoading(false);
+      }
     });
 
     return () => { cancelled = true; };
@@ -334,7 +343,7 @@ export function CashOutReport({ sessionId }: CashOutReportProps) {
               ? '—'
               : isBalanced
               ? fmt(0)
-              : `${isShort ? '' : '+'}${format(variance as number)}`}
+              : `${isShort ? '' : '+'}${format(variance)}`}
           </div>
           {!isUncounted && (
             <div className="flex items-center gap-1 mt-1">
@@ -343,9 +352,9 @@ export function CashOutReport({ sessionId }: CashOutReportProps) {
               {isBalanced && <CheckCircle2 className="h-4 w-4 text-success" />}
               <span className={`text-sm ${varianceColor}`}>
                 {isShort
-                  ? `Drawer is ${fmt(Math.abs(variance as number))} short of expected`
+                  ? `Drawer is ${fmt(Math.abs(variance))} short of expected`
                   : isOver
-                  ? `Drawer is ${fmt(Math.abs(variance as number))} over expected`
+                  ? `Drawer is ${fmt(Math.abs(variance))} over expected`
                   : 'Drawer is exactly balanced'}
               </span>
             </div>

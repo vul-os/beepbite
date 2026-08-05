@@ -67,8 +67,10 @@ const RecipeBreakdown = ({ activeLocation }: RecipeBreakdownProps) => {
 
   useEffect(() => {
     if (activeLocation) {
-      fetchBreakdownData();
-      fetchRecipes();
+      // Both fetchBreakdownData() and fetchRecipes() are fully try/catch/
+      // finally-wrapped below.
+      void fetchBreakdownData();
+      void fetchRecipes();
     }
   }, [activeLocation]);
 

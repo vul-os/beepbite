@@ -140,8 +140,9 @@ export function SpecialsBanner({ locationId, onSelect, currency = 'USD', classNa
     }
   }, [locationId]);
 
+  // load() is fully try/catch/finally-wrapped above.
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   // Hide entirely when not loading and there are no specials (or no locationId).

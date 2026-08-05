@@ -58,22 +58,32 @@ export default function StationPage() {
   // -------- initial + recovery fetch --------
   const refetch = useCallback(async () => {
     setFetchError(null);
-    const { data, error } = await api.request<KdsTicket[]>('GET', `/kds/stations/${encodeURIComponent(stationId as string)}/tickets`);
-    if (error) {
-      setFetchError(error.message || 'Failed to load tickets');
+    // api.request() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that skipped
+    // setLoading(false) and left the station's ticket list stuck on its
+    // loading spinner forever, with the rejection silently swallowed.
+    try {
+      const { data, error } = await api.request<KdsTicket[]>('GET', `/kds/stations/${encodeURIComponent(stationId as string)}/tickets`);
+      if (error) {
+        setFetchError(error.message || 'Failed to load tickets');
+        return;
+      }
+      const list = Array.isArray(data) ? data : [];
+      // Keep only active statuses; the backend already filters but be defensive.
+      setTickets(list.filter((t) => t.status === 'fired' || t.status === 'in_progress' || t.status === 'ready'));
+    } catch (err) {
+      console.error('KDS refetch failed:', err);
+      setFetchError('Failed to load tickets');
+    } finally {
       setLoading(false);
-      return;
     }
-    const list = Array.isArray(data) ? data : [];
-    // Keep only active statuses; the backend already filters but be defensive.
-    setTickets(list.filter((t) => t.status === 'fired' || t.status === 'in_progress' || t.status === 'ready'));
-    setLoading(false);
   }, [stationId]);
 
   useEffect(() => {
     if (!stationId) return;
     setLoading(true);
-    refetch();
+    void refetch();
   }, [stationId, refetch]);
 
   // -------- SSE handler --------
@@ -102,7 +112,7 @@ export default function StationPage() {
         // Skip refetch if this ticket is one we just locally mutated (we already
         // have the up-to-date row from the POST response).
         if (inFlightRef.current.has(ticket_id)) return;
-        refetch();
+        void refetch();
         return;
     }
   }, [refetch]);
@@ -124,26 +134,43 @@ export default function StationPage() {
     // Apply optimistic UI before the request.
     optimistic?.apply();
 
-    const { data, error } = await api.request<KdsTicket>(
-      'POST',
-      `/kds/tickets/${encodeURIComponent(ticket.id)}/${action}`,
-      { body: {} }
-    );
+    // api.request() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) throws instead.
+    // Without this try/catch, that skipped both inFlightRef cleanup (the
+    // ticket would never be eligible for an SSE-triggered refetch again,
+    // see handleSSE above) AND optimistic.rollback() — so a bump/recall/
+    // refire/rush that failed at the network layer (not just a 4xx/5xx)
+    // left the optimistic UI applied: e.g. a bumped ticket silently
+    // vanishes from the kitchen screen even though the backend never
+    // recorded the bump, with no error surfaced and no way to recover it
+    // short of a full page reload.
+    try {
+      const { data, error } = await api.request<KdsTicket>(
+        'POST',
+        `/kds/tickets/${encodeURIComponent(ticket.id)}/${action}`,
+        { body: {} }
+      );
 
-    inFlightRef.current.delete(ticket.id);
-
-    if (error) {
-      setActionError(`${action} failed: ${error.message || 'unknown error'}`);
+      if (error) {
+        setActionError(`${action} failed: ${error.message || 'unknown error'}`);
+        optimistic?.rollback();
+        return null;
+      }
+      optimistic?.commit?.(data);
+      return data;
+    } catch (err) {
+      console.error(`KDS ${action} failed:`, err);
+      setActionError(`${action} failed: unable to reach the server`);
       optimistic?.rollback();
       return null;
+    } finally {
+      inFlightRef.current.delete(ticket.id);
     }
-    optimistic?.commit?.(data);
-    return data;
   }, []);
 
   const onBump = useCallback((ticket: KdsTicket) => {
     const snapshot = ticket;
-    doAction('bump', ticket, {
+    void doAction('bump', ticket, {
       optimistic: {
         apply: () => {
           removedCacheRef.current.set(ticket.id, snapshot);
@@ -169,7 +196,7 @@ export default function StationPage() {
     // Re-insert the cached snapshot back into the list as 'fired'.
     const cached = removedCacheRef.current.get(ticket.id) || ticket;
     const restored: KdsTicket = { ...cached, status: 'fired', bumped_at: null };
-    doAction('recall', ticket, {
+    void doAction('recall', ticket, {
       optimistic: {
         apply: () => {
           setTickets((prev) => prev.some((t) => t.id === ticket.id) ? prev : [...prev, restored]);
@@ -183,7 +210,7 @@ export default function StationPage() {
   }, [doAction]);
 
   const onRefire = useCallback((ticket: KdsTicket) => {
-    doAction('refire', ticket, {
+    void doAction('refire', ticket, {
       optimistic: {
         apply: () => setTickets((prev) => prev.map((t) =>
           t.id === ticket.id ? { ...t, status: 'fired', bumped_at: null } : t
@@ -196,7 +223,7 @@ export default function StationPage() {
   }, [doAction]);
 
   const onRush = useCallback((ticket: KdsTicket) => {
-    doAction('rush', ticket, {
+    void doAction('rush', ticket, {
       optimistic: {
         apply: () => setTickets((prev) => prev.map((t) =>
           t.id === ticket.id ? { ...t, priority: (t.priority || 0) + 1 } : t

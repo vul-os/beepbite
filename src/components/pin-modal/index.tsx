@@ -262,7 +262,8 @@ function PinModalDialog({ open, current, onSuccess, onCancel }: PinModalDialogPr
   // Auto-submit at 6 digits.
   React.useEffect(() => {
     if (pin.length === 6 && open && !loading) {
-      handleSubmit();
+      // handleSubmit() is fully try/catch/finally-wrapped below.
+      void handleSubmit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
@@ -273,7 +274,7 @@ function PinModalDialog({ open, current, onSuccess, onCancel }: PinModalDialogPr
     onCancel(new Error('PIN cancelled'));
     if (!isManagerOverride) {
       // The user chose not to re-auth → kick back to the PIN login page.
-      navigate('/pos/login', { replace: true });
+      void navigate('/pos/login', { replace: true });
     }
   };
 

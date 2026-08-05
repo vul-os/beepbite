@@ -472,7 +472,7 @@ const QuickPOS = () => {
 
       {/* Receipt modal — shown after a successful payment */}
       <ReceiptModal
-        orderId={receiptOrderId as string}
+        orderId={receiptOrderId}
         open={receiptOpen}
         onClose={handleReceiptClose}
         onNewOrder={handleReceiptNewOrder}

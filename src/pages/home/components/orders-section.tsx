@@ -822,7 +822,10 @@ const OrdersSection = ({
     setEditFormData({});
   };
 
-  const handleSaveEdit = async () => {
+  // Not async: no await in the body. (Separately, and out of scope for
+  // this lint pass: this only logs + navigates back — it doesn't actually
+  // persist editFormData anywhere yet.)
+  const handleSaveEdit = () => {
     console.log('Saving order edit:', selectedOrder?.id, editFormData);
     handleBackToList();
   };

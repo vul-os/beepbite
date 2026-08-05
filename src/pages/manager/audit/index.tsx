@@ -175,19 +175,29 @@ export default function AuditViewer() {
     if (applied.from)   params.from   = new Date(applied.from).toISOString();
     if (applied.to)     params.to     = new Date(applied.to).toISOString();
 
-    const { data, error: err } = await listAuditLog(params);
-    setLoading(false);
-
-    if (err) {
-      setError(err.message || 'Failed to load audit log');
-      return;
+    // listAuditLog() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // audit log page stuck on its loading spinner forever with the
+    // rejection silently swallowed.
+    try {
+      const { data, error: err } = await listAuditLog(params);
+      if (err) {
+        setError(err.message || 'Failed to load audit log');
+        return;
+      }
+      setEntries(data?.data ?? []);
+      setTotal(data?.total ?? 0);
+    } catch (err) {
+      console.error('Error loading audit log:', err);
+      setError('Failed to load audit log');
+    } finally {
+      setLoading(false);
     }
-    setEntries(data?.data ?? []);
-    setTotal(data?.total ?? 0);
   }, []);
 
   useEffect(() => {
-    fetchLog(page, appliedFilters);
+    void fetchLog(page, appliedFilters);
   }, [page, appliedFilters, fetchLog]);
 
   const handleFilterChange = (key: keyof FilterState, val: string) => {

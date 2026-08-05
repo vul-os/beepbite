@@ -40,7 +40,7 @@ export default function CartWidget({ slug, items = [], onAdd, onRemove, onClear,
 
   const handleCheckout = () => {
     // Pass state so checkout knows which store + cart + fulfillment
-    navigate('/checkout', {
+    void navigate('/checkout', {
       state: { slug, storeName, items, subtotal, currency, fulfillment_type: fulfillmentType, delivery_address: deliveryAddress },
     });
   };

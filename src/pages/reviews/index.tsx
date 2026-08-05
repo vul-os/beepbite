@@ -68,7 +68,8 @@ const Reviews = () => {
 
   useEffect(() => {
     if (activeLocation) {
-      fetchReviews();
+      // fetchReviews() is fully try/catch/finally-wrapped below.
+      void fetchReviews();
     }
   }, [activeLocation, timeRange]);
 

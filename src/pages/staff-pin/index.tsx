@@ -143,7 +143,8 @@ const StaffPinPage = () => {
       } else if (e.key === 'Backspace') {
         deleteDigit();
       } else if (e.key === 'Enter') {
-        handleSubmit();
+        // handleSubmit() is fully try/catch/finally-wrapped below.
+        void handleSubmit();
       }
     };
 
@@ -177,7 +178,7 @@ const StaffPinPage = () => {
   // ---- auto-submit at 6 digits ----
   useEffect(() => {
     if (pin.length === 6) {
-      handleSubmit();
+      void handleSubmit();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
@@ -220,7 +221,7 @@ const StaffPinPage = () => {
         if (legacyResult.data?.access_token) {
           localStorage.setItem('bb.auth', JSON.stringify(legacyResult.data));
         }
-        navigate(resolvePostLoginPath(legacyResult.data));
+        void navigate(resolvePostLoginPath(legacyResult.data));
         return;
       }
 
@@ -232,7 +233,7 @@ const StaffPinPage = () => {
 
       // Overlay path: set actor in memory, do NOT touch localStorage.
       setActor(overlayResult.data as ActorSetPayload);
-      navigate(resolvePostLoginPath(overlayResult.data as { role?: string; staff?: { role?: string }; capabilities?: unknown }));
+      void navigate(resolvePostLoginPath(overlayResult.data as { role?: string; staff?: { role?: string }; capabilities?: unknown }));
     } finally {
       setLoading(false);
     }

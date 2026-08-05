@@ -239,27 +239,40 @@ export default function CustomerChatPage() {
       content: m.content,
     }));
 
-    const { data, error: apiErr } = await sendChatMessage(history, conversationId.current);
-    setLoading(false);
+    // sendChatMessage() only wraps the API-error case in { data, error } —
+    // a network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that skipped
+    // setLoading(false) and left `loading` stuck true, which permanently
+    // disables the chat input (see the `if (!text || loading) return;`
+    // guard above) with no error shown and the rejection silently
+    // swallowed.
+    try {
+      const { data, error: apiErr } = await sendChatMessage(history, conversationId.current);
 
-    if (apiErr) {
-      setError(apiErr.message || 'Something went wrong. Please try again.');
-      return;
+      if (apiErr) {
+        setError(apiErr.message || 'Something went wrong. Please try again.');
+        return;
+      }
+
+      const assistantMsg: UiChatMessage = {
+        id: newId(),
+        role: 'assistant',
+        content: data?.reply || '',
+        toolResults: data?.tool_results || [],
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err) {
+      console.error('Chat send failed:', err);
+      setError('Unable to reach the server. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    const assistantMsg: UiChatMessage = {
-      id: newId(),
-      role: 'assistant',
-      content: data?.reply || '',
-      toolResults: data?.tool_results || [],
-    };
-    setMessages((prev) => [...prev, assistantMsg]);
   }, [input, loading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      send();
+      void send();
     }
   };
 

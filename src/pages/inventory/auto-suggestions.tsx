@@ -52,7 +52,8 @@ export default function AutoSuggestionsPage() {
     }
   }, [activeLocation]);
 
-  useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
+  // fetchSuggestions() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchSuggestions(); }, [fetchSuggestions]);
 
   function toggleSelect(idx: number) {
     setSelected((prev) => {

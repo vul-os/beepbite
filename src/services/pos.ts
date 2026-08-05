@@ -363,7 +363,11 @@ export async function applyOrderAdjustment({
   itemId,            // required for comp
 }: {
   orderId: string;
-  reason: 'refund' | 'void' | 'comp' | 'manager_discount' | string;
+  // `string & {}` (not bare `string`) keeps the documented literals from
+  // being swallowed by the wider type — IDE autocomplete still suggests
+  // them, while any other string is still accepted for forward
+  // compatibility with new reason codes the backend might add.
+  reason: 'refund' | 'void' | 'comp' | 'manager_discount' | (string & {});
   appliedByStaffId?: string;
   approverStaffId?: string;
   approverPin?: string;

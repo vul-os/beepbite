@@ -63,9 +63,16 @@ function BackupCodes({ codes }: { codes: string[] }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(codes.join('\n'));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // Only show the "Copied!" confirmation once the write actually
+    // succeeds — previously setCopied(true) ran unconditionally, so a
+    // failed clipboard write (e.g. permission denied) still told the user
+    // their 2FA backup codes were copied when they weren't.
+    navigator.clipboard.writeText(codes.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch((err: unknown) => {
+      console.error('Failed to copy backup codes:', err);
+    });
   };
 
   return (
@@ -106,26 +113,37 @@ export default function SecuritySettings() {
   // Load current status on mount.
   const loadStatus = useCallback(async () => {
     setStep(STEP.LOADING);
-    const { data: result, error: err } = await getTOTPStatus();
-    if (err) {
-      setError(err.message || 'Failed to load 2FA status');
-      setStep(STEP.DISABLED);
-      return;
-    }
-    const data = result!;
-    if (data.enabled) {
-      setBackupRemaining(data.backup_codes_remaining);
-      setStep(STEP.ENABLED);
-    } else if (data.enrolled) {
-      // Has a pending secret but hasn't verified yet — show enroll flow again.
-      setStep(STEP.DISABLED);
-    } else {
+    // getTOTPStatus() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch, that left the security
+    // settings page stuck on STEP.LOADING forever with the rejection
+    // silently swallowed.
+    try {
+      const { data: result, error: err } = await getTOTPStatus();
+      if (err) {
+        setError(err.message || 'Failed to load 2FA status');
+        setStep(STEP.DISABLED);
+        return;
+      }
+      const data = result!;
+      if (data.enabled) {
+        setBackupRemaining(data.backup_codes_remaining);
+        setStep(STEP.ENABLED);
+      } else if (data.enrolled) {
+        // Has a pending secret but hasn't verified yet — show enroll flow again.
+        setStep(STEP.DISABLED);
+      } else {
+        setStep(STEP.DISABLED);
+      }
+    } catch (err) {
+      console.error('Error loading 2FA status:', err);
+      setError('Failed to load 2FA status');
       setStep(STEP.DISABLED);
     }
   }, []);
 
   useEffect(() => {
-    loadStatus();
+    void loadStatus();
   }, [loadStatus]);
 
   // ── Enroll: generate TOTP secret + QR code ────────────────────────────────
@@ -185,7 +203,7 @@ export default function SecuritySettings() {
     }
     setDisableCode('');
     setDisableBackup('');
-    loadStatus();
+    void loadStatus();
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -328,7 +346,7 @@ export default function SecuritySettings() {
                 <BackupCodes codes={backupCodes} />
               </div>
 
-              <Button onClick={() => { setBackupCodes([]); loadStatus(); }}>
+              <Button onClick={() => { setBackupCodes([]); void loadStatus(); }}>
                 I've saved my backup codes
               </Button>
             </div>

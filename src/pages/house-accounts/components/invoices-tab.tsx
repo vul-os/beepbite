@@ -54,7 +54,8 @@ export function InvoicesTab({ accountId, fetchInvoices, payInvoice }: InvoicesTa
   }
 
   useEffect(() => {
-    load();
+    // load() is fully try/catch/finally-wrapped above.
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 

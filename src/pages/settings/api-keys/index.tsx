@@ -551,16 +551,27 @@ function ApiKeysSection() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    const { data, error: apiErr } = await listKeys();
-    setLoading(false);
-    if (apiErr) {
-      setError(apiErr.message || 'Failed to load API keys.');
-      return;
+    // listKeys() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the API
+    // keys list stuck on its loading spinner forever with the rejection
+    // silently swallowed.
+    try {
+      const { data, error: apiErr } = await listKeys();
+      if (apiErr) {
+        setError(apiErr.message || 'Failed to load API keys.');
+        return;
+      }
+      setKeys(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error loading API keys:', err);
+      setError('Failed to load API keys.');
+    } finally {
+      setLoading(false);
     }
-    setKeys(Array.isArray(data) ? data : []);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   function handleRevoked(id: string) {
     setKeys((prev) =>
@@ -865,6 +876,15 @@ function DeliveriesPanel({ endpointId }: { endpointId: string }) {
       setLoading(false);
       if (apiErr) { setError(apiErr.message || 'Failed to load deliveries.'); return; }
       setDeliveries(Array.isArray(data) ? data : []);
+    }).catch((err: unknown) => {
+      // listDeliveries()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading webhook deliveries:', err);
+        setLoading(false);
+        setError('Failed to load deliveries.');
+      }
     });
     return () => { cancelled = true; };
   }, [endpointId]);
@@ -1076,13 +1096,22 @@ function WebhooksSection() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    const { data, error: apiErr } = await listEndpoints();
-    setLoading(false);
-    if (apiErr) { setError(apiErr.message || 'Failed to load endpoints.'); return; }
-    setEndpoints(Array.isArray(data) ? data : []);
+    // Same failure mode as the API keys list above: listEndpoints() only
+    // wraps the API-error case in { data, error } — a network-level
+    // rejection left this stuck loading forever.
+    try {
+      const { data, error: apiErr } = await listEndpoints();
+      if (apiErr) { setError(apiErr.message || 'Failed to load endpoints.'); return; }
+      setEndpoints(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error loading webhook endpoints:', err);
+      setError('Failed to load endpoints.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   function handleCreated(newEndpoint: WebhookEndpoint) {
     setEndpoints((prev) => [newEndpoint, ...prev]);

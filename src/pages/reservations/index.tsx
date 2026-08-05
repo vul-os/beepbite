@@ -49,7 +49,8 @@ export default function ReservationsPage() {
     }
   }, [locationId, date]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); }, [load]);
 
   if (!activeLocation) {
     return (

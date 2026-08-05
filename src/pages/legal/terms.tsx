@@ -109,6 +109,15 @@ const TermsPage = () => {
       if (err) setError(err?.message || 'Failed to load Terms of Service.');
       else setDoc(data);
       setLoading(false);
+    }).catch((err: unknown) => {
+      // getCurrentDocument()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading Terms of Service:', err);
+        setError('Failed to load Terms of Service.');
+        setLoading(false);
+      }
     });
     return () => { cancelled = true; };
   }, []);

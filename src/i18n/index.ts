@@ -65,6 +65,11 @@ function applyDocumentDir(lng: string) {
   document.documentElement.setAttribute('data-lang', lng);
 }
 
+// `resources` is statically bundled (no i18next-http-backend / remote
+// namespace loading), so .init() has no network I/O to fail on in
+// practice — but it's still a top-level module side effect returning a
+// promise, so this is caught (not void-marked) defensively in case a
+// future change introduces async resource loading.
 i18n
   .use(LanguageDetector)   // auto-detect from navigator / localStorage / cookie
   .use(initReactI18next)   // binds i18n instance into React context
@@ -90,6 +95,9 @@ i18n
     react: {
       useSuspense: false,
     },
+  })
+  .catch((err: unknown) => {
+    console.error('[i18n] init failed:', err);
   });
 
 // Apply RTL/LTR direction on init and on every subsequent language change.

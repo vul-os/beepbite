@@ -44,7 +44,8 @@ export function useDeliveryZones(locationId: string | undefined) {
     }
   }, [locationId]);
 
-  useEffect(() => { fetchZones(); }, [fetchZones]);
+  // fetchZones() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchZones(); }, [fetchZones]);
 
   const createZone = useCallback(async (body: Partial<DeliveryZone>) => {
     const { data, error: err } = await api.request<DeliveryZone>('POST', '/delivery-zones', { body });

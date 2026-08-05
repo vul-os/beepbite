@@ -99,7 +99,10 @@ describe('countryOptions', () => {
   it('sorts by localised name, not by code', () => {
     const names = countryOptions('en').map((o) => o.name);
     const collator = new Intl.Collator('en');
-    expect([...names].sort(collator.compare)).toEqual(names);
+    // Wrapped instead of passing collator.compare directly — sort() calling
+    // it as a detached function reference is fine for Intl.Collator in
+    // practice, but unbound-method can't verify that generically.
+    expect([...names].sort((a, b) => collator.compare(a, b))).toEqual(names);
   });
 
   it('names countries in the reader\'s own language', () => {

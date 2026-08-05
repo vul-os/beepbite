@@ -186,7 +186,8 @@ const Menu = () => {
 
   useEffect(() => {
     if (activeLocation) {
-      fetchData();
+      // fetchData() is fully try/catch/finally-wrapped below.
+      void fetchData();
     } else {
       resetData();
     }
@@ -710,7 +711,7 @@ const Menu = () => {
               placeholder={categories.length === 0 ? 'Create your first category (e.g. Burgers)' : '…or add a new category'}
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createCategoryInline(); } }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void createCategoryInline(); } }}
               className="h-9"
             />
             <Button
@@ -1362,7 +1363,7 @@ const Menu = () => {
                 availableItems={availableItems}
                 onClose={() => setIsRecipeBuilderOpen(false)}
                 onSave={() => {
-                  fetchData();
+                  void fetchData();
                   // Don't auto-close — user may want to switch to Prep Steps tab next.
                 }}
               />

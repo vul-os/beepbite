@@ -165,14 +165,22 @@ function useOnboardingProgress() {
 
   useEffect(() => {
     let cancelled = false;
+    // getProgress() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) throws instead.
+    // Without this try/catch/finally, that left the onboarding wizard
+    // stuck on its initial loading screen forever with the rejection
+    // silently swallowed.
     (async () => {
-      const { data, error } = await getProgress();
-      if (!cancelled) {
-        if (!error && data) {
+      try {
+        const { data, error } = await getProgress();
+        if (!cancelled && !error && data) {
           setStep(data.step ?? 0);
           setCompletedSteps(data.completed_steps ?? []);
         }
-        setLoading(false);
+      } catch (err) {
+        console.error('Error loading onboarding progress:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -180,17 +188,25 @@ function useOnboardingProgress() {
 
   const refreshStatus = useCallback(async () => {
     setStatusLoading(true);
-    const { data, error } = await getStatus();
-    if (!error && data) {
-      setStatus(data);
+    // getStatus() has the same failure mode as getProgress() above: a
+    // network-level rejection left `statusLoading` stuck true forever.
+    try {
+      const { data, error } = await getStatus();
+      if (!error && data) {
+        setStatus(data);
+      }
+      return data;
+    } catch (err) {
+      console.error('Error loading onboarding status:', err);
+      return null;
+    } finally {
+      setStatusLoading(false);
     }
-    setStatusLoading(false);
-    return data;
   }, []);
 
   useEffect(() => {
     if (!loading) {
-      refreshStatus();
+      void refreshStatus();
     }
   }, [loading, refreshStatus]);
 
@@ -338,7 +354,7 @@ export default function OnboardPage() {
   }, [completedSteps, advanceTo]);
 
   const handleNavigate = useCallback((path: string) => {
-    navigate(path);
+    void navigate(path);
   }, [navigate]);
 
   // ── Loading screen ──────────────────────────────────────────────────────

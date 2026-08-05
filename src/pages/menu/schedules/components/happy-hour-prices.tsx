@@ -191,7 +191,8 @@ export default function HappyHourPrices({
     }
   }, [schedule.id, fetchItems, fetchPriceSchedules]);
 
-  useEffect(() => { load(); }, [load]);
+  // load() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); }, [load]);
 
   const handleSave = useCallback(async ({ itemId, price, existingId }: Omit<UpsertPriceScheduleInput, 'menuScheduleId'>) => {
     const result = await upsertPriceSchedule({

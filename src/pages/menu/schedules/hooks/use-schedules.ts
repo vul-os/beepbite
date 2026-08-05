@@ -111,7 +111,8 @@ export function useSchedules(locationId: string | undefined) {
 
   useEffect(() => {
     mounted.current = true;
-    fetchSchedules();
+    // fetchSchedules() is fully try/catch/finally-wrapped above.
+    void fetchSchedules();
     return () => { mounted.current = false; };
   }, [fetchSchedules]);
 

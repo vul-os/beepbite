@@ -53,7 +53,10 @@ import CourseSelect, { type Course } from './course-select';
 // ---------------------------------------------------------------------------
 
 export interface TicketLike {
-  kind?: 'walkin' | 'table' | string;
+  // `string & {}` (not bare `string`) keeps 'walkin'/'table' from being
+  // swallowed by the wider type — IDE autocomplete still suggests them,
+  // while any other string is still accepted.
+  kind?: 'walkin' | 'table' | (string & {});
   id: string;
   label?: string;
   table_number?: number | string;
