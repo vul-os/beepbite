@@ -169,15 +169,27 @@ function TenantDetail({ orgId, onBack }: { orgId: string; onBack: () => void }) 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: apiErr } = await getTenant(orgId);
-    setLoading(false);
-    if (apiErr) { setError(apiErr.message || 'Failed to load tenant.'); return; }
-    // See mismatch note above: cast through the always-`unknown` TenantDetail
-    // fields to the shape this page has always (incorrectly) assumed.
-    setDetail(data as unknown as AdminTenantDetailView);
+    // getTenant() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // tenant detail page stuck on its loading spinner forever with the
+    // rejection silently swallowed.
+    try {
+      const { data, error: apiErr } = await getTenant(orgId);
+      if (apiErr) { setError(apiErr.message || 'Failed to load tenant.'); return; }
+      // See mismatch note above: cast through the always-`unknown`
+      // TenantDetail fields to the shape this page has always (incorrectly)
+      // assumed.
+      setDetail(data as unknown as AdminTenantDetailView);
+    } catch (err) {
+      console.error('Error loading tenant:', err);
+      setError('Failed to load tenant.');
+    } finally {
+      setLoading(false);
+    }
   }, [orgId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function handlePause() {
     setActionLoading(true);
@@ -392,31 +404,42 @@ export default function AdminDashboardPage() {
     setLoadingList(true);
     setListError(null);
     setIs403(false);
-    const { data, error } = await searchTenants(q);
-    setLoadingList(false);
-    if (error) {
-      if (error.status === 403) {
-        setIs403(true);
-      } else {
-        setListError(error.message || 'Failed to load tenants.');
+    // searchTenants() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // tenant list stuck on its loading spinner forever with the rejection
+    // silently swallowed.
+    try {
+      const { data, error } = await searchTenants(q);
+      if (error) {
+        if (error.status === 403) {
+          setIs403(true);
+        } else {
+          setListError(error.message || 'Failed to load tenants.');
+        }
+        return;
       }
-      return;
+      // See mismatch note above: cast to the shape this page has always
+      // (incorrectly) assumed the search results have.
+      setTenants(Array.isArray(data) ? (data as unknown as AdminTenantRow[]) : []);
+    } catch (err) {
+      console.error('Error fetching tenants:', err);
+      setListError('Failed to load tenants.');
+    } finally {
+      setLoadingList(false);
     }
-    // See mismatch note above: cast to the shape this page has always
-    // (incorrectly) assumed the search results have.
-    setTenants(Array.isArray(data) ? (data as unknown as AdminTenantRow[]) : []);
   }, []);
 
   // Initial load
   useEffect(() => {
-    fetchTenants('');
+    void fetchTenants('');
   }, [fetchTenants]);
 
   // Debounced search on query change
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      fetchTenants(query);
+      void fetchTenants(query);
     }, 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
