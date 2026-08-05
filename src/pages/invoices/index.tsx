@@ -103,16 +103,27 @@ export default function InvoicesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await listInvoices();
-    if (err) {
-      setError(err.message || 'Failed to load invoices.');
-    } else {
-      setInvoices(data || []);
+    // listInvoices() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // invoice list page stuck loading forever — same bug already fixed in
+    // the sibling invoices/detail.tsx and invoices/form.tsx.
+    try {
+      const { data, error: err } = await listInvoices();
+      if (err) {
+        setError(err.message || 'Failed to load invoices.');
+      } else {
+        setInvoices(data || []);
+      }
+    } catch (err) {
+      console.error('Error loading invoices:', err);
+      setError('Failed to load invoices.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
