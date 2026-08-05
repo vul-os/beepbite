@@ -37,17 +37,28 @@ export default function StampsConfig() {
   // Load current config on mount.
   useEffect(() => {
     let cancelled = false;
+    // getStampConfig() only wraps the API-error case in { data, error } —
+    // a network-level failure (fetch() itself rejecting) throws instead.
+    // Without this try/catch, that left the loyalty stamps settings page
+    // stuck on its loading spinner forever with the rejection silently
+    // swallowed.
     (async () => {
-      const { data, error: err } = await getStampConfig();
-      if (cancelled) return;
-      if (err) {
-        setError(err.message ?? 'Failed to load stamp config');
-      } else if (data) {
-        setEnabled(data.stamps_enabled ?? false);
-        setRequired(data.stamps_required ?? DEFAULT_REQUIRED);
-        setItemId(data.stamp_item_id ?? '');
+      try {
+        const { data, error: err } = await getStampConfig();
+        if (cancelled) return;
+        if (err) {
+          setError(err.message ?? 'Failed to load stamp config');
+        } else if (data) {
+          setEnabled(data.stamps_enabled ?? false);
+          setRequired(data.stamps_required ?? DEFAULT_REQUIRED);
+          setItemId(data.stamp_item_id ?? '');
+        }
+      } catch (err) {
+        console.error('Error loading stamp config:', err);
+        if (!cancelled) setError('Failed to load stamp config');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
