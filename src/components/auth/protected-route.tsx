@@ -25,7 +25,7 @@ const ProtectedRoute = ({
     // Only redirect if we're sure loading is complete and user is not authenticated
     if (!loading && !user) {
       // Redirect to sign-in with the current location as state
-      navigate(redirectPath, { 
+      void navigate(redirectPath, {
         replace: true,
         state: { from: location }
       });
