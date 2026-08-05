@@ -40,6 +40,13 @@ var ErrNoPaymentMethod = errors.New("no payment method available")
 // ErrStoreNotAcceptingOrders is returned when the location is not active / visible.
 var ErrStoreNotAcceptingOrders = errors.New("store not accepting orders")
 
+// ErrInvalidTip is returned when tip_cents is implausible relative to the
+// order's own subtotal (see maxTipMultiple in CreateCheckoutOrder). Basic
+// shape validation (negative, non-integer) is rejected earlier, in
+// createCheckoutOrder, before a database transaction is even opened; this
+// one can only be checked once the item lines have been priced.
+var ErrInvalidTip = errors.New("tip amount is not valid for this order")
+
 // ---------------------------------------------------------------------------
 // Request / response types
 // ---------------------------------------------------------------------------
@@ -58,6 +65,18 @@ type CheckoutReq struct {
 	OnDeliveryMethod string              `json:"on_delivery_method"` // "cash" | "card_machine"
 	DeliveryAddress  string              `json:"delivery_address"`
 	Items            []CheckoutLineInput `json:"items"`
+
+	// TipCents is the customer-chosen tip, in integer minor units of the
+	// store's own currency — same convention as every other *_cents field on
+	// this request/response pair. It is never trusted as-is: it is validated
+	// (>= 0, sane relative to the order — see maxTipMultiple) and then folded
+	// into the server-computed total_cents in CreateCheckoutOrder, the same
+	// place gratuity_cents already gets added for POS auto-gratuity (see
+	// internal/handlers/pos/store.go's Wave 24 auto-gratuity comment). A
+	// float here would let a client's rounding drift from the cents actually
+	// billed; the json.Decoder rejects a fractional value for an int64 field
+	// outright, so "not an integer" is caught before this handler even runs.
+	TipCents int64 `json:"tip_cents"`
 }
 
 // CheckoutResp is the response body returned to the customer.
@@ -107,12 +126,21 @@ func (h *Handler) createCheckoutOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Shape validation only — "sane relative to subtotal" (ErrInvalidTip) can't
+	// be checked until the item lines are priced, inside CreateCheckoutOrder.
+	if req.TipCents < 0 {
+		writeError(w, http.StatusBadRequest, "tip_cents must be >= 0")
+		return
+	}
+
 	resp, err := h.checkoutStore.CreateCheckoutOrder(r.Context(), slug, req)
 	switch {
 	case errors.Is(err, ErrNotFound), errors.Is(err, ErrStoreNotAcceptingOrders):
 		writeError(w, http.StatusNotFound, "store not found")
 	case errors.Is(err, ErrNoPaymentMethod):
 		writeError(w, http.StatusUnprocessableEntity, "no payment method available — store cannot accept orders right now")
+	case errors.Is(err, ErrInvalidTip):
+		writeError(w, http.StatusBadRequest, "tip amount is not valid for this order")
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "internal error")
 	default:
@@ -296,6 +324,19 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		subtotalCents += unitPriceCentsByItem[line.ItemID] * int64(line.Quantity)
 	}
 
+	// maxTipMultiple bounds a tip at some generous multiple of the order's own
+	// subtotal — enough headroom for a genuinely enthusiastic tipper, but a
+	// hard stop on the class of bug (or abuse) this exists to catch: a client
+	// sending major units where cents were expected, a decimal point in the
+	// wrong place, or a runaway custom-tip input. subtotalCents == 0 (a wholly
+	// comped cart) allows only a zero tip — there is no "order" to tip on top
+	// of.
+	const maxTipMultiple = 3
+	if req.TipCents < 0 || req.TipCents > subtotalCents*maxTipMultiple {
+		return nil, fmt.Errorf("%w: tip_cents %d exceeds %dx subtotal_cents %d",
+			ErrInvalidTip, req.TipCents, maxTipMultiple, subtotalCents)
+	}
+
 	// Resolve the store's tax posture — rate AND inclusive/exclusive.
 	//
 	// This path previously applied the exclusive formula unconditionally while
@@ -311,6 +352,18 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 	taxInclusive := taxCfg.Inclusive
 	taxCents := taxed.Tax
 	totalCents := taxed.Gross
+
+	// --- 4b. Tip is added on top of the taxed total, never taxed itself —
+	// same convention as pos/store.go's Wave 24 auto-gratuity (a tip is a
+	// gift to the staff, not a taxable line of the sale). This is also the
+	// fix for the defect this handler previously had: the checkout UI showed
+	// the customer subtotal + tip as "the total" and asked them to have that
+	// much cash ready, while CheckoutReq had no tip field at all — so the
+	// tip never reached this computation, was never billed on the online
+	// path, and was never on the stored order. It is now a real input to the
+	// one server-side total computation, exactly like every other line here;
+	// the client's own arithmetic is never trusted or accepted as-is.
+	totalCents += req.TipCents
 
 	// --- 5. Generate order number ---
 	// Scoped by the store's TRADING day (migration 057's orders.business_date),
@@ -348,9 +401,9 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		    order_type, fulfillment_type, status,
 		    subtotal_cents, tax_cents, total_cents, tax_rate, tax_inclusive,
 		    currency_code, delivery_address, estimated_prep_time,
-		    business_date
+		    gratuity_cents, business_date
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 30, $15::date)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 30, $15, $16::date)
 		RETURNING id
 	`,
 		orgID, locationID, nullableStr(req.CustomerID), orderNumber,
@@ -360,6 +413,11 @@ func (cs *CheckoutStore) CreateCheckoutOrder(
 		// actual convention. It is now snapshotted from the configuration.
 		subtotalCents, taxCents, totalCents, taxRate, taxInclusive,
 		nullableStr(cur.Code), dAddr,
+		// gratuity_cents: the same column pos/store.go's auto-gratuity writes
+		// (migration 001 baseline; no new column needed). total_cents above
+		// already has req.TipCents folded in, so this is a snapshot of what
+		// made up that total, not a second addition.
+		req.TipCents,
 		businessDate,
 	).Scan(&orderID); err != nil {
 		return nil, err
