@@ -99,24 +99,21 @@ export default function CheckoutPage() {
         setPaymentMode('none');
         return;
       }
-      // NOTE: neither field below exists on the real StoreDetail DTO — see
-      // services/marketplace.ts's gap note. Preserved via a defensive cast
-      // so paymentMode keeps resolving to 'none' exactly as before.
-      const loose = data as unknown as { on_delivery_payment_methods?: string[]; payment_credentials?: { is_active: boolean }[] };
-      const methods = Array.isArray(loose.on_delivery_payment_methods)
-        ? loose.on_delivery_payment_methods
-        : [];
-      const hasOnline =
-        Array.isArray(loose.payment_credentials) && loose.payment_credentials.some((c) => c.is_active);
-
-      if (hasOnline) {
+      // `online_payment_available` is the real field the backend sends (see
+      // backend/internal/handlers/marketplace/store.go StoreProfile) — it is
+      // deployment-wide, not per-method, so when it's false the only option
+      // left is on-delivery. The specific configured on-delivery methods
+      // (locations.on_delivery_payment_methods) are owner-only settings and
+      // are never exposed on this public endpoint; checkout.go itself does
+      // not validate the chosen method against that list — it only requires
+      // it to be non-empty — so offering both known methods here is safe,
+      // and a genuinely unconfigured store surfaces as a 422 at submit time.
+      if (data.online_payment_available) {
         setPaymentMode('online');
-      } else if (methods.length > 0) {
-        setOnDeliveryMethods(methods);
-        setSelectedDeliveryMethod(methods[0]);
-        setPaymentMode('on_delivery');
       } else {
-        setPaymentMode('none');
+        setOnDeliveryMethods(['cash', 'card_machine']);
+        setSelectedDeliveryMethod('cash');
+        setPaymentMode('on_delivery');
       }
     }).catch((err: unknown) => {
       // getStore()'s promise rejects on a network-level failure (fetch()

@@ -71,15 +71,14 @@ export interface MarketplaceMenuCategory {
 }
 
 // Mirrors backend/internal/handlers/marketplace/store.go StoreProfile — the
-// real shape GET /stores/{slug} returns. NOTE: checkout (pages/checkout/
-// index.tsx) reads `on_delivery_payment_methods` (array) and
+// real shape GET /stores/{slug} returns. checkout (pages/checkout/index.tsx)
+// used to read `on_delivery_payment_methods` (array) and
 // `payment_credentials` (array of {is_active}) to decide the payment mode —
-// NEITHER field exists on this DTO. The only payment-related field the
-// backend actually sends is `online_payment_available: boolean`
-// (deployment-wide, not per-method). Since those two fields are always
-// undefined, checkout's `paymentMode` resolves to 'none' for every store in
-// production — a pre-existing defect, flagged not fixed. The index
-// signature preserves that exact (dead) read.
+// NEITHER field exists on this DTO, so `paymentMode` was permanently stuck
+// on 'none' in production. Fixed: checkout now reads the field the backend
+// actually sends, `online_payment_available: boolean` (deployment-wide, not
+// per-method) — true selects the online flow, false falls back to
+// on-delivery, mirroring checkout.go's own fallback behaviour.
 export interface StoreDetail {
   id: string;
   name: string;
