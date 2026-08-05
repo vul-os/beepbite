@@ -158,12 +158,12 @@ export default function ExpoPage() {
     }
   }, []);
 
-  // initial fetch
-  useEffect(() => { load(); }, [load]);
+  // initial fetch. load() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); }, [load]);
 
   // 10s polling
   useEffect(() => {
-    const id = setInterval(() => load({ background: true }), POLL_MS);
+    const id = setInterval(() => { void load({ background: true }); }, POLL_MS);
     return () => clearInterval(id);
   }, [load]);
 
