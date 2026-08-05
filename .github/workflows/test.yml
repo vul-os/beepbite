@@ -317,11 +317,8 @@ jobs:
       - name: Docs mirror in sync (docs/ -> site/docs/)
         run: npm run docs:check
 
-      # TODO: remove continue-on-error once ESLint debt is driven to zero and
-      # this can be made a hard gate.
-      - name: ESLint (advisory)
+      - name: ESLint
         run: npm run lint
-        continue-on-error: true
 
       # Unlike the advisory step above, this is a hard gate: it doesn't care
       # how many lint findings there are, only that type-aware linting is

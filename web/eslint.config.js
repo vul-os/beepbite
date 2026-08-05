@@ -40,6 +40,24 @@ export default tseslint.config([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  // check-lint-config.mjs is ".mjs", not ".js" — the block above's
+  // `**/*.{js,jsx}` glob never matched it, so `eslint .` was enumerating this
+  // file while applying zero rules to it (confirmed: an injected unused-var
+  // probe went unflagged before this block existed). It runs under Node
+  // only, never the browser. Scoped to this one file rather than
+  // `scripts/**/*.mjs`: the other two scripts in scripts/ (screenshots.mjs,
+  // smoke.mjs) embed Playwright `page.evaluate()` callbacks that execute in
+  // the browser (`localStorage`, `document`), which `no-undef` would flag
+  // under Node-only globals — a real fix for those needs per-file globals
+  // decisions, not a blanket glob, so it's left alone here.
+  {
+    files: ['scripts/check-lint-config.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'module',
+    },
+  },
   // src is now TS/TSX end to end — parse it with the typescript-eslint
   // parser and lint it with the type-checked TS rule set. `projectService`
   // gives typescript-eslint real type information (via tsconfig.json's
