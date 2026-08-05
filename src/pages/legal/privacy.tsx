@@ -100,6 +100,15 @@ const PrivacyPage = () => {
       if (err) setError(err?.message || 'Failed to load Privacy Policy.');
       else setDoc(data);
       setLoading(false);
+    }).catch((err: unknown) => {
+      // getCurrentDocument()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading Privacy Policy:', err);
+        setError('Failed to load Privacy Policy.');
+        setLoading(false);
+      }
     });
     return () => { cancelled = true; };
   }, []);
