@@ -88,7 +88,11 @@ function buildEndpoint(type: AdjustmentType, orderId: string, itemId: string | n
     case 'price_override':
       return `/orders/${orderId}/items/${itemId}/price-override`;
     default:
-      throw new Error(`Unknown adjustment type: ${type}`);
+      // The switch above is exhaustive over AdjustmentType, so TS narrows
+      // `type` to `never` here — String(type) instead of a bare template
+      // interpolation so this still reports something useful if an
+      // un-narrowed value ever reaches this branch at runtime.
+      throw new Error(`Unknown adjustment type: ${String(type)}`);
   }
 }
 
@@ -163,18 +167,27 @@ export default function AdjustmentModal({
   const fetchManagers = useCallback(async () => {
     if (!locationId) return;
     setLoadingManagers(true);
-    const { data, error } = await api.request<Manager[]>(
-      'GET',
-      `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`
-    );
-    setLoadingManagers(false);
-    if (!error && Array.isArray(data)) {
-      setManagers(data);
+    // api.request() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // manager-approval step stuck loading forever.
+    try {
+      const { data, error } = await api.request<Manager[]>(
+        'GET',
+        `/staff?role=manager,owner&location_id=${encodeURIComponent(locationId)}`
+      );
+      if (!error && Array.isArray(data)) {
+        setManagers(data);
+      }
+    } catch (err) {
+      console.error('Error fetching managers:', err);
+    } finally {
+      setLoadingManagers(false);
     }
   }, [locationId]);
 
   useEffect(() => {
-    if (open) fetchManagers();
+    if (open) void fetchManagers();
   }, [open, fetchManagers]);
 
   // ---- Step 1: advance to PIN step ----------------------------------------
