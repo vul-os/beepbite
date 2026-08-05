@@ -53,21 +53,30 @@ export default function StampCard({ customerId, onReward, className }: StampCard
   const [rewardEarned, setRewardEarned] = useState(false);
   const [error,        setError]        = useState<string | null>(null);
 
-  // Fetch stamp state.
+  // Fetch stamp state. getCustomerStamps() only wraps the API-error case
+  // in { data, error } — a network-level failure (fetch() itself
+  // rejecting) propagates as a rejected promise. Without this try/catch/
+  // finally, that left the stamp card stuck loading forever.
   const load = useCallback(async () => {
     if (!customerId) return;
     setLoading(true);
     setError(null);
-    const { data, error: err } = await getCustomerStamps(customerId);
-    setLoading(false);
-    if (err) {
-      setError(err.message ?? 'Failed to load stamps');
-    } else {
-      setStamps(data);
+    try {
+      const { data, error: err } = await getCustomerStamps(customerId);
+      if (err) {
+        setError(err.message ?? 'Failed to load stamps');
+      } else {
+        setStamps(data);
+      }
+    } catch (err) {
+      console.error('Error loading stamp card:', err);
+      setError('Failed to load stamps');
+    } finally {
+      setLoading(false);
     }
   }, [customerId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   // Clear the celebratory overlay after 3 seconds.
   useEffect(() => {
