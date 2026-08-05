@@ -454,32 +454,46 @@ export default function TimeClockPage() {
 
   // Load staff list from Supabase (uses existing Supabase client for staff listing —
   // the timeclock actions themselves go through the Go backend via api-client).
+  // Both supabase.from()/listEntries() only wrap the API-error case — a
+  // network-level failure (fetch() itself rejecting) previously propagated
+  // as an unhandled rejection and skipped the setLoading*(false) calls
+  // below, stranding the staff picker / entries list loading forever.
   const loadStaff = useCallback(async () => {
     if (!activeLocation) return;
     setLoadingStaff(true);
-    const { data } = await supabase
-      .from('staff')
-      .select('id, first_name, last_name, role, is_active')
-      .eq('location_id', activeLocation.id)
-      .eq('is_active', true)
-      .order('first_name');
-    setStaff(data || []);
-    setLoadingStaff(false);
+    try {
+      const { data } = await supabase
+        .from('staff')
+        .select('id, first_name, last_name, role, is_active')
+        .eq('location_id', activeLocation.id)
+        .eq('is_active', true)
+        .order('first_name');
+      setStaff(data || []);
+    } catch (err) {
+      console.error('Error loading staff:', err);
+    } finally {
+      setLoadingStaff(false);
+    }
   }, [activeLocation]);
 
   const loadEntries = useCallback(async () => {
     // listEntries is a manager-only endpoint; non-managers get a silent 403.
     if (!isManager) return;
     setLoadingEntries(true);
-    const result = await listEntries({ limit: 100 });
-    if (result.ok) setEntries(result.data);
-    setLoadingEntries(false);
+    try {
+      const result = await listEntries({ limit: 100 });
+      if (result.ok) setEntries(result.data);
+    } catch (err) {
+      console.error('Error loading time entries:', err);
+    } finally {
+      setLoadingEntries(false);
+    }
   }, [isManager]);
 
-  useEffect(() => { loadStaff(); }, [loadStaff]);
+  useEffect(() => { void loadStaff(); }, [loadStaff]);
   // Only managers may list time entries — gate the fetch so non-managers
   // don't trigger a 403 on mount.
-  useEffect(() => { if (isManager) loadEntries(); }, [isManager, loadEntries]);
+  useEffect(() => { if (isManager) void loadEntries(); }, [isManager, loadEntries]);
 
   const handleAction = (newEntry: TimeEntry) => {
     setEntries((prev) => [newEntry, ...prev]);
