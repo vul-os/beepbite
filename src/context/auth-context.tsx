@@ -565,7 +565,7 @@ export function AuthProvider({ children, onNavigate, pathname }: {
       }
     };
 
-    initializeAuth();
+    void initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
     return () => {
@@ -576,14 +576,14 @@ export function AuthProvider({ children, onNavigate, pathname }: {
   // Fetch organizations when user changes
   useEffect(() => {
     if (!hasLoadedOrganizations) {
-      fetchOrganizations();
+      void fetchOrganizations();
     }
   }, [user, hasLoadedOrganizations, fetchOrganizations]);
 
   // Fetch locations when active organization changes
   useEffect(() => {
     if (!hasLoadedLocations) {
-      fetchLocations();
+      void fetchLocations();
     }
   }, [activeOrganization, hasLoadedLocations, fetchLocations]);
 
@@ -597,13 +597,13 @@ export function AuthProvider({ children, onNavigate, pathname }: {
 
   // Fetch user profile when user changes
   useEffect(() => {
-    fetchUserProfile();
+    void fetchUserProfile();
   }, [fetchUserProfile]);
 
   // Fetch invites when user changes  
   useEffect(() => {
     if (!hasLoadedInvites) {
-      fetchInvites();
+      void fetchInvites();
     }
   }, [user, hasLoadedInvites, fetchInvites]);
 
