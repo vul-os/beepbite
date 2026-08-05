@@ -101,7 +101,8 @@ export function useSuppliers(organizationId: string | undefined) {
     }
   }, [organizationId]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // fetch() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetch(); }, [fetch]);
 
   /**
    * Create a supplier then write its primary contact.
