@@ -308,16 +308,26 @@ export default function DomainsSettingsPage() {
     if (!activeLocation?.id) return;
     setLoading(true);
     setError(null);
-    const { data, error: err } = await listDomains(activeLocation.id);
-    if (err) {
-      setError(err.message || 'Failed to load domains');
-    } else {
-      setDomains(Array.isArray(data) ? data : (data?.data ?? []));
+    // listDomains() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left the
+    // custom-domains settings page stuck loading forever.
+    try {
+      const { data, error: err } = await listDomains(activeLocation.id);
+      if (err) {
+        setError(err.message || 'Failed to load domains');
+      } else {
+        setDomains(Array.isArray(data) ? data : (data?.data ?? []));
+      }
+    } catch (err) {
+      console.error('Error loading domains:', err);
+      setError('Failed to load domains');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [activeLocation?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   // ---------------------------------------------------------------------------
   // Add
