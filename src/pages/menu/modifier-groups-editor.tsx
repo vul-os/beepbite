@@ -217,7 +217,8 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }: GroupS
     }
   };
 
-  useEffect(() => { fetchMods(); }, [group.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // fetchMods() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchMods(); }, [group.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveGroup = async () => {
     setSavingGroup(true);
@@ -404,7 +405,7 @@ function GroupSection({ group, onUpdateGroup, onDeleteGroup, onRefresh }: GroupS
                 onChange={(e) => setNewMod((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Option name"
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') addNewMod(); if (e.key === 'Escape') setAddingMod(false); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') void addNewMod(); if (e.key === 'Escape') setAddingMod(false); }}
               />
               <Input
                 className="h-7 text-sm w-28 tabular-nums"
@@ -472,7 +473,8 @@ export default function ModifierGroupsEditor({ itemId }: ModifierGroupsEditorPro
     }
   };
 
-  useEffect(() => { fetchGroups(); }, [itemId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // fetchGroups() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchGroups(); }, [itemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addGroup = async () => {
     if (!newGroup.name.trim() || !itemId) return;
