@@ -149,9 +149,10 @@ export function useScale() {
     }
   }, []);
 
-  // Cleanup on unmount.
+  // Cleanup on unmount. disconnect() never rethrows (each internal
+  // operation is individually try/catch-wrapped) — safe fire-and-forget.
   useEffect(() => {
-    return () => { disconnect(); };
+    return () => { void disconnect(); };
   }, [disconnect]);
 
   /**
