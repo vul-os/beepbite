@@ -48,44 +48,65 @@ export function useTicketDetails(ticketIds: string[]) {
       return next;
     });
 
-    const { data, error } = await api.request<KdsTicketDetail>(
-      'GET',
-      `/kds/tickets/${encodeURIComponent(ticketId)}/details`,
-    );
+    // api.request() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) throws instead.
+    // Without this try/catch/finally, that skipped the inFlightRef.delete()
+    // below, which permanently marked this ticket as in-flight (the guard
+    // at the top of this function then refuses to ever retry it — see
+    // "Re-fetching is opt-in" above) and left it stuck in `loading` with no
+    // error surfaced.
+    try {
+      const { data, error } = await api.request<KdsTicketDetail>(
+        'GET',
+        `/kds/tickets/${encodeURIComponent(ticketId)}/details`,
+      );
 
-    inFlightRef.current.delete(ticketId);
-    if (!mountedRef.current) return data;
+      if (!mountedRef.current) return data;
 
-    setLoading((prev) => {
-      if (!prev.has(ticketId)) return prev;
-      const next = new Set(prev);
-      next.delete(ticketId);
-      return next;
-    });
+      if (error) {
+        setErrors((prev) => {
+          const next = new Map(prev);
+          next.set(ticketId, error.message || 'failed to load recipe');
+          return next;
+        });
+        return null;
+      }
 
-    if (error) {
       setErrors((prev) => {
+        if (!prev.has(ticketId)) return prev;
         const next = new Map(prev);
-        next.set(ticketId, error.message || 'failed to load recipe');
+        next.delete(ticketId);
         return next;
       });
+      if (data) {
+        setCache((prev) => {
+          const next = new Map(prev);
+          next.set(ticketId, data);
+          return next;
+        });
+      }
+      return data;
+    } catch (err) {
+      console.error('Ticket detail fetch failed:', err);
+      if (mountedRef.current) {
+        setErrors((prev) => {
+          const next = new Map(prev);
+          next.set(ticketId, 'failed to load recipe');
+          return next;
+        });
+      }
       return null;
+    } finally {
+      inFlightRef.current.delete(ticketId);
+      if (mountedRef.current) {
+        setLoading((prev) => {
+          if (!prev.has(ticketId)) return prev;
+          const next = new Set(prev);
+          next.delete(ticketId);
+          return next;
+        });
+      }
     }
-
-    setErrors((prev) => {
-      if (!prev.has(ticketId)) return prev;
-      const next = new Map(prev);
-      next.delete(ticketId);
-      return next;
-    });
-    if (data) {
-      setCache((prev) => {
-        const next = new Map(prev);
-        next.set(ticketId, data);
-        return next;
-      });
-    }
-    return data;
   }, []);
 
   // Auto-fetch any ticket we haven't seen yet. Stable on cache identity so we
@@ -96,7 +117,7 @@ export function useTicketDetails(ticketIds: string[]) {
       if (!id) continue;
       if (cache.has(id)) continue;
       if (inFlightRef.current.has(id)) continue;
-      fetchOne(id);
+      void fetchOne(id);
     }
     // We intentionally don't depend on `cache` — we only want to fetch when
     // a new id appears, not on every cache change.
