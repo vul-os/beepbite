@@ -310,13 +310,23 @@ export default function WANumbersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: apiErr } = await listWANumbers({ activeOnly: !showInactive });
-    setLoading(false);
-    if (apiErr) { setError(apiErr.message || 'Failed to load numbers.'); return; }
-    setNumbers(Array.isArray(data) ? data : []);
+    // listWANumbers() only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) propagates as a
+    // rejected promise. Without this try/catch/finally, that left this
+    // WhatsApp-numbers admin page stuck loading forever.
+    try {
+      const { data, error: apiErr } = await listWANumbers({ activeOnly: !showInactive });
+      if (apiErr) { setError(apiErr.message || 'Failed to load numbers.'); return; }
+      setNumbers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error loading WhatsApp numbers:', err);
+      setError('Failed to load numbers.');
+    } finally {
+      setLoading(false);
+    }
   }, [showInactive]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   return (
     <PageContainer className="max-w-5xl mx-auto px-4 py-6">
