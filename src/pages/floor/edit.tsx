@@ -126,7 +126,8 @@ export default function FloorEditor() {
     if (existing) clearTimeout(existing);
     const t = setTimeout(() => {
       patchTimers.current.delete(id);
-      persistPatch(id, body);
+      // persistPatch() is fully try/catch/finally-wrapped above.
+      void persistPatch(id, body);
     }, PATCH_DEBOUNCE_MS);
     patchTimers.current.set(id, t);
   }, [persistPatch]);
@@ -292,7 +293,8 @@ export default function FloorEditor() {
         onOpenChange={setAiOpen}
         locationId={locationId}
         onApplied={() => {
-          refresh();
+          // refresh() (useTables' fetchAll) is fully try/catch/finally-wrapped.
+          void refresh();
           setFlash({ type: 'ok', message: 'AI floor plan applied — new sections & tables added.' });
         }}
       />
