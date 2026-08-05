@@ -73,7 +73,8 @@ export function usePromotions(locationId: string | undefined) {
     }
   }, [locationId]);
 
-  useEffect(() => { fetchPromotions(); }, [fetchPromotions]);
+  // fetchPromotions() is fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchPromotions(); }, [fetchPromotions]);
 
   const createPromotion = useCallback(async (body: Partial<Promotion>) => {
     const { data, error: err } = await api.from('promotions').insert(body);
@@ -121,6 +122,15 @@ export function useCouponCodes(promotionId: string | undefined) {
   const fetchCodes = useCallback(async () => {
     if (!promotionId) { setCodes([]); return; }
     setLoading(true);
+    // No `catch` here previously — an API-level `{ error }` response (via
+    // the `if (err) throw` below) or a network-level rejection both
+    // propagated straight out of this function uncaught. The `finally`
+    // still cleaned up `loading`, but the failure itself was a genuinely
+    // unhandled promise rejection with nothing logged anywhere (unlike the
+    // sibling fetchPromotions() above, which surfaces a message via
+    // `error`). This hook doesn't expose an `error` state to callers, so
+    // matching fetchPromotions()'s UI-facing behavior is out of scope here
+    // — at minimum, log it instead of leaving it silently uncaught.
     try {
       const { data, error: err } = await api
         .from('coupon_codes')
@@ -129,12 +139,15 @@ export function useCouponCodes(promotionId: string | undefined) {
         .order('created_at', { ascending: false });
       if (err) throw new Error(err.message);
       setCodes(data || []);
+    } catch (e) {
+      console.error('Error fetching coupon codes:', e);
     } finally {
       setLoading(false);
     }
   }, [promotionId]);
 
-  useEffect(() => { fetchCodes(); }, [fetchCodes]);
+  // fetchCodes() is now fully try/catch/finally-wrapped above.
+  useEffect(() => { void fetchCodes(); }, [fetchCodes]);
 
   const addCode = useCallback(async (body: Partial<CouponCode>) => {
     const { data, error: err } = await api.from('coupon_codes').insert({
