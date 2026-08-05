@@ -228,6 +228,15 @@ export default function ReviewsSection({
       }
       setReviews(Array.isArray(data) ? data : []);
       setLoading(false);
+    }).catch((err: unknown) => {
+      // fetchStoreReviews()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading store reviews:', err);
+        setError('Failed to load reviews');
+        setLoading(false);
+      }
     });
 
     return () => { cancelled = true; };
