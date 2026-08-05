@@ -131,31 +131,47 @@ function useMembership() {
 
     let cancelled = false;
 
+    // api.from(...) only wraps the API-error case in { data, error } — a
+    // network-level failure (fetch() itself rejecting) throws instead.
+    // Without this try/catch, that skipped setState() entirely, leaving
+    // `loading: true` forever — and this hook drives showPOS/showKitchen
+    // gating for the whole /work page, so a network blip on mount could
+    // strand the page in a permanent loading state instead of falling back
+    // to open access like the existing error branch does.
     (async () => {
-      const { data, error } = await api
-        .from('organization_members')
-        .select('role,capabilities')
-        .eq('profile_id', user.id)
-        .eq('organization_id', activeOrganization.id);
+      try {
+        const { data, error } = await api
+          .from('organization_members')
+          .select('role,capabilities')
+          .eq('profile_id', user.id)
+          .eq('organization_id', activeOrganization.id);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error || !data?.length) {
-        // Fallback: open access.
-        setState({ roles: ['owner'], caps: { can_pos: true, can_kitchen: true }, loading: false });
-        return;
-      }
-
-      const roles: string[] = data.map((m: { role: string }) => m.role).filter(Boolean);
-      const caps: MembershipCaps = {};
-      for (const m of data) {
-        let parsed = m.capabilities;
-        if (typeof parsed === 'string') {
-          try { parsed = JSON.parse(parsed); } catch { parsed = {}; }
+        if (error || !data?.length) {
+          // Fallback: open access.
+          setState({ roles: ['owner'], caps: { can_pos: true, can_kitchen: true }, loading: false });
+          return;
         }
-        Object.assign(caps, parsed || {});
+
+        const roles: string[] = data.map((m: { role: string }) => m.role).filter(Boolean);
+        const caps: MembershipCaps = {};
+        for (const m of data) {
+          let parsed = m.capabilities;
+          if (typeof parsed === 'string') {
+            try { parsed = JSON.parse(parsed); } catch { parsed = {}; }
+          }
+          Object.assign(caps, parsed || {});
+        }
+        setState({ roles, caps, loading: false });
+      } catch (err) {
+        console.error('Membership fetch failed:', err);
+        if (!cancelled) {
+          // Same fallback as the { error } branch above: open access rather
+          // than stranding the page loading forever.
+          setState({ roles: ['owner'], caps: { can_pos: true, can_kitchen: true }, loading: false });
+        }
       }
-      setState({ roles, caps, loading: false });
     })();
 
     return () => { cancelled = true; };
@@ -182,17 +198,26 @@ function useKdsStations() {
 
     let cancelled = false;
 
+    // Same failure mode as useMembership above: a network-level rejection
+    // (not just an { error } response) skipped setLoading(false), leaving
+    // the KDS station list stuck loading forever.
     (async () => {
-      const { data, error } = await api
-        .from('kitchen_stations')
-        .select('id,name,location_id')
-        .eq('location_id', activeLocation.id)
-        .eq('is_active', true)
-        .order('name', { ascending: true });
+      try {
+        const { data, error } = await api
+          .from('kitchen_stations')
+          .select('id,name,location_id')
+          .eq('location_id', activeLocation.id)
+          .eq('is_active', true)
+          .order('name', { ascending: true });
 
-      if (cancelled) return;
-      setStations(error ? [] : (data || []));
-      setLoading(false);
+        if (cancelled) return;
+        setStations(error ? [] : (data || []));
+      } catch (err) {
+        console.error('Kitchen stations fetch failed:', err);
+        if (!cancelled) setStations([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
 
     return () => { cancelled = true; };
@@ -433,9 +458,12 @@ export default function WorkspacePage() {
   // Preferences loaded flag
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
-  // Load persisted preferences once on mount.
+  // Load persisted preferences once on mount. fetchPrefs() has its own
+  // try/catch (see services/userprefs.ts) and always resolves — it falls
+  // back to localStorage on any error, network or otherwise — so this is a
+  // genuinely safe fire-and-forget, not a swallowed-rejection risk.
   useEffect(() => {
-    fetchPrefs().then(({ lastViewPOS, lastViewKDS }) => {
+    void fetchPrefs().then(({ lastViewPOS, lastViewKDS }) => {
       // 'orders' was a removed POS view (see POS_VIEWS above) — coerce any
       // previously-persisted preference back to a view that still exists.
       const posView = (POS_VIEWS.some((v) => v.id === lastViewPOS) ? lastViewPOS : 'full') as PosViewId;
@@ -455,7 +483,10 @@ export default function WorkspacePage() {
   const handlePosView = useCallback(
     (view: PosViewId) => {
       setPosView(view);
-      savePOSView(view);
+      // savePOSView() has its own try/catch (services/userprefs.ts) and
+      // always resolves — the localStorage write is optimistic and a
+      // server-sync failure is tolerated silently by design.
+      void savePOSView(view);
     },
     [],
   );
@@ -463,7 +494,9 @@ export default function WorkspacePage() {
   const handleKdsView = useCallback(
     (view: KdsViewId) => {
       setKdsView(view);
-      saveKDSView(view);
+      // Same as handlePosView above: saveKDSView() self-catches and always
+      // resolves.
+      void saveKDSView(view);
     },
     [],
   );
