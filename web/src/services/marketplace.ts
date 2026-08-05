@@ -116,12 +116,18 @@ export interface Order {
 // a reference to an existing customers row; guest checkout (no logged-in
 // marketplace customer) must omit it rather than send an arbitrary string,
 // since the backend inserts it verbatim as a foreign key.
+//
+// tip_cents is integer minor units (cents), matching every other *_cents
+// field the backend accepts — never major-unit dollars/rands, never a
+// float. The backend re-validates and re-totals it server-side; this is
+// just the wire shape.
 export interface CheckoutOrderPayload {
   customer_id?: string;
   fulfillment_type: 'delivery' | 'collection' | 'dine_in';
   on_delivery_method?: string;
   delivery_address?: string;
   items: { item_id: string; quantity: number; notes?: string }[];
+  tip_cents?: number;
 }
 
 // Client-only concept (localStorage cart) — no backend schema. Derived from

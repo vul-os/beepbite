@@ -155,9 +155,15 @@ export default function CheckoutPage() {
   const [receiptOpen, setReceiptOpen] = useState(false);
 
   // ── Computed totals ───────────────────────────────────────────────────────
+  // Clamped at 0: the custom-tip <Input> has min="0" but that only affects
+  // its spinner arrows, not typed input, so "-5" is a value Number() happily
+  // parses. Without the clamp a negative tip would silently reduce the
+  // displayed total (a customer-facing bug) and then have the backend
+  // reject the whole order with a validation error that has nothing to do
+  // with anything the customer did wrong.
   const tipAmount =
     customTip !== ''
-      ? Number(customTip) || 0
+      ? Math.max(0, Number(customTip) || 0)
       : (subtotal * tipPct) / 100;
 
   const total = subtotal + tipAmount;
@@ -183,9 +189,12 @@ export default function CheckoutPage() {
     // CheckoutReq exactly (see services/marketplace.ts's CheckoutOrderPayload)
     // — customer_id is a real customers.id foreign key, so it's omitted
     // entirely for guest checkout rather than sent as an arbitrary string.
-    // NOTE: CheckoutReq has no field for tip amount or customer name/phone —
-    // the backend computes its own total from item prices and has nowhere to
-    // record a guest's contact details. Those stay local-only for now.
+    // NOTE: CheckoutReq still has no field for customer name/phone — the
+    // backend has nowhere to record a guest's contact details. Those stay
+    // local-only for now. tip_cents IS a real field (see CheckoutReq):
+    // tipAmount is held in major units for display, same as subtotal, so it
+    // is converted through toMinor exactly like every other price on this
+    // page before it goes on the wire.
     const deliveryAddressLine = [address.street, address.suburb, address.city]
       .map((s) => s.trim())
       .filter(Boolean)
@@ -197,6 +206,7 @@ export default function CheckoutPage() {
         item_id: i.id ?? '',
         quantity: i.quantity ?? 1,
       })),
+      tip_cents: toMinor(tipAmount),
       ...(fulfillment === 'delivery' ? { delivery_address: deliveryAddressLine } : {}),
       ...(isOnDelivery && selectedDeliveryMethod ? { on_delivery_method: selectedDeliveryMethod } : {}),
     };
