@@ -118,7 +118,8 @@ const RecipeBuilder = ({
 
   useEffect(() => {
     if (item) {
-      fetchRecipeComponents();
+      // fetchRecipeComponents() is fully try/catch/finally-wrapped below.
+      void fetchRecipeComponents();
     }
   }, [item]);
 
@@ -229,7 +230,7 @@ const RecipeBuilder = ({
       unit: 'piece',
       cost_per_unit: selectedItem.cost_price || 0,
       notes: '',
-      child_item: selectedItem as RecipeComponentChildItem,
+      child_item: selectedItem,
       isNew: true
     };
 
