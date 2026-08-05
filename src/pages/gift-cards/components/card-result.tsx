@@ -21,9 +21,14 @@ export function CardResult({ result, onDismiss }: CardResultProps) {
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
+    // Only confirm "copied" once the write actually succeeds — a failed
+    // clipboard write (e.g. permission denied) previously left the
+    // rejection unhandled and never confirmed either way.
     navigator.clipboard.writeText(result.masked_code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }).catch((err: unknown) => {
+      console.error('Failed to copy gift card code:', err);
     });
   }
 

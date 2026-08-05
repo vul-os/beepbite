@@ -63,9 +63,14 @@ export function QuickCouponButton({ customerId }: { customerId?: string }) {
 
   function handleCopy() {
     if (!result?.code) return;
+    // Only confirm "copied" once the write actually succeeds — a failed
+    // clipboard write (e.g. permission denied) previously left the
+    // rejection unhandled and never confirmed either way.
     navigator.clipboard.writeText(result.code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }).catch((err: unknown) => {
+      console.error('Failed to copy coupon code:', err);
     });
   }
 
