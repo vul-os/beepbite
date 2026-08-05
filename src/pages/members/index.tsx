@@ -130,8 +130,8 @@ const Members = () => {
 
   useEffect(() => {
     if (activeOrganization) {
-      fetchMembers();
-      fetchInvites();
+      void fetchMembers();
+      void fetchInvites();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeOrganization, showArchived]);
@@ -248,7 +248,7 @@ const Members = () => {
       setInviteEmail('');
       setInviteRole('staff');
       setIsInviteModalOpen(false);
-      fetchInvites();
+      void fetchInvites();
 
       // Here you would typically send an email notification
       // For now, we'll just show success
@@ -292,7 +292,7 @@ const Members = () => {
 
       toast({ title: 'Member updated successfully' });
       setIsEditModalOpen(false);
-      fetchMembers();
+      void fetchMembers();
     } catch (error) {
       console.error('Error updating member:', error);
       toast({ variant: 'destructive', title: 'Failed to update member' });
@@ -316,7 +316,7 @@ const Members = () => {
       if (error) throw error;
 
       toast({ title: 'Member archived successfully' });
-      fetchMembers();
+      void fetchMembers();
     } catch (error) {
       console.error('Error archiving member:', error);
       toast({ variant: 'destructive', title: 'Failed to archive member' });
@@ -340,7 +340,7 @@ const Members = () => {
       if (error) throw error;
 
       toast({ title: 'Member restored successfully' });
-      fetchMembers();
+      void fetchMembers();
     } catch (error) {
       console.error('Error restoring member:', error);
       toast({ variant: 'destructive', title: 'Failed to restore member' });
@@ -365,7 +365,7 @@ const Members = () => {
         .eq('id', memberId);
 
       if (error) throw error;
-      fetchMembers();
+      void fetchMembers();
     } catch (error) {
       console.error('Error removing member:', error);
       toast({ variant: 'destructive', title: 'Failed to remove member' });
@@ -384,7 +384,7 @@ const Members = () => {
         .eq('id', memberId);
 
       if (error) throw error;
-      fetchMembers();
+      void fetchMembers();
     } catch (error) {
       console.error('Error updating member role:', error);
       toast({ variant: 'destructive', title: 'Failed to update member role' });
@@ -402,7 +402,7 @@ const Members = () => {
         .eq('id', inviteId);
 
       if (error) throw error;
-      fetchInvites();
+      void fetchInvites();
     } catch (error) {
       console.error('Error canceling invite:', error);
       toast({ variant: 'destructive', title: 'Failed to cancel invitation' });
