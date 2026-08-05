@@ -1,47 +1,21 @@
 import { useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { MapPin, Star, Clock, Navigation } from 'lucide-react';
-import { formatPrice } from '@/lib/currency';
+import { MapPin, Star } from 'lucide-react';
+import type { Store } from '@/services/marketplace';
 
-// NOTE: none of the fields below except id/name/slug/city/description exist
-// on the real backend/internal/handlers/marketplace/store.go StoreListItem
-// DTO returned by GET /stores (see services/marketplace.ts's `Store` type
-// for the real shape + gap note) — this card has always assumed a richer
-// shape than the API sends. Flagged, not fixed, per project policy; these
-// fields render blank/undefined today exactly as before the migration.
-export interface DiscoverStoreView {
-  id?: string;
-  slug?: string;
-  name?: string;
-  description?: string;
-  city?: string;
-  cuisine_type?: string;
-  rating?: number | string;
-  review_count?: number;
-  distance_km?: number;
-  is_open?: boolean;
-  cover_image_url?: string;
-  logo_url?: string;
-  currency?: string;
-  default_currency_code?: string;
-  currency_code?: string;
-  min_price_cents?: number;
-  max_price_cents?: number;
-  delivery_time_min?: number;
-  delivery_time_max?: number;
-}
-
-export default function StoreCard({ store }: { store: DiscoverStoreView }) {
-  const currency = store?.currency || store?.default_currency_code || store?.currency_code || 'USD';
+// Renders only fields backend/internal/handlers/marketplace/store.go
+// StoreListItem actually sends: id, name, slug, city, country, address,
+// description, avg_rating. GET /stores has no cuisine, open/closed, cover
+// image, currency, price-range, or delivery-time data at the list level —
+// those exist (if at all) only on the single-store profile, or not at all.
+export default function StoreCard({ store }: { store: Store }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
     void navigate(`/store/${store.slug}`);
   };
 
-  const ratingDisplay = store.rating
-    ? Number(store.rating).toFixed(1)
-    : null;
+  const ratingDisplay = store.avg_rating != null ? store.avg_rating.toFixed(1) : null;
+  const location = [store.city, store.country].filter(Boolean).join(', ');
 
   return (
     <article
@@ -52,45 +26,12 @@ export default function StoreCard({ store }: { store: DiscoverStoreView }) {
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick()}
       className="group cursor-pointer rounded-2xl overflow-hidden bg-card border border-border/60 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
-      {/* Cover image */}
+      {/* Placeholder header — GET /stores sends no image field */}
       <div className="relative h-40 sm:h-48 bg-primary/5 overflow-hidden">
-        {store.cover_image_url ? (
-          <img
-            src={store.cover_image_url}
-            alt={store.name}
-            loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-primary/10">
-            <span className="text-5xl" role="img" aria-hidden="true">🍽️</span>
-          </div>
-        )}
-
-        {/* Gradient overlay for legibility */}
+        <div className="w-full h-full flex items-center justify-center bg-primary/10">
+          <span className="text-5xl" role="img" aria-hidden="true">🍽️</span>
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
-
-        {/* Open/closed pill — bottom-left over the gradient */}
-        <span
-          className={`absolute bottom-2 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold shadow ${
-            store.is_open
-              ? 'bg-success text-success-foreground'
-              : 'bg-black/60 text-white/80'
-          }`}
-        >
-          <span className={`inline-block h-1.5 w-1.5 rounded-full ${store.is_open ? 'bg-success-foreground' : 'bg-muted-foreground'}`} />
-          {store.is_open ? 'Open' : 'Closed'}
-        </span>
-
-        {/* Cuisine badge — top-right */}
-        {store.cuisine_type && (
-          <Badge
-            variant="secondary"
-            className="absolute top-2 right-2 text-[11px] bg-card/90 text-primary border-0 shadow-sm"
-          >
-            {store.cuisine_type}
-          </Badge>
-        )}
       </div>
 
       <div className="p-3 sm:p-4 space-y-2">
@@ -112,39 +53,15 @@ export default function StoreCard({ store }: { store: DiscoverStoreView }) {
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning bg-warning/10 border border-warning/25 px-1.5 py-0.5 rounded-md tabular-nums">
               <Star className="h-3 w-3 fill-warning text-warning" aria-hidden="true" />
               {ratingDisplay}
-              {store.review_count ? (
-                <span className="text-muted-foreground font-normal">({store.review_count})</span>
-              ) : null}
             </span>
           )}
-          {store.distance_km != null && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Navigation className="h-3 w-3 text-primary/60" aria-hidden="true" />
-              {store.distance_km < 1
-                ? `${Math.round(store.distance_km * 1000)} m`
-                : `${Number(store.distance_km).toFixed(1)} km`}
-            </span>
-          )}
-          {store.city && !store.distance_km && (
+          {location && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 text-primary/60" aria-hidden="true" />
-              {store.city}
-            </span>
-          )}
-          {store.delivery_time_min && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3 text-primary/60" aria-hidden="true" />
-              {store.delivery_time_min}–{store.delivery_time_max ?? store.delivery_time_min + 10} min
+              {location}
             </span>
           )}
         </div>
-
-        {/* Price range footer */}
-        {store.min_price_cents != null && store.max_price_cents != null && (
-          <p className="text-xs text-muted-foreground pt-0.5">
-            {formatPrice(store.min_price_cents, currency)}–{formatPrice(store.max_price_cents, currency)}
-          </p>
-        )}
       </div>
     </article>
   );

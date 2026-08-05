@@ -6,23 +6,16 @@ import { api } from '../lib/api-client';
 export interface GetStoresParams {
   query?: string;
   city?: string;
+  /** Search radius in km — sent as `radius_km`, the query param
+   *  parseListParams (handler.go) actually reads. */
   distance?: number;
   lat?: number;
   lng?: number;
-  page?: number;
   limit?: number;
 }
 
 // Mirrors backend/internal/handlers/marketplace/store.go StoreListItem — the
-// real shape of each element GET /stores actually returns. NOTE: several
-// fields the discover-page UI reads (cuisine_type, rating, review_count,
-// distance_km, is_open, cover_image_url, logo_url, currency variants,
-// min/max_price_cents, delivery_time_min/max) do NOT exist on this DTO —
-// the backend never sends them (avg_rating is the closest analog to
-// `rating`, and is `null` whenever no visible reviews exist). This mismatch
-// predates this migration; the index signature below preserves the existing
-// defensive reads (always `unknown`/undefined at runtime) without asserting
-// they're real, per project policy (flag, don't fix).
+// real shape of each element in GET /stores's `data` array.
 export interface Store {
   id: string;
   name: string;
@@ -32,7 +25,15 @@ export interface Store {
   address: string | null;
   description: string | null;
   avg_rating: number | null;
-  [key: string]: unknown;
+}
+
+// Mirrors handler.go's listStores response envelope — GET /stores does not
+// return a bare array (writeJSON(w, http.StatusOK, map[string]interface{}{
+// "data": stores, "limit": p.Limit, "offset": p.Offset})).
+export interface StoreListResponse {
+  data: Store[];
+  limit: number;
+  offset: number;
 }
 
 export interface MarketplaceVariationOption {
@@ -152,14 +153,13 @@ export async function getStores(params: GetStoresParams = {}) {
   const qs = new URLSearchParams();
   if (params.query)    qs.set('q', params.query);
   if (params.city)     qs.set('city', params.city);
-  if (params.distance) qs.set('distance_km', String(params.distance));
+  if (params.distance) qs.set('radius_km', String(params.distance));
   if (params.lat)      qs.set('lat', String(params.lat));
   if (params.lng)      qs.set('lng', String(params.lng));
-  if (params.page)     qs.set('page', String(params.page));
   if (params.limit)    qs.set('limit', String(params.limit ?? 20));
 
   const path = `/stores${qs.toString() ? `?${qs.toString()}` : ''}`;
-  return api.request<Store[]>('GET', path, { auth: false });
+  return api.request<StoreListResponse>('GET', path, { auth: false });
 }
 
 /**
