@@ -120,6 +120,15 @@ export default function ReceiptView({ orderId, onClose }: { orderId: string; onC
         setReceipt(data);
       }
       setLoading(false);
+    }).catch((err: unknown) => {
+      // fetchReceipt()'s promise rejects on a network-level failure
+      // (fetch() itself throwing, not just an API { error } response) —
+      // without this, `loading` stayed true forever.
+      if (!cancelled) {
+        console.error('Error loading receipt:', err);
+        setError('Failed to load receipt.');
+        setLoading(false);
+      }
     });
 
     return () => { cancelled = true; };
