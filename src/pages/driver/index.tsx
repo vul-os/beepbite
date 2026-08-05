@@ -79,7 +79,8 @@ export default function DriverPortal() {
   }, []);
 
   useEffect(() => {
-    loadAssignments();
+    // loadAssignments() is fully try/catch/finally-wrapped above.
+    void loadAssignments();
   }, [loadAssignments]);
 
   // ── Handle shift toggle ───────────────────────────────────────────────────
@@ -135,7 +136,7 @@ export default function DriverPortal() {
         variant: 'destructive',
       });
       // Re-fetch to make sure local state is consistent with server.
-      loadAssignments();
+      void loadAssignments();
     }
   }
 
