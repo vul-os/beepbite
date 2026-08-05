@@ -50,7 +50,8 @@ export default function DriverInvitesPanel() {
     }
   }, []);
 
-  useEffect(() => { load(); loadDrivers(); }, [load, loadDrivers]);
+  // Both load() and loadDrivers() are fully try/catch/finally-wrapped above.
+  useEffect(() => { void load(); void loadDrivers(); }, [load, loadDrivers]);
 
   const handleRemoveDriver = async (driver: Driver) => {
     if (!window.confirm(`Remove driver access for ${driver.email}? They will lose access to the Driver Portal.`)) return;
