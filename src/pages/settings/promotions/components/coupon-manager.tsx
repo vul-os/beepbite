@@ -55,13 +55,18 @@ export default function CouponManager({ promotionId, promotionName }: {
       // NOTE: per_customer_limit is not a column on coupon_codes (see
       // backend/migrations/001_baseline.sql) — the backend silently ignores
       // it. Pre-existing behavior; not fixed here (out of scope).
+      // per_customer_limit isn't a field on CouponCode/addCode's declared
+      // Partial<CouponCode> param, but it's spread in conditionally rather
+      // than written directly in the literal — TS's excess-property check
+      // doesn't apply to spread-derived properties, so it already passes
+      // without a cast (confirmed by no-unnecessary-type-assertion).
       await addCode({
         code: form.code.trim().toUpperCase(),
         max_uses: form.max_uses ? parseInt(String(form.max_uses), 10) : 1,
         ...(form.per_customer_limit
           ? { per_customer_limit: parseInt(String(form.per_customer_limit), 10) }
           : {}),
-      } as Partial<CouponCode> & { per_customer_limit?: number });
+      });
       setForm(EMPTY_CODE);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Failed to add coupon code.');
