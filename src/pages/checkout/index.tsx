@@ -118,6 +118,18 @@ export default function CheckoutPage() {
       } else {
         setPaymentMode('none');
       }
+    }).catch((err: unknown) => {
+      // getStore()'s promise rejects on a network-level failure (fetch()
+      // itself throwing, not just an API { error } response) — without
+      // this, paymentMode stayed on its initial 'loading' value forever
+      // (worse than the existing 'none' fallback above, which at least
+      // lets the on-delivery/collection flow render). NOT touching the
+      // known paymentMode: 'none' field-mismatch gap (services/marketplace
+      // .ts) — this only handles the case that had no handling at all.
+      if (!cancelled) {
+        console.error('Error loading store payment config:', err);
+        setPaymentMode('none');
+      }
     });
     return () => { cancelled = true; };
   }, [slug]);
@@ -242,9 +254,9 @@ export default function CheckoutPage() {
     // "Done" — close receipt and navigate back to the store menu
     setReceiptOpen(false);
     if (slug) {
-      navigate(`/store/${slug}`);
+      void navigate(`/store/${slug}`);
     } else {
-      navigate('/discover');
+      void navigate('/discover');
     }
   }, [navigate, slug]);
 
