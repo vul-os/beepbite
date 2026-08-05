@@ -61,10 +61,10 @@ export default function WaitlistPage() {
     }
   }, [locationId]);
 
-  // Initial load + poll
+  // Initial load + poll. load() is fully try/catch/finally-wrapped above.
   useEffect(() => {
-    load();
-    const id = setInterval(load, POLL_MS);
+    void load();
+    const id = setInterval(() => { void load(); }, POLL_MS);
     return () => clearInterval(id);
   }, [load]);
 
@@ -94,7 +94,7 @@ export default function WaitlistPage() {
       if (apiErr) throw new Error(apiErr.message);
       setAddForm(DEFAULT_ADD);
       setShowAdd(false);
-      load();
+      void load();
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Failed to add to waitlist');
     } finally {
