@@ -231,7 +231,9 @@ export function ScheduleTab({ staff, locationId, shifts, loading, error, fetchSh
   const weekEnd   = toISO(addDays(weekAnchor, 6));
 
   useEffect(() => {
-    if (staff) fetchShifts(staff.id, weekStart, weekEnd);
+    // fetchShifts() (hooks/use-staff-detail.ts) is fully try/catch/
+    // finally-wrapped.
+    if (staff) void fetchShifts(staff.id, weekStart, weekEnd);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staff?.id, weekStart]);
 
