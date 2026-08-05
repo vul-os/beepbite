@@ -20,10 +20,13 @@ function jsonResponse(body: unknown, { status = 200, statusText = '' }: { status
     ok: status >= 200 && status < 300,
     status,
     statusText,
-    text: async () => JSON.stringify(body),
+    // Promise.resolve(), not `async`: no await needed in the body, but
+    // these have to stay Promise-returning to faithfully mock the real
+    // (inherently async) Response.text()/.json().
+    text: () => Promise.resolve(JSON.stringify(body)),
     // refreshIfNeeded() calls res.json() directly rather than going through
     // the text()-then-JSON.parse path request() uses everywhere else.
-    json: async () => body,
+    json: () => Promise.resolve(body),
   };
 }
 
@@ -32,12 +35,12 @@ function textResponse(str: string, { status = 200, statusText = '' }: { status?:
     ok: status >= 200 && status < 300,
     status,
     statusText,
-    text: async () => str,
+    text: () => Promise.resolve(str),
   };
 }
 
 function noContentResponse() {
-  return { ok: true, status: 204, statusText: 'No Content', text: async () => '' };
+  return { ok: true, status: 204, statusText: 'No Content', text: () => Promise.resolve('') };
 }
 
 // Row shape returned by the embedded-join test's mocked /data/orders response,
@@ -208,6 +211,17 @@ describe('api.request — 401 auto-refresh and replay', () => {
 
   it('coalesces concurrent 401s into a single refresh call', async () => {
     localStorage.setItem('bb.auth', JSON.stringify({ access_token: 'stale', refresh_token: 'rt-1' }));
+    // fetchMock is `vi.fn()` with no type argument, so mockImplementation's
+    // parameter resolves to a void-returning shape here even though its
+    // return is only ever consumed as `any` at runtime by `raw()`. Retyping
+    // fetchMock against the real global `fetch` was tried and reverted: it
+    // requires every mock response object in this file (jsonResponse/
+    // textResponse/noContentResponse) to implement the full Response
+    // interface (headers, redirected, type, url, ...) and every call site
+    // to model RequestInit precisely, which is disproportionate test-
+    // fixture rework for a mock that only ever needs { ok, status,
+    // statusText, text() } — not a real bug in application code.
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     fetchMock.mockImplementation((url) => {
       if (String(url).includes('/auth/refresh')) {
         return Promise.resolve(jsonResponse({ access_token: 'fresh', refresh_token: 'rt-2' }));
@@ -269,7 +283,9 @@ describe('api.request — 403 missing_capability', () => {
   });
 
   it('falls through to a normal error when the handler declines (returns falsy)', async () => {
-    registerManagerOverrideHandler(async () => null);
+    // Promise.resolve(), not `async`: no await needed, but
+    // ManagerOverrideHandler's type requires a Promise return.
+    registerManagerOverrideHandler(() => Promise.resolve(null));
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ error: 'missing_capability', capability: 'can_void' }, { status: 403 }),
     );
@@ -281,7 +297,11 @@ describe('api.request — 403 missing_capability', () => {
   });
 
   it('falls through to a normal error when the handler throws (user cancelled the PIN prompt)', async () => {
-    registerManagerOverrideHandler(async () => {
+    // Not async: a function that always throws infers as `never`, which is
+    // assignable anywhere — including where ManagerOverrideHandler's
+    // Promise return is expected — without needing to wrap the throw in a
+    // promise.
+    registerManagerOverrideHandler(() => {
       throw new Error('cancelled');
     });
     fetchMock.mockResolvedValueOnce(
@@ -478,6 +498,8 @@ describe('supabase.from — single() / maybeSingle()', () => {
 
 describe('supabase.from — embedded joins (the hand-rolled PostgREST-embed shim)', () => {
   it('resolves a "one" edge (orders → customers) and a "many" edge (orders → order_items) in one select', async () => {
+    // Same fetchMock-typing gap as the coalescing test above — not a bug.
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     fetchMock.mockImplementation((url) => {
       const u = new URL(url, 'http://x');
       if (u.pathname === '/data/orders') {

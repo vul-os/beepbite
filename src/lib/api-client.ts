@@ -277,12 +277,15 @@ const auth = {
     return { error: null };
   },
 
-  // Not async: purely local (reads the in-memory/localStorage session), no
-  // network I/O. Kept alongside the real async auth.* methods to mirror
-  // the supabase-js surface — callers already `await` it, and `await` on a
-  // non-Promise value is a safe no-op, so dropping `async` here doesn't
-  // change any caller's behavior.
-  getSession() {
+  // Genuinely no `await` in the body (purely local — reads the in-memory/
+  // localStorage session, no network I/O) but kept `async` deliberately:
+  // several real call sites (context/auth-context.tsx) already
+  // `await supabase.auth.getSession()`, matching the supabase-js surface
+  // where every auth.* method returns a Promise. Dropping `async` was
+  // tried and reverted — it turns those real `await`s into new
+  // await-thenable errors instead of removing a finding.
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getSession() {
     const a = readAuth();
     if (!a) return { data: { session: null }, error: null };
     return { data: { session: a }, error: null };
@@ -302,11 +305,11 @@ const auth = {
     return { data: { session: readAuth() }, error: null };
   },
 
-  // Not async, same reasoning as getSession() above: this is a stub with
-  // no network I/O (see the TODO below), and await on a non-Promise value
-  // is a safe no-op for the existing `await supabase.auth.updateUser(...)`
-  // call sites.
-  updateUser(_updates?: { password?: string; [key: string]: unknown }) {
+  // Same reasoning as getSession() above: no await in the body, but kept
+  // `async` since context/auth-context.tsx already
+  // `await supabase.auth.updateUser(...)`.
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async updateUser(_updates?: { password?: string; [key: string]: unknown }) {
     // TODO(backend): no self-service "change own password while authenticated"
     // endpoint exists yet. The email password-reset flow (POST /auth/password/forgot
     // → token email → POST /auth/password/reset) is the supported path.
