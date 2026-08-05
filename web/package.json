@@ -13,8 +13,8 @@
     "test:unit": "NODE_OPTIONS=--max-old-space-size=512 vitest run",
     "test:unit:watch": "NODE_OPTIONS=--max-old-space-size=512 vitest",
     "test:e2e": "playwright test",
-    "docs:sync": "node scripts/sync-docs.mjs",
-    "docs:check": "node scripts/sync-docs.mjs --check",
+    "docs:sync": "node ../scripts/sync-docs.mjs",
+    "docs:check": "node ../scripts/sync-docs.mjs --check",
     "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {

@@ -82,9 +82,13 @@ printf "  Test functions          : ${WHITE}%d${RESET}\n" "$test_funcs"
 # ════════════════════════════════════════════════════════════════════════
 sep "3. Frontend Health"
 
-routes_count=$(grep -c '<Route' "$REPO_ROOT/src/routes.jsx" 2>/dev/null || echo 0)
-pages_count=$(find "$REPO_ROOT/src/pages" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l)
-nm_exists="$REPO_ROOT/node_modules"
+# The frontend project (package.json, src/, node_modules) lives under web/.
+# NOTE: this still greps for routes.jsx, unchanged from before the move —
+# the actual file is web/src/routes.tsx, so this count was already always 0
+# pre-move too. Pre-existing mismatch, not touched here.
+routes_count=$(grep -c '<Route' "$REPO_ROOT/web/src/routes.jsx" 2>/dev/null || echo 0)
+pages_count=$(find "$REPO_ROOT/web/src/pages" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l)
+nm_exists="$REPO_ROOT/web/node_modules"
 
 printf "  Routes in routes.jsx    : ${WHITE}%d${RESET}\n" "$routes_count"
 printf "  Pages directories       : ${WHITE}%d${RESET}\n" "$pages_count"
@@ -96,7 +100,7 @@ fi
 
 if $RUN_BUILD; then
   printf "  npm run build           : "
-  if (cd "$REPO_ROOT" && npm run build --silent 2>/dev/null); then pass; else fail; fi
+  if (cd "$REPO_ROOT/web" && npm run build --silent 2>/dev/null); then pass; else fail; fi
   printf "\n"
 else
   printf "  npm run build           : ${DIM}skipped (pass --build to run)${RESET}\n"
@@ -108,7 +112,7 @@ fi
 sep "4. Codebase Metrics"
 
 go_loc=$(find "$REPO_ROOT/backend" -name '*.go' 2>/dev/null | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
-jsx_loc=$(find "$REPO_ROOT/src" \( -name '*.jsx' -o -name '*.js' \) 2>/dev/null | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+jsx_loc=$(find "$REPO_ROOT/web/src" \( -name '*.jsx' -o -name '*.js' \) 2>/dev/null | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
 handler_pkgs=$(ls "$REPO_ROOT/backend/internal/handlers/" 2>/dev/null | wc -l)
 cmd_count=$(ls "$REPO_ROOT/backend/cmd/" 2>/dev/null | wc -l)
 

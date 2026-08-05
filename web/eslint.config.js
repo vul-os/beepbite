@@ -8,9 +8,13 @@ import tseslint from 'typescript-eslint'
 const tsconfigRootDir = fileURLToPath(new URL('.', import.meta.url))
 
 export default tseslint.config([
-  // 'site/assets/vendor' holds third-party minified bundles (marked, mermaid)
-  // vendored for the docs site — never our code to lint.
-  { ignores: ['dist', 'site/assets/vendor'] },
+  // 'site/assets/vendor' (third-party minified bundles vendored for the docs
+  // site) used to need excluding here when this config lived at the repo
+  // root alongside site/. Now that eslint.config.js (and `npm run lint`)
+  // live under web/, ESLint's flat-config globs are already scoped relative
+  // to this directory and can never reach a sibling site/ either way — so
+  // that entry would be dead weight, not a needed guard.
+  { ignores: ['dist'] },
   // Shared across both JS and TS: the app's own plugin rules don't care
   // which language a file is written in. eslint-plugin-react-hooks stays on
   // its v5 "rules-of-hooks + exhaustive-deps" rule set here rather than v7's

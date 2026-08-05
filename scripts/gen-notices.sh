@@ -3,7 +3,7 @@
 #
 # beepbite redistributes third-party code two ways: Go modules compiled into
 # the binary (backend/go.mod — chi, pgx, jwt, ...) and npm packages bundled
-# into the React app (src/). The mermaid/marked bundles vendored into the
+# into the React app (web/src/). The mermaid/marked bundles vendored into the
 # marketing site (site/assets/vendor/) are folded in too. MIT, BSD and ISC all
 # require the copyright notice and licence text to travel with the copy.
 #
@@ -39,10 +39,11 @@ echo "==> resolving Go module graph (backend/)"
   -noticeOut "$TMP/go-notices.txt"
 
 # --- npm packages actually declared for the app (production deps only).
+# The frontend project (package.json, node_modules) lives under web/.
 echo "==> resolving npm dependency graph"
-[[ -d node_modules ]] || npm ci
+[[ -d web/node_modules ]] || (cd web && npm ci)
 npx --yes license-checker-rseidelsohn \
-  --production --json --excludePrivatePackages --start . \
+  --production --json --excludePrivatePackages --start web \
   | node scripts/notices/npm-notices.mjs > "$TMP/npm-notices.txt"
 
 echo "==> composing $OUT"
