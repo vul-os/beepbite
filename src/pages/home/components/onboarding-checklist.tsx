@@ -117,7 +117,7 @@ function useOnboardingData(activeOrganization: Organization | null) {
   }, [activeOrganization?.id, locationId]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   return { itemCount, staffCount, loading, refetch: fetchData };
@@ -155,7 +155,9 @@ const OnboardingChecklist = ({ onComplete }: OnboardingChecklistProps) => {
 
   const handleLocationAdded = useCallback(async () => {
     await fetchLocations();
-    refetch();
+    // refetch() (== useOnboardingData's fetchData) is fully try/catch/
+    // finally-wrapped internally — a genuinely safe fire-and-forget.
+    void refetch();
   }, [fetchLocations, refetch]);
 
   // Steps configuration
@@ -203,7 +205,10 @@ const OnboardingChecklist = ({ onComplete }: OnboardingChecklistProps) => {
       description: 'Add the items you sell — food, drinks, products or services.',
       done: itemCount != null && itemCount > 0,
       actionLabel: 'Add menu items',
-      onAction: () => navigate('/menu'),
+      // Braced (not `() => navigate(...)`) so the arrow function doesn't
+      // implicitly return navigate()'s `void | Promise<void>` result where
+      // `onAction: () => void` is expected.
+      onAction: () => { void navigate('/menu'); },
       disabled: locationsCount === 0,
       disabledHint: 'Add a location first',
     },
@@ -214,7 +219,9 @@ const OnboardingChecklist = ({ onComplete }: OnboardingChecklistProps) => {
       description: 'Add staff members so they can take orders and manage the store.',
       done: staffCount != null && staffCount > 0,
       actionLabel: 'Invite staff',
-      onAction: () => navigate('/staff'),
+      // Same as the menu step above — braced to avoid implicitly returning
+      // navigate()'s result.
+      onAction: () => { void navigate('/staff'); },
       disabled: locationsCount === 0,
       disabledHint: 'Add a location first',
     },
