@@ -74,7 +74,14 @@ export function POForm({ locationId, suppliers, onSubmit, onCancel, saving }: PO
       .select('id, name, unit')
       .eq('location_id', locationId)
       .order('name', { ascending: true })
-      .then(({ data }) => setInventoryItems(data || []));
+      .then(({ data }) => setInventoryItems(data || []))
+      .catch((err: unknown) => {
+        // A network-level failure (fetch() itself rejecting) previously
+        // left this as an unhandled rejection — there's no dedicated
+        // loading/error state for this dropdown either way (it just stays
+        // empty), but this at least logs it instead of failing silently.
+        console.error('Failed to fetch inventory items for PO form:', err);
+      });
   }, [locationId]);
 
   function setLine<K extends keyof POFormLine>(idx: number, field: K, value: POFormLine[K]) {
