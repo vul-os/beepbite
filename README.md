@@ -154,7 +154,7 @@ cd backend && go run ./cmd/seedcopper --env=local --clean   # full demo restaura
 flowchart LR
   subgraph Customer
     W["WhatsApp"]
-    Q["QR code / web storefront"]
+    Q["QR code /<br/>web storefront"]
     T["Tracking page"]
   end
   subgraph "Your hardware"
@@ -169,6 +169,14 @@ flowchart LR
   API --> DB
   API --> D
   API --> T
+
+  classDef entry fill:#1e293b,stroke:#64748b,color:#e2e8f0
+  classDef subject fill:#0f766e,stroke:#5eead4,color:#f0fdfa
+  classDef downstream fill:#334155,stroke:#94a3b8,color:#e2e8f0
+  class W,Q,UI entry
+  class API subject
+  class DB,D,T downstream
+  linkStyle default stroke:#0d9488,stroke-width:2px
 ```
 
 Orders arrive from WhatsApp, a QR code that opens the web storefront, or the till,
