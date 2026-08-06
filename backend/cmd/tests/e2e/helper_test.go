@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/beepbite/backend/cmd/tests/testenv"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,6 +34,15 @@ import (
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
+
+// migrateOnce ensures the migration pass below runs at most once per test
+// binary invocation — every test in the package calls openPool, and
+// ApplyMigrations is a query-per-migration-file check even when there is
+// nothing pending, not worth repeating per test.
+var (
+	migrateOnce sync.Once
+	migrateErr  error
+)
 
 // openPool returns a pgxpool.Pool connected to TEST_DATABASE_URL, or calls
 // t.Skip when the env var is absent or the ping fails.
@@ -70,6 +81,19 @@ func openPool(t *testing.T) *pgxpool.Pool {
 		t.Skipf("testenv unavailable: ping: %v", err)
 	}
 	t.Cleanup(pool.Close)
+
+	// This package connects straight to TEST_DATABASE_URL instead of going
+	// through testenv.StartPostgres, so unlike StartPostgres's two paths it
+	// never applied migrations itself — it silently depended on some earlier
+	// step (a CI workflow step, a developer's own `go run ./cmd/migrate --up`)
+	// having already migrated this database. Apply them here so the suite is
+	// self-sufficient. A reachable-but-unmigrated database is a real defect,
+	// not an environment gap, so this fails the test rather than skipping it.
+	migrateOnce.Do(func() { migrateErr = testenv.ApplyMigrations(ctx, pool) })
+	if migrateErr != nil {
+		t.Fatalf("apply migrations: %v", migrateErr)
+	}
+
 	return pool
 }
 
