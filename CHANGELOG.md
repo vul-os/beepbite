@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-06
+
+First release. BeepBite is a self-hosted restaurant POS/KDS/ordering system:
+one Go binary plus Postgres, no hosted tier, no account, no outbound calls a
+fresh install doesn't make itself.
+
 ### Removed
 - Payment facilitator: Paystack, Stripe and Yoco integrations, payment
   webhooks, merchant payouts, bank accounts and subscription billing. BeepBite
@@ -68,3 +74,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Existing deployments must rename this variable.**
 - Country and currency assumptions are being removed throughout; currency now
   resolves per location.
+
+### Security
+- Tenant isolation is enforced in Postgres, not application code: 554
+  `CREATE POLICY` statements, 139 tables under `FORCE ROW LEVEL SECURITY`
+  (closing the superuser/table-owner bypass Postgres otherwise grants),
+  restrict every read and write to the caller's own organization.
+  `db.Scoped` sets the session's tenant context (`app.current_org_id`,
+  `app.current_user_id`, …) via `set_config(..., true)` inside the
+  transaction, so it is local to that transaction and cannot leak across a
+  pooled connection into the next, unrelated request. The server itself
+  connects as a dedicated `NOSUPERUSER NOBYPASSRLS` role for the same
+  reason: Postgres silently skips row-level security for a superuser even
+  under `FORCE`, which would make the guarantee above a no-op.
