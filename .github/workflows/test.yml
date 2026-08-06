@@ -27,13 +27,26 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: beepbite
+          # The bootstrap superuser MUST be named "postgres": migrations/001_baseline.sql
+          # carries four `ALTER DEFAULT PRIVILEGES FOR ROLE postgres` statements, and
+          # Postgres rejects those with `role "postgres" does not exist` when the
+          # cluster was initialised under any other name. The official postgres image
+          # only creates that role when POSTGRES_USER is left unset (or set to
+          # "postgres") — setting it to anything else, as this used to, skips it
+          # entirely. Verified locally: a postgres:16 container with
+          # POSTGRES_USER=beepbite has no "postgres" role and `go run ./cmd/migrate
+          # --up` fails on migration 001 with exactly that error; the same container
+          # with POSTGRES_USER=postgres migrates cleanly. cmd/tests/testenv's Docker
+          # container path already uses "postgres" for this exact reason (see
+          # cmd/tests/testenv/containers.go) — this makes the CI service container
+          # consistent with it.
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: beepbite
           POSTGRES_DB: beepbite_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U beepbite"
+          --health-cmd "pg_isready -U postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -41,15 +54,16 @@ jobs:
     env:
       # Required by config.Load() — DATABASE_URL and JWT_SECRET are the only
       # mandatory fields (all others have safe defaults or are optional).
-      DATABASE_URL: postgres://beepbite:beepbite@localhost:5432/beepbite_ci?sslmode=disable
+      DATABASE_URL: postgres://postgres:beepbite@localhost:5432/beepbite_ci?sslmode=disable
       JWT_SECRET: ci-test-secret-do-not-use-in-prod
       APP_ENV: local
       PORT: 8080
       # Expose DATABASE_URL to the e2e package tests via TEST_DATABASE_URL so
       # that helper_test.go's openPool() (which reads TEST_DATABASE_URL) is
-      # satisfied without Docker — testenv falls back to a scratch DB on the
-      # service container when Docker is unavailable.
-      TEST_DATABASE_URL: postgres://beepbite:beepbite@localhost:5432/beepbite_ci?sslmode=disable
+      # satisfied without Docker. openPool() now applies migrations itself
+      # (testenv.ApplyMigrations) the first time it's called, so this no longer
+      # depends on the "Migrate database" step below having already run.
+      TEST_DATABASE_URL: postgres://postgres:beepbite@localhost:5432/beepbite_ci?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4
@@ -91,10 +105,15 @@ jobs:
       #
       # testenv.StartPostgres() tries Docker first (testcontainers); when Docker
       # is unavailable on the runner it falls back to a scratch DB on the
-      # Postgres service container above (reads DATABASE_URL / TEST_DATABASE_URL).
-      # The e2e tests in cmd/tests/e2e use TEST_DATABASE_URL directly and skip
-      # gracefully when neither path works, so this step never fails hard due to
-      # a missing Docker daemon.
+      # Postgres service container above (reads DATABASE_URL / TEST_DATABASE_URL),
+      # applying migrations itself either way. The e2e tests in cmd/tests/e2e
+      # connect to TEST_DATABASE_URL directly instead of via StartPostgres, and
+      # (as of the fix for the migration-ordering bug this comment used to
+      # describe wrongly) now apply migrations themselves too, the first time
+      # openPool() runs — so this step no longer depends on "Migrate database"
+      # below having already run. It still skips gracefully, via openPool's
+      # t.Skip, when TEST_DATABASE_URL is unset or genuinely unreachable; a
+      # reachable-but-unmigrated database is now a t.Fatal, not a skip.
       # -----------------------------------------------------------------------
 
       - name: go test (unit + integration)
