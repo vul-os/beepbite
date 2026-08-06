@@ -330,6 +330,15 @@ jobs:
       - name: TypeScript typecheck
         run: npm run typecheck
 
+      # check:lint-config below is itself the gate that proves the lint config
+      # is genuinely type-aware — but the gate script was unchecked JavaScript.
+      # scripts/tsconfig.json (allowJs+checkJs+strict) type-checks it via JSDoc
+      # without dragging script files into the app's own tsconfig.json/build
+      # surface. BLOCKING: an unwired typecheck cannot fail a build, which is the
+      # same hollow-gate shape this file's other steps exist to catch.
+      - name: Typecheck CI scripts (check-lint-config.mjs)
+        run: npm run typecheck:scripts
+
       # Unlike the ESLint step above, which fails on lint errors, this one
       # fails when the lint config itself stops being able to find them: it
       # doesn't care how many lint findings there are, only that type-aware
