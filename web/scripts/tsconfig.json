@@ -1,0 +1,34 @@
+{
+  // Type-checks the CI scripts surface (currently just check-lint-config.mjs)
+  // WITHOUT dragging script files into the app's own tsconfig.json — that
+  // file's "include" governs what ships as beepbite's app type surface via
+  // `tsc --noEmit`, and a CI helper script has no business being part of
+  // that program. Kept as a sibling tsconfig instead of folding in.
+  //
+  // allowJs + checkJs type-check the .mjs source directly via JSDoc
+  // annotations — no build step, no renaming to .ts. See the file itself for
+  // why it must stay .mjs (run directly by node from CI and package.json).
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+
+    "allowJs": true,
+    "checkJs": true,
+
+    "declaration": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true
+  },
+  "include": ["check-lint-config.mjs"]
+}
