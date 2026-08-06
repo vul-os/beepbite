@@ -59,6 +59,27 @@ type migration struct {
 	path    string
 }
 
+// ApplyMigrations locates backend/migrations and applies every pending
+// consolidated migration to pool, in version order, skipping anything already
+// recorded in schema_migrations. It is idempotent — safe to call repeatedly,
+// including against an already-migrated database, where it is a fast no-op.
+//
+// It is exported so a caller that owns its own pool instead of going through
+// StartPostgres (e.g. cmd/tests/e2e's openPool, which connects directly to
+// TEST_DATABASE_URL) can make itself self-sufficient rather than silently
+// depending on some earlier, separate step — a CI workflow step, a developer's
+// shell history — having already run `go run ./cmd/migrate --up` first. A test
+// that only passes because of unstated ordering is fragile in exactly the way
+// that broke it here: reorder the steps, or run the test alone, and it fails
+// on a database that looks connected and empty rather than not connected.
+func ApplyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	migDir, err := findMigrationsDir()
+	if err != nil {
+		return err
+	}
+	return applyMigrations(ctx, pool, migDir)
+}
+
 // StartPostgres boots an ephemeral Postgres, applies all consolidated
 // migrations, and returns a fully-migrated *pgxpool.Pool plus a cleanup func.
 //
