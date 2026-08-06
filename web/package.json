@@ -10,6 +10,7 @@
     "build:dev": "vite build --mode dev",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "typecheck:scripts": "tsc -p scripts/tsconfig.json --noEmit",
     "check:lint-config": "node scripts/check-lint-config.mjs",
     "preview": "vite preview",
     "test:unit": "NODE_OPTIONS=--max-old-space-size=512 vitest run",
