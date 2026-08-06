@@ -49,6 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drawer at close.
 
 ### Fixed
+- Marketplace checkout collected a tip, added it into the customer-facing
+  total and the on-delivery "have cash ready" prompt, but `CheckoutReq` had
+  no field for it: the tip never reached the backend, was never persisted,
+  and was never billed on the online-payment path. `tip_cents` is now a real,
+  server-validated field, folded into the one server-side total computation
+  and stored on `orders.gratuity_cents` (no migration needed — the column
+  already existed for POS auto-gratuity).
 - Cash tenders were never linked to the cash-drawer session, so every drawer
   close read as a shortage.
 - The POS "Card" button referenced a tender code that did not exist and would
