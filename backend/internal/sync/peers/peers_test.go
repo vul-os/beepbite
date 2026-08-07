@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beepbite/backend/cmd/tests/testenv"
 	"github.com/beepbite/backend/internal/db"
 	"github.com/beepbite/backend/internal/sync/peers"
 )
@@ -30,6 +31,13 @@ func TestMain(m *testing.M) {
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		fmt.Printf("peers: cannot connect: %v\n", err)
+		os.Exit(1)
+	}
+	// See the note in handlers/tables: connecting to TEST_DATABASE_URL does
+	// not mean the schema is there, and package test binaries run
+	// concurrently, so nothing guarantees another package migrated first.
+	if err := testenv.ApplyMigrations(context.Background(), pool); err != nil {
+		fmt.Printf("peers: apply migrations: %v\n", err)
 		os.Exit(1)
 	}
 	testPool = pool

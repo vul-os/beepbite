@@ -328,7 +328,42 @@ func randSuffix() string {
 // Shared migration logic (mirrors cmd/migrate/main.go)
 // ---------------------------------------------------------------------------
 
+// migrationLockKey is an arbitrary constant identifying this repo's migration
+// pass to Postgres' advisory-lock namespace. Any value works as long as every
+// caller uses the same one.
+const migrationLockKey = 0x6265_6570 // "beep"
+
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool, dir string) error {
+	// Serialise the whole pass across processes.
+	//
+	// `go test ./...` builds one binary per package and runs them
+	// concurrently, and every DB-backed package now migrates for itself. The
+	// check below is read-then-write: two binaries both read an empty
+	// schema_migrations, both decide 001 is pending, and both run it. The
+	// second loses with `type "actor_type" already exists` (42710) — a
+	// failure that reads like a broken migration but is really a race, and
+	// which appears only under the concurrency `go test ./...` creates.
+	//
+	// The lock is session-scoped, so it must be taken and released on one
+	// connection held for the duration; the migrations themselves can run on
+	// any connection, since the lock is only a mutex. `CREATE TABLE IF NOT
+	// EXISTS` is inside it too — concurrent executions of that can deadlock
+	// against each other in Postgres.
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire migration lock conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, migrationLockKey); err != nil {
+		return fmt.Errorf("take migration lock: %w", err)
+	}
+	defer func() {
+		// Best effort: releasing the connection would drop a session lock
+		// anyway, but an explicit unlock keeps a pooled connection reusable.
+		_, _ = conn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock($1)`, migrationLockKey)
+	}()
+
 	// Ensure ledger table
 	if _, err := pool.Exec(ctx, `
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -339,6 +374,8 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		return fmt.Errorf("ensure ledger: %w", err)
 	}
 
+	// Read the ledger only after the lock is held: a read taken before it
+	// would be exactly the stale snapshot this is here to prevent.
 	applied, err := appliedVersions(ctx, pool)
 	if err != nil {
 		return err

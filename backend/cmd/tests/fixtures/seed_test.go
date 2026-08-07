@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/beepbite/backend/cmd/tests/fixtures"
+	"github.com/beepbite/backend/cmd/tests/testenv"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,6 +25,21 @@ func TestSeedTwoOrgs(t *testing.T) {
 		t.Fatalf("pgxpool.New: %v", err)
 	}
 	defer pool.Close()
+
+	// Apply migrations before seeding. This package connects straight to
+	// TEST_DATABASE_URL rather than going through testenv.StartPostgres, so it
+	// never migrated the database itself — it depended on some other package
+	// having done so first. `go test ./...` builds one binary per package and
+	// runs them concurrently, so there is no ordering to depend on: whether
+	// this passed came down to whether the e2e package happened to win the
+	// race. It lost in CI, and the failure reads as a missing table rather
+	// than as a missing migration step.
+	//
+	// A reachable-but-unmigrated database is a real defect, not an environment
+	// gap, so this fails rather than skips.
+	if err := testenv.ApplyMigrations(ctx, pool); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
 
 	result, err := fixtures.SeedTwoOrgs(ctx, pool)
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/beepbite/backend/cmd/tests/testenv"
 	"github.com/beepbite/backend/internal/handlers/tables"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -34,6 +35,16 @@ func openTestPool(t *testing.T) *pgxpool.Pool {
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		t.Fatalf("ping: %v", err)
+	}
+	// The header above says TEST_DATABASE_URL "must point at a fully-migrated
+	// instance", which made migrating somebody else's job and nobody's in
+	// particular. `go test ./...` runs one binary per package concurrently, so
+	// whether this passed depended on another package winning a race to
+	// migrate first — in CI it did not, and the failure surfaced as a foreign
+	// key violation on table_sessions rather than as a missing migration.
+	if err := testenv.ApplyMigrations(ctx, pool); err != nil {
+		pool.Close()
+		t.Fatalf("apply migrations: %v", err)
 	}
 	t.Cleanup(pool.Close)
 	return pool
