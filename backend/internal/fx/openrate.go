@@ -13,12 +13,20 @@ package fx
 // instance. Nothing is hardcoded to a hosted endpoint, and no third-party FX
 // API is called, proxied or resold.
 //
-// This client deliberately does NOT embed OpenRate as a Go library. The library
-// form (openrate.Start) boots the full engine in-process, which would put a
-// refresh loop and outbound source fetches inside the POS server whether or not
-// the feature is on. An HTTP client to an address the operator names keeps the
-// dependency at arm's length and the "off means silent" guarantee trivially
-// true.
+// # This is one of two ways to reach OpenRate
+//
+// The other is embedded.go, which links the engine in and needs no server at
+// all. This file used to carry a refusal to do that, on the grounds that the
+// only library entry point (openrate.Start) booted a listener and a refresh
+// loop in-process. That objection was accurate when it was written and is no
+// longer true: OpenRate now separates a wholly inert Engine from the Refresher
+// that fetches, so embedding costs nothing until something asks for a rate.
+//
+// The HTTP client stays because it answers a different question. An operator
+// who already runs OpenRate — for other systems, behind their own cache, on a
+// host with the egress allowance — should point BeepBite at it rather than have
+// every till fetch reference rates for itself. Choosing between the two is
+// configuration (see provider.go), not a code change.
 
 import (
 	"context"
@@ -26,7 +34,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -213,13 +220,7 @@ func (o *OpenRate) Convert(ctx context.Context, minor int64, from string, fromDe
 	if err != nil {
 		return Conversion{}, err
 	}
-	return Conversion{
-		FromMinor:    minor,
-		FromDecimals: fromDecimals,
-		ToMinor:      Apply(minor, rate.Value, fromDecimals, toDecimals),
-		ToDecimals:   toDecimals,
-		Rate:         rate,
-	}, nil
+	return applyRate(rate, minor, fromDecimals, toDecimals), nil
 }
 
 // parseAsOf reads OpenRate's RFC-3339 as_of, returning the zero time when it is
@@ -241,42 +242,3 @@ func parseAsOf(s string) time.Time {
 }
 
 var _ Converter = (*OpenRate)(nil)
-
-// ---------------------------------------------------------------------------
-// Construction from configuration
-// ---------------------------------------------------------------------------
-
-// FromEnv builds the Converter described by a configuration triple, defaulting
-// to Disabled.
-//
-// provider is matched case-insensitively; anything other than "openrate" —
-// including the empty string, which is the shipped default — yields Disabled
-// with no error. Misconfiguration of an explicitly requested provider IS an
-// error, because an operator who asked for FX and got silence would reasonably
-// assume it was working.
-func FromEnv(provider, baseURL string, cacheTTL time.Duration) (Converter, error) {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "off", "disabled", "none":
-		return Disabled{}, nil
-	case "openrate":
-		return NewOpenRate(OpenRateOptions{BaseURL: baseURL, CacheTTL: cacheTTL})
-	default:
-		return Disabled{}, fmt.Errorf("fx: unknown provider %q (want \"openrate\" or empty to disable)", provider)
-	}
-}
-
-// ParseTTL reads a duration from a configuration string, falling back to `def`
-// for empty or malformed input. Bare integers are read as seconds.
-func ParseTTL(s string, def time.Duration) time.Duration {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return def
-	}
-	if d, err := time.ParseDuration(s); err == nil && d > 0 {
-		return d
-	}
-	if n, err := strconv.Atoi(s); err == nil && n > 0 {
-		return time.Duration(n) * time.Second
-	}
-	return def
-}

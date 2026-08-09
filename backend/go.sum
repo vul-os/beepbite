@@ -141,6 +141,8 @@ github.com/vul-os/kotva/bindings/go v0.2.0 h1:2FCLPMUtoURouIxPL1Ka4HrSEoIUN6k3Gy
 github.com/vul-os/kotva/bindings/go v0.2.0/go.mod h1:vDg6WQ9Hvv0Q/Jpd9uynqWnBa7g5CvWK3B8DHFPPPHA=
 github.com/vul-os/kotva/bindings/go v0.2.1 h1:gJ5xPlqH67Ne3aYk0J13750HrwLgH0eZ1iWsju0Wc0A=
 github.com/vul-os/kotva/bindings/go v0.2.1/go.mod h1:vDg6WQ9Hvv0Q/Jpd9uynqWnBa7g5CvWK3B8DHFPPPHA=
+github.com/vul-os/openrate v0.1.2 h1:r37LBC2ihGFlblx5cWG32oBMP6vjMQI7l76F0Q3zZ0E=
+github.com/vul-os/openrate v0.1.2/go.mod h1:oc46Tw69p2BuLTdIbQJvka0QM3Kuwn5mgeuVCrAXGMs=
 github.com/vul-os/patala/patala-go v0.0.0-20260721151334-1c99293c23b8 h1:d3xw+1hEBU5WoGL1RPRZ3sD8IhwfWNpp9YKfNEhRb7w=
 github.com/vul-os/patala/patala-go v0.0.0-20260721151334-1c99293c23b8/go.mod h1:piSbl/3nrzzhhOqqyuCK9OErprCdQNO5Rx1eWlOo5Bs=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=

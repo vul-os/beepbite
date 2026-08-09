@@ -41,10 +41,22 @@
 //
 // # Provider
 //
-// The only implementation is OpenRate (openrate.go), our own open-source
-// exchange-rate engine. It is reached over its HTTP API at an address the
-// operator supplies — typically their own instance. No third-party FX API is
-// hardcoded, embedded, proxied or resold.
+// The only engine is OpenRate, our own open-source exchange-rate engine, and it
+// can be reached two ways — the operator picks one with FX_PROVIDER:
+//
+//   - embedded (embedded.go): OpenRate is linked into this binary and this
+//     process fetches reference rates itself. Nothing to deploy.
+//   - remote (openrate.go): an HTTP client to an OpenRate server the operator
+//     already runs, at an address they supply.
+//
+// Off remains the default and the third state. No third-party FX API is
+// hardcoded, proxied or resold in either mode; the sources OpenRate reads are
+// central-bank reference files and free public venue feeds, and which ones it
+// reads is the operator's list.
+//
+// provider.go is the only place that chooses between the three, and choosing
+// "off" builds neither — see the note there on why that makes silence
+// structural.
 package fx
 
 import (
@@ -185,4 +197,20 @@ func Apply(minor int64, rate float64, fromDecimals, toDecimals int) int64 {
 		return int64(converted + 0.5)
 	}
 	return -int64(-converted + 0.5)
+}
+
+// applyRate assembles the Conversion a Converter returns once it has a Rate.
+//
+// Both providers share it so that an amount converted through the embedded
+// engine and the same amount converted through an OpenRate server differ only
+// in where the rate came from — never in the arithmetic, the rescaling or the
+// rounding.
+func applyRate(rate Rate, minor int64, fromDecimals, toDecimals int) Conversion {
+	return Conversion{
+		FromMinor:    minor,
+		FromDecimals: fromDecimals,
+		ToMinor:      Apply(minor, rate.Value, fromDecimals, toDecimals),
+		ToDecimals:   toDecimals,
+		Rate:         rate,
+	}
 }

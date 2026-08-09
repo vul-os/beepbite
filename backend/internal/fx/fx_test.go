@@ -34,7 +34,7 @@ func TestDisabled_IsTheDefault(t *testing.T) {
 	}
 }
 
-func TestFromEnv_DefaultsToDisabled(t *testing.T) {
+func TestNew_DefaultsToDisabled(t *testing.T) {
 	tests := []struct {
 		name     string
 		provider string
@@ -47,20 +47,22 @@ func TestFromEnv_DefaultsToDisabled(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			c, err := FromEnv(tc.provider, "", 0)
+			c, err := New(Settings{Provider: tc.provider})
 			if err != nil {
-				t.Fatalf("FromEnv(%q) errored: %v", tc.provider, err)
+				t.Fatalf("New(%q) errored: %v", tc.provider, err)
 			}
 			if c.Enabled() {
-				t.Errorf("FromEnv(%q) returned an ENABLED converter; FX must default to off", tc.provider)
+				t.Errorf("New(%q) returned an ENABLED converter; FX must default to off", tc.provider)
 			}
 		})
 	}
 }
 
-// TestFromEnv_DisabledMakesNoNetworkCall proves the "no default outbound
-// traffic" promise: a server stands ready and must never be contacted.
-func TestFromEnv_DisabledMakesNoNetworkCall(t *testing.T) {
+// TestNew_DisabledMakesNoNetworkCall proves the "no default outbound traffic"
+// promise at the level of the selected provider: a server stands ready and must
+// never be contacted. TestOff_IsSilent in embedded_test.go makes the stronger,
+// transport-level version of the same claim.
+func TestNew_DisabledMakesNoNetworkCall(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits++
@@ -69,9 +71,9 @@ func TestFromEnv_DisabledMakesNoNetworkCall(t *testing.T) {
 	defer srv.Close()
 
 	// A base URL is present but no provider is selected.
-	c, err := FromEnv("", srv.URL, 0)
+	c, err := New(Settings{BaseURL: srv.URL})
 	if err != nil {
-		t.Fatalf("FromEnv errored: %v", err)
+		t.Fatalf("New errored: %v", err)
 	}
 
 	_, _ = c.Convert(context.Background(), 100000, "ZAR", 2, "USD", 2)
@@ -82,11 +84,72 @@ func TestFromEnv_DisabledMakesNoNetworkCall(t *testing.T) {
 	}
 }
 
-func TestFromEnv_UnknownProviderIsAnError(t *testing.T) {
+func TestNew_UnknownProviderIsAnError(t *testing.T) {
 	// An operator who explicitly asked for a provider must not silently get
 	// silence.
-	if _, err := FromEnv("some-fx-api.example.com", "http://x", 0); err == nil {
-		t.Error("an unknown provider must error rather than quietly disabling FX")
+	for _, bad := range []string{"some-fx-api.example.com", "openrate-embeded", "on", "true"} {
+		if _, err := New(Settings{Provider: bad, BaseURL: "http://x"}); err == nil {
+			t.Errorf("provider %q must error rather than quietly disabling FX", bad)
+		}
+	}
+}
+
+// TestNew_SelectsTheThreeModes pins the config surface: off, embedded, remote,
+// and nothing else. A mode is identified by the concrete type New returns,
+// because that IS the guarantee — "off" means the fetching types do not exist,
+// not that they exist and decline.
+func TestNew_SelectsTheThreeModes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer srv.Close()
+
+	tests := []struct {
+		provider string
+		want     string // "disabled" | "openrate" | "openrate-embedded"
+	}{
+		{"", "disabled"},
+		{"none", "disabled"},
+		{"openrate", "openrate"},
+		{"OpenRate", "openrate"},
+		{"openrate-remote", "openrate"},
+		{"openrate-embedded", "openrate-embedded"},
+		{"  OPENRATE-EMBEDDED  ", "openrate-embedded"},
+		{"embedded", "openrate-embedded"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.provider, func(t *testing.T) {
+			c, err := New(Settings{
+				Provider:   tc.provider,
+				BaseURL:    srv.URL,
+				SourceSpec: "ecb",
+			})
+			if err != nil {
+				t.Fatalf("New(%q) errored: %v", tc.provider, err)
+			}
+			if got := c.Name(); got != tc.want {
+				t.Errorf("New(%q) selected %q, want %q", tc.provider, got, tc.want)
+			}
+			if _, isDisabled := c.(Disabled); isDisabled != (tc.want == "disabled") {
+				t.Errorf("New(%q) returned %T, which contradicts mode %q", tc.provider, c, tc.want)
+			}
+		})
+	}
+}
+
+// TestValidate_CatchesMisconfigurationAtBoot: an operator who names a provider
+// but forgets its one required setting must be told at startup, not at the
+// first consolidated report.
+func TestValidate_CatchesMisconfigurationAtBoot(t *testing.T) {
+	if err := Validate(Settings{Provider: "openrate"}); err == nil {
+		t.Error("remote OpenRate with no base URL must fail validation")
+	}
+	if err := Validate(Settings{Provider: "openrate-embedded", SourceSpec: "no-such-source"}); err == nil {
+		t.Error("embedded OpenRate whose source list resolves to nothing must fail validation")
+	}
+	if err := Validate(Settings{Provider: "openrate-embedded"}); err != nil {
+		t.Errorf("embedded OpenRate with the default source set must validate: %v", err)
+	}
+	if err := Validate(Settings{}); err != nil {
+		t.Errorf("the shipped default (FX off) must validate: %v", err)
 	}
 }
 
