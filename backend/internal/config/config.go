@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+
+	"github.com/beepbite/backend/internal/fx"
 )
 
 type Config struct {
@@ -37,15 +39,59 @@ type Config struct {
 	MapboxCountry   string
 	MapboxProximity string
 
-	// FXProvider selects the exchange-rate engine used for OPTIONAL
-	// consolidated multi-currency reporting. Empty (the default) disables
-	// conversion entirely and guarantees no outbound rate lookups; "openrate"
-	// enables it against FXBaseURL.
+	// FXProvider selects how the OPTIONAL consolidated multi-currency report
+	// gets its exchange rates. There are three states and exactly three:
+	//
+	//	""                    off (the default). No conversion, and — because
+	//	                      internal/fx builds no engine and no client at all
+	//	                      in this state — no code capable of an outbound
+	//	                      rate lookup.
+	//	"openrate-embedded"   OpenRate runs inside this process. Nothing to
+	//	                      deploy; this server fetches reference rates from
+	//	                      the sources named in FXSources, lazily, the first
+	//	                      time a report needs a rate older than FXMaxAge.
+	//	"openrate"            an OpenRate server the operator already runs, at
+	//	                      FXBaseURL. This process fetches nothing itself.
 	//
 	// Conversion is a reporting view only — it never changes a stored amount.
 	FXProvider string
-	FXBaseURL  string
+
+	// FXBaseURL is the OpenRate server root. Required by, and used only by,
+	// FXProvider="openrate".
+	FXBaseURL string
+
+	// FXCacheTTL is how long a rate fetched from that server is reused. Used
+	// only by FXProvider="openrate"; the embedded engine answers from an
+	// in-memory snapshot and has no round trip to save.
 	FXCacheTTL time.Duration
+
+	// FXSources is the comma-separated source list for the embedded engine,
+	// e.g. "ecb,coinbase". Empty means OpenRate's default set (ecb, coinbase,
+	// luno, sarb). It is the operator's list of hosts this server will contact,
+	// and nothing else can widen it.
+	FXSources string
+
+	// FXMaxAge is how stale the embedded engine's rates may be before a lookup
+	// refreshes them. Embedded mode only.
+	FXMaxAge time.Duration
+
+	// FXFetchTimeout bounds a single source fetch in embedded mode. That fetch
+	// happens inside a report request, so this is the worst case a report can
+	// wait on a slow central bank before falling back to the rates already
+	// held.
+	FXFetchTimeout time.Duration
+}
+
+// FXSettings is the FX_* block in the form internal/fx consumes.
+func (c *Config) FXSettings() fx.Settings {
+	return fx.Settings{
+		Provider:     c.FXProvider,
+		BaseURL:      c.FXBaseURL,
+		CacheTTL:     c.FXCacheTTL,
+		SourceSpec:   c.FXSources,
+		MaxAge:       c.FXMaxAge,
+		FetchTimeout: c.FXFetchTimeout,
+	}
 }
 
 // Load reads the env file that matches `env` (local/dev/main) from the repo
@@ -108,6 +154,9 @@ func Load(env string) (*Config, error) {
 		FXProvider:            os.Getenv("FX_PROVIDER"),
 		FXBaseURL:             os.Getenv("FX_OPENRATE_URL"),
 		FXCacheTTL:            envDuration("FX_CACHE_TTL", 5*time.Minute),
+		FXSources:             os.Getenv("FX_OPENRATE_SOURCES"),
+		FXMaxAge:              envDuration("FX_OPENRATE_MAX_AGE", time.Hour),
+		FXFetchTimeout:        envDuration("FX_OPENRATE_FETCH_TIMEOUT", 15*time.Second),
 	}
 
 	// Never leave AllowedOrigins empty: go-chi/cors turns an empty list into
@@ -136,6 +185,14 @@ func Load(env string) (*Config, error) {
 	// testing without WhatsApp credentials.
 	if env == "main" && c.WhatsAppAppSecret == "" {
 		return nil, fmt.Errorf("WHATSAPP_APP_SECRET is required when APP_ENV=main (production) — without it, inbound WhatsApp webhook signature verification is disabled and any caller can inject messages as any phone number")
+	}
+	// An operator who names an FX provider but leaves out its one required
+	// setting should learn about it now, not at the first consolidated report.
+	// fx.Validate is free: building any of the three converters opens no
+	// socket and starts no goroutine, which is the property that made
+	// embedding the rate engine acceptable at all.
+	if err := fx.Validate(c.FXSettings()); err != nil {
+		return nil, fmt.Errorf("FX_PROVIDER configuration: %w", err)
 	}
 	return c, nil
 }
